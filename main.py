@@ -300,7 +300,7 @@ for kk in range(0, len(flagProcess)):
                                                       torch.Tensor(x_testMask),
                                                       torch.Tensor(x_test))  # create your datset
 
-        test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=4, shuffle=True, num_workers=4,
+        test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=4, shuffle=False, num_workers=4,
                                                       pin_memory=True)
 
 
