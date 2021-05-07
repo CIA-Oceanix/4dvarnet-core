@@ -1,3 +1,5 @@
 lightning_logs
 data
 __pycache__
+.idea
+results
