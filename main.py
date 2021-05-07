@@ -678,7 +678,7 @@ class LitModel(pl.LightningModule):
         x_test_rec = torch.cat([chunk['preds'] for chunk in outputs]).numpy()
         x_test_rec = stdTr * x_test_rec + meanTr
         path_save = Path('results/test.nc')
-        path_save.parent.mkdir(exists_ok=True, parents=True)
+        path_save.parent.mkdir(exist_ok=True, parents=True)
         save_NetCDF(saved_path1=path_save, x_test_rec=x_test_rec)
 
     def compute_loss(self, batch, phase):
