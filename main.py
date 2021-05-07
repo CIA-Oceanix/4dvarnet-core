@@ -182,7 +182,7 @@ for kk in range(0,len(flagProcess)):
             qMask = qMask[:,0:200,0:200]
             
         def extract_SpaceTimePatches(q,i1,i2,Wid,dT,rnd1,rnd2,D=1):
-            dataTraining  = image.extract_patches_2d(np.moveaxis(q[i1:i2,::D,::D], 0, -1),(Wid,Wid),Nbpatches,random_state=rnd1)
+            dataTraining  = image.extract_patches_2d(np.moveaxis(q[i1:i2,::D,::D], 0, -1),(Wid,Wid),max_patches=Nbpatches,random_state=rnd1)
             dataTraining  = np.moveaxis(dataTraining, -1, 1)
             dataTraining  = dataTraining.reshape((Nbpatches,dataTraining.shape[1],Wid*Wid)) 
             
@@ -195,7 +195,7 @@ for kk in range(0,len(flagProcess)):
         
                 dataTraining = np.moveaxis(temp, 1, 2)
             else:
-                dataTraining  = image.extract_patches_2d(dataTraining,(Nbpatches,dT),dataTraining.shape[1]-dT+1,random_state=rnd2)
+                dataTraining  = image.extract_patches_2d(dataTraining,(Nbpatches,dT),max_patches=dataTraining.shape[1]-dT+1,random_state=rnd2)
                 #dataTraining  = dataTraining.reshape((dT,W*W,Nbpatches*dataTraining.shape[-1]))
             dataTraining  = dataTraining.reshape((dataTraining.shape[0],dataTraining.shape[1],dT,Wid,Wid)) 
             dataTraining  = np.moveaxis(dataTraining, 0, -1)
@@ -642,7 +642,7 @@ class LitModel(pl.LightningModule):
     def test_epoch_end(self, outputs):
     	x_test_rec = torch.cat([chunk['preds'] for chunk in outputs]).numpy()
     	x_test_rec = stdTr * x_test_rec + meanTr
-    	path_save = '/gpfswork/rech/yrf/ueh53pd/4DVARR_Lightning/results/test.nc'
+    	path_save = 'results/test.nc'
     	save_NetCDF(saved_path1= path_save,x_test_rec = x_test_rec)
 
     
@@ -752,9 +752,9 @@ class LitModel(pl.LightningModule):
         return loss, outputs 
 
 mod = LitModel()
-#checkpoint_callback = ModelCheckpoint(monitor='val_loss', dirpath='/gpfswork/rech/yrf/ueh53pd/4DVARR_Lightning/results', save_top_k = 3)
+#checkpoint_callback = ModelCheckpoint(monitor='val_loss', dirpath='results', save_top_k = 3)
 # training
-mod.load_from_checkpoint("/gpfswork/rech/yrf/ueh53pd/4DVARR_Lightning/lightning_logs/version_0/checkpoints/epoch=9-step=2349.ckpt")
+mod.load_from_checkpoint("lightning_logs/version_0/checkpoints/epoch=9-step=2349.ckpt")
 trainer = pl.Trainer(gpus=1,max_epochs=10)
 #trainer.fit(mod, train_dataloader, val_dataloader)
 trainer.test(mod,test_dataloaders=test_dataloader)
