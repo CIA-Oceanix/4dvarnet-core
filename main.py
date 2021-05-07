@@ -175,7 +175,7 @@ if __name__ == '__main__':
                 qMask = qMask[:,0:200,0:200]
                 
             def extract_SpaceTimePatches(q,i1,i2,W,dT,rnd1,rnd2,D=1):
-                dataTraining  = image.extract_patches_2d(np.moveaxis(q[i1:i2,::D,::D], 0, -1),(W,W),Nbpatches,random_state=rnd1)
+                dataTraining  = image.extract_patches_2d(np.moveaxis(q[i1:i2,::D,::D], 0, -1),(W,W),max_patches=Nbpatches,random_state=rnd1)
                 dataTraining  = np.moveaxis(dataTraining, -1, 1)
                 dataTraining  = dataTraining.reshape((Nbpatches,dataTraining.shape[1],W*W)) 
                 
@@ -188,7 +188,7 @@ if __name__ == '__main__':
             
                     dataTraining = np.moveaxis(temp, 1, 2)
                 else:
-                    dataTraining  = image.extract_patches_2d(dataTraining,(Nbpatches,dT),dataTraining.shape[1]-dT+1,random_state=rnd2)
+                    dataTraining  = image.extract_patches_2d(dataTraining,(Nbpatches,dT),max_patches=dataTraining.shape[1]-dT+1,random_state=rnd2)
                     #dataTraining  = dataTraining.reshape((dT,W*W,Nbpatches*dataTraining.shape[-1]))
                 dataTraining  = dataTraining.reshape((dataTraining.shape[0],dataTraining.shape[1],dT,W,W)) 
                 dataTraining  = np.moveaxis(dataTraining, 0, -1)
