@@ -629,16 +629,9 @@ class LitModel(pl.LightningModule):
     def __init__(self):
         super().__init__()
         
-        """
-        self.m_Grad = NN_4DVar.model_GradUpdate2(shapeData, GradType, UsePriodicBoundary, model_H.DimObs,
-                                                 model_H.dimObsChannel, dimGradSolver, rateDropout)
-        self.model = NN_4DVar.Solver_Grad_4DVarNN(phi_r, model_H, self.m_Grad, shapeData, NBGradCurrent, GradType,
-                                                  OptimType, InterpFlag, UsePriodicBoundary, dimGradSolver, rateDropout)
-        self.modelSave = NN_4DVar.Solver_Grad_4DVarNN(phi_r, model_H, self.m_Grad, shapeData, NBGradCurrent, GradType,
-                                                      OptimType, InterpFlag, UsePriodicBoundary, dimGradSolver,
-                                                      rateDropout)
-        """
-        
+        ## declaration of the 4VDVarNN solver
+        ## inputs given as None refer to L2 norms (default choice) for the observation and prior terms 
+        ## in the variational cost
         self.m_Grad = NN_4DVar.model_GradUpdateLSTM(shapeData,UsePriodicBoundary,dimGradSolver,rateDropout)
         self.model  = NN_4DVar.Solver_Grad_4DVarNN(phi_r,model_H, self.m_Grad, None , None, shapeData,NBGradCurrent)
         self.modelSave = NN_4DVar.Solver_Grad_4DVarNN(phi_r,model_H, self.m_Grad, None, None, shapeData,NBGradCurrent)

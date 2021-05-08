@@ -8,7 +8,6 @@ Created on Fri May  1 15:38:05 2020
 
 import numpy as np
 import torch
-#import einops
 from torch import nn
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -116,7 +115,7 @@ def compute_WeightedLoss(x2,w):
     return loss_
 
 
-# New modules for the definition of the norms for
+# Modules for the definition of the norms for
 # the observation and prior model
 class Model_WeightedL2Norm(torch.nn.Module):
     def __init__(self):
@@ -182,15 +181,11 @@ def compute_WeightedL2Norm1D(x2,w):
     return loss_
 
 # Gradient-based minimization using a LSTM using a (sub)gradient as inputs
-# rename from model_GradUpdate 2 
-# updated parameter list
 class model_GradUpdateLSTM(torch.nn.Module):
-    #def __init__(self,ShapeData,periodicBnd=False,DimObs=1,dimObsChannel=np.array([0]),DimLSTM=0,rateDropout=0.):
     def __init__(self,ShapeData,periodicBnd=False,DimLSTM=0,rateDropout=0.):
         super(model_GradUpdateLSTM, self).__init__()
 
         with torch.no_grad():
-            #self.GradType  = GradType
             self.shape     = ShapeData
             if DimLSTM == 0 :
                 self.DimState  = 5*self.shape[0]
@@ -200,10 +195,8 @@ class model_GradUpdateLSTM(torch.nn.Module):
             if( (self.PeriodicBnd == True) & (len(self.shape) == 2) ):
                 print('No periodic boundary available for FxTime (eg, L63) tensors. Forced to False')
                 self.PeriodicBnd = False
-        #self.compute_Grad  = Compute_Grad(ShapeData,GradType,DimObs,dimObsChannel)
+
         self.convLayer     = self._make_ConvGrad()
-        #self.bn1           = torch.nn.BatchNorm2d(self.shape[0])
-        #self.lstm            = self._make_LSTMGrad()
         K = torch.Tensor([0.1]).view(1,1,1,1)
         self.convLayer.weight = torch.nn.Parameter(K)
         
@@ -236,11 +229,6 @@ class model_GradUpdateLSTM(torch.nn.Module):
     def forward(self,hidden,cell,grad,gradnorm=1.0):
 
         # compute gradient
-        #grad = self.compute_Grad(x,dy,xpred)
-        
-        #grad = grad /self.ScaleGrad
-        #grad = grad / torch.sqrt( torch.mean( grad**2 ) )
-        #grad = self.bn1(grad)
         grad  = grad / gradnorm
         #grad  = self.dropout( grad )
           
@@ -265,7 +253,7 @@ class model_GradUpdateLSTM(torch.nn.Module):
 
         grad = self.dropout( hidden )
         grad = self.convLayer( grad )
-        #grad = self.convLayer( hidden )
+
         return grad,hidden,cell
 
 
@@ -308,8 +296,10 @@ class Model_Var_Cost(nn.Module):
         return loss
 
     
-# Updated solver version
-# updated parameter list
+# 4DVarNN Solver class using automatic differentiation for the computation of gradient of the variational cost
+# input modules: operator phi_r, gradient-based update model m_Grad
+# modules for the definition of the norm of the observation and prior terms given as input parameters 
+# (default norm (None) refers to the L2 norm)
 # updated inner modles to account for the variational model module
 class Solver_Grad_4DVarNN(nn.Module):
     def __init__(self ,phi_r,mod_H, m_Grad, m_NormObs, m_NormPhi, ShapeData,NiterGrad):
@@ -337,7 +327,7 @@ class Solver_Grad_4DVarNN(nn.Module):
     def solve(self, x_0, obs, mask):
         x_k = torch.mul(x_0,1.) 
         hidden = None
-        cell = None 
+        cell   = None 
         normgrad_ = 0.
         
         for _ in range(self.NGrad):
