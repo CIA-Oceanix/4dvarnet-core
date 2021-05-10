@@ -109,8 +109,6 @@ dwscale = 1
 
 import math
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 def extract_image_patches(x, kernel, stride=1, dilation=1):
     # Do TF 'SAME' Padding
@@ -303,200 +301,199 @@ for kk in range(0, len(flagProcess)):
         test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=4, shuffle=False, num_workers=4,
                                                       pin_memory=True)
 
-
     ###############################################################
-    elif flagProcess[kk] == 2:
-        print('........ Define AE architecture')
 
-        # freeze all ode parameters            
-        # shapeData    = np.ones(3).astype(int)
-        shapeData = np.array(x_train.shape[1:])
-        shapeData_test = np.array(x_test.shape[1:])
-        if flagMultiScale == True:
-            shapeData[0] += shapeData[0]
-            shapeData_test[0] += shapeData_test[0]
+print('........ Define AE architecture')
 
-        dW = 5
-        sS = int(4 / dx)
-        genSuffixModel = '_GENN_%d_%02d_%02d' % (flagAEType, DimAE, dW)
+# freeze all ode parameters
+# shapeData    = np.ones(3).astype(int)
+shapeData = np.array(x_train.shape[1:])
+shapeData_test = np.array(x_test.shape[1:])
+if flagMultiScale == True:
+    shapeData[0] += shapeData[0]
+    shapeData_test[0] += shapeData_test[0]
 
-
-        class Encoder(torch.nn.Module):
-            def __init__(self):
-                super(Encoder, self).__init__()
-                self.pool1 = torch.nn.AvgPool2d(sS)
-                self.conv1 = torch.nn.Conv2d(shapeData[0], 2 * DimAE, (2 * dW + 1, 2 * dW + 1), padding=dW, bias=False)
-                self.conv2 = torch.nn.Conv2d(2 * DimAE, DimAE, (1, 1), padding=0, bias=False)
-
-                self.conv21 = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
-                self.conv22 = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
-                self.conv23 = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
-                self.conv3 = torch.nn.Conv2d(2 * DimAE, DimAE, (1, 1), padding=0, bias=False)
-
-                self.conv2Tr = torch.nn.ConvTranspose2d(DimAE, shapeData[0], (sS, sS), stride=(sS, sS), bias=False)
-
-                self.convHR1 = torch.nn.Conv2d(shapeData[0], 2 * DimAE, (2 * dW + 1, 2 * dW + 1), padding=dW,
-                                               bias=False)
-                self.convHR2 = torch.nn.Conv2d(2 * DimAE, DimAE, (1, 1), padding=0, bias=False)
-
-                self.convHR21 = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
-                self.convHR22 = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
-                self.convHR23 = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
-                self.convHR3 = torch.nn.Conv2d(2 * DimAE, shapeData[0], (1, 1), padding=0, bias=False)
-
-            def forward(self, xinp):
-                x = self.pool1(xinp)
-                x = self.conv1(x)
-                x = self.conv2(F.relu(x))
-                x = torch.cat((self.conv21(x), self.conv22(x) * self.conv23(x)), dim=1)
-                x = self.conv3(x)
-                x = self.conv2Tr(x)
-                xHR = self.convHR1(xinp)
-                xHR = self.convHR2(F.relu(xHR))
-                xHR = torch.cat((self.convHR21(xHR), self.convHR22(xHR) * self.convHR23(xHR)), dim=1)
-                xHR = self.convHR3(xHR)
-
-                x = torch.add(x, xHR, alpha=1.)
-
-                return x
+dW = 5
+sS = int(4 / dx)
+genSuffixModel = '_GENN_%d_%02d_%02d' % (flagAEType, DimAE, dW)
 
 
-        class Decoder(torch.nn.Module):
-            def __init__(self):
-                super(Decoder, self).__init__()
+class Encoder(torch.nn.Module):
+    def __init__(self):
+        super(Encoder, self).__init__()
+        self.pool1 = torch.nn.AvgPool2d(sS)
+        self.conv1 = torch.nn.Conv2d(shapeData[0], 2 * DimAE, (2 * dW + 1, 2 * dW + 1), padding=dW, bias=False)
+        self.conv2 = torch.nn.Conv2d(2 * DimAE, DimAE, (1, 1), padding=0, bias=False)
 
-            def forward(self, x):
-                return torch.mul(1., x)
+        self.conv21 = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
+        self.conv22 = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
+        self.conv23 = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
+        self.conv3 = torch.nn.Conv2d(2 * DimAE, DimAE, (1, 1), padding=0, bias=False)
+
+        self.conv2Tr = torch.nn.ConvTranspose2d(DimAE, shapeData[0], (sS, sS), stride=(sS, sS), bias=False)
+
+        self.convHR1 = torch.nn.Conv2d(shapeData[0], 2 * DimAE, (2 * dW + 1, 2 * dW + 1), padding=dW,
+                                       bias=False)
+        self.convHR2 = torch.nn.Conv2d(2 * DimAE, DimAE, (1, 1), padding=0, bias=False)
+
+        self.convHR21 = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
+        self.convHR22 = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
+        self.convHR23 = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
+        self.convHR3 = torch.nn.Conv2d(2 * DimAE, shapeData[0], (1, 1), padding=0, bias=False)
+
+    def forward(self, xinp):
+        x = self.pool1(xinp)
+        x = self.conv1(x)
+        x = self.conv2(F.relu(x))
+        x = torch.cat((self.conv21(x), self.conv22(x) * self.conv23(x)), dim=1)
+        x = self.conv3(x)
+        x = self.conv2Tr(x)
+        xHR = self.convHR1(xinp)
+        xHR = self.convHR2(F.relu(xHR))
+        xHR = torch.cat((self.convHR21(xHR), self.convHR22(xHR) * self.convHR23(xHR)), dim=1)
+        xHR = self.convHR3(xHR)
+
+        x = torch.add(x, xHR, alpha=1.)
+
+        return x
 
 
-        class Phi_r(torch.nn.Module):
-            def __init__(self):
-                super(Phi_r, self).__init__()
-                self.encoder = Encoder()
-                self.decoder = Decoder()
+class Decoder(torch.nn.Module):
+    def __init__(self):
+        super(Decoder, self).__init__()
 
-            def forward(self, x):
-                x = self.encoder(x)
-                x = self.decoder(x)
-                return x
+    def forward(self, x):
+        return torch.mul(1., x)
 
 
-        phi_r = Phi_r()
+class Phi_r(torch.nn.Module):
+    def __init__(self):
+        super(Phi_r, self).__init__()
+        self.encoder = Encoder()
+        self.decoder = Decoder()
 
-        print('AE Model type: ' + genSuffixModel)
-        print(phi_r)
-        print('Number of trainable parameters = %d' % (sum(p.numel() for p in phi_r.parameters() if p.requires_grad)))
-
-
-        class Model_H(torch.nn.Module):
-            def __init__(self):
-                super(Model_H, self).__init__()
-                self.DimObs = 1
-                self.dimObsChannel = np.array([shapeData[0]])
-
-            def forward(self, x, y, mask):
-                dyout = (x - y) * mask
-                return dyout
+    def forward(self, x):
+        x = self.encoder(x)
+        x = self.decoder(x)
+        return x
 
 
-        model_H = Model_H()
+phi_r = Phi_r()
+
+print('AE Model type: ' + genSuffixModel)
+print(phi_r)
+print('Number of trainable parameters = %d' % (sum(p.numel() for p in phi_r.parameters() if p.requires_grad)))
 
 
-        class Gradient_img(torch.nn.Module):
-            def __init__(self):
-                super(Gradient_img, self).__init__()
+class Model_H(torch.nn.Module):
+    def __init__(self):
+        super(Model_H, self).__init__()
+        self.DimObs = 1
+        self.dimObsChannel = np.array([shapeData[0]])
 
-                a = np.array([[1., 0., -1.], [2., 0., -2.], [1., 0., -1.]])
-                self.convGx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
-                self.convGx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0))
+    def forward(self, x, y, mask):
+        dyout = (x - y) * mask
+        return dyout
 
-                b = np.array([[1., 2., 1.], [0., 0., 0.], [-1., -2., -1.]])
-                self.convGy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
-                self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0))
 
-            def forward(self, im, phase):
-                if phase == 'test':
-                    shp_data = shapeData_test
+model_H = Model_H()
+
+
+class Gradient_img(torch.nn.Module):
+    def __init__(self):
+        super(Gradient_img, self).__init__()
+
+        a = np.array([[1., 0., -1.], [2., 0., -2.], [1., 0., -1.]])
+        self.convGx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+        self.convGx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0))
+
+        b = np.array([[1., 2., 1.], [0., 0., 0.], [-1., -2., -1.]])
+        self.convGy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+        self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0))
+
+    def forward(self, im, phase):
+        if phase == 'test':
+            shp_data = shapeData_test
+        else:
+            shp_data = shapeData
+
+        if im.size(1) == 1:
+            G_x = self.convGx(im)
+            G_y = self.convGy(im)
+            G = torch.sqrt(torch.pow(0.5 * G_x, 2) + torch.pow(0.5 * G_y, 2))
+        else:
+
+            for kk in range(0, im.size(1)):
+                G_x = self.convGx(im[:, kk, :, :].view(-1, 1, shp_data[1], shp_data[2]))
+                G_y = self.convGy(im[:, kk, :, :].view(-1, 1, shp_data[1], shp_data[2]))
+
+                G_x = G_x.view(-1, 1, shp_data[1] - 2, shp_data[2] - 2)
+                G_y = G_y.view(-1, 1, shp_data[1] - 2, shp_data[2] - 2)
+                nG = torch.sqrt(torch.pow(0.5 * G_x, 2) + torch.pow(0.5 * G_y, 2))
+
+                if kk == 0:
+                    G = nG.view(-1, 1, shp_data[1] - 2, shp_data[2] - 2)
                 else:
-                    shp_data = shapeData
-
-                if im.size(1) == 1:
-                    G_x = self.convGx(im)
-                    G_y = self.convGy(im)
-                    G = torch.sqrt(torch.pow(0.5 * G_x, 2) + torch.pow(0.5 * G_y, 2))
-                else:
-
-                    for kk in range(0, im.size(1)):
-                        G_x = self.convGx(im[:, kk, :, :].view(-1, 1, shp_data[1], shp_data[2]))
-                        G_y = self.convGy(im[:, kk, :, :].view(-1, 1, shp_data[1], shp_data[2]))
-
-                        G_x = G_x.view(-1, 1, shp_data[1] - 2, shp_data[2] - 2)
-                        G_y = G_y.view(-1, 1, shp_data[1] - 2, shp_data[2] - 2)
-                        nG = torch.sqrt(torch.pow(0.5 * G_x, 2) + torch.pow(0.5 * G_y, 2))
-
-                        if kk == 0:
-                            G = nG.view(-1, 1, shp_data[1] - 2, shp_data[2] - 2)
-                        else:
-                            G = torch.cat((G, nG.view(-1, 1, shp_data[1] - 2, shp_data[2] - 2)), dim=1)
-                return G
+                    G = torch.cat((G, nG.view(-1, 1, shp_data[1] - 2, shp_data[2] - 2)), dim=1)
+        return G
 
 
-        gradient_img = Gradient_img()
+gradient_img = Gradient_img()
 
-        if flagMultiScale == True:
-            class ModelLR(torch.nn.Module):
-                def __init__(self):
-                    super(ModelLR, self).__init__()
+if flagMultiScale == True:
+    class ModelLR(torch.nn.Module):
+        def __init__(self):
+            super(ModelLR, self).__init__()
 
-                    self.pool = torch.nn.AvgPool2d((16, 16))
+            self.pool = torch.nn.AvgPool2d((16, 16))
 
-                def forward(self, im):
-                    return self.pool(im)
-
-
-            model_LR = ModelLR()
+        def forward(self, im):
+            return self.pool(im)
 
 
-            class ModelSRLin(torch.nn.Module):
-                def __init__(self):
-                    super(ModelSRLin, self).__init__()
-
-                    self.convTr1 = torch.nn.ConvTranspose2d(int(shapeData[0] / 2), int(shapeData[0] / 2), (4, 4),
-                                                            stride=(4, 4), bias=False)
-                    self.convTr2 = torch.nn.ConvTranspose2d(int(shapeData[0] / 2), int(shapeData[0] / 2), (4, 4),
-                                                            stride=(4, 4), bias=False)
-
-                def forward(self, im):
-                    out = self.convTr1(im)
-                    return self.convTr2(out)
+    model_LR = ModelLR()
 
 
-            model_SRLin = ModelSRLin()
+    class ModelSRLin(torch.nn.Module):
+        def __init__(self):
+            super(ModelSRLin, self).__init__()
 
-        lr_Sampling = 0.
+            self.convTr1 = torch.nn.ConvTranspose2d(int(shapeData[0] / 2), int(shapeData[0] / 2), (4, 4),
+                                                    stride=(4, 4), bias=False)
+            self.convTr2 = torch.nn.ConvTranspose2d(int(shapeData[0] / 2), int(shapeData[0] / 2), (4, 4),
+                                                    stride=(4, 4), bias=False)
 
-
-        class Model_Sampling(torch.nn.Module):
-            def __init__(self):
-                super(Model_Sampling, self).__init__()
-                self.DimObs = 1
-                self.W = torch.nn.Parameter(torch.Tensor(np.zeros((1, shapeData[0], shapeData[1], shapeData[2]))))
-
-            def forward(self, y, phase):
-                if phase == 'test':
-                    shp_data = shapeData_test
-                    wght = torch.Tensor(np.zeros((1, shp_data[0], shp_data[1], shp_data[2])))
-                    wght = wght.to(device)
-                    yout1 = 0. * wght + 0. * y
-                    yout2 = 1. * yout1
-                else:
-                    yout1 = 0. * self.W + 0. * y
-                    yout2 = 1. * yout1
-
-                return [yout1, yout2]
+        def forward(self, im):
+            out = self.convTr1(im)
+            return self.convTr2(out)
 
 
-        genSuffixModel = genSuffixModel + '_SZeros'
+    model_SRLin = ModelSRLin()
+
+lr_Sampling = 0.
+
+
+class Model_Sampling(torch.nn.Module):
+    def __init__(self):
+        super(Model_Sampling, self).__init__()
+        self.DimObs = 1
+        self.W = torch.nn.Parameter(torch.Tensor(np.zeros((1, shapeData[0], shapeData[1], shapeData[2]))))
+
+    def forward(self, y, phase):
+        if phase == 'test':
+            shp_data = shapeData_test
+            wght = torch.Tensor(np.zeros((1, shp_data[0], shp_data[1], shp_data[2])))
+            wght = wght.to(self.device)
+            yout1 = 0. * wght + 0. * y
+            yout2 = 1. * yout1
+        else:
+            yout1 = 0. * self.W + 0. * y
+            yout2 = 1. * yout1
+
+        return [yout1, yout2]
+
+
+genSuffixModel = genSuffixModel + '_SZeros'
 # elif flagProcess[kk] == 4:
 lr_Sampling = 1.
 
@@ -558,15 +555,13 @@ print('...... Suffix trained models: ' + genSuffixModel)
 best_loss = 1e10
 
 # loss weghing wrt time
-w_ = np.zeros(dT, )
+w_ = np.zeros(dT)
 w_[int(dT / 2)] = 1.
 wLoss = torch.Tensor(w_)
 
-betaX = 1.0
-betagX = 1.0
-# compute the mean loss for OI
-for phase in ['train']:
-
+betaX, betagX = 42.20436766972647, 77.99700321505073
+# recompute the mean loss for OI when train_dataloader change
+if betaX is None or betagX is None:
     running_loss_GOI = 0.
     running_loss_OI = 0.
     num_loss = 0
@@ -590,7 +585,7 @@ for phase in ['train']:
     betagX = 1. / epoch_loss_GOI
 
     print(".... MSE(Tr) OI %.3f -- MSE(Tr) gOI %.3f " % (epoch_loss_OI, epoch_loss_GOI))
-wLoss = wLoss.to(device)
+print(f"{(betaX, betagX)=}")
 comptUpdate = 1
 iterInit = 0  # 498
 
@@ -628,14 +623,14 @@ def save_NetCDF(saved_path1, x_test_rec):
 class LitModel(pl.LightningModule):
     def __init__(self):
         super().__init__()
-        
+
         ## declaration of the 4VDVarNN solver
         ## inputs given as None refer to L2 norms (default choice) for the observation and prior terms 
         ## in the variational cost
-        self.m_Grad = NN_4DVar.model_GradUpdateLSTM(shapeData,UsePriodicBoundary,dimGradSolver,rateDropout)
-        self.model  = NN_4DVar.Solver_Grad_4DVarNN(phi_r,model_H, self.m_Grad, None , None, shapeData,NBGradCurrent)
-        self.modelSave = NN_4DVar.Solver_Grad_4DVarNN(phi_r,model_H, self.m_Grad, None, None, shapeData,NBGradCurrent)
-        
+        self.m_Grad = NN_4DVar.model_GradUpdateLSTM(shapeData, UsePriodicBoundary, dimGradSolver, rateDropout)
+        self.model = NN_4DVar.Solver_Grad_4DVarNN(phi_r, model_H, self.m_Grad, None, None, shapeData, NBGradCurrent)
+        self.modelSave = NN_4DVar.Solver_Grad_4DVarNN(phi_r, model_H, self.m_Grad, None, None, shapeData, NBGradCurrent)
+
         self.IterUpdate = [0, 25, 50, 100, 500, 600, 800]  # [0,2,4,6,9,15]
         self.NbGradIter = [5, 5, 10, 10, 15, 15, 20, 20, 20]  # [0,0,1,2,3,3]#[0,2,2,4,5,5]#
         self.lrUpdate = [1e-3, 1e-4, 1e-4, 1e-5, 1e-4, 1e-5, 1e-5, 1e-6, 1e-7]
@@ -643,6 +638,10 @@ class LitModel(pl.LightningModule):
         self.modelSave_S = Model_Sampling()
         self.model_LR = model_LR
         self.gradient_img = gradient_img
+
+        w_[int(dT / 2)] = 1.
+        self.wLoss = torch.nn.Parameter(torch.Tensor(w_), requires_grad=False)
+        self.beta = torch.nn.Parameter(torch.Tensor(w_), requires_grad=False)
 
     def forward(self):
         return 1
@@ -722,14 +721,8 @@ class LitModel(pl.LightningModule):
         with torch.set_grad_enabled(True):
             # with torch.set_grad_enabled(phase == 'train'):
             inputs_init = torch.autograd.Variable(inputs_init, requires_grad=True)
-            if self.model.OptimType == 1:
-                outputs, grad_new, normgrad = self.model(inputs_init, inputs_missing, new_masks[idxSampMat])
 
-            elif self.model.OptimType == 2:
-                outputs, hidden_new, cell_new, normgrad = self.model(inputs_init, inputs_missing, new_masks[idxSampMat])
-
-            else:
-                outputs, normgrad = self.model(inputs_init, inputs_missing, new_masks[idxSampMat])
+            outputs, hidden_new, cell_new, normgrad = self.model(inputs_init, inputs_missing, new_masks[idxSampMat])
 
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
@@ -745,17 +738,16 @@ class LitModel(pl.LightningModule):
 
             # losses
             g_outputs = self.gradient_img(outputs, phase)
+            loss_All = NN_4DVar.compute_WeightedLoss((outputs - targets_GT), self.wLoss)
+            loss_GAll = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_GT, self.wLoss)
 
-            loss_All = NN_4DVar.compute_WeightedLoss((outputs - targets_GT), wLoss)
-            loss_GAll = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_GT, wLoss)
+            loss_All1 = NN_4DVar.compute_WeightedLoss(outputs - targets_OI, self.wLoss)
+            loss_GAll1 = NN_4DVar.compute_WeightedLoss(g_outputs - self.gradient_img(targets_OI, phase), self.wLoss)
 
-            loss_All1 = NN_4DVar.compute_WeightedLoss(outputs - targets_OI, wLoss)
-            loss_GAll1 = NN_4DVar.compute_WeightedLoss(g_outputs - self.gradient_img(targets_OI, phase), wLoss)
+            loss_OI = NN_4DVar.compute_WeightedLoss(targets_GT - targets_OI, self.wLoss)
+            loss_GOI = NN_4DVar.compute_WeightedLoss(self.gradient_img(targets_OI, phase) - g_targets_GT, self.wLoss)
 
-            loss_OI = NN_4DVar.compute_WeightedLoss(targets_GT - targets_OI, wLoss)
-            loss_GOI = NN_4DVar.compute_WeightedLoss(self.gradient_img(targets_OI, phase) - g_targets_GT, wLoss)
-
-            mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_GT, wLoss)
+            mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_GT, self.wLoss)
 
             loss_AE = torch.mean((self.model.phi_r(outputsSLRHR) - outputsSLRHR) ** 2)
             yGT = torch.cat((targets_GT, outputsSLR - targets_GT), dim=1)
@@ -774,12 +766,12 @@ class LitModel(pl.LightningModule):
             loss += alpha_L1Sampling * loss_Sampling
 
             if flagMultiScale == True:
-                loss_SR = NN_4DVar.compute_WeightedLoss(outputsSLR - targets_OI, wLoss)
-                loss_LR = NN_4DVar.compute_WeightedLoss(self.model_LR(outputs) - targets_GTLR, wLoss)
+                loss_SR = NN_4DVar.compute_WeightedLoss(outputsSLR - targets_OI, self.wLoss)
+                loss_LR = NN_4DVar.compute_WeightedLoss(self.model_LR(outputs) - targets_GTLR, self.wLoss)
                 loss += alpha_LR * loss_LR + alpha_SR * loss_SR
 
-            loss_All = NN_4DVar.compute_WeightedLoss((outputs - targets_GT), wLoss)
-            loss_GAll = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_GT, wLoss)
+            loss_All = NN_4DVar.compute_WeightedLoss((outputs - targets_GT), self.wLoss)
+            loss_GAll = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_GT, self.wLoss)
 
             # statistics
             running_loss += loss.item() * inputs_missing.size(0)
@@ -789,9 +781,35 @@ class LitModel(pl.LightningModule):
         return loss, outputs
 
 
-mod = LitModel()
-# checkpoint_callback = ModelCheckpoint(monitor='val_loss', dirpath='results', save_top_k = 3)
-# training
-trainer = pl.Trainer(gpus=1, max_epochs=1)
-# trainer.fit(mod, train_dataloader, val_dataloader)
-trainer.test(mod, test_dataloaders=test_dataloader)
+if __name__ == '__main__':
+    profile = False
+    if profile:
+        from pytorch_lightning.profiler import PyTorchProfiler
+
+        profiler = PyTorchProfiler(
+            "results/profile_report",
+            schedule=torch.profiler.schedule(
+                wait=1,
+                warmup=1,
+                active=1),
+            activities=[
+                torch.profiler.ProfilerActivity.CPU,
+                torch.profiler.ProfilerActivity.CUDA,
+            ],
+            on_trace_ready=torch.profiler.tensorboard_trace_handler('./tb_profile'),
+            record_shapes=True
+        )
+        # profile with max NbGradIter
+        NbGradIter[0] = NbGradIter[-1]
+        profiler_kwargs = {
+            'profiler': profiler,
+            'max_epochs': 1,
+        }
+    else:
+        profiler_kwargs = {'max_epochs': 200}
+    mod = LitModel()
+    # checkpoint_callback = ModelCheckpoint(monitor='val_loss', dirpath='results', save_top_k = 3)
+    # training
+    trainer = pl.Trainer(gpus=4, distributed_backend="ddp", **profiler_kwargs)
+    trainer.fit(mod, train_dataloader, val_dataloader)
+    # trainer.test(mod, test_dataloaders=test_dataloader)
