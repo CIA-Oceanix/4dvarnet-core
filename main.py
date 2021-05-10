@@ -782,7 +782,7 @@ class LitModel(pl.LightningModule):
 
 
 if __name__ == '__main__':
-    profile = True
+    profile = False
     if profile:
         from pytorch_lightning.profiler import PyTorchProfiler
 
