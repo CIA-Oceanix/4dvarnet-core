@@ -8,7 +8,7 @@ I used the pytorch profiler on one epoch with 4 gpus and 20 grad iterations per 
 
 In order to access the profile dashboard:
 
-- Download the files to a directory `profile_report`
+- Download the files to a directory `tb_profile`
   You can access the detailed files for 1 gpu here:
 - training step profile
   files : https://s3.wasabisys.com/melody/4dvarnet-profile-res/r13i1n4_33112.1620647659266.pt.trace.json
@@ -19,7 +19,7 @@ In order to access the profile dashboard:
   `pip install torch_tb_profiler`
 
 - launch the dashboard
-  `tensorboard --logdir profile_report`
+  `tensorboard --logdir tb_profile`
 
 - Read the doc to see how to interpret
   dashboard : https://pytorch.org/tutorials/intermediate/tensorboard_profiler_tutorial.html#use-tensorboard-to-view-results-and-analyze-performance
