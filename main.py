@@ -1,29 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon May 18 17:59:23 2020
-
-@author: rfablet
-
-"""
-
-# !/usr/bin/env python3
-# -*- coding: utf-8 -*-
 from pathlib import Path
 
-"""
-Created on Wed Apr  8 11:33:30 2020
-
-@author: rfablet
-"""
-
-# !/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Apr  3 18:09:32 2020
-
-@author: rfablet
-"""
 import xarray as xr
 import argparse
 import numpy as np
@@ -40,34 +16,17 @@ import solver as NN_4DVar
 from sklearn.feature_extraction import image
 import pytorch_lightning as pl
 
-#############################################################################################
-##
-## Implementation of a NN pytorch framework for the identification and resolution 
-## of 4DVar assimilation model applied to Lorenz-96 dynamics (40-dimensional state)
-## 
-## L96 Data generation
-##      flagProcess == 0: Simulation of L96 time series, inc. noise and sampling scheme of observed states
-##      flagProcess == 1: Initial interpolation of the observed time series using a linear interpolation
-##
-## Bulding NN architectures
-##      flagProcess == 2: Generation of the NN architecture for the dynamical prior given flagAEType variable
-##        flagAEType == 0: CNN-based implementation of L96 ODE (RK4 or Euler schemes)
-##        flagAEType == 1: single-scale GENN with DimAE-dimensional latent states
-##        flagAEType == 2: two-scale GENN with DimAE-dimensional latent states
-##
-## Learning schemes
-##      flagProcess == 3: Supervised training of the dynamical prior
-##      flagProcess == 4: Joint supervised training of the dynamical prior and 4DVar solver 
-##      (See torch_4DVarNN_L96 for the different types of 4DVar Solver)
-##      flagProcess == 5: Joint training of the dynamical prior and 4DVar solver using test data (noisy/irregularly-sampled)
-##      flagProcess == 6: Joint training of the dynamical prior and 4DVar solver using 4 + 5
-##
-## Interpolation of L96 data
-##      flagProcess == 10: Apply a trained model for the evaluation of different performance metrics
-##      flagProcess == 11: Iterative application of a trained model from linear interpolation initialization (cf above)
-##      flagProcess == 12: Fixed-step gradient-based solver (autograd) of the 4DVAR Assimilation given the trained priod
+# data_files = {
+#     "ref": Path("/gpfswork/rech/yrf/commun/DataNATL60/dataSLA_NATL60GulfStream.nc"),
+#     "oi": Path("/gpfswork/rech/yrf/uba22to/DATA/GULFSTREAM/oi/ssh_NATL60_swot_4nadir.nc"),
+#     "obs": Path("/gpfswork/rech/yrf/uba22to/DATA/GULFSTREAM/data/gridded_data_swot_wocorr/dataset_nadir_0d_swot.nc"),
+# }
 
-# if __name__ == '__main__':
+data_files = {
+    "ref": Path("/gpfswork/rech/yrf/uba22to/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc"),
+    "oi": Path("/gpfswork/rech/yrf/uba22to/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc"),
+    "obs": Path("/gpfswork/rech/yrf/uba22to/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc"),
+}
 
 parser = argparse.ArgumentParser()
 
@@ -76,7 +35,7 @@ flagProcess = [0, 2, 4]  # Sequence fo processes to be run
 flagRandomSeed = 0
 flagSaveModel = 1
 
-batch_size = 12  # 16#4#4#8#12#8#256#8
+batch_size = 1  # 16#4#4#8#12#8#256#8
 flagAEType = 1  # 0: AE, 1-2: GENN, 3: PCA
 DimAE = 10  # 10#10#50
 
@@ -95,7 +54,7 @@ flagNoUseObsCDay = False
 GradType = 1  # Gradient computation (0: subgradient, 1: AD Gradient+L2 norm, 2: AD Gradient+L1 norm
 OptimType = 2  # 0: fixed-step gradient descent, 1: ConvNet_step gradient descent, 2: LSTM-based descent
 
-dT = 5
+dT = 4
 W = 128  # 128
 dx = 1
 dimGradSolver = 50
@@ -125,180 +84,176 @@ def extract_image_patches(x, kernel, stride=1, dilation=1):
 
     return patches.view(b, -1, patches.shape[-2], patches.shape[-1])
 
-
-for kk in range(0, len(flagProcess)):
-
     #################################################################
     ## data generation including noise sampling and missing data gaps
-    if flagProcess[kk] == 0:
-        if flagRandomSeed == 0:
-            print('........ Random seed set to 100')
-            np.random.seed(100)
-            torch.manual_seed(100)
 
-        dirSAVE = '/gpfswork/rech/yrf/ueh53pd/ResSLANATL60/'
-        genSuffixObs = ''
-        ncfile = Dataset("/gpfswork/rech/yrf/commun/DataNATL60/dataSLA_NATL60GulfStream.nc", "r")
-        qHR = ncfile.variables['ssh'][:]
-        # qLR    = ncfile.variables['qLR'][:]
-        # dt     = ncfile.variables['dt'][:]
+if flagRandomSeed == 0:
+    print('........ Random seed set to 100')
+    np.random.seed(100)
+    torch.manual_seed(100)
 
-        ncfile.close()
+genSuffixObs = ''
+ncfile = Dataset(data_files["ref"], "r")
+qHR = ncfile.variables['ssh'][:]
+# qLR    = ncfile.variables['qLR'][:]
+# dt     = ncfile.variables['dt'][:]
 
-        if flagSWOTData == True:
-            print('.... Use SWOT+4-nadir dataset')
-            genFilename = 'resInterpSWOTSLAwOInoSST_' + str('%03d' % (W)) + 'x' + str('%03d' % (W)) + 'x' + str(
-                '%02d' % (dT))
-            # OI data using a noise-free OSSE (ssh_mod variable)
-            ncfile = Dataset("/gpfswork/rech/yrf/uba22to/DATA/GULFSTREAM/oi/ssh_NATL60_swot_4nadir.nc", "r")
-            qOI = ncfile.variables['ssh_mod'][:]
-            # qLR    = ncfile.variables['qLR'][:]
-            # dt     = ncfile.variables['dt'][:]
-            ncfile.close()
+ncfile.close()
 
-            # OI data using a noise-free OSSE (ssh_mod variable)
-            ncfile = Dataset(
-                "/gpfswork/rech/yrf/uba22to/DATA/GULFSTREAM/data/gridded_data_swot_wocorr/dataset_nadir_0d_swot.nc",
-                "r")
+if flagSWOTData == True:
+    print('.... Use SWOT+4-nadir dataset')
+    genFilename = 'resInterpSWOTSLAwOInoSST_' + str('%03d' % (W)) + 'x' + str('%03d' % (W)) + 'x' + str(
+        '%02d' % (dT))
+    # OI data using a noise-free OSSE (ssh_mod variable)
+    ncfile = Dataset(data_files["oi"], "r")
+    qOI = ncfile.variables['ssh_mod'][:]
+    # qLR    = ncfile.variables['qLR'][:]
+    # dt     = ncfile.variables['dt'][:]
+    ncfile.close()
 
-            qMask = ncfile.variables['ssh_mod'][:]
-            qMask = 1.0 - qMask.mask.astype(float)
-            # qLR    = ncfile.variables['qLR'][:]
-            # dt     = ncfile.variables['dt'][:]
-            ncfile.close()
+    # OI data using a noise-free OSSE (ssh_mod variable)
+    ncfile = Dataset(
+        data_files["obs"],
+        "r")
 
-        print('----- MSE OI: %.3f' % np.mean((qOI - qHR) ** 2))
-        print()
+    qMask = ncfile.variables['ssh_mod'][:]
+    qMask = 1.0 - qMask.mask.astype(float)
+    # qLR    = ncfile.variables['qLR'][:]
+    # dt     = ncfile.variables['dt'][:]
+    ncfile.close()
 
-        ## extraction of patches from the SSH field
-
-        NoRndPatches = False
-        if (Nbpatches == 1):
-            NoRndPatches = True
-            print('... No random seed for the extraction of patches')
-
-            qHR = qHR[:, 0:200, 0:200]
-            qOI = qOI[:, 0:200, 0:200]
-            qMask = qMask[:, 0:200, 0:200]
+qMask = qMask.astype(bool) & (np.abs(qOI) < 10)
 
 
-        def extract_SpaceTimePatches(q, i1, i2, Wid, dT, rnd1, rnd2, D=1):
-            dataTraining = image.extract_patches_2d(np.moveaxis(q[i1:i2, ::D, ::D], 0, -1), (Wid, Wid),
-                                                    max_patches=Nbpatches, random_state=rnd1)
-            dataTraining = np.moveaxis(dataTraining, -1, 1)
-            dataTraining = dataTraining.reshape((Nbpatches, dataTraining.shape[1], Wid * Wid))
+print('----- MSE OI: %.3f' % np.mean((qOI - qHR)[qMask] ** 2))
+print()
 
-            if NoRndPatches == True:
-                for ii in range(0, dataTraining.shape[1] - dT + 1):
-                    if ii == 0:
-                        temp = dataTraining[:, ii:ii + dT, :].reshape((1, dT, Nbpatches, Wid * Wid))
-                    else:
-                        temp = np.concatenate(
-                            (temp, dataTraining[:, ii:ii + dT, :].reshape((1, dT, Nbpatches, Wid * Wid))), axis=0)
+## extraction of patches from the SSH field
 
-                dataTraining = np.moveaxis(temp, 1, 2)
+NoRndPatches = False
+# if (Nbpatches == 1):
+#     NoRndPatches = True
+#     print('... No random seed for the extraction of patches')
+#
+#     qHR = qHR[:, 0:200, 0:200]
+#     qOI = qOI[:, 0:200, 0:200]
+#     qMask = qMask[:, 0:200, 0:200]
+
+
+def extract_SpaceTimePatches(q, i1, i2, Wid, dT, rnd1, rnd2, D=1):
+    if isinstance(q, np.ma.MaskedArray):
+        q.fill_value = -10000
+        q = q.data
+        q[np.isnan(q)] = -10000
+        print(f"{q.max()}")
+    dataTraining = image.extract_patches_2d(np.moveaxis(q[i1:i2, ::D, ::D], 0, -1), (Wid, Wid),
+                                            max_patches=Nbpatches, random_state=rnd1)
+    dataTraining = np.moveaxis(dataTraining, -1, 1)
+    dataTraining = dataTraining.reshape((Nbpatches, dataTraining.shape[1], Wid * Wid))
+
+    if NoRndPatches == True:
+        for ii in range(0, dataTraining.shape[1] - dT + 1):
+            if ii == 0:
+                temp = dataTraining[:, ii:ii + dT, :].reshape((1, dT, Nbpatches, Wid * Wid))
             else:
-                dataTraining = image.extract_patches_2d(dataTraining, (Nbpatches, dT),
-                                                        max_patches=dataTraining.shape[1] - dT + 1, random_state=rnd2)
-                # dataTraining  = dataTraining.reshape((dT,W*W,Nbpatches*dataTraining.shape[-1]))
-            dataTraining = dataTraining.reshape((dataTraining.shape[0], dataTraining.shape[1], dT, Wid, Wid))
-            dataTraining = np.moveaxis(dataTraining, 0, -1)
-            dataTraining = np.moveaxis(dataTraining, 0, -1)
-            dataTraining = dataTraining.reshape((dT, Wid, Wid, dataTraining.shape[3] * dataTraining.shape[4]))
-            dataTraining = np.moveaxis(dataTraining, -1, 0)
-            return dataTraining
+                temp = np.concatenate(
+                    (temp, dataTraining[:, ii:ii + dT, :].reshape((1, dT, Nbpatches, Wid * Wid))), axis=0)
+
+        dataTraining = np.moveaxis(temp, 1, 2)
+    else:
+        dataTraining = image.extract_patches_2d(dataTraining, (Nbpatches, dT),
+                                                max_patches=dataTraining.shape[1] - dT + 1, random_state=rnd2)
+        # dataTraining  = dataTraining.reshape((dT,W*W,Nbpatches*dataTraining.shape[-1]))
+    dataTraining = dataTraining.reshape((dataTraining.shape[0], dataTraining.shape[1], dT, Wid, Wid))
+    dataTraining = np.moveaxis(dataTraining, 0, -1)
+    dataTraining = np.moveaxis(dataTraining, 0, -1)
+    dataTraining = dataTraining.reshape((dT, Wid, Wid, dataTraining.shape[3] * dataTraining.shape[4]))
+    dataTraining = np.moveaxis(dataTraining, -1, 0)
+    return dataTraining
 
 
-        dtOI = 10
-        ii1 = 10
-        jj1 = 40
+dtOI = 10
+ii1 = 10
+jj1 = 40
 
-        ii2 = 105
-        jj2 = 365
+ii2 = 105
+jj2 = 365
 
-        ii3 = 60 - int(dT / 2)
-        jj3 = 80 + int(dT / 2)
+ii3 = 60 - int(dT / 2)
+jj3 = 80 + int(dT / 2)
 
-        indN_Tt = np.arange(ii3 + int(dT / 2), jj3 - +int(dT / 2))
+indN_Tt = np.arange(ii3 + int(dT / 2), jj3 - +int(dT / 2))
 
-        dataTraining1 = extract_SpaceTimePatches(qHR, ii1, jj1, W, dT, rnd1, rnd2, dx)
-        dataTrainingMask1 = extract_SpaceTimePatches(qMask, ii1, jj1, W, dT, rnd1, rnd2, dx)
-        dataTrainingOI11 = extract_SpaceTimePatches(qOI, ii1 - dtOI, jj1 - dtOI, W, dT, rnd1, rnd2, dx)
-        dataTrainingOI1 = extract_SpaceTimePatches(qOI, ii1, jj1, W, dT, rnd1, rnd2, dx)
+dataTraining1 = extract_SpaceTimePatches(qHR, ii1, jj1, W, dT, rnd1, rnd2, dx)
+dataTrainingMask1 = extract_SpaceTimePatches(qMask, ii1, jj1, W, dT, rnd1, rnd2, dx)
+dataTrainingOI11 = extract_SpaceTimePatches(qOI, ii1 - dtOI, jj1 - dtOI, W, dT, rnd1, rnd2, dx)
+dataTrainingOI1 = extract_SpaceTimePatches(qOI, ii1, jj1, W, dT, rnd1, rnd2, dx)
 
-        dataTraining2 = extract_SpaceTimePatches(qHR, ii2, jj2, W, dT, rnd1, rnd2, dx)
-        dataTrainingMask2 = extract_SpaceTimePatches(qMask, ii2, jj2, W, dT, rnd1, rnd2, dx)
-        dataTrainingOI21 = extract_SpaceTimePatches(qOI, ii2 - dtOI, jj2 - dtOI, W, dT, rnd1, rnd2, dx)
-        dataTrainingOI2 = extract_SpaceTimePatches(qOI, ii2, jj2, W, dT, rnd1, rnd2, dx)
+dataTraining2 = extract_SpaceTimePatches(qHR, ii2, jj2, W, dT, rnd1, rnd2, dx)
+dataTrainingMask2 = extract_SpaceTimePatches(qMask, ii2, jj2, W, dT, rnd1, rnd2, dx)
+dataTrainingOI21 = extract_SpaceTimePatches(qOI, ii2 - dtOI, jj2 - dtOI, W, dT, rnd1, rnd2, dx)
+dataTrainingOI2 = extract_SpaceTimePatches(qOI, ii2, jj2, W, dT, rnd1, rnd2, dx)
 
-        dataTraining = np.concatenate((dataTraining1, dataTraining2), axis=0)
-        dataTrainingMask = np.concatenate((dataTrainingMask1, dataTrainingMask2), axis=0)
-        dataTrainingOI = np.concatenate((dataTrainingOI1, dataTrainingOI2), axis=0)
-        dataTrainingOI1 = np.concatenate((dataTrainingOI11, dataTrainingOI21), axis=0)
+dataTraining = np.concatenate((dataTraining1, dataTraining2), axis=0)
+dataTrainingMask = np.concatenate((dataTrainingMask1, dataTrainingMask2), axis=0)
+dataTrainingOI = np.concatenate((dataTrainingOI1, dataTrainingOI2), axis=0)
+dataTrainingOI1 = np.concatenate((dataTrainingOI11, dataTrainingOI21), axis=0)
 
-        dataTest = extract_SpaceTimePatches(qHR, ii3, jj3, W, dT, rnd1, rnd2, dx)
-        dataTestMask = extract_SpaceTimePatches(qMask, ii3, jj3, W, dT, rnd1, rnd2, dx)
-        dataTestOI = extract_SpaceTimePatches(qOI, ii3, jj3, W, dT, rnd1, rnd2, dx)
-        dataTestOI1 = extract_SpaceTimePatches(qOI, ii3 - dtOI, jj3 - dtOI, W, dT, rnd1, rnd2, dx)
+dataTest = extract_SpaceTimePatches(qHR, ii3, jj3, W, dT, rnd1, rnd2, dx)
+dataTestMask = extract_SpaceTimePatches(qMask, ii3, jj3, W, dT, rnd1, rnd2, dx)
+dataTestOI = extract_SpaceTimePatches(qOI, ii3, jj3, W, dT, rnd1, rnd2, dx)
+dataTestOI1 = extract_SpaceTimePatches(qOI, ii3 - dtOI, jj3 - dtOI, W, dT, rnd1, rnd2, dx)
 
-        if 1 * 0:
-            for nn in range(0, 20):
-                print(
-                    np.mean((dataTestOI[nn, int(dT / 2), :, :].squeeze() - qOI[60 + nn, 0:200, 0:200].squeeze()) ** 2))
-                print(np.mean((dataTest[nn, int(dT / 2), :, :].squeeze() - qHR[60 + nn, 0:200, 0:200].squeeze()) ** 2))
-                print(np.mean(
-                    (dataTestMask[nn, int(dT / 2), :, :].squeeze() - qMask[60 + nn, 0:200, 0:200].squeeze()) ** 2))
+meanTr = np.mean(dataTraining)
+x_train = dataTraining - meanTr
+x_test = dataTest - meanTr
+# scale wrt std
+stdTr = np.sqrt(np.mean(x_train ** 2))
+x_train = x_train / stdTr
+x_test = x_test / stdTr
+stdTt = np.sqrt(np.mean(x_test ** 2))
 
-        meanTr = np.mean(dataTraining)
-        x_train = dataTraining - meanTr
-        x_test = dataTest - meanTr
-        # scale wrt std
-        stdTr = np.sqrt(np.mean(x_train ** 2))
-        x_train = x_train / stdTr
-        x_test = x_test / stdTr
-        stdTt = np.sqrt(np.mean(x_test ** 2))
+x_trainOI = (dataTrainingOI - meanTr) / stdTr
+x_trainOI1 = (dataTrainingOI1 - meanTr) / stdTr
+x_testOI = (dataTestOI - meanTr) / stdTr
+x_testOI1 = (dataTestOI1 - meanTr) / stdTr
+x_trainMask = dataTrainingMask
+x_testMask = dataTestMask
 
-        x_trainOI = (dataTrainingOI - meanTr) / stdTr
-        x_trainOI1 = (dataTrainingOI1 - meanTr) / stdTr
-        x_testOI = (dataTestOI - meanTr) / stdTr
-        x_testOI1 = (dataTestOI1 - meanTr) / stdTr
-        x_trainMask = dataTrainingMask
-        x_testMask = dataTestMask
+training_dataset = torch.utils.data.TensorDataset(torch.Tensor(x_trainOI), torch.Tensor(x_trainOI1),
+                                                  torch.Tensor(x_trainMask),
+                                                  torch.Tensor(x_train))  # create your datset
+val_dataset = torch.utils.data.TensorDataset(torch.Tensor(x_testOI), torch.Tensor(x_testOI1),
+                                             torch.Tensor(x_testMask),
+                                             torch.Tensor(x_test))  # create your datset
 
-        training_dataset = torch.utils.data.TensorDataset(torch.Tensor(x_trainOI), torch.Tensor(x_trainOI1),
-                                                          torch.Tensor(x_trainMask),
-                                                          torch.Tensor(x_train))  # create your datset
-        val_dataset = torch.utils.data.TensorDataset(torch.Tensor(x_testOI), torch.Tensor(x_testOI1),
-                                                     torch.Tensor(x_testMask),
-                                                     torch.Tensor(x_test))  # create your datset
+train_dataloader = torch.utils.data.DataLoader(training_dataset, batch_size=batch_size, shuffle=True,
+                                               num_workers=0, pin_memory=True)
+val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0,
+                                             pin_memory=True)
 
-        train_dataloader = torch.utils.data.DataLoader(training_dataset, batch_size=batch_size, shuffle=True,
-                                                       num_workers=4, pin_memory=True)
-        val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=True, num_workers=4,
-                                                     pin_memory=True)
+NoRndPatches = True
+Nbpatches = 1
+# qHR = qHR[:, 0:200, 0:200]
+# qOI = qOI[:, 0:200, 0:200]
+# qMask = qMask[:, 0:200, 0:200]
 
-        NoRndPatches = True
-        Nbpatches = 1
-        qHR = qHR[:, 0:200, 0:200]
-        qOI = qOI[:, 0:200, 0:200]
-        qMask = qMask[:, 0:200, 0:200]
+dataTest = extract_SpaceTimePatches(qHR, ii3, jj3, 200, dT, rnd1, rnd2, dx)
+dataTestMask = extract_SpaceTimePatches(qMask, ii3, jj3, 200, dT, rnd1, rnd2, dx)
+dataTestOI = extract_SpaceTimePatches(qOI, ii3, jj3, 200, dT, rnd1, rnd2, dx)
+dataTestOI1 = extract_SpaceTimePatches(qOI, ii3 - dtOI, jj3 - dtOI, 200, dT, rnd1, rnd2, dx)
 
-        dataTest = extract_SpaceTimePatches(qHR, ii3, jj3, 200, dT, rnd1, rnd2, dx)
-        dataTestMask = extract_SpaceTimePatches(qMask, ii3, jj3, 200, dT, rnd1, rnd2, dx)
-        dataTestOI = extract_SpaceTimePatches(qOI, ii3, jj3, 200, dT, rnd1, rnd2, dx)
-        dataTestOI1 = extract_SpaceTimePatches(qOI, ii3 - dtOI, jj3 - dtOI, 200, dT, rnd1, rnd2, dx)
+x_test = dataTest - meanTr
+x_test = x_test / stdTr
+x_testOI = (dataTestOI - meanTr) / stdTr
+x_testOI1 = (dataTestOI1 - meanTr) / stdTr
+x_testMask = dataTestMask
 
-        x_test = dataTest - meanTr
-        x_test = x_test / stdTr
-        x_testOI = (dataTestOI - meanTr) / stdTr
-        x_testOI1 = (dataTestOI1 - meanTr) / stdTr
-        x_testMask = dataTestMask
+test_dataset = torch.utils.data.TensorDataset(torch.Tensor(x_testOI), torch.Tensor(x_testOI1),
+                                              torch.Tensor(x_testMask),
+                                              torch.Tensor(x_test))  # create your datset
 
-        test_dataset = torch.utils.data.TensorDataset(torch.Tensor(x_testOI), torch.Tensor(x_testOI1),
-                                                      torch.Tensor(x_testMask),
-                                                      torch.Tensor(x_test))  # create your datset
-
-        test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=4, shuffle=False, num_workers=4,
+test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=4, shuffle=False, num_workers=0,
                                                       pin_memory=True)
 
     ###############################################################
@@ -810,6 +765,8 @@ if __name__ == '__main__':
     mod = LitModel()
     # checkpoint_callback = ModelCheckpoint(monitor='val_loss', dirpath='results', save_top_k = 3)
     # training
-    trainer = pl.Trainer(gpus=4, distributed_backend="ddp", **profiler_kwargs)
+    # trainer = pl.Trainer(gpus=4, distributed_backend="ddp", **profiler_kwargs)
+    NbGradIter[0] = 1
+    trainer = pl.Trainer(gpus=1, **profiler_kwargs, fast_dev_run=1)
     trainer.fit(mod, train_dataloader, val_dataloader)
     # trainer.test(mod, test_dataloaders=test_dataloader)
