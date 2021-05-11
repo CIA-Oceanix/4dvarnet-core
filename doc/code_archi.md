@@ -24,7 +24,9 @@ The most important class in this file is Solver_Grad_4DVarNN. All learnable para
 This script contains three key parts: Data generation , phi_r and model_H architectures definition , a pytorch lightning module which takes into account the training and testing of the overall model. 
 
 **Data generation**
+
 At the end of this part of code, three dataloaders are generated: train_dataloader, val_dataloader, test_data_loader. 
+
 **Architectures definition**
 
 phi_r is an auto-encoder with 11 convolution-layers-encoder and model_H is a parameter-free model that outputs (x-yobs)mask.  
@@ -32,12 +34,14 @@ phi_r is an auto-encoder with 11 convolution-layers-encoder and model_H is a par
 **Pytorch lightning module** 
 
 This module automates training and testing. It has the following key attributes and methods: 
+
 **Attributes**
 
 - model: It is an instantiation of the solver Solver_Grad_4DVarNN. 
     
 - m_Grad: It is an instantiation of the LSTM-based model.
 - model_LR: Apply an average pooling.
+
 **Methods**
 
 - configure_optimisers -> Defines optimizers and  learning rate schedulers.
