@@ -1,4 +1,4 @@
-## Code Architechture 
+## Code Architecture 
 The code consists of two files: solver.py and main.py 
 ### solver.py
 The most important class in this file is Solver_Grad_4DVarNN. All learnable parameters are under this class. It includes the following:
