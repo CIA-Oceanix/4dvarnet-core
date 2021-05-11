@@ -234,9 +234,6 @@ val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size,
 
 NoRndPatches = True
 Nbpatches = 1
-# qHR = qHR[:, 0:200, 0:200]
-# qOI = qOI[:, 0:200, 0:200]
-# qMask = qMask[:, 0:200, 0:200]
 
 dataTest = extract_SpaceTimePatches(qHR, ii3, jj3, 200, dT, rnd1, rnd2, dx)
 dataTestMask = extract_SpaceTimePatches(qMask, ii3, jj3, 200, dT, rnd1, rnd2, dx)
