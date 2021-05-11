@@ -26,9 +26,6 @@ import pytorch_lightning as pl
 import math
 import torch.distributed as dist
 
-
-parser = argparse.ArgumentParser()
-
 flagRandomSeed = 0
 batch_size = 12  # 16#4#4#8#12#8#256#8
 DimAE = 10  # 10#10#50
