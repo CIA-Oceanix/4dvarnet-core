@@ -66,10 +66,14 @@ if flagRandomSeed == 0:
     np.random.seed(100)
     torch.manual_seed(100)
 
+
+idLon = np.arange(400,600)
+idLat = np.arange(100,300)
+
 dirSAVE = '/gpfswork/rech/yrf/ueh53pd/ResSLANATL60/'
 genSuffixObs = ''
-ncfile = Dataset("/gpfswork/rech/yrf/commun/DataNATL60/dataSLA_NATL60GulfStream.nc", "r")
-qHR = ncfile.variables['ssh'][:]
+ncfile = Dataset("/gpfswork/rech/yrf/uba22to/DATA/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc","r")
+qHR = ncfile.variables['ssh'][:,idLat,idLon]
 
 ncfile.close()
 
@@ -78,16 +82,15 @@ if flagSWOTData == True:
     genFilename = 'resInterpSWOTSLAwOInoSST_' + str('%03d' % (W)) + 'x' + str('%03d' % (W)) + 'x' + str(
         '%02d' % (dT))
     # OI data using a noise-free OSSE (ssh_mod variable)
-    ncfile = Dataset("/gpfswork/rech/yrf/uba22to/DATA/GULFSTREAM/oi/ssh_NATL60_swot_4nadir.nc", "r")
-    qOI = ncfile.variables['ssh_mod'][:]
+    ncfile = Dataset("/gpfswork/rech/yrf/uba22to/DATA/NATL/oi/ssh_NATL60_swot_4nadir.nc", "r")
+    qOI = ncfile.variables['ssh_mod'][:,idLat,idLon]
     ncfile.close()
 
     # OI data using a noise-free OSSE (ssh_mod variable)
     ncfile = Dataset(
-        "/gpfswork/rech/yrf/uba22to/DATA/GULFSTREAM/data/gridded_data_swot_wocorr/dataset_nadir_0d_swot.nc",
-        "r")
-
-    qMask = ncfile.variables['ssh_mod'][:]
+                "/gpfswork/rech/yrf/uba22to/DATA/NATL/data/gridded_data_swot_wocorr/dataset_nadir_0d_swot.nc",
+                "r")
+    qMask = ncfile.variables['ssh_mod'][:,idLat,idLon]
     qMask = 1.0 - qMask.mask.astype(float)
     ncfile.close()
 
@@ -491,7 +494,7 @@ class LitModel(pl.LightningModule):
         x_test_rec = torch.cat([chunk['preds'] for chunk in outputs]).numpy()
         x_test_rec = stdTr * x_test_rec + meanTr
         path_save = Path('results/test.nc')
-        ptint("*********************************x_test_rec.shape *********************************** = ", x_test_rec.shape )
+        print("*********************************x_test_rec.shape *********************************** = ", x_test_rec.shape )
         path_save.parent.mkdir(exist_ok=True, parents=True)
         save_NetCDF(saved_path1=path_save, x_test_rec=x_test_rec)
 
@@ -600,10 +603,10 @@ if __name__ == '__main__':
             'max_epochs': 1,
         }
     else:
-        profiler_kwargs = {'max_epochs': 200}
+        profiler_kwargs = {'max_epochs': 1}
     mod = LitModel()
     # checkpoint_callback = ModelCheckpoint(monitor='val_loss', dirpath='results', save_top_k = 3)
     # training
-    trainer = pl.Trainer(gpus=4, distributed_backend="ddp", **profiler_kwargs)
+    trainer = pl.Trainer(gpus=1, distributed_backend="ddp", **profiler_kwargs)
     trainer.fit(mod, train_dataloader, val_dataloader)
-    #trainer.test(mod, test_dataloaders=test_dataloader)
+    trainer.test(mod, test_dataloaders=test_dataloader)
