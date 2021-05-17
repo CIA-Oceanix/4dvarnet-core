@@ -607,6 +607,6 @@ if __name__ == '__main__':
     mod = LitModel()
     # checkpoint_callback = ModelCheckpoint(monitor='val_loss', dirpath='results', save_top_k = 3)
     # training
-    trainer = pl.Trainer(gpus=4, num_nodes=2, distributed_backend="ddp", **profiler_kwargs)
+    trainer = pl.Trainer(gpus=4, num_nodes=2, accelerator="ddp", **profiler_kwargs)
     trainer.fit(mod, train_dataloader, val_dataloader)
     trainer.test(mod, test_dataloaders=test_dataloader)

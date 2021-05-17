@@ -6,10 +6,11 @@
 #SBATCH --gres=gpu:4
 #SBATCH --ntasks-per-node=4
 #SBATCH --time=02:00:00
-#SBATCH --ntasks=2
 #SBATCH --cpus-per-task=10
 #SBATCH --hint=nomultithread
+#SBATCH --reservation=hackathon_idr17
 #SBATCH -C v100-16g
+#SBATCH --mem=0
 #SBATCH --qos=qos_gpu-dev
 
 # activate conda env
