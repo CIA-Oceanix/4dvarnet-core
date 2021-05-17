@@ -7,6 +7,7 @@ Created on Mon May 18 17:59:23 2020
 
 # !/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import os
 from pathlib import Path
 import xarray as xr
 import argparse
@@ -607,6 +608,7 @@ if __name__ == '__main__':
     mod = LitModel()
     # checkpoint_callback = ModelCheckpoint(monitor='val_loss', dirpath='results', save_top_k = 3)
     # training
-    trainer = pl.Trainer(gpus=4, num_nodes=2, accelerator="ddp", **profiler_kwargs)
+    JOB_NUM_NODES = int(os.environ['SLURM_JOB_NUM_NODES'])
+    trainer = pl.Trainer(gpus=torch.cuda.device_count(), num_nodes=JOB_NUM_NODES, accelerator="ddp", **profiler_kwargs)
     trainer.fit(mod, train_dataloader, val_dataloader)
     trainer.test(mod, test_dataloaders=test_dataloader)

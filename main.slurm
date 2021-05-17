@@ -10,7 +10,6 @@
 #SBATCH --hint=nomultithread
 #SBATCH --reservation=hackathon_idr17
 #SBATCH -C v100-16g
-#SBATCH --mem=0
 #SBATCH --qos=qos_gpu-dev
 
 # activate conda env
