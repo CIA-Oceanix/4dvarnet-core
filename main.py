@@ -176,7 +176,6 @@ dataTestMask  = extract_SpaceTimePatches(qMask, ii3, jj3, W, dT, rnd1, rnd2, dx)
 dataTestOI    = extract_SpaceTimePatches(qOI, ii3, jj3, W, dT, rnd1, rnd2, dx)
 dataTestOI1   = extract_SpaceTimePatches(qOI, ii3 - dtOI, jj3 - dtOI, W, dT, rnd1, rnd2, dx)
 
-
 # statistics
 meanTr        = np.mean(dataTraining)
 dataTraining  = dataTraining - meanTr
@@ -184,8 +183,8 @@ stdTr         = np.sqrt(np.mean(dataTraining ** 2))
 dataTraining /= stdTr
 
 dataTest      = dataTest - meanTr
-stdTt         = np.sqrt(np.mean(dataTest ** 2))  ## on test set ??? 
-dataTest     /= stdTt
+stdTt         = np.sqrt(np.mean(dataTest ** 2))  ## TODO: on test set ??? 
+dataTest     /= stdTr
 
 # x_train = dataTraining - meanTr
 # x_test = dataTest - meanTr 
@@ -205,25 +204,45 @@ dataTestOI1     = (dataTestOI1 - meanTr) / stdTr
 # x_testOI = (dataTestOI - meanTr) / stdTr
 # x_testOI1 = (dataTestOI1 - meanTr) / stdTr
 
+training_dataset = torch.utils.data.TensorDataset(
+    torch.Tensor(dataTrainingOI),
+    torch.Tensor(dataTrainingOI1),
+    torch.Tensor(dataTrainingMask),
+    torch.Tensor(dataTraining)
+)
 
-print(dataTraining.shape)
-print(dataTrainingOI.shape)
-print(dataTrainingOI1.shape)
-print(dataTestOI.shape) 
-print(dataTestOI1.shape)
-exit()
+# del dataTrainingOI
+# del dataTrainingOI1
+# del dataTrainingMask
+# del dataTraining
 
-training_dataset = torch.utils.data.TensorDataset(torch.Tensor(x_trainOI), torch.Tensor(x_trainOI1),
-                                                  torch.Tensor(dataTrainingMask),
-                                                  torch.Tensor(x_train))  # create your datset
-val_dataset = torch.utils.data.TensorDataset(torch.Tensor(x_testOI), torch.Tensor(x_testOI1),
-                                             torch.Tensor(dataTestMask),
-                                             torch.Tensor(x_test))  # create your datset
+val_dataset = torch.utils.data.TensorDataset(
+    torch.Tensor(dataTestOI),
+    torch.Tensor(dataTestOI1),
+    torch.Tensor(dataTestMask),
+    torch.Tensor(dataTest)
+)
 
-train_dataloader = torch.utils.data.DataLoader(training_dataset, batch_size=batch_size, shuffle=True,
-                                               num_workers=4, pin_memory=True)
-val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4,
-                                             pin_memory=True)
+# del dataTestOI
+# del dataTestOI1
+# del dataTestMask
+# del dataTest
+
+train_dataloader = torch.utils.data.DataLoader(
+    training_dataset,
+    batch_size=batch_size,
+    shuffle=True,
+    num_workers=2,
+    pin_memory=True
+)
+
+val_dataloader = torch.utils.data.DataLoader(
+    val_dataset,
+    batch_size=batch_size,
+    shuffle=False,
+    num_workers=2,
+    pin_memory=True
+)
 
 NoRndPatches = True
 Nbpatches = 1
@@ -231,29 +250,42 @@ qHR = qHR[:, 0:200, 0:200]
 qOI = qOI[:, 0:200, 0:200]
 qMask = qMask[:, 0:200, 0:200]
 
-dataTest = extract_SpaceTimePatches(qHR, ii3, jj3, 200, dT, rnd1, rnd2, dx)
+dataTest     = extract_SpaceTimePatches(qHR, ii3, jj3, 200, dT, rnd1, rnd2, dx)
 dataTestMask = extract_SpaceTimePatches(qMask, ii3, jj3, 200, dT, rnd1, rnd2, dx)
-dataTestOI = extract_SpaceTimePatches(qOI, ii3, jj3, 200, dT, rnd1, rnd2, dx)
-dataTestOI1 = extract_SpaceTimePatches(qOI, ii3 - dtOI, jj3 - dtOI, 200, dT, rnd1, rnd2, dx)
+dataTestOI   = extract_SpaceTimePatches(qOI, ii3, jj3, 200, dT, rnd1, rnd2, dx)
+dataTestOI1  = extract_SpaceTimePatches(qOI, ii3 - dtOI, jj3 - dtOI, 200, dT, rnd1, rnd2, dx)
 
-x_test = dataTest - meanTr
-x_test = x_test / stdTr
-x_testOI = (dataTestOI - meanTr) / stdTr
-x_testOI1 = (dataTestOI1 - meanTr) / stdTr
-x_testMask = dataTestMask
+dataTest = (dataTest - meanTr ) / stdTr
+# stdTt         = np.sqrt(np.mean(dataTest ** 2))  ## on test set ??? 
+# dataTest     /= stdTt
+dataTestOI  = (dataTestOI - meanTr) / stdTr
+dataTestOI1 = (dataTestOI1 - meanTr) / stdTr
 
-test_dataset = torch.utils.data.TensorDataset(torch.Tensor(x_testOI), torch.Tensor(x_testOI1),
-                                              torch.Tensor(x_testMask),
-                                              torch.Tensor(x_test))  # create your datset
+test_dataset = torch.utils.data.TensorDataset(
+    torch.Tensor(dataTestOI),
+    torch.Tensor(dataTestOI1),
+    torch.Tensor(dataTestMask),
+    torch.Tensor(dataTest)
+)  
 
-test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=4, shuffle=False, num_workers=4,
-                                              pin_memory=True)
+del dataTest
+del dataTestMask
+del dataTestOI
+del dataTestOI1
+
+test_dataloader = torch.utils.data.DataLoader(
+    test_dataset,
+    batch_size=4,
+    shuffle=False,
+    num_workers=2,
+    pin_memory=True
+)
 
 #######################################Phi_r, Model_H, Model_Sampling architectures ################################################
 
 print('........ Define AE architecture')
 
-shapeData = np.array(x_train.shape[1:])
+shapeData = np.array(dataTraining.shape[1:])
 shapeData_test = np.array(x_test.shape[1:])
 if flagMultiScale == True:
     shapeData[0] += shapeData[0]
@@ -452,6 +484,7 @@ if betaX is None or betagX is None:
 
     print(".... MSE(Tr) OI %.3f -- MSE(Tr) gOI %.3f " % (epoch_loss_OI, epoch_loss_GOI))
 print(f"{(betaX, betagX)=}")
+
 
 def save_NetCDF(saved_path1, x_test_rec):
     extent = [-65., -55., 30., 40.]
