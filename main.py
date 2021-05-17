@@ -129,59 +129,95 @@ def extract_SpaceTimePatches(q, i1, i2, Wid, dT, rnd1, rnd2, D=1):
 
 
 dtOI = 10
-ii1 = 10
-jj1 = 40
 
-ii2 = 105
-jj2 = 365
 
+# training1
+ii1 = 10  # temporal start
+jj1 = 40  # temporal end
+# training2
+ii2 = 105 # temporal start
+jj2 = 365 # temporal end
+
+dataTraining  = np.concatenate(
+    (
+        extract_SpaceTimePatches(qHR, ii1, jj1, W, dT, rnd1, rnd2, dx), # dataTraining1
+        extract_SpaceTimePatches(qHR, ii2, jj2, W, dT, rnd1, rnd2, dx)  # dataTraining2
+    ),
+    axis=0)
+
+dataTrainingMask  = np.concatenate(
+    (
+        extract_SpaceTimePatches(qMask, ii1, jj1, W, dT, rnd1, rnd2, dx), # dataTrainingMask1
+        extract_SpaceTimePatches(qMask, ii2, jj2, W, dT, rnd1, rnd2, dx)  # dataTrainingMask2
+    ),
+    axis=0)
+
+dataTrainingOI   = np.concatenate(
+    (
+        extract_SpaceTimePatches(qOI, ii1, jj1, W, dT, rnd1, rnd2, dx), # dataTrainingOI1
+        extract_SpaceTimePatches(qOI, ii2, jj2, W, dT, rnd1, rnd2, dx)  # dataTrainingOI2
+    ),
+    axis=0)
+
+dataTrainingOI1  = np.concatenate(
+    (
+        extract_SpaceTimePatches(qOI, ii2 - dtOI, jj2 - dtOI, W, dT, rnd1, rnd2, dx), # dataTrainingOI21
+        extract_SpaceTimePatches(qOI, ii1 - dtOI, jj1 - dtOI, W, dT, rnd1, rnd2, dx)  # dataTrainingOI11
+    ),
+    axis=0)
+
+
+# test
 ii3 = 60 - int(dT / 2)
 jj3 = 80 + int(dT / 2)
 
-indN_Tt = np.arange(ii3 + int(dT / 2), jj3 - +int(dT / 2))
-
-dataTraining1 = extract_SpaceTimePatches(qHR, ii1, jj1, W, dT, rnd1, rnd2, dx)
-dataTrainingMask1 = extract_SpaceTimePatches(qMask, ii1, jj1, W, dT, rnd1, rnd2, dx)
-dataTrainingOI11 = extract_SpaceTimePatches(qOI, ii1 - dtOI, jj1 - dtOI, W, dT, rnd1, rnd2, dx)
-dataTrainingOI1 = extract_SpaceTimePatches(qOI, ii1, jj1, W, dT, rnd1, rnd2, dx)
-
-dataTraining2 = extract_SpaceTimePatches(qHR, ii2, jj2, W, dT, rnd1, rnd2, dx)
-dataTrainingMask2 = extract_SpaceTimePatches(qMask, ii2, jj2, W, dT, rnd1, rnd2, dx)
-dataTrainingOI21 = extract_SpaceTimePatches(qOI, ii2 - dtOI, jj2 - dtOI, W, dT, rnd1, rnd2, dx)
-dataTrainingOI2 = extract_SpaceTimePatches(qOI, ii2, jj2, W, dT, rnd1, rnd2, dx)
-
-dataTraining = np.concatenate((dataTraining1, dataTraining2), axis=0)
-dataTrainingMask = np.concatenate((dataTrainingMask1, dataTrainingMask2), axis=0)
-dataTrainingOI = np.concatenate((dataTrainingOI1, dataTrainingOI2), axis=0)
-dataTrainingOI1 = np.concatenate((dataTrainingOI11, dataTrainingOI21), axis=0)
-
-dataTest = extract_SpaceTimePatches(qHR, ii3, jj3, W, dT, rnd1, rnd2, dx)
-dataTestMask = extract_SpaceTimePatches(qMask, ii3, jj3, W, dT, rnd1, rnd2, dx)
-dataTestOI = extract_SpaceTimePatches(qOI, ii3, jj3, W, dT, rnd1, rnd2, dx)
-dataTestOI1 = extract_SpaceTimePatches(qOI, ii3 - dtOI, jj3 - dtOI, W, dT, rnd1, rnd2, dx)
+dataTest      = extract_SpaceTimePatches(qHR, ii3, jj3, W, dT, rnd1, rnd2, dx)
+dataTestMask  = extract_SpaceTimePatches(qMask, ii3, jj3, W, dT, rnd1, rnd2, dx)
+dataTestOI    = extract_SpaceTimePatches(qOI, ii3, jj3, W, dT, rnd1, rnd2, dx)
+dataTestOI1   = extract_SpaceTimePatches(qOI, ii3 - dtOI, jj3 - dtOI, W, dT, rnd1, rnd2, dx)
 
 
-meanTr = np.mean(dataTraining)
-x_train = dataTraining - meanTr
-x_test = dataTest - meanTr
-# scale wrt std
-stdTr = np.sqrt(np.mean(x_train ** 2))
-x_train = x_train / stdTr
-x_test = x_test / stdTr
-stdTt = np.sqrt(np.mean(x_test ** 2))
+# statistics
+meanTr        = np.mean(dataTraining)
+dataTraining  = dataTraining - meanTr
+stdTr         = np.sqrt(np.mean(dataTraining ** 2))
+dataTraining /= stdTr
 
-x_trainOI = (dataTrainingOI - meanTr) / stdTr
-x_trainOI1 = (dataTrainingOI1 - meanTr) / stdTr
-x_testOI = (dataTestOI - meanTr) / stdTr
-x_testOI1 = (dataTestOI1 - meanTr) / stdTr
-x_trainMask = dataTrainingMask
-x_testMask = dataTestMask
+dataTest      = dataTest - meanTr
+stdTt         = np.sqrt(np.mean(dataTest ** 2))  ## on test set ??? 
+dataTest     /= stdTt
+
+# x_train = dataTraining - meanTr
+# x_test = dataTest - meanTr 
+# # scale wrt std
+# stdTr = np.sqrt(np.mean(x_train ** 2))
+# x_train = x_train / stdTr
+# x_test = x_test / stdTr
+# stdTt = np.sqrt(np.mean(x_test ** 2))
+
+dataTrainingOI  = (dataTrainingOI - meanTr) / stdTr
+dataTrainingOI1 = (dataTrainingOI1 - meanTr) / stdTr
+dataTestOI      = (dataTestOI - meanTr) / stdTr
+dataTestOI1     = (dataTestOI1 - meanTr) / stdTr
+
+# x_trainOI = (dataTrainingOI - meanTr) / stdTr
+# x_trainOI1 = (dataTrainingOI1 - meanTr) / stdTr
+# x_testOI = (dataTestOI - meanTr) / stdTr
+# x_testOI1 = (dataTestOI1 - meanTr) / stdTr
+
+
+print(dataTraining.shape)
+print(dataTrainingOI.shape)
+print(dataTrainingOI1.shape)
+print(dataTestOI.shape) 
+print(dataTestOI1.shape)
+exit()
 
 training_dataset = torch.utils.data.TensorDataset(torch.Tensor(x_trainOI), torch.Tensor(x_trainOI1),
-                                                  torch.Tensor(x_trainMask),
+                                                  torch.Tensor(dataTrainingMask),
                                                   torch.Tensor(x_train))  # create your datset
 val_dataset = torch.utils.data.TensorDataset(torch.Tensor(x_testOI), torch.Tensor(x_testOI1),
-                                             torch.Tensor(x_testMask),
+                                             torch.Tensor(dataTestMask),
                                              torch.Tensor(x_test))  # create your datset
 
 train_dataloader = torch.utils.data.DataLoader(training_dataset, batch_size=batch_size, shuffle=True,
@@ -445,6 +481,8 @@ def save_NetCDF(saved_path1, x_test_rec):
         coords={'lon': lon, 'lat': lat, 'time': indN_Tt})
     xrdata.time.attrs['units'] = 'days since 2012-10-01 00:00:00'
     xrdata.to_netcdf(path=saved_path1, mode='w')
+
+
 ############################################Lightning Module#######################################################################
 class LitModel(pl.LightningModule):
     def __init__(self):
