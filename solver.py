@@ -230,7 +230,7 @@ class model_GradUpdateLSTM(torch.nn.Module):
 
         # compute gradient
         grad  = grad / gradnorm
-        #grad  = self.dropout( grad )
+        grad  = self.dropout( grad )
           
         if self.PeriodicBnd == True :
             dB     = 7
