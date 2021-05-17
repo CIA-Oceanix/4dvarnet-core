@@ -2,6 +2,8 @@ import numpy as np
 import xarray as xr
 import torch
 from torch.utils.data import Dataset, DataLoader
+from sklearn.feature_extraction import image
+import solver as NN_4DVar
 
 
 slice_args = {
@@ -16,7 +18,6 @@ slice_args = {
 
 class SpaceTimePatches(Dataset):
 
-
     def __init__(self, path, slice_args):
         self.path       = path
         self.slice_args = slice_args
@@ -24,7 +25,7 @@ class SpaceTimePatches(Dataset):
     def __getitem__(self, index):
 
         chunk = self.get_natl_slice(index)
-        pass
+
 
     def __len__(self):
 
@@ -100,9 +101,9 @@ def extract_image_patches(x, kernel, stride=1, dilation=1):
     return patches.view(b, -1, patches.shape[-2], patches.shape[-1])
 
 
-def extract_SpaceTimePatches(q, i1, i2, Wid, dT, rnd1, rnd2, D=1, NoRndPatches=False):
-    dataTraining = image.extract_patches_2d(np.moveaxis(q[i1:i2, ::D, ::D], 0, -1), (Wid, Wid),
-                                            max_patches=Nbpatches, random_state=rnd1)
+def extract_SpaceTimePatches(q, i1, i2, Wid, dT, rnd1, rnd2, D=1, Nbpatches=1, NoRndPatches=False):
+    dataTraining = image.extract_patches_2d(
+        np.moveaxis(q[i1:i2, ::D, ::D], 0, -1), (Wid, Wid), max_patches=Nbpatches, random_state=rnd1)
     dataTraining = np.moveaxis(dataTraining, -1, 1)
     dataTraining = dataTraining.reshape((Nbpatches, dataTraining.shape[1], Wid * Wid))
 
@@ -155,3 +156,28 @@ def save_NetCDF(saved_path1, x_test_rec):
         coords={'lon': lon, 'lat': lat, 'time': indN_Tt})
     xrdata.time.attrs['units'] = 'days since 2012-10-01 00:00:00'
     xrdata.to_netcdf(path=saved_path1, mode='w')
+
+
+def compute_betas(train_loader, gradient_img, wLoss):
+    # recompute the mean loss for OI when train_loader change
+    running_loss_GOI = 0.
+    running_loss_OI  = 0.
+    num_loss         = 0.
+
+    for targets_OI, targets_OI1, inputs_Mask, targets_GT in train_loader:
+        # gradient norm field
+        g_targets_GT = gradient_img(targets_GT, phase)
+        loss_OI  = NN_4DVar.compute_WeightedLoss(targets_GT - targets_OI, wLoss)
+        loss_GOI = NN_4DVar.compute_WeightedLoss(gradient_img(targets_OI, phase) - g_targets_GT, wLoss)
+        running_loss_GOI += loss_GOI.item() * targets_GT.size(0)
+        running_loss_OI += loss_OI.item() * targets_GT.size(0)
+        num_loss += targets_GT.size(0)
+
+    epoch_loss_GOI = running_loss_GOI / num_loss
+    epoch_loss_OI = running_loss_OI / num_loss
+
+    betaX  = 1. / epoch_loss_OI
+    betagX = 1. / epoch_loss_GOI
+
+    print(".... MSE(Tr) OI %.3f -- MSE(Tr) gOI %.3f " % (epoch_loss_OI, epoch_loss_GOI))
+    return betaX, betagX

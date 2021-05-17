@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
@@ -19,8 +20,8 @@ class LitModel(pl.LightningModule):
         self.IterUpdate = [0, 25, 50, 100, 500, 600, 800]  # [0,2,4,6,9,15]
         self.NbGradIter = [5, 5, 10, 10, 15, 15, 20, 20, 20]  # [0,0,1,2,3,3]#[0,2,2,4,5,5]#
         self.gradient_img = gradient_img
-        w_[int(dT / 2)] = 1.
-        self.wLoss = torch.nn.Parameter(torch.Tensor(w_), requires_grad=False)
+        # loss weghing wrt time
+        self.wLoss = torch.nn.Parameter(kw['wLoss'], requires_grad=False)
 
     def forward(self):
         return 1
@@ -67,34 +68,34 @@ class LitModel(pl.LightningModule):
     def compute_loss(self, batch, phase):
         targets_OI, targets_OI1, inputs_Mask, targets_GT = batch
         # use low-resolution
-        if kw['flagMultiScale'] == True:
+        if self.kw['flagMultiScale'] == True:
             targets_GTLR = self.model_LR(targets_OI)
 
             # sampling mask
             new_masks = self.model_S(torch.cat((targets_OI1, targets_OI1), dim=1), phase)
 
-            if kw['flagUseObsData'] == True:
+            if self.kw['flagUseObsData'] == True:
                 inputs_Mask2 = inputs_Mask.repeat(1, 2, 1, 1)
                 new_masks[0] = inputs_Mask2 + (1.0 - inputs_Mask2) * new_masks[0]
                 new_masks[1] = inputs_Mask2 + (1.0 - inputs_Mask2) * new_masks[1]
 
             # init
-            if kw['flagUseOI'] == True:
-                new_masks[0][:, 0:kw['dT'], :, :] = 1.0 + 0. * new_masks[0][:, 0:kw['dT'], :, :]
-                new_masks[1][:, 0:kw['dT'], :, :] = 1.0 + 0. * new_masks[1][:, 0:kw['dT'], :, :]
+            if self.kw['flagUseOI'] == True:
+                new_masks[0][:, 0:self.kw['dT'], :, :] = 1.0 + 0. * new_masks[0][:, 0:self.kw['dT'], :, :]
+                new_masks[1][:, 0:self.kw['dT'], :, :] = 1.0 + 0. * new_masks[1][:, 0:self.kw['dT'], :, :]
 
             idxSampMat = int(1)
             mask_t = 1. - torch.nn.functional.threshold(1.0 - new_masks[idxSampMat], 0.9, 0.)
-            mask_t = mask_t[:, kw['dT']:, :, :]
+            mask_t = mask_t[:, self.kw['dT']:, :, :]
 
-            if kw['flagUseOI'] == True:
+            if self.kw['flagUseOI'] == True:
                 inputs_init    = torch.cat((targets_OI, mask_t * (targets_GT - targets_OI)), dim=1)
                 inputs_missing = torch.cat((targets_OI, mask_t * (targets_GT - targets_OI)), dim=1)
 
-                # gradient norm field
+        # gradient norm field
         g_targets_GT = self.gradient_img(targets_GT, phase)
 
-        # need to evaluate grad/backward during the evaluation and training phase for phi_r
+        # need to evaluate grad/bacself.kward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
             # with torch.set_grad_enabled(phase == 'train'):
             inputs_init = torch.autograd.Variable(inputs_init, requires_grad=True)
@@ -104,14 +105,14 @@ class LitModel(pl.LightningModule):
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
             if phase == 'test':
-                shp_data = kw['shapeData_test']
+                shp_data = self.kw['shapeData_test']
             else:
-                shp_data = kw['shapeData']
+                shp_data = self.kw['shapeData']
 
-            if kw['flagMultiScale'] == True:
+            if self.kw['flagMultiScale'] == True:
                 outputsSLRHR = outputs
-                outputsSLR   = outputs[:, 0:kw['dT'], :, :].view(-1, kw['dT'], shp_data[1], shp_data[2])
-                outputs = outputsSLR + outputs[:, kw['dT']:, :, :].view(-1, kw['dT'], shp_data[1], shp_data[2])
+                outputsSLR   = outputs[:, 0:self.kw['dT'], :, :].view(-1, self.kw['dT'], shp_data[1], shp_data[2])
+                outputs = outputsSLR + outputs[:, self.kw['dT']:, :, :].view(-1, self.kw['dT'], shp_data[1], shp_data[2])
 
             # losses
             g_outputs  = self.gradient_img(outputs, phase)
@@ -126,65 +127,54 @@ class LitModel(pl.LightningModule):
             loss_AE_GT = torch.mean((self.model.phi_r(yGT) - yGT) ** 2)
 
             ## L1 vs. L0 cost for the sampling operator
-            if kw['flagMultiScale'] == True:
-                loss_Sampling = torch.mean(new_masks[idxSampMat][:, kw['dT']:, :, :])
+            if self.kw['flagMultiScale'] == True:
+                loss_Sampling = torch.mean(new_masks[idxSampMat][:, self.kw['dT']:, :, :])
             #TODO: else ??
-            loss_Sampling = torch.nn.functional.relu(loss_Sampling - kw['thr_L1Sampling'])
+            loss_Sampling = torch.nn.functional.relu(loss_Sampling - self.kw['thr_L1Sampling'])
 
             # training loss
-            loss = kw['alpha_Grad'] * (kw['betaX'] * loss_All + kw['betagX'] * loss_GAll) \
-                + 0.5 * kw['alpha_AE'] * (loss_AE + loss_AE_GT)
-            loss += kw['alpha_L1Sampling'] * loss_Sampling
+            loss = self.kw['alpha_Grad'] * (self.kw['betaX'] * loss_All + self.kw['betagX'] * loss_GAll) \
+                + 0.5 * self.kw['alpha_AE'] * (loss_AE + loss_AE_GT)
+            loss += self.kw['alpha_L1Sampling'] * loss_Sampling
 
-            if kw['flagMultiScale'] == True:
+            if self.kw['flagMultiScale'] == True:
                 loss_SR = NN_4DVar.compute_WeightedLoss(outputsSLR - targets_OI, self.wLoss)
                 loss_LR = NN_4DVar.compute_WeightedLoss(self.model_LR(outputs) - targets_GTLR, self.wLoss)
-                loss += kw['alpha_LR'] * loss_LR + kw['alpha_SR'] * loss_SR
+                loss += self.kw['alpha_LR'] * loss_LR + self.kw['alpha_SR'] * loss_SR
 
         return loss, outputs
 
 
 class Encoder(torch.nn.Module):
-    def __init__(self, dW, sS, shapeData,  dimAE):
+    def __init__(self, dW, sS, shapeData, DimAE):
         super(Encoder, self).__init__()
-
-        dW = 5
-        sS = int(4 / dx)
-
-        self.pool1 = torch.nn.AvgPool2d(sS)
-        self.conv1 = torch.nn.Conv2d(shapeData[0], 2 * DimAE, (2 * dW + 1, 2 * dW + 1), padding=dW, bias=False)
-        self.conv2 = torch.nn.Conv2d(2 * DimAE, DimAE, (1, 1), padding=0, bias=False)
-
-        self.conv21 = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
-        self.conv22 = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
-        self.conv23 = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
-        self.conv3 = torch.nn.Conv2d(2 * DimAE, DimAE, (1, 1), padding=0, bias=False)
-
-        self.conv2Tr = torch.nn.ConvTranspose2d(DimAE, shapeData[0], (sS, sS), stride=(sS, sS), bias=False)
-
-        self.convHR1 = torch.nn.Conv2d(shapeData[0], 2 * DimAE, (2 * dW + 1, 2 * dW + 1), padding=dW,
-                                       bias=False)
-        self.convHR2 = torch.nn.Conv2d(2 * DimAE, DimAE, (1, 1), padding=0, bias=False)
-
+        self.pool1    = torch.nn.AvgPool2d(sS)
+        self.conv1    = torch.nn.Conv2d(shapeData[0], 2 * DimAE, (2 * dW + 1, 2 * dW + 1), padding=dW, bias=False)
+        self.conv2    = torch.nn.Conv2d(2 * DimAE, DimAE, (1, 1), padding=0, bias=False)
+        self.conv21   = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
+        self.conv22   = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
+        self.conv23   = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
+        self.conv3    = torch.nn.Conv2d(2 * DimAE, DimAE, (1, 1), padding=0, bias=False)
+        self.conv2Tr  = torch.nn.ConvTranspose2d(DimAE, shapeData[0], (sS, sS), stride=(sS, sS), bias=False)
+        self.convHR1  = torch.nn.Conv2d(shapeData[0], 2 * DimAE, (2 * dW + 1, 2 * dW + 1), padding=dW, bias=False)
+        self.convHR2  = torch.nn.Conv2d(2 * DimAE, DimAE, (1, 1), padding=0, bias=False)
         self.convHR21 = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
         self.convHR22 = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
         self.convHR23 = torch.nn.Conv2d(DimAE, DimAE, (1, 1), padding=0, bias=False)
-        self.convHR3 = torch.nn.Conv2d(2 * DimAE, shapeData[0], (1, 1), padding=0, bias=False)
+        self.convHR3  = torch.nn.Conv2d(2 * DimAE, shapeData[0], (1, 1), padding=0, bias=False)
 
     def forward(self, xinp):
-        x = self.pool1(xinp)
-        x = self.conv1(x)
-        x = self.conv2(F.relu(x))
-        x = torch.cat((self.conv21(x), self.conv22(x) * self.conv23(x)), dim=1)
-        x = self.conv3(x)
-        x = self.conv2Tr(x)
+        x   = self.pool1(xinp)
+        x   = self.conv1(x)
+        x   = self.conv2(F.relu(x))
+        x   = torch.cat((self.conv21(x), self.conv22(x) * self.conv23(x)), dim=1)
+        x   = self.conv3(x)
+        x   = self.conv2Tr(x)
         xHR = self.convHR1(xinp)
         xHR = self.convHR2(F.relu(xHR))
         xHR = torch.cat((self.convHR21(xHR), self.convHR22(xHR) * self.convHR23(xHR)), dim=1)
         xHR = self.convHR3(xHR)
-
         x = torch.add(x, xHR, alpha=1.)
-
         return x
 
 
@@ -197,9 +187,9 @@ class Decoder(torch.nn.Module):
 
 
 class Phi_r(torch.nn.Module):
-    def __init__(self, dW, sS, shapeData,  dimAE):
+    def __init__(self, dW, sS, shapeData, DimAE):
         super(Phi_r, self).__init__()
-        self.encoder = Encoder(dW, sS, shapeData,  dimAE)
+        self.encoder = Encoder(dW, sS, shapeData, DimAE)
         self.decoder = Decoder()
 
     def forward(self, x):
