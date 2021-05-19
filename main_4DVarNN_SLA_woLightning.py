@@ -26,18 +26,37 @@ import argparse
 import numpy as np
 import xarray as xr
 
+#import matplotlib.pyplot as plt 
+#import os
+#import tensorflow.keras as keras
 import datetime
 
 import time
 import copy
 import torch
 import torch.optim as optim
+from torch.optim import lr_scheduler
 import torch.nn.functional as F
 from netCDF4 import Dataset
+#import scipy
+#from scipy.integrate import solve_ivp
+#from sklearn.feature_extraction import image
+
+# specific torch module 
+#import dinAE_solver_torch as dinAE
+#import torch_4DVarNN_withObsModel_v3 as NN_4DVar
 
 import os
+import sys
+sys.path.append('../4dvarnet-core')
 import solver as NN_4DVar
+#import os
+#os.chdir('../4dvarnet-core')
+#import solver as NN_4DVar
 
+#import torch4DVarNN_solver as NN_4DVar
+#import torchvision.datasets as datasets
+#from sklearn import decomposition
 from sklearn.feature_extraction import image
 #############################################################################################
 ##
@@ -63,21 +82,19 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    flagProcess    = [0,2,4]#Sequence fo processes to be run
+    flagProcess    = [0,2,5]#Sequence fo processes to be run
     
     flagRandomSeed = 0
     flagSaveModel  = 1
        
-    ## Parameters for data generation
-    
     ## NN architectures and optimization parameters
-    batch_size  = 10#16#4#4#8#12#8#256#
+    batch_size      = 2#16#4#4#8#12#8#256#
     flagAEType      = 2 # 0: AE, 1-2: GENN, 3: PCA
-    DimAE           = 10#10#10#50
+    DimAE           = 50#10#10#50
     GradType        = 1 # Gradient computation (1: L2 norm)
     OptimType       = 2 # 2: LSTM-based descent, no other option yet
-    dimGradSolver   = 50 # dimension of the hidden state of the LSTM cell
-    rateDropout     = 0. # dropout rate 
+    dimGradSolver   = 100 # dimension of the hidden state of the LSTM cell
+    rateDropout     = 0.25 # dropout rate 
     
     # data generation
     sigNoise        = 0. ## additive noise standard deviation
@@ -237,7 +254,7 @@ if __name__ == '__main__':
                 qMask = qMask[:,0:200,0:200]
                 
             def extract_SpaceTimePatches(q,i1,i2,W,dT,rnd1,rnd2,D=1):
-                dataTraining  = image.extract_patches_2d(np.moveaxis(q[i1:i2,::D,::D], 0, -1),(W,W),Nbpatches,random_state=rnd1)
+                dataTraining  = image.extract_patches_2d(np.moveaxis(q[i1:i2,::D,::D], 0, -1),(W,W),max_patches=Nbpatches,random_state=rnd1)
                 dataTraining  = np.moveaxis(dataTraining, -1, 1)
                 dataTraining  = dataTraining.reshape((Nbpatches,dataTraining.shape[1],W*W)) 
                 
@@ -250,7 +267,8 @@ if __name__ == '__main__':
             
                     dataTraining = np.moveaxis(temp, 1, 2)
                 else:
-                    dataTraining  = image.extract_patches_2d(dataTraining,(Nbpatches,dT),dataTraining.shape[1]-dT+1,random_state=rnd2)
+                    #dataTraining  = image.extract_patches_2d(dataTraining,(Nbpatches,dT),dataTraining.shape[1]-dT+1,random_state=rnd2)
+                    dataTraining  = image.extract_patches_2d(dataTraining,(Nbpatches,dT),None)
                     #dataTraining  = dataTraining.reshape((dT,W*W,Nbpatches*dataTraining.shape[-1]))
                 dataTraining  = dataTraining.reshape((dataTraining.shape[0],dataTraining.shape[1],dT,W,W)) 
                 dataTraining  = np.moveaxis(dataTraining, 0, -1)
@@ -298,15 +316,8 @@ if __name__ == '__main__':
             dataValMask = extract_SpaceTimePatches(qMask,iiVal,jjVal,W,dT,rnd1,rnd2,dx)
             dataValOI   = extract_SpaceTimePatches(qOI,iiVal,jjVal,W,dT,rnd1,rnd2,dx)
 
-            if 1*0:
-                for nn in range(0,20):
-                    print( np.mean( (dataTestOI[nn,int(dT/2),:,:].squeeze()-qOI[60+nn,0:200,0:200].squeeze())**2) )
-                    print( np.mean( (dataTest[nn,int(dT/2),:,:].squeeze()-qHR[60+nn,0:200,0:200].squeeze())**2) )
-                    print( np.mean( (dataTestMask[nn,int(dT/2),:,:].squeeze()-qMask[60+nn,0:200,0:200].squeeze())**2) )
-
             meanTr     = np.mean(dataTraining)
             x_train    = dataTraining - meanTr
-            # scale wrt std
             stdTr      = np.sqrt( np.mean( x_train**2 ) )
             x_train    = x_train / stdTr
             
@@ -338,6 +349,10 @@ if __name__ == '__main__':
             print('----- MSE Tr OI: %.6f'%np.mean(stdTr**2 * (x_trainOI[:,int(dT/2),:,:]-x_train[:,int(dT/2),:,:])**2))
             print('----- MSE Tt OI: %.6f'%np.mean(stdTr**2 * (x_testOI[:,int(dT/2),:,:]-x_test[:,int(dT/2),:,:])**2))
 
+        ###############################################################
+        ## Initial interpolation
+        elif flagProcess[kk] == 1:        
+            print('........ No initialization')
  
         ###############################################################
         ## AE architecture
@@ -463,7 +478,7 @@ if __name__ == '__main__':
                       
                       self.conv1  = torch.nn.Conv2d(dimIn, 2*dim, (2*dW+1,2*dW+1),padding=dW, bias=False)
                       self.conv2  = torch.nn.Conv2d(2*dim, dim, (2*dW2+1,2*dW2+1), padding=dW2, bias=False)
-                      self.conv3  = torch.nn.Conv2d(2*dim, dim, (2*dW2+1,2*dW2+1), padding=dW2, bias=False)
+                      self.conv3  = torch.nn.Conv2d(2*dim, dimIn, (2*dW2+1,2*dW2+1), padding=dW2, bias=False)
                       self.bilin0 = torch.nn.Conv2d(dim, dim, (2*dW2+1,2*dW2+1), padding=dW2, bias=False)
                       self.bilin1 = torch.nn.Conv2d(dim, dim, (2*dW2+1,2*dW2+1), padding=dW2, bias=False)
                       self.bilin2 = torch.nn.Conv2d(dim, dim, (2*dW2+1,2*dW2+1), padding=dW2, bias=False)
@@ -490,7 +505,7 @@ if __name__ == '__main__':
                       #self.conv1HR  = torch.nn.Conv2d(dimInp,self.DimAE,(2*dW+1,2*dW+1),padding=dW,bias=False) 
                       #self.conv1LR  = torch.nn.Conv2d(dimInp,self.DimAE,(2*dW+1,2*dW+1),padding=dW,bias=False) 
                       self.pool1   = torch.nn.AvgPool2d(sS)
-                      self.convTr  = torch.nn.ConvTranspose2d(self.DimAE,dimInp,(sS,sS),stride=(sS,sS),bias=False)          
+                      self.convTr  = torch.nn.ConvTranspose2d(dimInp,dimInp,(sS,sS),stride=(sS,sS),bias=False)          
 
                       #self.NNtLR    = self.__make_ResNet(self.DimAE,self.NbBlocks,rateDropout)
                       #self.NNHR     = self.__make_ResNet(self.DimAE,self.NbBlocks,rateDropout)                      
@@ -530,6 +545,232 @@ if __name__ == '__main__':
                   def forward(self, x):
                       return torch.mul(1.,x)
 
+            elif flagAEType == 3: ## Conv model with no use of the central point
+              dW  = 3
+              dW2 = 1
+              sS  = int(4/dx)
+              nbBlocks = 2
+              rateDr   = 0. * rateDropout
+              genSuffixModel = '_GENN_%d_%02d_%02d_%02d_%02d_%02d'%(flagAEType,DimAE,dW,dW2,nbBlocks,int(100*rateDropout))
+
+              class ResLayer(torch.nn.Module):
+                  def __init__(self,dimAE,dropout=0.):
+                      super(ResLayer, self).__init__()
+                      self.RU = self.__make_RU(dimAE,dropout=0.)
+                      
+                  def __make_RU(self,DimAE,dropout=0.):
+                        layers = []
+                
+                        layers.append(torch.nn.Conv2d(DimAE, 2*DimAE, (2*dW2+1,2*dW2+1), padding=dW2,bias=False))
+                        #layers.append( torch.nn.BatchNorm2d(2*DimAE) )
+                        layers.append(torch.nn.Dropout(dropout))
+                        layers.append(torch.nn.ReLU())
+                        layers.append(torch.nn.Conv2d(2*DimAE, DimAE, (2*dW2+1,2*dW2+1), padding=dW2,bias=False))
+                        layers.append(torch.nn.Dropout(dropout))
+                
+                        return torch.nn.Sequential(*layers)
+
+                  def forward(self,x):
+                      
+                      return x + self.RU(x)
+
+              class BiLinNN(torch.nn.Module):
+                  def __init__(self,dimIn,dim,NbRU=1,dropout=0.):
+                      super(BiLinNN, self).__init__()
+                      
+                      self.conv1  = torch.nn.Conv2d(dimIn, 2*dim, (2*dW+1,2*dW+1),padding=dW, bias=False)
+                      self.conv2  = torch.nn.Conv2d(2*dim, dim, (2*dW2+1,2*dW2+1), padding=dW2, bias=False)
+                      self.conv3  = torch.nn.Conv2d(2*dim, dim, (2*dW2+1,2*dW2+1), padding=dW2, bias=False)
+                      self.bilin0 = torch.nn.Conv2d(dim, dim, (2*dW2+1,2*dW2+1), padding=dW2, bias=False)
+                      self.bilin1 = torch.nn.Conv2d(dim, dim, (2*dW2+1,2*dW2+1), padding=dW2, bias=False)
+                      self.bilin2 = torch.nn.Conv2d(dim, dim, (2*dW2+1,2*dW2+1), padding=dW2, bias=False)
+                      self.dropout  = torch.nn.Dropout(dropout)
+                      
+                      self.NbRU = NbRU
+                      if self.NbRU > 0:
+                          self.ResNet  = self.__make_ResNet(dim,NbRU,dropout)
+                    
+                  def __make_ResNet(self,dimAE,Nb_RU=2,dropout=0.):
+                        layers = []
+                        for kk in range(0,Nb_RU):
+                            layers.append( ResLayer(dimAE,dropout) )
+                        return torch.nn.Sequential(*layers)
+
+                  def forward(self,xin):
+                      
+                      x = self.conv1(xin)
+                      x = self.dropout(x)
+                      x = self.conv2( F.relu(x) )
+                      x = self.dropout(x)
+                      
+                      if self.NbRU > 0:
+                          x = self.ResNet(x)
+                      
+                      x = torch.cat((self.bilin0(x), self.bilin1(x) * self.bilin2(x)),dim=1)
+                      x = self.dropout(x)
+                      x = self.conv3( x )
+                      
+                      return x
+                 
+              class Encoder(torch.nn.Module):
+                  def __init__(self,dimInp,dimAE,rateDropout=0.):
+                      super(Encoder, self).__init__()
+
+                      self.NbBlocks  = nbBlocks
+                      self.DimAE     = dimAE
+
+                      self.pool1   = torch.nn.AvgPool2d(sS)
+                      self.convTr  = torch.nn.ConvTranspose2d(self.DimAE,dimInp,(sS,sS),stride=(sS,sS),bias=False)          
+
+                      self.NNLR     = BiLinNN(dimInp,dimAE,self.NbBlocks,rateDropout) 
+                      self.NNHR     = BiLinNN(dimInp,dimAE,self.NbBlocks,rateDropout)                      
+                      self.dropout  = torch.nn.Dropout(rateDropout)
+                                        
+                  def forward(self, xinp):
+                      
+                      ## LR comlponent
+                      xLR = self.NNLR( self.pool1(xinp) )
+                      xLR = self.dropout(xLR)
+                      xLR = self.convTr( xLR ) 
+                      
+                      # HR component
+                      xHR = self.NNHR( xinp )
+                      
+                      return xLR + xHR
+            
+              class Decoder(torch.nn.Module):
+                  def __init__(self):
+                      super(Decoder, self).__init__()
+            
+                  def forward(self, x):
+                      return torch.mul(1.,x)
+            elif flagAEType == 4: ## Conv model with no use of the central point
+              dW       = 3
+              dW2      = 1
+              sS       = int(4/dx)
+              nbBlocks = 0
+              rateDr   = 0. * rateDropout
+              genSuffixModel = '_GENN_%d_%02d_%02d_%02d_%02d_%02d'%(flagAEType,DimAE,dW,dW2,nbBlocks,int(100*rateDropout))
+
+              class BiLinUnit(torch.nn.Module):
+                  def __init__(self,dimIn,dim,dropout=0.):
+                      super(BiLinUnit, self).__init__()
+                      
+                      self.bilin0 = torch.nn.Conv2d(dim, dim, (2*dW2+1,2*dW2+1), padding=dW2, bias=False)
+                      self.bilin1 = torch.nn.Conv2d(dim, dim, (2*dW2+1,2*dW2+1), padding=dW2, bias=False)
+                      self.bilin2 = torch.nn.Conv2d(dim, dim, (2*dW2+1,2*dW2+1), padding=dW2, bias=False)
+                      self.dropout = torch.nn.Dropout(dropout)
+                      self.conv3   = torch.nn.Conv2d(2*dim, dim, (2*dW2+1,2*dW2+1), padding=dW2, bias=False)
+                      
+                  def forward(self,xin):
+                      
+                      x = torch.cat((self.bilin0(xin), self.bilin1(xin) * self.bilin2(xin)),dim=1)
+                      x = self.dropout(x)
+                      x = self.conv3( x )
+                      
+                      return x
+
+              class FeatNN(torch.nn.Module):
+                  def __init__(self,dimIn,dim,dropout=0.):
+                      super(FeatNN, self).__init__()
+                      
+                      self.conv1   = torch.nn.Conv2d(dimIn, 2*dim, (2*dW+1,2*dW+1),padding=dW, bias=False)
+                      self.conv2   = torch.nn.Conv2d(2*dim, dim, (2*dW2+1,2*dW2+1), padding=dW2, bias=False)
+                      self.dropout = torch.nn.Dropout(dropout)
+                      
+                  def forward(self,xin):
+                      
+                      x = self.conv1(xin)
+                      x = self.dropout(x)
+                      x = self.conv2( F.relu(x) )
+                      
+                      return x
+
+              class ResLayer(torch.nn.Module):
+                  def __init__(self,dimAE,dropout=0.):
+                      super(ResLayer, self).__init__()
+                      self.RU = self.__make_RU(dimAE,dropout=0.)
+                      
+                  def __make_RU(self,DimAE,dropout=0.):
+                        layers = []
+                
+                        layers.append(torch.nn.Conv2d(DimAE, 2*DimAE, (2*dW2+1,2*dW2+1), padding=dW2,bias=False))
+                        #layers.append( torch.nn.BatchNorm2d(2*DimAE) )
+                        layers.append(torch.nn.Dropout(dropout))
+                        layers.append(torch.nn.ReLU())
+                        layers.append(torch.nn.Conv2d(2*DimAE, DimAE, (2*dW2+1,2*dW2+1), padding=dW2,bias=False))
+                        layers.append(torch.nn.Dropout(dropout))
+                
+                        return torch.nn.Sequential(*layers)
+
+                  def forward(self,x):
+                      
+                      return x + self.RU(x)
+                  
+              class Encoder(torch.nn.Module):
+                  def __init__(self,dimInp,dimAE,dropout=0.):
+                      super(Encoder, self).__init__()
+
+                      self.NbBlocks  = nbBlocks
+                      self.DimAE     = dimAE
+                      self.pool1     = torch.nn.AvgPool2d(sS)
+                      self.convTr    = torch.nn.ConvTranspose2d(self.DimAE,dimInp,(sS,sS),stride=(sS,sS),bias=False)          
+
+                      if self.NbBlocks > 0:
+                          self.ResNetLR     = self.__make_ResNet(self.DimAE,self.NbBlocks,dropout)
+                          self.ResNetHR     = self.__make_ResNet(self.DimAE,self.NbBlocks,dropout)                      
+
+                      self.FeatNNLR     = FeatNN(dimInp,self.DimAE,dropout)#self.__make_BilinNN(dimInp,self.DimAE,self.NbBlocks,rateDropout)
+                      self.FeatNNHR     = FeatNN(dimInp,self.DimAE,dropout)                      
+                      
+                      self.dropout      = torch.nn.Dropout(rateDropout)
+                      
+                      self.BilinNNLR    = self.__make_BilinNN(self.DimAE,self.DimAE,dropout)
+                      self.BilinNNHR    = self.__make_BilinNN(self.DimAE,self.DimAE,dropout)  
+                      
+                      #self.BNLR         = torch.nn.BatchNorm2d(DimAE) 
+                      #self.BNHR         = torch.nn.BatchNorm2d(DimAE) 
+                   
+                  def __make_BilinNN(self,dimInp,dimAE,dropout=0.): 
+                        layers = []
+                        layers.append( BiLinUnit(dimInp,dimAE,dropout) )
+                        return torch.nn.Sequential(*layers)
+                    
+                  def __make_ResNet(self,dimAE,Nb_RU=1,dropout=0.):
+                        layers = []
+                        for kk in range(0,Nb_RU):
+                            layers.append( ResLayer(dimAE,dropout) )
+                        return torch.nn.Sequential(*layers)
+                    
+                  def forward(self, xinp):
+                      
+                      ## LR component
+                      xLR = self.FeatNNLR( self.pool1(xinp) )
+                      #xLR = self.BNLR( xLR )
+                      xLR = self.dropout(xLR)
+                      if self.NbBlocks > 0:
+                          xLR = self.ResNetLR( xLR )                      
+                          xLR = self.dropout(xLR)
+                      xLR = self.BilinNNLR( xLR )                      
+                      xLR = self.dropout(xLR)
+                      xLR = self.convTr( xLR ) 
+                      
+                      # HR component
+                      xHR = self.FeatNNHR( xinp )
+                      #xLR = self.BNHR( xLR )
+                      xHR = self.dropout( xHR )
+                      if self.NbBlocks > 0:
+                          xHR = self.ResNetHR( xHR )                      
+                          xHR = self.dropout( xHR )
+                      xHR = self.BilinNNHR( xHR )                      
+                      
+                      return xLR + xHR
+              class Decoder(torch.nn.Module):
+                  def __init__(self):
+                      super(Decoder, self).__init__()
+            
+                  def forward(self, x):
+                      return 1. * x
 
             class Model_Phi(torch.nn.Module):
                 def __init__(self):
@@ -638,8 +879,8 @@ if __name__ == '__main__':
             NbGradIter     = [5,5,10,10,15,15,20,20,20]#[0,0,1,2,3,3]#[0,2,2,4,5,5]#
             lrUpdate       = [1e-3,1e-4,1e-4,1e-5,1e-4,1e-5,1e-5,1e-6,1e-7]
             
-            comptUpdate = 1
-            iterInit    = 0#498
+            comptUpdate = 4
+            iterInit    = 95#498
             
              # NiterProjection,NiterGrad: global variables
             NBGradCurrent   = NbGradIter[comptUpdate-1]
@@ -668,9 +909,13 @@ if __name__ == '__main__':
             print('----- MSE xTr OI: %.3e'%(np.mean((x_trainOI-x_train)**2)/var_Tr))
             print('----- MSE xTt OI: %.3e'%(np.mean((x_testOI-x_test)**2)/var_Tt))
 
-            flagLoadModel   = 0
-            fileAEModelInit = 'xxx'
-
+            flagLoadModel   = 1
+            fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_128x128x05_GENN_1_10_05_SZeros_HRObs_OIObs_MS_Grad_03_02_10_50_modelPHI_iter060.mod'
+            fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_128x128x05_GENN_1_10_05_SZeros_HRObs_OIObs_MS_Grad_01_02_05_50_modelPHI_iter020.mod'
+            fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_1_10_05_SZeros_HRObs_OIObs_MS_Grad_01_02_10_50_modelPHI_iter080.mod'
+            fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_1_10_05_HRObs_OIObs_MS_Grad_01_02_10_50_modelPHI_iter080.mod'
+            fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_2_50_03_01_01_25_HRObs_OIObs_MS_Grad_01_02_10_200_modelPHI_iter080.mod'
+            
             if flagLoadModel == 1:
                 print('.... load AE+Grad+Sampling model: '+fileAEModelInit)
                 model.phi_r.load_state_dict(torch.load(fileAEModelInit))
@@ -688,7 +933,7 @@ if __name__ == '__main__':
                 modelMultiGPU_LR       = model_LR
 
             # optimization setting: freeze or not the AE
-            lambda_LRAE = 0.5
+            lambda_LRAE = 1.
             optimizer   = optim.Adam([{'params': modelMultiGPU.model_Grad.parameters(), 'lr': lrCurrent},
                                       {'params': modelMultiGPU.model_VarCost.parameters(), 'lr': lrCurrent},
                                     {'params': modelMultiGPU.phi_r.parameters(), 'lr': lambda_LRAE*lrCurrent},
@@ -882,8 +1127,8 @@ if __name__ == '__main__':
             
            
                             outputsSLRHR = outputs
-                            outputsSLR   = outputs[:,0:dT,:,:].view(-1,dT,shapeData[1],shapeData[2])
-                            outputs      = outputsSLR + outputs[:,dT:,:,:].view(-1,dT,shapeData[1],shapeData[2])
+                            outputsSLR   = outputs[:,0:dT,:,:]
+                            outputs      = outputsSLR + outputs[:,dT:,:,:]
 
                             # losses
                             g_outputs   = gradient_img( outputs )
@@ -912,7 +1157,7 @@ if __name__ == '__main__':
                             loss_SR    = NN_4DVar.compute_WeightedLoss(outputsSLR-targets_OI,wLoss)
                             loss_LR    = NN_4DVar.compute_WeightedLoss(modelMultiGPU_LR(outputs)-targets_GTLR,wLoss)
                                
-                            loss    += alpha_LR * loss_LR + alpha_SR * loss_SR
+                            loss      += alpha_LR * loss_LR + alpha_SR * loss_SR
 
                             # backward + optimize only if in training phase
                             if( phase == 'train' ):
@@ -938,7 +1183,7 @@ if __name__ == '__main__':
             
                             num_loss                 += inputs_missing.size(0)
               
-                    epoch_loss       = running_loss / num_loss
+                    epoch_loss        = running_loss / num_loss
                     epoch_loss_All    = running_loss_All / num_loss
                     epoch_loss_All1   = running_loss_All1 / num_loss
                     epoch_loss_AE     = running_loss_AE / num_loss
@@ -1092,12 +1337,32 @@ if __name__ == '__main__':
             print('----- MSE xTr OI: %.3e'%(np.mean((x_trainOI-x_train)**2)/var_Tr))
             print('----- MSE xTt OI: %.3e'%(np.mean((x_testOI-x_test)**2)/var_Tt))
                                     
-            fileAEModelInit = 'xxxxxx'
+            fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_128x128x05_GENN_1_10_05_SZeros_HRObs_OIObs_MS_Grad_03_02_10_50_modelPHI_iter060.mod'
+            fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_128x128x05_GENN_1_10_05_SZeros_HRObs_OIObs_MS_Grad_01_02_05_50_modelPHI_iter020.mod'
+            fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_1_10_05_SZeros_HRObs_OIObs_MS_Grad_01_02_10_50_modelPHI_iter080.mod'
+            fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_1_10_05_HRObs_OIObs_MS_Grad_01_02_05_50_modelPHI_iter040.mod'
+            fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_1_10_05_00_HRObs_OIObs_MS_Grad_01_02_15_50_modelPHI_iter120.mod'
+            
+            fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_2_10_05_01_00_HRObs_OIObs_MS_Grad_01_02_15_50_modelPHI_iter120.mod'
+            fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_2_10_03_01_01_00_HRObs_OIObs_MS_Grad_01_02_15_50_modelPHI_iter120.mod'
+            fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_2_10_03_01_01_25_HRObs_OIObs_MS_Grad_01_02_15_50_modelPHI_iter140.mod'
+            #fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_2_10_03_01_01_05_HRObs_OIObs_MS_Grad_01_02_15_50_modelPHI_iter120.mod'
+            
+            #fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_2_10_03_01_02_00_HRObs_OIObs_MS_Grad_01_02_15_50_modelPHI_iter180.mod'
+            fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_3_10_03_01_02_25_HRObs_OIObs_MS_Grad_01_02_05_50_modelPHI_iter040.mod'
+            fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_2_10_03_01_01_10_HRObs_OIObs_MS_Grad_01_02_15_50_modelPHI_iter140.mod'
+            fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_2_10_03_01_01_25_HRObs_OIObs_MS_Grad_01_02_10_100_modelPHI_iter080.mod'
+            fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_2_20_03_01_01_25_HRObs_OIObs_MS_Grad_01_02_10_100_modelPHI_iter080.mod'
+            fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_2_50_03_01_01_25_HRObs_OIObs_MS_Grad_01_02_10_100_modelPHI_iter080.mod'
+            #fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_2_50_03_01_01_25_HRObs_OIObs_MS_Grad_01_02_15_100_modelPHI_iter120.mod'
+            #fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_2_20_03_01_01_25_HRObs_OIObs_MS_Grad_01_02_15_100_modelPHI_iter199.mod'
+            #fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_2_50_03_01_01_25_HRObs_OIObs_MS_Grad_01_02_10_200_modelPHI_iter080.mod'
             
             print('.... load AE+Grad+Sampling model: '+fileAEModelInit)
             model.phi_r.load_state_dict(torch.load(fileAEModelInit))
             model.model_Grad.load_state_dict(torch.load(fileAEModelInit.replace('_modelPHI_iter','_modelGrad_iter')))
             model.model_VarCost.load_state_dict(torch.load(fileAEModelInit.replace('_modelPHI_iter','_modelVarCost_iter')))
+            
                 
             # multi-GPU model
             flag_UseMultiGPU = False
@@ -1173,12 +1438,6 @@ if __name__ == '__main__':
                 if phase == 'test' :
                     print(".... MSE(test) OI %.3f -- MSE(test) gOI %.3f "%(epoch_loss_OI,epoch_loss_GOI))
                         
-            x_test_rec = []
-            x_test_OI  = []
-            x_test_GT  = []
-            x_test_S   = []
-            x_test_M1  = []
-            x_test_M2  = []
 
             comptUpdate = 1
             iterInit    = 0#498
@@ -1212,6 +1471,13 @@ if __name__ == '__main__':
                     running_loss_LR = 0.
                     running_loss_SR = 0.
             
+                    x_test_rec = []
+                    x_test_OI  = []
+                    x_test_GT  = []
+                    x_test_S   = []
+                    x_test_M1  = []
+                    x_test_M2  = []
+
                     # Iterate over data.
                     for targets_OI,inputs_Mask,targets_GT in dataloaders[phase]:
                         targets_OI     = targets_OI.to(device)
@@ -1267,7 +1533,6 @@ if __name__ == '__main__':
                             loss        = alphaMSE * (betaX * loss_All + betagX * loss_GAll) + 0.5 * alphaProj * ( loss_AE + loss_AE_GT )
                             loss_SR    = NN_4DVar.compute_WeightedLoss(outputsSLR-targets_OI,wLoss)
                             loss_LR    = NN_4DVar.compute_WeightedLoss(modelMultiGPU_LR(outputs)-targets_GTLR,wLoss)
-
                                 
                             loss    += alpha_LR * loss_LR + alpha_SR * loss_SR
 
@@ -1294,7 +1559,7 @@ if __name__ == '__main__':
                             num_loss                 += inputs_missing.size(0)
               
                         # store resuls
-                        if ( phase == 'val' ) & (flagSaveTestResults == True) :
+                        if ( phase == 'test' ) & (flagSaveTestResults == True) :
                             if( len(x_test_rec) == 0 ):
                                 x_test_rec = np.copy(outputs.cpu().detach().numpy())
                                 x_test_OI  = np.copy(targets_OI.cpu().detach().numpy())
@@ -1409,4 +1674,12 @@ if __name__ == '__main__':
                     print('.... Save results for test dataset:  '+filesave)
                     save_NetCDF(filesave,x_test_rec,x_test_OI,x_test_GT,x_test_M1)
                     
+                    print(" mseOI = %f"%np.mean((x_test_GT[:,int(dT/2),:,:]-x_test_OI[:,int(dT/2),:,:])**2))
+                    print(" mseNN = %f"%np.mean((x_test_GT[:,int(dT/2),:,:]-x_test_rec[:,int(dT/2),:,:])**2))
+
+                    #print(" verif = %f"%np.mean((x_test_GT[:,int(dT/2),:,:] - qHR[90:110,:,:])**2))
+
+                    #print('----- MSE Tr OI: %.6f'%np.mean(stdTr**2 * (x_trainOI-x_train)**2))
+                    #print('----- MSE Tt OI: %.6f'%np.mean(stdTr**2 * (x_testOI-x_test)**2))
+
                 
