@@ -20,18 +20,16 @@ import torch.nn.functional as F
 from torch.optim.lr_scheduler import MultiStepLR
 from netCDF4 import Dataset
 
-import sys
 import os
-sys.path.append('../4dvarnet-core')
 import solver as NN_4DVar
 from sklearn.feature_extraction import image
 import pytorch_lightning as pl
-import math
 import torch.distributed as dist
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 flagRandomSeed = 0
 
-## NN architectures and optimization parameters
+# NN architectures and optimization parameters
 batch_size      = 10#16#4#4#8#12#8#256#
 DimAE           = 50#10#10#50
 dimGradSolver   = 100 # dimension of the hidden state of the LSTM cell
@@ -56,6 +54,8 @@ InterpFlag         = False # True => force reconstructed field to observed data 
 
 # Definiton of training, validation and test dataset
 # from dayly indices over a one-year time series
+
+# indices for training/validation/test periods
 iiTr1 = 0
 jjTr1 = 50 - int(dT / 2)
 
@@ -68,20 +68,22 @@ jjVal = 80 + int(dT / 2)
 iiTest = 90 - int(dT / 2)
 jjTest = 110 + int(dT / 2)
  
-############################################## Data generation ###############################################################
-if flagRandomSeed == 0:
-    print('........ Random seed set to 100')
-    np.random.seed(100)
-    torch.manual_seed(100)
 
-dirSAVE = '/gpfswork/rech/yrf/ueh53pd/ResSLANATL60/'
-genSuffixObs = ''
+############################################## Data generation ###############################################################
+print('........ Random seed set to 100')
+np.random.seed(100)
+torch.manual_seed(100)
+
 
 dirREF = "/gpfswork/rech/yrf/uba22to/DATA/GULFSTREAM/"
 if os.path.isdir(dirREF) == True :            
     dirDATA = dirREF
+    dirSAVE = '/gpfswork/rech/yrf/ueh53pd/ResSLANATL60/'
+    genSuffixObs = ''
 else:
     dirDATA = '/users/local/DATA/DataNATL60/GULFSTREAM/'
+    dirSAVE = './ResSLANATL60/'
+    genSuffixObs = ''
 
 ncfile = Dataset(dirDATA+"ref/NATL60-CJM165_GULFSTREAM_ssh_y2013.1y.nc","r")
 qHR    = ncfile.variables['ssh'][:]
@@ -90,7 +92,6 @@ ncfile.close()
 
 if flagSWOTData == True :
     print('.... Use SWOT+4-nadir dataset')
-    genFilename  = 'resInterpSLAwSWOT_Exp3_NewSolver_'+str('%03d'%(W))+'x'+str('%03d'%(W))+'x'+str('%02d'%(dT))
     # OI data using a noise-free OSSE (ssh_mod variable)
     ncfile = Dataset(dirDATA+"oi/ssh_NATL60_swot_4nadir.nc","r")
     qOI    = ncfile.variables['ssh_mod'][:]
@@ -104,7 +105,6 @@ if flagSWOTData == True :
     ncfile.close()
 
 else:
-    genFilename  = 'resInterp4NadirSLAwOInoSST_'+str('%03d'%(W))+'x'+str('%03d'%(W))+'x'+str('%02d'%(dT))
     print('.... Use 4-nadir dataset')
     # OI data using a noise-free OSSE (ssh_mod variable)
     ncfile = Dataset(dirDATA+"oi/ssh_NATL60_4nadir.nc","r")
@@ -136,18 +136,8 @@ def extract_SpaceTimePatches(q,i1,i2,W,dT,rnd1,rnd2,D=1):
     dataTraining  = np.moveaxis(dataTraining, -1, 1)
     dataTraining  = dataTraining.reshape((Nbpatches,dataTraining.shape[1],W*W)) 
     
-    if NoRndPatches == True :
-        for ii in range(0,dataTraining.shape[1]-dT+1):
-            if ii == 0:                
-                temp = dataTraining[:,ii:ii+dT,:].reshape((1,dT,Nbpatches,W*W))
-            else:
-                temp = np.concatenate((temp,dataTraining[:,ii:ii+dT,:].reshape((1,dT,Nbpatches,W*W))),axis=0)
+    dataTraining  = image.extract_patches_2d(dataTraining,(Nbpatches,dT),max_patches=None)
 
-        dataTraining = np.moveaxis(temp, 1, 2)
-    else:
-        #dataTraining  = image.extract_patches_2d(dataTraining,(Nbpatches,dT),max_patches=dataTraining.shape[1]-dT+1,random_state=rnd2)
-        dataTraining  = image.extract_patches_2d(dataTraining,(Nbpatches,dT),max_patches=None)
-        #dataTraining  = dataTraining.reshape((dT,W*W,Nbpatches*dataTraining.shape[-1]))
     dataTraining  = dataTraining.reshape((dataTraining.shape[0],dataTraining.shape[1],dT,W,W)) 
     dataTraining  = np.moveaxis(dataTraining, 0, -1)
     dataTraining  = np.moveaxis(dataTraining, 0, -1)
@@ -155,21 +145,6 @@ def extract_SpaceTimePatches(q,i1,i2,W,dT,rnd1,rnd2,D=1):
     dataTraining  = np.moveaxis(dataTraining, -1, 0)
     return dataTraining     
 
-# training dataset
-dtOI = 0
-iiTr1 = 0
-jjTr1 = 50 - int(dT / 2)
-
-iiTr2 = 130 + int(dT / 2)
-jjTr2 = 365
-
-iiVal = 60 - int(dT / 2)
-jjVal = 80 + int(dT / 2)
-#iiVal = 90 - int(dT / 2)
-#jjVal = 110 + int(dT / 2)
-
-iiTest = 90 - int(dT / 2)
-jjTest = 110 + int(dT / 2)
 
 # training dataset
 dataTraining1     = extract_SpaceTimePatches(qHR,iiTr1,jjTr1,W,dT,rnd1,rnd2,dx)
@@ -353,9 +328,6 @@ class Model_H(torch.nn.Module):
         return dyout
 
 
-#model_H = Model_H()
-
-
 class Gradient_img(torch.nn.Module):
     def __init__(self):
         super(Gradient_img, self).__init__()
@@ -401,8 +373,6 @@ class ModelLR(torch.nn.Module):
 
     def forward(self, im):
         return self.pool(im)
-
-#model_LR = ModelLR()
 
 
 alpha_MSE     = 0.1
@@ -450,7 +420,6 @@ if betaX is None or betagX is None:
 
     print(".... MSE(Tr) OI %.3f -- MSE(Tr) gOI %.3f " % (epoch_loss_OI, epoch_loss_GOI))
     print(".... betaX = %.3f -- betagX %.3f " % (betaX, betagX))
-#print(f"{(betaX, betagX)=}")
 
 def save_NetCDF(saved_path1, x_test_rec):
     extent = [-65., -55., 30., 40.]
@@ -499,6 +468,7 @@ class LitModel(pl.LightningModule):
         self.wLoss        = torch.nn.Parameter(torch.Tensor(w_), requires_grad=False)
 
         self.automatic_optimization = True#False#
+        self.Kbatch = 1 # grad update every self.Kbatch mini-batches
         
         self.x_rec   = None # variable to store output of test method
     def forward(self):
@@ -506,47 +476,13 @@ class LitModel(pl.LightningModule):
 
     def configure_optimizers(self):
         #optimizer = optim.Adam(self.model.parameters(), lr= self.lrUpdate[0])
-        if 1*1 :
-            #optimizer   = optim.Adam(self.model.parameters(), lr = self.lrUpdate[0])
-            optimizer   = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.lrUpdate[0]},
-                                      {'params': self.model.model_VarCost.parameters(), 'lr': self.lrUpdate[0]},
-                                    {'params': self.model.phi_r.parameters(), 'lr': 0.5*self.lrUpdate[0]},
-                                    ], lr=0.)
-        elif 1*0:
-            optimizer   = optim.RMSprop([{'params': self.model.model_Grad.parameters(), 'lr': self.lrUpdate[0]},
-                                      {'params': self.model.model_VarCost.parameters(), 'lr': self.lrUpdate[0]},
-                                    {'params': self.model.phi_r.parameters(), 'lr': self.lrUpdate[0]},
-                                    ], lr=0.)
-
-        else:
-            optimizer   = optim.ASGD([{'params': self.model.model_Grad.parameters(), 'lr': self.lrUpdate[0]},
-                                      {'params': self.model.model_VarCost.parameters(), 'lr': self.lrUpdate[0]},
-                                    {'params': self.model.phi_r.parameters(), 'lr': self.lrUpdate[0]},
-                                    ], lr=0.)
-        #optPhi     = optim.Adam(self.model.phi_r.parameters(),lr=self.lrUpdate[0])
-        #optGrad    = optim.Adam(self.model.model_Grad.parameters(),lr=self.lrUpdate[0])
-        #optVarCost = optim.Adam(self.model.model_VarCost.parameters(),lr=self.lrUpdate[0])
-
-
+        optimizer   = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.lrUpdate[0]},
+                                  {'params': self.model.model_VarCost.parameters(), 'lr': self.lrUpdate[0]},
+                                {'params': self.model.phi_r.parameters(), 'lr': 0.5*self.lrUpdate[0]},
+                                ], lr=0.)
+         
         return optimizer
-
-    # learning rate warm-up
-    def optimizer_step(self, epoch, batch_idx, optimizer, optimizer_idx, optimizer_closure,
-        on_tpu=False, using_native_amp=False, using_lbfgs=False,):
-        # skip the first 500 steps
-        if (self.current_epoch in self.IterUpdate) & (self.current_epoch > 0):
-            indx             = self.IterUpdate.index(self.current_epoch)
-            
-            lrCurrent = self.lrUpdate[indx]
-            lr = np.array([lrCurrent,lrCurrent,0.5*lrCurrent,0.])            
-            mm = 0
-            for pg in optimizer.param_groups:
-                pg['lr'] = lr[mm]# * self.hparams.learning_rate
-                mm += 1
     
-        # update params
-        optimizer.step(closure=optimizer_closure)
-        
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
         opt = self.optimizers()
         if (self.current_epoch in self.IterUpdate) & (self.current_epoch > 0) & ( batch_idx == 0 ):
@@ -555,15 +491,17 @@ class LitModel(pl.LightningModule):
             
             self.model.NGrad = self.NbGradIter[indx]
             
+            mm = 0
+            lrCurrent = self.lrUpdate[indx]
+            lr = np.array([lrCurrent,lrCurrent,0.5*lrCurrent,0.])            
             for pg in opt.param_groups:
-                pg['lr'] = self.lrUpdate[indx]# * self.hparams.learning_rate
+                pg['lr'] = lr[mm]# * self.hparams.learning_rate
+                mm += 1
                     
         # compute loss and metrics    
         loss, out, metrics = self.compute_loss(train_batch, phase='train')
 
         # log step metric        
-        #self.log('train_mse', mse)
-        #self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
         self.log("loss", loss , on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
         self.log("tr_mse", metrics['mse'] / var_Tr , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         self.log("tr_mseG", metrics['mseGrad'] / metrics['meanGrad'] , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
@@ -573,7 +511,7 @@ class LitModel(pl.LightningModule):
             # backward
             self.manual_backward(loss)
         
-            if 1:#(batch_idx + 1) % 2 == 0:
+            if (batch_idx + 1) % self.Kbatch == 0:
                 # optimisation step
                 opt.step()
                 
@@ -599,11 +537,6 @@ class LitModel(pl.LightningModule):
     def training_epoch_end(self, training_step_outputs):
         # do something with all training_step outputs
         print('.. \n')
-    
-    #def validation_epoch_end(self, training_step_outputs):
-    #    # do something with all training_step outputs
-    #    #print('.... Validation dataset')
-    #    1.
         
     def test_epoch_end(self, outputs):
         x_test_rec = torch.cat([chunk['preds'] for chunk in outputs]).numpy()
@@ -626,7 +559,6 @@ class LitModel(pl.LightningModule):
 
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
-            # with torch.set_grad_enabled(phase == 'train'):
             inputs_init = torch.autograd.Variable(inputs_init, requires_grad=True)
 
             outputs, hidden_new, cell_new, normgrad = self.model(inputs_init, inputs_missing, new_masks)
@@ -666,11 +598,12 @@ class LitModel(pl.LightningModule):
             mse       = loss_All.detach()
             mseGrad   = loss_GAll.detach()  
             metrics   = dict([('mse',mse),('mseGrad',mseGrad),('meanGrad',mean_GAll),('mseOI',loss_OI.detach()),('mseGOI',loss_GOI.detach())])
-            #print(mse.cpu().detach().numpy())
             
         return loss,outputs, metrics
 
 if __name__ == '__main__':
+    mod = LitModel()
+
     profile = False
     if profile:
         from pytorch_lightning.profiler import PyTorchProfiler
@@ -689,16 +622,15 @@ if __name__ == '__main__':
             record_shapes=True
         )
         # profile with max NbGradIter
-        NbGradIter[0] = NbGradIter[-1]
+        mod.NbGradIter[0] = mod.NbGradIter[-1]
         profiler_kwargs = {
             'profiler': profiler,
             'max_epochs': 1,
         }
     else:
-        profiler_kwargs = {'max_epochs': 1}
+        profiler_kwargs = {'max_epochs': 200}
     
-    mod = LitModel()
-    # checkpoint_callback = ModelCheckpoint(monitor='val_loss', dirpath='results', save_top_k = 3)
+    checkpoint_callback = ModelCheckpoint(monitor='val_loss', dirpath='results', save_top_k = 3)
     # training
     #trainer = pl.Trainer(gpus=1, distributed_backend="ddp", **profiler_kwargs)
     trainer = pl.Trainer(gpus=1, **profiler_kwargs)
