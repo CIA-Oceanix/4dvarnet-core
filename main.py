@@ -22,14 +22,13 @@ from netCDF4 import Dataset
 
 import os
 import solver as NN_4DVar
+
 from sklearn.feature_extraction import image
 import pytorch_lightning as pl
-import torch.distributed as dist
 from pytorch_lightning.callbacks import ModelCheckpoint
+import torch.distributed as dist
 
-flagRandomSeed = 0
-
-# NN architectures and optimization parameters
+## NN architectures and optimization parameters
 batch_size      = 10#16#4#4#8#12#8#256#
 DimAE           = 50#10#10#50
 dimGradSolver   = 100 # dimension of the hidden state of the LSTM cell
@@ -54,8 +53,6 @@ InterpFlag         = False # True => force reconstructed field to observed data 
 
 # Definiton of training, validation and test dataset
 # from dayly indices over a one-year time series
-
-# indices for training/validation/test periods
 iiTr1 = 0
 jjTr1 = 50 - int(dT / 2)
 
@@ -68,22 +65,20 @@ jjVal = 80 + int(dT / 2)
 iiTest = 90 - int(dT / 2)
 jjTest = 110 + int(dT / 2)
  
-
 ############################################## Data generation ###############################################################
 print('........ Random seed set to 100')
 np.random.seed(100)
 torch.manual_seed(100)
 
+genSuffixObs = ''
 
 dirREF = "/gpfswork/rech/yrf/uba22to/DATA/GULFSTREAM/"
 if os.path.isdir(dirREF) == True :            
     dirDATA = dirREF
     dirSAVE = '/gpfswork/rech/yrf/ueh53pd/ResSLANATL60/'
-    genSuffixObs = ''
 else:
     dirDATA = '/users/local/DATA/DataNATL60/GULFSTREAM/'
-    dirSAVE = './ResSLANATL60/'
-    genSuffixObs = ''
+    dirSAVE = './SLANATL60_ChckPt/'
 
 ncfile = Dataset(dirDATA+"ref/NATL60-CJM165_GULFSTREAM_ssh_y2013.1y.nc","r")
 qHR    = ncfile.variables['ssh'][:]
@@ -92,6 +87,7 @@ ncfile.close()
 
 if flagSWOTData == True :
     print('.... Use SWOT+4-nadir dataset')
+    genFilename  = 'resInterpSLAwSWOT_Exp3_NewSolver_'+str('%03d'%(W))+'x'+str('%03d'%(W))+'x'+str('%02d'%(dT))
     # OI data using a noise-free OSSE (ssh_mod variable)
     ncfile = Dataset(dirDATA+"oi/ssh_NATL60_swot_4nadir.nc","r")
     qOI    = ncfile.variables['ssh_mod'][:]
@@ -105,6 +101,7 @@ if flagSWOTData == True :
     ncfile.close()
 
 else:
+    genFilename  = 'resInterp4NadirSLAwOInoSST_'+str('%03d'%(W))+'x'+str('%03d'%(W))+'x'+str('%02d'%(dT))
     print('.... Use 4-nadir dataset')
     # OI data using a noise-free OSSE (ssh_mod variable)
     ncfile = Dataset(dirDATA+"oi/ssh_NATL60_4nadir.nc","r")
@@ -122,14 +119,14 @@ print('----- MSE OI: %.3f'%np.mean((qOI-qHR)**2))
 print()
 
 ## extraction of patches from the SSH field
-NoRndPatches = False  
-if ( Nbpatches == 1 ) & ( W == 200 ):
-    NoRndPatches = True
-    print('... No random seed for the extraction of patches')
-    
-    qHR   = qHR[:,0:200,0:200]
-    qOI   = qOI[:,0:200,0:200]
-    qMask = qMask[:,0:200,0:200]
+#NoRndPatches = False  
+#if ( Nbpatches == 1 ) & ( W == 200 ):
+#NoRndPatches = True
+print('... No random seed for the extraction of patches')
+
+qHR   = qHR[:,0:200,0:200]
+qOI   = qOI[:,0:200,0:200]
+qMask = qMask[:,0:200,0:200]
     
 def extract_SpaceTimePatches(q,i1,i2,W,dT,rnd1,rnd2,D=1):
     dataTraining  = image.extract_patches_2d(np.moveaxis(q[i1:i2,::D,::D], 0, -1),(W,W),max_patches=Nbpatches,random_state=rnd1)
@@ -144,7 +141,6 @@ def extract_SpaceTimePatches(q,i1,i2,W,dT,rnd1,rnd2,D=1):
     dataTraining  = dataTraining.reshape((dT,W,W,dataTraining.shape[3]*dataTraining.shape[4])) 
     dataTraining  = np.moveaxis(dataTraining, -1, 0)
     return dataTraining     
-
 
 # training dataset
 dataTraining1     = extract_SpaceTimePatches(qHR,iiTr1,jjTr1,W,dT,rnd1,rnd2,dx)
@@ -217,14 +213,12 @@ var_Tr    = np.var( x_train )
 var_Tt    = np.var( x_test )
 var_Val   = np.var( x_val )
 
-
 #######################################Phi_r, Model_H, Model_Sampling architectures ################################################
 
 print('........ Define AE architecture')
-
-shapeData = np.array(x_train.shape[1:])
+shapeData      = np.array(x_train.shape[1:])
 shapeData_test = np.array(x_test.shape[1:])
-shapeData[0] += shapeData[0]
+shapeData[0]  += shapeData[0]
 shapeData_test[0] += shapeData_test[0]
 
 dW  = 3
@@ -374,6 +368,8 @@ class ModelLR(torch.nn.Module):
     def forward(self, im):
         return self.pool(im)
 
+#model_LR = ModelLR()
+
 
 alpha_MSE     = 0.1
 alpha_Proj    = 0.5
@@ -420,6 +416,7 @@ if betaX is None or betagX is None:
 
     print(".... MSE(Tr) OI %.3f -- MSE(Tr) gOI %.3f " % (epoch_loss_OI, epoch_loss_GOI))
     print(".... betaX = %.3f -- betagX %.3f " % (betaX, betagX))
+#print(f"{(betaX, betagX)=}")
 
 def save_NetCDF(saved_path1, x_test_rec):
     extent = [-65., -55., 30., 40.]
@@ -451,67 +448,112 @@ def save_NetCDF(saved_path1, x_test_rec):
     xrdata.to_netcdf(path=saved_path1, mode='w')
 
 ############################################Lightning Module#######################################################################
-class LitModel(pl.LightningModule):
+class HParam:
     def __init__(self):
+        self.iter_update     = []
+        self.nb_grad_update  = []
+        self.lr_update       = []
+        self.n_grad          = 1
+        self.dim_grad_solver = 10
+        self.dropout         = 0.25
+        self.w_loss          = []
+        self.automatic_optimization = True#False#
+        self.k_batch         = 1
+        
+class LitModel(pl.LightningModule):
+    def __init__(self,conf=HParam(),*args, **kwargs):
         super().__init__()
-        #self.m_Grad       = 
-        self.IterUpdate   = [0, 25, 50, 75, 100, 150, 800]  # [0,2,4,6,9,15]
-        self.NbGradIter   = [5, 5, 10, 10, 15, 15, 20, 20, 20]  # [0,0,1,2,3,3]#[0,2,2,4,5,5]#
-        self.lrUpdate     = [1e-3, 1e-4, 1e-3, 1e-4, 1e-4, 1e-5, 1e-5, 1e-6, 1e-7]
+        self.save_hyperparameters()
+
+        # hyperparameters
+        self.hparams.iter_update     = [0, 20, 40, 60, 100, 150, 800]  # [0,2,4,6,9,15]
+        self.hparams.nb_grad_update  = [5, 5, 10, 10, 15, 15, 20, 20, 20]  # [0,0,1,2,3,3]#[0,2,2,4,5,5]#
+        self.hparams.lr_update       = [1e-3, 1e-4, 1e-3, 1e-4, 1e-4, 1e-5, 1e-5, 1e-6, 1e-7]
+        self.hparams.k_batch         = 1
+        
+        self.hparams.n_grad          = self.hparams.nb_grad_update[0]
+        self.hparams.dim_grad_solver = dimGradSolver
+        self.hparams.dropout         = rateDropout
+        
+        self.hparams.w_loss          = torch.nn.Parameter(torch.Tensor(w_), requires_grad=False)
+        self.hparams.automatic_optimization = False#True#
+
+        # main model
         self.model        = NN_4DVar.Solver_Grad_4DVarNN(Phi_r(), 
                                                          Model_H(), 
-                                                         NN_4DVar.model_GradUpdateLSTM(shapeData, UsePriodicBoundary, dimGradSolver, rateDropout), 
-                                                         None, None, shapeData, self.NbGradIter[0])
+                                                         NN_4DVar.model_GradUpdateLSTM(shapeData, UsePriodicBoundary, self.hparams.dim_grad_solver, self.hparams.dropout), 
+                                                         None, None, shapeData, self.hparams.n_grad)
         self.model_LR     = ModelLR()
         self.gradient_img = Gradient_img()
-        
-        self.wLoss        = torch.nn.Parameter(torch.Tensor(w_), requires_grad=False)
+        self.w_loss       = self.hparams.w_loss # duplicate for automatic upload to gpu
+        self.x_rec        = None # variable to store output of test method
 
-        self.automatic_optimization = True#False#
-        self.Kbatch = 1 # grad update every self.Kbatch mini-batches
+        self.automatic_optimization = self.hparams.automatic_optimization
         
-        self.x_rec   = None # variable to store output of test method
     def forward(self):
         return 1
 
     def configure_optimizers(self):
         #optimizer = optim.Adam(self.model.parameters(), lr= self.lrUpdate[0])
-        optimizer   = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.lrUpdate[0]},
-                                  {'params': self.model.model_VarCost.parameters(), 'lr': self.lrUpdate[0]},
-                                {'params': self.model.phi_r.parameters(), 'lr': 0.5*self.lrUpdate[0]},
-                                ], lr=0.)
-         
+        if 1*1 :
+            #optimizer   = optim.Adam(self.model.parameters(), lr = self.lrUpdate[0])
+            optimizer   = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                                      {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                                    {'params': self.model.phi_r.parameters(), 'lr': 0.5*self.hparams.lr_update[0]},
+                                    ], lr=0.)
+        elif 1*0:
+            optimizer   = optim.RMSprop([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                                      {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                                    {'params': self.model.phi_r.parameters(), 'lr': self.hparams.lr_update[0]},
+                                    ], lr=0.)
+
+        else:
+            optimizer   = optim.ASGD([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                                      {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                                    {'params': self.model.phi_r.parameters(), 'lr': self.hparams.lr_update[0]},
+                                    ], lr=0.)
+        #optPhi     = optim.Adam(self.model.phi_r.parameters(),lr=self.lrUpdate[0])
+        #optGrad    = optim.Adam(self.model.model_Grad.parameters(),lr=self.lrUpdate[0])
+        #optVarCost = optim.Adam(self.model.model_VarCost.parameters(),lr=self.lrUpdate[0])
+
+
         return optimizer
     
-    def training_step(self, train_batch, batch_idx, optimizer_idx=0):
+    def on_train_epoch_start(self):
         opt = self.optimizers()
-        if (self.current_epoch in self.IterUpdate) & (self.current_epoch > 0) & ( batch_idx == 0 ):
-            indx             = self.IterUpdate.index(self.current_epoch)
-            print('... Update Iterations number/learning rate #%d: NGrad = %d -- lr = %f'%(self.current_epoch,self.NbGradIter[indx],self.lrUpdate[indx]))
+        if (self.current_epoch in self.hparams.iter_update) & (self.current_epoch > 0):
+            indx             = self.hparams.iter_update.index(self.current_epoch)
+            print('... Update Iterations number/learning rate #%d: NGrad = %d -- lr = %f'%(self.current_epoch,self.hparams.nb_grad_update[indx],self.hparams.lr_update[indx]))
             
-            self.model.NGrad = self.NbGradIter[indx]
+            self.hparams.n_grad = self.hparams.nb_grad_update[indx]
+            self.model.n_grad   = self.hparams.n_grad 
             
             mm = 0
-            lrCurrent = self.lrUpdate[indx]
+            lrCurrent = self.hparams.lr_update[indx]
             lr = np.array([lrCurrent,lrCurrent,0.5*lrCurrent,0.])            
             for pg in opt.param_groups:
                 pg['lr'] = lr[mm]# * self.hparams.learning_rate
                 mm += 1
+        
+    def training_step(self, train_batch, batch_idx, optimizer_idx=0):
+        opt = self.optimizers()
                     
         # compute loss and metrics    
         loss, out, metrics = self.compute_loss(train_batch, phase='train')
 
         # log step metric        
+        #self.log('train_mse', mse)
+        #self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
         self.log("loss", loss , on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
         self.log("tr_mse", metrics['mse'] / var_Tr , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         self.log("tr_mseG", metrics['mseGrad'] / metrics['meanGrad'] , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         
         # initial grad value
-        if self.automatic_optimization == False :
+        if self.hparams.automatic_optimization == False :
             # backward
             self.manual_backward(loss)
         
-            if (batch_idx + 1) % self.Kbatch == 0:
+            if (batch_idx + 1) % self.hparams.k_batch == 0:
                 # optimisation step
                 opt.step()
                 
@@ -523,6 +565,7 @@ class LitModel(pl.LightningModule):
     def validation_step(self, val_batch, batch_idx):
         loss, out, metrics = self.compute_loss(val_batch, phase='val')
 
+        self.log('val_loss', loss)
         self.log("val_mse", metrics['mse'] / var_Val , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         self.log("val_mseG", metrics['mseGrad'] / metrics['meanGrad'] , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         return loss
@@ -530,14 +573,15 @@ class LitModel(pl.LightningModule):
     def test_step(self, test_batch, batch_idx):
         loss, out, metrics = self.compute_loss(test_batch, phase='test')
 
-        self.log("val_mse", metrics['mse'] / var_Tt , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
-        self.log("val_mseG", metrics['mseGrad'] / metrics['meanGrad'] , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
+        self.log('test_loss', loss)
+        self.log("test_mse", metrics['mse'] / var_Tt , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
+        self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'] , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         return {'preds': out.detach().cpu()}
 
     def training_epoch_end(self, training_step_outputs):
         # do something with all training_step outputs
         print('.. \n')
-        
+    
     def test_epoch_end(self, outputs):
         x_test_rec = torch.cat([chunk['preds'] for chunk in outputs]).numpy()
         x_test_rec = stdTr * x_test_rec + meanTr
@@ -559,6 +603,7 @@ class LitModel(pl.LightningModule):
 
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
+            # with torch.set_grad_enabled(phase == 'train'):
             inputs_init = torch.autograd.Variable(inputs_init, requires_grad=True)
 
             outputs, hidden_new, cell_new, normgrad = self.model(inputs_init, inputs_missing, new_masks)
@@ -572,11 +617,11 @@ class LitModel(pl.LightningModule):
 
             # reconstruction losses
             g_outputs  = self.gradient_img(outputs)
-            loss_All   = NN_4DVar.compute_WeightedLoss((outputs - targets_GT), self.wLoss)
-            loss_GAll  = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_GT, self.wLoss)
+            loss_All   = NN_4DVar.compute_WeightedLoss((outputs - targets_GT), self.w_loss)
+            loss_GAll  = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_GT, self.w_loss)
 
-            loss_OI    = NN_4DVar.compute_WeightedLoss(targets_GT - targets_OI, self.wLoss)
-            loss_GOI   = NN_4DVar.compute_WeightedLoss(self.gradient_img(targets_OI) - g_targets_GT, self.wLoss)
+            loss_OI    = NN_4DVar.compute_WeightedLoss(targets_GT - targets_OI, self.w_loss)
+            loss_GOI   = NN_4DVar.compute_WeightedLoss(self.gradient_img(targets_OI) - g_targets_GT, self.w_loss)
 
             # projection losses
             loss_AE     = torch.mean((self.model.phi_r(outputsSLRHR) - outputsSLRHR) ** 2)
@@ -585,29 +630,110 @@ class LitModel(pl.LightningModule):
             loss_AE_GT = torch.mean((self.model.phi_r(yGT) - yGT) ** 2)
 
             # low-resolution loss
-            loss_SR      = NN_4DVar.compute_WeightedLoss(outputsSLR - targets_OI, self.wLoss)
+            loss_SR      = NN_4DVar.compute_WeightedLoss(outputsSLR - targets_OI, self.w_loss)
             targets_GTLR = self.model_LR(targets_OI)
-            loss_LR      = NN_4DVar.compute_WeightedLoss(self.model_LR(outputs) - targets_GTLR, self.wLoss)
+            loss_LR      = NN_4DVar.compute_WeightedLoss(self.model_LR(outputs) - targets_GTLR, self.w_loss)
 
             # total loss
             loss     = alpha_MSE * (betaX * loss_All + betagX * loss_GAll) + 0.5 * alpha_Proj * (loss_AE + loss_AE_GT)
             loss    += alpha_LR * loss_LR + alpha_SR * loss_SR
             
             # metrics
-            mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_GT,wLoss)
+            mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_GT,self.w_loss)
             mse       = loss_All.detach()
             mseGrad   = loss_GAll.detach()  
             metrics   = dict([('mse',mse),('mseGrad',mseGrad),('meanGrad',mean_GAll),('mseOI',loss_OI.detach()),('mseGOI',loss_GOI.detach())])
+            #print(mse.cpu().detach().numpy())
             
         return loss,outputs, metrics
 
+
+def compute_metrics(X_test,X_rec):
+    # MSE
+    mse = np.mean( (X_test - X_rec)**2 )
+
+    # MSE for gradient
+    gX_rec = np.gradient(X_rec,axis=[1,2])
+    gX_rec = np.sqrt(gX_rec[0]**2 +  gX_rec[1]**2)
+    
+    gX_test = np.gradient(X_test,axis=[1,2])
+    gX_test = np.sqrt(gX_test[0]**2 +  gX_test[1]**2)
+    
+    gmse = np.mean( (gX_test - gX_rec)**2 )
+    ng   = np.mean( (gX_rec)**2 )
+    
+    return {'mse':mse,'mseGrad': gmse,'meanGrad': ng}
+
 if __name__ == '__main__':
-    mod = LitModel()
+    
+    flagProcess = 0
+    
+    if flagProcess == 0: ## training model from scratch
+    
+        loadTrainedModel = False#True
+        if loadTrainedModel == True :             
+            
+            pathCheckPOint = "./SLANATL60_ChckPt/modelSLAInterpGF-Exp3-epoch=36-val_loss=0.05.ckpt"  
+            print('.... load pre-trained model :'+pathCheckPOint)
+            mod = LitModel.load_from_checkpoint(pathCheckPOint)            
+            mod.hparams.n_grad          = 10
+            mod.hparams.iter_update     = [0, 25, 40, 100, 150, 150, 800]  # [0,2,4,6,9,15]
+            mod.hparams.nb_grad_update  = [10, 10, 15, 15, 15, 20, 20, 20, 20]  # [0,0,1,2,3,3]#[0,2,2,4,5,5]#
+            mod.hparams.lr_update       = [1e-3, 1e-4, 1e-4, 1e-5, 1e-4, 1e-5, 1e-5, 1e-6, 1e-7]
+        else:
+            mod = LitModel()
+            
+        print(mod.hparams)
+        checkpoint_callback = ModelCheckpoint(monitor='val_loss',
+                                              dirpath= dirSAVE,
+                                              filename='modelSLAInterpGF-Exp3-{epoch:02d}-{val_loss:.2f}',
+                                              save_top_k=3,
+                                              mode='min')
+        profiler_kwargs = {'max_epochs': 2 }
 
-    profile = False
-    if profile:
+        #trainer = pl.Trainer(gpus=1, accelerator = "ddp", **profiler_kwargs)
+        #trainer = pl.Trainer(gpus=1, accelerator = "ddp", **profiler_kwargs)
+        trainer = pl.Trainer(gpus=1,  **profiler_kwargs,callbacks=[checkpoint_callback])
+    
+        ## training loop
+        trainer.fit(mod, dataloaders['train'], dataloaders['val'])
+        
+        trainer.test(mod, test_dataloaders=dataloaders['val'])
+        
+        X_val    = qHR[iiVal+int(dT/2):jjVal-int(dT/2),:,:]
+        X_OI     = qOI[iiVal+int(dT/2):jjVal-int(dT/2),:,:]
+                
+        val_mseRec = compute_metrics(X_val,mod.x_rec)     
+        val_mseOI  = compute_metrics(X_val,X_OI)     
+        
+        print('\n\n........................................ ')
+        print('........................................\n ')
+        trainer.test(mod, test_dataloaders=dataloaders['test'])
+        #ncfile = Dataset("results/test.nc","r")
+        #X_rec  = ncfile.variables['ssh'][:]
+        #ncfile.close()
+        X_test = qHR[iiTest+int(dT/2):jjTest-int(dT/2),:,:]
+        X_OI   = qOI[iiTest+int(dT/2):jjTest-int(dT/2),:,:]
+    
+            
+        test_mseRec = compute_metrics(X_test,mod.x_rec)     
+        test_mseOI  = compute_metrics(X_test,X_OI)     
+        
+        print(' ')
+        print('....................................')
+        print('....... Validation dataset')
+        print('....... MSE Val dataset (SSH) : OI = %.3e -- 4DVarNN = %.3e / %.2f %%'%(val_mseOI['mse'],val_mseRec['mse'],100. * (1.-val_mseRec['mse']/val_mseOI['mse'])))
+        print('....... MSE Val dataset (gSSH): OI = %.3e -- 4DVarNN = %.3e / %.2f / %.2f %%'%(val_mseOI['mseGrad'],val_mseRec['mseGrad'],100. * (1.-val_mseRec['mseGrad']/val_mseOI['meanGrad']),100. * (1.-val_mseRec['mseGrad']/val_mseOI['meanGrad'])))
+        print(' ')
+        print('....... Test dataset')
+        print('....... MSE Test dataset (SSH) : OI = %.3e -- 4DVarNN = %.3e / %.2f %%'%(test_mseOI['mse'],test_mseRec['mse'],100. * (1.-test_mseRec['mse']/test_mseOI['mse'])))
+        print('....... MSE Test dataset (gSSH): OI = %.3e -- 4DVarNN = %.3e / %.2f / %.2f %%'%(test_mseOI['mseGrad'],test_mseRec['mseGrad'],100. * (1.-test_mseRec['mseGrad']/test_mseOI['meanGrad']),100. * (1.-test_mseRec['mseGrad']/test_mseOI['meanGrad'])))
+    
+    elif flagProcess == 1: ## profling 
+
+        mod = LitModel()
         from pytorch_lightning.profiler import PyTorchProfiler
-
+    
         profiler = PyTorchProfiler(
             "results/profile_report",
             schedule=torch.profiler.schedule(
@@ -627,12 +753,95 @@ if __name__ == '__main__':
             'profiler': profiler,
             'max_epochs': 1,
         }
-    else:
-        profiler_kwargs = {'max_epochs': 200}
     
-    checkpoint_callback = ModelCheckpoint(monitor='val_loss', dirpath='results', save_top_k = 3)
-    # training
-    #trainer = pl.Trainer(gpus=1, distributed_backend="ddp", **profiler_kwargs)
-    trainer = pl.Trainer(gpus=1, **profiler_kwargs)
-    trainer.fit(mod, dataloaders['train'], dataloaders['val'])
-    trainer.test(mod, test_dataloaders=dataloaders['test'])
+        trainer = pl.Trainer(gpus=1,  **profiler_kwargs)
+    
+        ## training loop
+        trainer.fit(mod, dataloaders['train'], dataloaders['val'])
+
+        
+    elif flagProcess == 2: ## test trained model with the non-Lighning code
+        mod = LitModel()
+        fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_2_50_03_01_01_25_HRObs_OIObs_MS_Grad_01_02_10_100_modelPHI_iter080.mod'
+        
+        mod.model.phi_r.load_state_dict(torch.load(fileAEModelInit))
+        mod.model.model_Grad.load_state_dict(torch.load(fileAEModelInit.replace('_modelPHI_iter','_modelGrad_iter')))
+        mod.model.model_VarCost.load_state_dict(torch.load(fileAEModelInit.replace('_modelPHI_iter','_modelVarCost_iter')))
+        mod.model.NGrad = 10
+    
+        profiler_kwargs = {'max_epochs': 200}
+        #trainer = pl.Trainer(gpus=1, accelerator = "ddp", **profiler_kwargs)
+        trainer = pl.Trainer(gpus=1,  **profiler_kwargs)
+        trainer.test(mod, test_dataloaders=dataloaders['val'])
+        
+        #ncfile = Dataset("results/test.nc","r")
+        #X_rec    = ncfile.variables['ssh'][:]
+        #ncfile.close()
+        X_val    = qHR[iiVal+int(dT/2):jjVal-int(dT/2),:,:]
+        X_OI     = qOI[iiVal+int(dT/2):jjVal-int(dT/2),:,:]
+                
+        val_mseRec = compute_metrics(X_val,mod.x_rec)     
+        val_mseOI  = compute_metrics(X_val,X_OI)     
+        
+        print('\n\n........................................ ')
+        print('........................................\n ')
+        trainer.test(mod, test_dataloaders=dataloaders['test'])
+        #ncfile = Dataset("results/test.nc","r")
+        #X_rec  = ncfile.variables['ssh'][:]
+        #ncfile.close()
+        X_test = qHR[iiTest+int(dT/2):jjTest-int(dT/2),:,:]
+        X_OI   = qOI[iiTest+int(dT/2):jjTest-int(dT/2),:,:]
+                
+        test_mseRec = compute_metrics(X_test,mod.x_rec)     
+        test_mseOI  = compute_metrics(X_test,X_OI)     
+        
+        print(' ')
+        print('....................................')
+        print('....... Validation dataset')
+        print('....... MSE Val dataset (SSH) : OI = %.3e -- 4DVarNN = %.3e / %.2f %%'%(val_mseOI['mse'],val_mseRec['mse'],100. * (1.-val_mseRec['mse']/val_mseOI['mse'])))
+        print('....... MSE Val dataset (gSSH): OI = %.3e -- 4DVarNN = %.3e / %.2f / %.2f %%'%(val_mseOI['mseGrad'],val_mseRec['mseGrad'],100. * (1.-val_mseRec['mseGrad']/val_mseOI['mseGrad']),100. * (1.-val_mseRec['mseGrad']/val_mseOI['meanGrad'])))
+        print(' ')
+        print('....... Test dataset')
+        print('....... MSE Test dataset (SSH) : OI = %.3e -- 4DVarNN = %.3e / %.2f %%'%(test_mseOI['mse'],test_mseRec['mse'],100. * (1.-test_mseRec['mse']/test_mseOI['mse'])))
+        print('....... MSE Test dataset (gSSH): OI = %.3e -- 4DVarNN = %.3e / %.2f / %.2f %%'%(test_mseOI['mseGrad'],test_mseRec['mseGrad'],100. * (1.-test_mseRec['mseGrad']/test_mseOI['mseGrad']),100. * (1.-test_mseRec['mseGrad']/test_mseOI['meanGrad'])))
+
+    elif flagProcess == 3: ## test trained model with the Lightning code
+
+
+        pathCheckPOint = "./SLANATL60_ChckPt/modelSLAInterpGF-Exp3-epoch=36-val_loss=0.05.ckpt"
+        
+        mod = LitModel.load_from_checkpoint(pathCheckPOint)            
+        mod.model.NGrad = 10
+        profiler_kwargs = {'max_epochs': 200}
+        #trainer = pl.Trainer(gpus=1, accelerator = "ddp", **profiler_kwargs)
+        trainer = pl.Trainer(gpus=1,  **profiler_kwargs)
+        trainer.test(mod, test_dataloaders=dataloaders['val'])
+        
+        X_val    = qHR[iiVal+int(dT/2):jjVal-int(dT/2),:,:]
+        X_OI     = qOI[iiVal+int(dT/2):jjVal-int(dT/2),:,:]
+                
+        val_mseRec = compute_metrics(X_val,mod.x_rec)     
+        val_mseOI  = compute_metrics(X_val,X_OI)     
+        
+        print('\n\n........................................ ')
+        print('........................................\n ')
+        trainer.test(mod, test_dataloaders=dataloaders['test'])
+        X_test = qHR[iiTest+int(dT/2):jjTest-int(dT/2),:,:]
+        X_OI   = qOI[iiTest+int(dT/2):jjTest-int(dT/2),:,:]
+                
+        test_mseRec = compute_metrics(X_test,mod.x_rec)     
+        test_mseOI  = compute_metrics(X_test,X_OI)     
+        
+        saveRes = False
+        if saveRes == True :
+            save_NetCDF('results/test.nc', mod.x_rec)
+
+        print(' ')
+        print('....................................')
+        print('....... Validation dataset')
+        print('....... MSE Val dataset (SSH) : OI = %.3e -- 4DVarNN = %.3e / %.2f %%'%(val_mseOI['mse'],val_mseRec['mse'],100. * (1.-val_mseRec['mse']/val_mseOI['mse'])))
+        print('....... MSE Val dataset (gSSH): OI = %.3e -- 4DVarNN = %.3e / %.2f / %.2f %%'%(val_mseOI['mseGrad'],val_mseRec['mseGrad'],100. * (1.-val_mseRec['mseGrad']/val_mseOI['meanGrad']),100. * (1.-val_mseRec['mseGrad']/val_mseOI['meanGrad'])))
+        print(' ')
+        print('....... Test dataset')
+        print('....... MSE Test dataset (SSH) : OI = %.3e -- 4DVarNN = %.3e / %.2f %%'%(test_mseOI['mse'],test_mseRec['mse'],100. * (1.-test_mseRec['mse']/test_mseOI['mse'])))
+        print('....... MSE Test dataset (gSSH): OI = %.3e -- 4DVarNN = %.3e / %.2f / %.2f %%'%(test_mseOI['mseGrad'],test_mseRec['mseGrad'],100. * (1.-test_mseRec['mseGrad']/test_mseOI['meanGrad']),100. * (1.-test_mseRec['mseGrad']/test_mseOI['meanGrad'])))
