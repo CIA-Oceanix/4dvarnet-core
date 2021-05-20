@@ -519,6 +519,10 @@ class LitModel(pl.LightningModule):
 
         return optimizer
     
+    def on_epoch_start(self):
+        # enfore acnd check some hyperparameters 
+        self.model.n_grad   = self.hparams.n_grad 
+
     def on_train_epoch_start(self):
         opt = self.optimizers()
         if (self.current_epoch in self.hparams.iter_update) & (self.current_epoch > 0):
@@ -767,7 +771,7 @@ if __name__ == '__main__':
         mod.model.phi_r.load_state_dict(torch.load(fileAEModelInit))
         mod.model.model_Grad.load_state_dict(torch.load(fileAEModelInit.replace('_modelPHI_iter','_modelGrad_iter')))
         mod.model.model_VarCost.load_state_dict(torch.load(fileAEModelInit.replace('_modelPHI_iter','_modelVarCost_iter')))
-        mod.model.NGrad = 10
+        mod.model.n_grad = 10
     
         profiler_kwargs = {'max_epochs': 200}
         #trainer = pl.Trainer(gpus=1, accelerator = "ddp", **profiler_kwargs)
@@ -811,7 +815,7 @@ if __name__ == '__main__':
         pathCheckPOint = "./SLANATL60_ChckPt/modelSLAInterpGF-Exp3-epoch=36-val_loss=0.05.ckpt"
         
         mod = LitModel.load_from_checkpoint(pathCheckPOint)            
-        mod.model.NGrad = 10
+        mod.model.n_grad = 10
         profiler_kwargs = {'max_epochs': 200}
         #trainer = pl.Trainer(gpus=1, accelerator = "ddp", **profiler_kwargs)
         trainer = pl.Trainer(gpus=1,  **profiler_kwargs)
