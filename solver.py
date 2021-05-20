@@ -302,7 +302,7 @@ class Model_Var_Cost(nn.Module):
 # (default norm (None) refers to the L2 norm)
 # updated inner modles to account for the variational model module
 class Solver_Grad_4DVarNN(nn.Module):
-    def __init__(self ,phi_r,mod_H, m_Grad, m_NormObs, m_NormPhi, ShapeData,NiterGrad):
+    def __init__(self ,phi_r,mod_H, m_Grad, m_NormObs, m_NormPhi, ShapeData,n_iter_grad):
         super(Solver_Grad_4DVarNN, self).__init__()
         self.phi_r         = phi_r
         
@@ -316,7 +316,7 @@ class Solver_Grad_4DVarNN(nn.Module):
         self.model_VarCost = Model_Var_Cost(m_NormObs, m_NormPhi, ShapeData,mod_H.DimObs,mod_H.dimObsChannel)
         
         with torch.no_grad():
-            self.NGrad     = int(NiterGrad)
+            self.n_grad     = int(n_iter_grad)
         
     def forward(self, x, yobs, mask):
         return self.solve(
@@ -330,7 +330,7 @@ class Solver_Grad_4DVarNN(nn.Module):
         cell   = None 
         normgrad_ = 0.
         
-        for _ in range(self.NGrad):
+        for _ in range(self.n_grad):
             x_k_plus_1, hidden, cell, normgrad_ = self.solver_step(x_k, obs, mask,hidden, cell, normgrad_)
 
             x_k = torch.mul(x_k_plus_1,1.)
@@ -345,7 +345,7 @@ class Solver_Grad_4DVarNN(nn.Module):
             normgrad_= normgrad
 
         grad, hidden, cell = self.model_Grad(hidden, cell, var_cost_grad, normgrad_)
-        grad *= 1./ self.NGrad
+        grad *= 1./ self.n_grad
         x_k_plus_1 = x_k - grad
         return x_k_plus_1, hidden, cell, normgrad_
 

@@ -28,7 +28,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 import torch.distributed as dist
 
-## NN architectures and optimization parameters
+# NN architectures and optimization parameters
 batch_size      = 10#16#4#4#8#12#8#256#
 DimAE           = 50#10#10#50
 dimGradSolver   = 100 # dimension of the hidden state of the LSTM cell
