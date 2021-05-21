@@ -641,17 +641,14 @@ class LitModel(pl.LightningModule):
         self.x_rec = x_test_rec[:,int(dT/2),:,:]
 
         # save NetCDF
-        path_save1 = Path('results/test.nc')
-        path_save1.parent.mkdir(exist_ok=True, parents=True)
+        path_save1 = self.logger.log_dir+'/test.nc'
         save_netcdf(saved_path1 = path_save1, x_test_rec = x_test_rec,
             lon = lon,lat = lat)
         # compute nRMSE
-        path_save2 = Path('results/nRMSE.txt')
+        path_save2 = self.logger.log_dir+'/nRMSE.txt'
         tab_scores = nrmse_scores(gt,oi,x_test_rec,path_save2)
         print('*** Display nRMSE scores ***')
         print(tab_scores)
-        
-        #return [{'mse':meanTr,'preds': meanTr}]
 
     def compute_loss(self, batch, phase):
 
