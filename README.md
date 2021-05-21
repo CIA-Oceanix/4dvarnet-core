@@ -1,6 +1,9 @@
 # 4dvarnet-core
 Core implementation of the 4DVarNet architecture 
 
+## Principles and on-going developments
+Discussed in this [HackMd file](https://hackmd.io/@maxbeauchamp/ryVfI3rdu)
+
 ## Installation
 ### Prerequisite
 - git

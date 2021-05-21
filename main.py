@@ -70,49 +70,53 @@ print('........ Random seed set to 100')
 np.random.seed(100)
 torch.manual_seed(100)
 
+ncfile = Dataset("/gpfswork/rech/yrf/uba22to/DATA/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc","r")
+
+# select GF region
+lon    = ncfile.variables['lon'][:]
+lat    = ncfile.variables['lat'][:]
+idLat  = np.where( (lat >= 33.) & (lat <= 43.) )[0]
+idLon  = np.where( (lon >= -65.) & (lon <= -55.) )[0]
+lon    = lon[idLon]
+lat    = lat[idLat]
+
+dirSAVE = '/gpfswork/rech/yrf/uba22to/ResSLANATL60/'
 genSuffixObs = ''
-
-dirREF = "/gpfswork/rech/yrf/uba22to/DATA/GULFSTREAM/"
-if os.path.isdir(dirREF) == True :            
-    dirDATA = dirREF
-    dirSAVE = '/gpfswork/rech/yrf/ueh53pd/ResSLANATL60/'
-else:
-    dirDATA = '/users/local/DATA/DataNATL60/GULFSTREAM/'
-    dirSAVE = './SLANATL60_ChckPt/'
-
-ncfile = Dataset(dirDATA+"ref/NATL60-CJM165_GULFSTREAM_ssh_y2013.1y.nc","r")
-qHR    = ncfile.variables['ssh'][:]
+ncfile = Dataset("/gpfswork/rech/yrf/uba22to/DATA/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc","r")
+qHR = ncfile.variables['ssh'][:,idLat,idLon]
 ncfile.close()
 
-
-if flagSWOTData == True :
+if flagSWOTData == True:
     print('.... Use SWOT+4-nadir dataset')
-    genFilename  = 'resInterpSLAwSWOT_Exp3_NewSolver_'+str('%03d'%(W))+'x'+str('%03d'%(W))+'x'+str('%02d'%(dT))
+    genFilename = 'resInterpSWOTSLAwOInoSST_' + str('%03d' % (W)) + 'x' + str('%03d' % (W)) + 'x' + str(
+        '%02d' % (dT))
     # OI data using a noise-free OSSE (ssh_mod variable)
-    ncfile = Dataset(dirDATA+"oi/ssh_NATL60_swot_4nadir.nc","r")
-    qOI    = ncfile.variables['ssh_mod'][:]
+    ncfile = Dataset("/gpfswork/rech/yrf/uba22to/DATA/NATL/oi/ssh_NATL60_swot_4nadir.nc", "r")
+    qOI = ncfile.variables['ssh_mod'][:,idLat,idLon]
     ncfile.close()
 
     # OI data using a noise-free OSSE (ssh_mod variable)
-    ncfile = Dataset(dirDATA+"data/gridded_data_swot_wocorr/dataset_nadir_0d_swot.nc","r")
-    
-    qMask   = ncfile.variables['ssh_mod'][:]
-    qMask   = 1.0-qMask.mask.astype(float)
+    ncfile = Dataset(
+                "/gpfswork/rech/yrf/uba22to/DATA/NATL/data/gridded_data_swot_wocorr/dataset_nadir_0d_swot.nc",
+                "r")
+    qMask = ncfile.variables['ssh_mod'][:,idLat,idLon]
+    qMask = 1.0 - qMask.mask.astype(float)
     ncfile.close()
-
 else:
-    genFilename  = 'resInterp4NadirSLAwOInoSST_'+str('%03d'%(W))+'x'+str('%03d'%(W))+'x'+str('%02d'%(dT))
-    print('.... Use 4-nadir dataset')
+    print('.... Use SWOT+4-nadir dataset')
+    genFilename = 'resInterpSWOTSLAwOInoSST_' + str('%03d' % (W)) + 'x' + str('%03d' % (W)) + 'x' + str(
+        '%02d' % (dT))
     # OI data using a noise-free OSSE (ssh_mod variable)
-    ncfile = Dataset(dirDATA+"oi/ssh_NATL60_4nadir.nc","r")
-    qOI    = ncfile.variables['ssh_mod'][:]
+    ncfile = Dataset("/gpfswork/rech/yrf/uba22to/DATA/NATL/oi/ssh_NATL60_4nadir.nc", "r")
+    qOI = ncfile.variables['ssh_mod'][:,idLat,idLon]
     ncfile.close()
 
     # OI data using a noise-free OSSE (ssh_mod variable)
-    ncfile = Dataset(dirDATA+"data/gridded_data_swot_wocorr/dataset_nadir_0d.nc","r")
-    
-    qMask   = ncfile.variables['ssh_mod'][:]
-    qMask   = 1.0-qMask.mask.astype(float)
+    ncfile = Dataset(
+                "/gpfswork/rech/yrf/uba22to/DATA/NATL/data/gridded_data_swot_wocorr/dataset_nadir_0d.nc",
+                "r")
+    qMask = ncfile.variables['ssh_mod'][:,idLat,idLon]
+    qMask = 1.0 - qMask.mask.astype(float)
     ncfile.close()
 
 print('----- MSE OI: %.3f'%np.mean((qOI-qHR)**2))
@@ -384,8 +388,8 @@ wLoss = torch.Tensor(w_)
 
 # recompute the MSE for OI on training dataset
 # to define weighing parameters in the training
-betaX  = None#42.20436766972647
-betagX = None#77.99700321505073
+betaX  = 42.20436766972647#None
+betagX = 77.99700321505073#None
 if betaX is None or betagX is None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     running_loss_GOI = 0.
@@ -418,17 +422,17 @@ if betaX is None or betagX is None:
     print(".... betaX = %.3f -- betagX %.3f " % (betaX, betagX))
 #print(f"{(betaX, betagX)=}")
 
-def save_NetCDF(saved_path1, x_test_rec):
-    extent = [-65., -55., 30., 40.]
-    indLat = 200
-    indLon = 200
 
-    lon = np.arange(extent[0], extent[1], 1 / (20 / dwscale))
-    lat = np.arange(extent[2], extent[3], 1 / (20 / dwscale))
-    indLat = int(indLat / dwscale)
-    indLon = int(indLon / dwscale)
-    lon = lon[:indLon]
-    lat = lat[:indLat]
+def save_netcdf(saved_path1, x_test_rec, lon, lat):
+    '''
+    saved_path1: string 
+    x_test_rec: 3d numpy array (4DVarNet-based predictions)
+    lon: 1d numpy array 
+    lat: 1d numpy array
+    '''
+
+    lon = np.arange(np.min(lon), np.max(lon)+1./(20./dwscale), 1./(20./dwscale))
+    lat = np.arange(np.min(lat), np.max(lat), 1./(20./dwscale))
 
     mesh_lat, mesh_lon = np.meshgrid(lat, lon)
     mesh_lat = mesh_lat.T
@@ -446,6 +450,36 @@ def save_NetCDF(saved_path1, x_test_rec):
         coords={'lon': lon, 'lat': lat, 'time': indN_Tt})
     xrdata.time.attrs['units'] = 'days since 2012-10-01 00:00:00'
     xrdata.to_netcdf(path=saved_path1, mode='w')
+
+def nrmse(ref,pred):
+    '''
+    ref: Ground Truth fields
+    pred: interpolated fields
+    '''
+    return np.sqrt(np.nanmean(((ref-np.nanmean(ref))-(pred-np.nanmean(pred)))**2))/np.nanstd(ref)
+
+def nrmse_scores(gt,oi,pred,resfile):
+    '''
+    gt: 3d numpy array (Ground Truth)
+    oi: 3d numpy array (OI)
+    pred: 3d numpy array (4DVarNet-based predictions)
+    resfile: string
+    '''
+    # Compute daily nRMSE scores
+    nrmse_oi=[]
+    nrmse_pred=[]
+    for i in range(len(oi)):
+        nrmse_oi.append(nrmse(gt[i],oi[i]))
+        nrmse_pred.append(nrmse(gt[i],pred[i]))
+    tab_scores = np.zeros((2,3))
+    tab_scores[0,0] = np.nanmean(nrmse_oi)
+    tab_scores[0,1] = np.percentile(nrmse_oi,5)
+    tab_scores[0,2] = np.percentile(nrmse_oi,95)
+    tab_scores[1,0] = np.nanmean(nrmse_pred)
+    tab_scores[1,1] = np.percentile(nrmse_pred,5)
+    tab_scores[1,2] = np.percentile(nrmse_pred,95)
+    np.savetxt(fname=resfile,X=tab_scores,fmt='%2.2f')
+    return tab_scores
 
 ############################################Lightning Module#######################################################################
 class HParam:
@@ -486,7 +520,9 @@ class LitModel(pl.LightningModule):
         self.model_LR     = ModelLR()
         self.gradient_img = Gradient_img()
         self.w_loss       = self.hparams.w_loss # duplicate for automatic upload to gpu
-        self.x_rec        = None # variable to store output of test method
+        self.x_gt = None # variable to store Ground Truth
+        self.x_oi = None # variable to store OI
+        self.x_rec = None # variable to store output of test method
 
         self.automatic_optimization = self.hparams.automatic_optimization
         
@@ -518,6 +554,10 @@ class LitModel(pl.LightningModule):
 
 
         return optimizer
+
+    def on_epoch_start(self):
+        # enfore acnd check some hyperparameters
+        self.model.n_grad   = self.hparams.n_grad
     
     def on_epoch_start(self):
         # enfore acnd check some hyperparameters 
@@ -575,24 +615,43 @@ class LitModel(pl.LightningModule):
         return loss
 
     def test_step(self, test_batch, batch_idx):
+
+        targets_OI, inputs_Mask, targets_GT = test_batch
         loss, out, metrics = self.compute_loss(test_batch, phase='test')
 
         self.log('test_loss', loss)
         self.log("test_mse", metrics['mse'] / var_Tt , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'] , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
-        return {'preds': out.detach().cpu()}
+        return {'gt' : targets_GT.detach().cpu(),
+                'oi' : targets_OI.detach().cpu(),
+                'preds' : out.detach().cpu()}
 
     def training_epoch_end(self, training_step_outputs):
         # do something with all training_step outputs
         print('.. \n')
     
     def test_epoch_end(self, outputs):
+
+        gt = torch.cat([chunk['gt'] for chunk in outputs]).numpy()
+        oi = torch.cat([chunk['oi'] for chunk in outputs]).numpy()
         x_test_rec = torch.cat([chunk['preds'] for chunk in outputs]).numpy()
-        x_test_rec = stdTr * x_test_rec + meanTr
-        
+
+        self.x_gt = gt[:,int(dT/2),:,:]
+        self.x_oi = oi[:,int(dT/2),:,:]
         self.x_rec = x_test_rec[:,int(dT/2),:,:]
 
-        return [{'mse':meanTr,'preds': meanTr}]
+        # save NetCDF
+        path_save1 = Path('results/test.nc')
+        path_save1.parent.mkdir(exist_ok=True, parents=True)
+        save_netcdf(saved_path1 = path_save1, x_test_rec = x_test_rec,
+            lon = lon,lat = lat)
+        # compute nRMSE
+        path_save2 = Path('results/nRMSE.txt')
+        tab_scores = nrmse_scores(gt,oi,x_test_rec,path_save2)
+        print('*** Display nRMSE scores ***')
+        print(tab_scores)
+        
+        #return [{'mse':meanTr,'preds': meanTr}]
 
     def compute_loss(self, batch, phase):
 
