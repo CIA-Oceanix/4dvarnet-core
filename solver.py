@@ -311,12 +311,12 @@ class Solver_Grad_4DVarNN(nn.Module):
         if m_NormPhi == None:    
             m_NormPhi = Model_WeightedL2Norm()
             
-        self.model_H       = mod_H
-        self.model_Grad    = m_Grad
+        self.model_H = mod_H
+        self.model_Grad = m_Grad
         self.model_VarCost = Model_Var_Cost(m_NormObs, m_NormPhi, ShapeData,mod_H.DimObs,mod_H.dimObsChannel)
         
         with torch.no_grad():
-            self.n_grad     = int(n_iter_grad)
+            self.n_grad = int(n_iter_grad)
         
     def forward(self, x, yobs, mask):
         return self.solve(
@@ -327,7 +327,7 @@ class Solver_Grad_4DVarNN(nn.Module):
     def solve(self, x_0, obs, mask):
         x_k = torch.mul(x_0,1.) 
         hidden = None
-        cell   = None 
+        cell = None 
         normgrad_ = 0.
         
         for _ in range(self.n_grad):
