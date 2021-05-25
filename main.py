@@ -204,12 +204,6 @@ shapeData      = cfg.shapeData #np.array(x_train.shape[1:])
 # shapeData[0]  += shapeData[0]
 # shapeData_test[0] += shapeData_test[0]
 
-
-phi_r = Phi_r(cfg.shapeData[0], cfg.DimAE, cfg.dW, cfg.dW2, cfg.sS, cfg.nbBlocks, cfg.dropout)
-
-print(phi_r)
-print('Number of trainable parameters = %d' % (sum(p.numel() for p in phi_r.parameters() if p.requires_grad)))
-
 gradient_img = Gradient_img()
 
 #model_LR = ModelLR()
