@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon May 18 17:59:23 2020
-@author: rfablet
-"""
 
 import datetime
 import numpy as np
@@ -21,7 +15,7 @@ from sklearn.feature_extraction import image
 import solver as NN_4DVar
 
 # NN architectures and optimization parameters
-batch_size = 10  # 16#4#4#8#12#8#256#
+batch_size = 2  # 16#4#4#8#12#8#256#
 DimAE = 50  # 10#10#50
 dimGradSolver = 100  # dimension of the hidden state of the LSTM cell
 rateDropout = 0.25  # dropout rate
@@ -29,7 +23,7 @@ rateDropout = 0.25  # dropout rate
 # data generation
 sigNoise = 0.  ## additive noise standard deviation
 flagSWOTData = True  # False ## use SWOT data or not
-dT = 5  ## Time window of each space-time patch
+dT = 3  ## Time window of each space-time patch
 W = 200  ## width/height of each space-time patch
 dx = 1  ## subsampling step if > 1
 Nbpatches = 1  # 10#10#25 ## number of patches extracted from each time-step
@@ -62,7 +56,7 @@ print('........ Random seed set to 100')
 np.random.seed(100)
 torch.manual_seed(100)
 
-ncfile = Dataset("/gpfswork/rech/yrf/uba22to/DATA/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc", "r")
+ncfile = Dataset("/users/local/DATA/OSSE/GULFSTREAM/ref/NATL60-CJM165_GULFSTREAM_ssh_y2013.1y.nc", "r")
 
 # select GF region
 lon = ncfile.variables['lon'][:]
@@ -74,7 +68,7 @@ lat = lat[idLat]
 
 dirSAVE = '/gpfswork/rech/yrf/uba22to/ResSLANATL60/'
 genSuffixObs = ''
-ncfile = Dataset("/gpfswork/rech/yrf/uba22to/DATA/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc", "r")
+ncfile = Dataset("/users/local/DATA/OSSE/GULFSTREAM/ref/NATL60-CJM165_GULFSTREAM_ssh_y2013.1y.nc", "r")
 qHR = ncfile.variables['ssh'][:, idLat, idLon]
 ncfile.close()
 
@@ -83,13 +77,13 @@ if flagSWOTData == True:
     genFilename = 'resInterpSWOTSLAwOInoSST_' + str('%03d' % (W)) + 'x' + str('%03d' % (W)) + 'x' + str(
         '%02d' % (dT))
     # OI data using a noise-free OSSE (ssh_mod variable)
-    ncfile = Dataset("/gpfswork/rech/yrf/uba22to/DATA/NATL/oi/ssh_NATL60_swot_4nadir.nc", "r")
+    ncfile = Dataset("/users/local/DATA/OSSE/GULFSTREAM/oi/ssh_NATL60_swot_4nadir.nc", "r")
     qOI = ncfile.variables['ssh_mod'][:, idLat, idLon]
     ncfile.close()
 
     # OI data using a noise-free OSSE (ssh_mod variable)
     ncfile = Dataset(
-        "/gpfswork/rech/yrf/uba22to/DATA/NATL/data/gridded_data_swot_wocorr/dataset_nadir_0d_swot.nc",
+        "/users/local/DATA/OSSE/GULFSTREAM/data/gridded_data_swot_wocorr/dataset_nadir_0d_swot.nc",
         "r")
     qMask = ncfile.variables['ssh_mod'][:, idLat, idLon]
     qMask = 1.0 - qMask.mask.astype(float)
@@ -748,80 +742,64 @@ def compute_metrics(X_test, X_rec):
 
     return {'mse': mse, 'mseGrad': gmse, 'meanGrad': ng}
 
+class  FourDVarNEtRunner:
 
-if __name__ == '__main__':
+    def run(self, ckpt_path=None, dataloader="test", **trainer_kwargs):
+        """
+        Train and test model and run the test suite
+        :param ckpt_path: (Optional) Checkpoint from which to resume
+        :param dataloader: Dataloader on which to run the test Checkpoint from which to resume
+        :param trainer_kwargs: (Optional)
+        """
+        mod, trainer = self.train(ckpt_path, **trainer_kwargs)
+        self.test(dataloader=dataloader, _mod=mod, _trainer=trainer)
 
-    flagProcess = 0
+    def _get_model(self, ckpt_path=None):
+        """
+        Load model from ckpt_path or instantiate new model
+        :param ckpt_path: (Optional) Checkpoint path to load
+        :return: lightning module
+        """
 
-    if flagProcess == 0:  ## training model from scratch
-
-        loadTrainedModel = False  # True
-        if loadTrainedModel == True:
-
-            pathCheckPOint = "./SLANATL60_ChckPt/modelSLAInterpGF-Exp3-epoch=36-val_loss=0.05.ckpt"
-            print('.... load pre-trained model :' + pathCheckPOint)
-            mod = LitModel.load_from_checkpoint(pathCheckPOint)
-            mod.hparams.n_grad = 10
-            mod.hparams.iter_update = [0, 25, 40, 100, 150, 150, 800]  # [0,2,4,6,9,15]
-            mod.hparams.nb_grad_update = [10, 10, 15, 15, 15, 20, 20, 20, 20]  # [0,0,1,2,3,3]#[0,2,2,4,5,5]#
-            mod.hparams.lr_update = [1e-3, 1e-4, 1e-4, 1e-5, 1e-4, 1e-5, 1e-5, 1e-6, 1e-7]
+        if ckpt_path:
+            mod = LitModel.load_from_checkpoint(ckpt_path)
         else:
             mod = LitModel()
+        return mod
 
-        print(mod.hparams)
+    def train(self, ckpt_path=None, **trainer_kwargs):
+        """
+        Train a model
+        :param ckpt_path: (Optional) Checkpoint from which to resume
+        :param trainer_kwargs: (Optional) Trainer arguments
+        :return:
+        """
+        mod = self._get_model(ckpt_path=ckpt_path)
         checkpoint_callback = ModelCheckpoint(monitor='val_loss',
                                               dirpath=dirSAVE,
                                               filename='modelSLAInterpGF-Exp3-{epoch:02d}-{val_loss:.2f}',
                                               save_top_k=3,
                                               mode='min')
-        profiler_kwargs = {'max_epochs': 2}
-
-        # trainer = pl.Trainer(gpus=1, accelerator = "ddp", **profiler_kwargs)
-        # trainer = pl.Trainer(gpus=1, accelerator = "ddp", **profiler_kwargs)
-        trainer = pl.Trainer(gpus=1, **profiler_kwargs, callbacks=[checkpoint_callback])
-
-        ## training loop
+        trainer = pl.Trainer(gpus=2, auto_select_gpus=True,  callbacks=[checkpoint_callback], **trainer_kwargs)
         trainer.fit(mod, dataloaders['train'], dataloaders['val'])
+        return mod, trainer
 
-        trainer.test(mod, test_dataloaders=dataloaders['val'])
+    def test(self, ckpt_path=None, dataloader="test",  _mod=None, _trainer=None,  **trainer_kwargs):
+        """
+        Test a model
+        :param ckpt_path: (Optional) Checkpoint from which to resume
+        :param dataloader: Dataloader on which to run the test Checkpoint from which to resume
+        :param trainer_kwargs: (Optional)
+        """
+        mod = _mod or self._get_model(ckpt_path=ckpt_path)
+        trainer = _trainer or pl.Trainer(gpus=1, **trainer_kwargs)
+        trainer.test(mod, test_dataloaders=dataloaders[dataloader])
 
-        X_val = qHR[iiVal + int(dT / 2):jjVal - int(dT / 2), :, :]
-        X_OI = qOI[iiVal + int(dT / 2):jjVal - int(dT / 2), :, :]
-
-        val_mseRec = compute_metrics(X_val, mod.x_rec)
-        val_mseOI = compute_metrics(X_val, X_OI)
-
-        print('\n\n........................................ ')
-        print('........................................\n ')
-        trainer.test(mod, test_dataloaders=dataloaders['test'])
-        # ncfile = Dataset("results/test.nc","r")
-        # X_rec  = ncfile.variables['ssh'][:]
-        # ncfile.close()
-        X_test = qHR[iiTest + int(dT / 2):jjTest - int(dT / 2), :, :]
-        X_OI = qOI[iiTest + int(dT / 2):jjTest - int(dT / 2), :, :]
-
-        test_mseRec = compute_metrics(X_test, mod.x_rec)
-        test_mseOI = compute_metrics(X_test, X_OI)
-
-        print(' ')
-        print('....................................')
-        print('....... Validation dataset')
-        print('....... MSE Val dataset (SSH) : OI = %.3e -- 4DVarNN = %.3e / %.2f %%' % (
-        val_mseOI['mse'], val_mseRec['mse'], 100. * (1. - val_mseRec['mse'] / val_mseOI['mse'])))
-        print('....... MSE Val dataset (gSSH): OI = %.3e -- 4DVarNN = %.3e / %.2f / %.2f %%' % (
-        val_mseOI['mseGrad'], val_mseRec['mseGrad'], 100. * (1. - val_mseRec['mseGrad'] / val_mseOI['meanGrad']),
-        100. * (1. - val_mseRec['mseGrad'] / val_mseOI['meanGrad'])))
-        print(' ')
-        print('....... Test dataset')
-        print('....... MSE Test dataset (SSH) : OI = %.3e -- 4DVarNN = %.3e / %.2f %%' % (
-        test_mseOI['mse'], test_mseRec['mse'], 100. * (1. - test_mseRec['mse'] / test_mseOI['mse'])))
-        print('....... MSE Test dataset (gSSH): OI = %.3e -- 4DVarNN = %.3e / %.2f / %.2f %%' % (
-        test_mseOI['mseGrad'], test_mseRec['mseGrad'], 100. * (1. - test_mseRec['mseGrad'] / test_mseOI['meanGrad']),
-        100. * (1. - test_mseRec['mseGrad'] / test_mseOI['meanGrad'])))
-
-    elif flagProcess == 1:  ## profling
-
-        mod = LitModel()
+    def profile(self):
+        """
+        Run the profiling
+        :return:
+        """
         from pytorch_lightning.profiler import PyTorchProfiler
 
         profiler = PyTorchProfiler(
@@ -835,115 +813,16 @@ if __name__ == '__main__':
                 torch.profiler.ProfilerActivity.CUDA,
             ],
             on_trace_ready=torch.profiler.tensorboard_trace_handler('./tb_profile'),
-            record_shapes=True
+            record_shapes=True,
+            profile_memory=True,
         )
-        # profile with max NbGradIter
-        mod.NbGradIter[0] = mod.NbGradIter[-1]
-        profiler_kwargs = {
-            'profiler': profiler,
-            'max_epochs': 1,
-        }
+        self.train(
+            **{
+                'profiler': profiler,
+                'max_epochs': 1,
+            }
+        )
 
-        trainer = pl.Trainer(gpus=1, **profiler_kwargs)
-
-        ## training loop
-        trainer.fit(mod, dataloaders['train'], dataloaders['val'])
-
-
-    elif flagProcess == 2:  ## test trained model with the non-Lighning code
-        mod = LitModel()
-        fileAEModelInit = './ResSLANATL60/resInterpSLAwSWOT_Exp3_NewSolver_200x200x05_GENN_2_50_03_01_01_25_HRObs_OIObs_MS_Grad_01_02_10_100_modelPHI_iter080.mod'
-
-        mod.model.phi_r.load_state_dict(torch.load(fileAEModelInit))
-        mod.model.model_Grad.load_state_dict(torch.load(fileAEModelInit.replace('_modelPHI_iter', '_modelGrad_iter')))
-        mod.model.model_VarCost.load_state_dict(
-            torch.load(fileAEModelInit.replace('_modelPHI_iter', '_modelVarCost_iter')))
-        mod.model.n_grad = 10
-
-        profiler_kwargs = {'max_epochs': 200}
-        # trainer = pl.Trainer(gpus=1, accelerator = "ddp", **profiler_kwargs)
-        trainer = pl.Trainer(gpus=1, **profiler_kwargs)
-        trainer.test(mod, test_dataloaders=dataloaders['val'])
-
-        # ncfile = Dataset("results/test.nc","r")
-        # X_rec    = ncfile.variables['ssh'][:]
-        # ncfile.close()
-        X_val = qHR[iiVal + int(dT / 2):jjVal - int(dT / 2), :, :]
-        X_OI = qOI[iiVal + int(dT / 2):jjVal - int(dT / 2), :, :]
-
-        val_mseRec = compute_metrics(X_val, mod.x_rec)
-        val_mseOI = compute_metrics(X_val, X_OI)
-
-        print('\n\n........................................ ')
-        print('........................................\n ')
-        trainer.test(mod, test_dataloaders=dataloaders['test'])
-        # ncfile = Dataset("results/test.nc","r")
-        # X_rec  = ncfile.variables['ssh'][:]
-        # ncfile.close()
-        X_test = qHR[iiTest + int(dT / 2):jjTest - int(dT / 2), :, :]
-        X_OI = qOI[iiTest + int(dT / 2):jjTest - int(dT / 2), :, :]
-
-        test_mseRec = compute_metrics(X_test, mod.x_rec)
-        test_mseOI = compute_metrics(X_test, X_OI)
-
-        print(' ')
-        print('....................................')
-        print('....... Validation dataset')
-        print('....... MSE Val dataset (SSH) : OI = %.3e -- 4DVarNN = %.3e / %.2f %%' % (
-        val_mseOI['mse'], val_mseRec['mse'], 100. * (1. - val_mseRec['mse'] / val_mseOI['mse'])))
-        print('....... MSE Val dataset (gSSH): OI = %.3e -- 4DVarNN = %.3e / %.2f / %.2f %%' % (
-        val_mseOI['mseGrad'], val_mseRec['mseGrad'], 100. * (1. - val_mseRec['mseGrad'] / val_mseOI['mseGrad']),
-        100. * (1. - val_mseRec['mseGrad'] / val_mseOI['meanGrad'])))
-        print(' ')
-        print('....... Test dataset')
-        print('....... MSE Test dataset (SSH) : OI = %.3e -- 4DVarNN = %.3e / %.2f %%' % (
-        test_mseOI['mse'], test_mseRec['mse'], 100. * (1. - test_mseRec['mse'] / test_mseOI['mse'])))
-        print('....... MSE Test dataset (gSSH): OI = %.3e -- 4DVarNN = %.3e / %.2f / %.2f %%' % (
-        test_mseOI['mseGrad'], test_mseRec['mseGrad'], 100. * (1. - test_mseRec['mseGrad'] / test_mseOI['mseGrad']),
-        100. * (1. - test_mseRec['mseGrad'] / test_mseOI['meanGrad'])))
-
-    elif flagProcess == 3:  ## test trained model with the Lightning code
-
-        pathCheckPOint = "./SLANATL60_ChckPt/modelSLAInterpGF-Exp3-epoch=36-val_loss=0.05.ckpt"
-
-        mod = LitModel.load_from_checkpoint(pathCheckPOint)
-        mod.model.n_grad = 10
-        profiler_kwargs = {'max_epochs': 200}
-        # trainer = pl.Trainer(gpus=1, accelerator = "ddp", **profiler_kwargs)
-        trainer = pl.Trainer(gpus=1, **profiler_kwargs)
-        trainer.test(mod, test_dataloaders=dataloaders['val'])
-
-        X_val = qHR[iiVal + int(dT / 2):jjVal - int(dT / 2), :, :]
-        X_OI = qOI[iiVal + int(dT / 2):jjVal - int(dT / 2), :, :]
-
-        val_mseRec = compute_metrics(X_val, mod.x_rec)
-        val_mseOI = compute_metrics(X_val, X_OI)
-
-        print('\n\n........................................ ')
-        print('........................................\n ')
-        trainer.test(mod, test_dataloaders=dataloaders['test'])
-        X_test = qHR[iiTest + int(dT / 2):jjTest - int(dT / 2), :, :]
-        X_OI = qOI[iiTest + int(dT / 2):jjTest - int(dT / 2), :, :]
-
-        test_mseRec = compute_metrics(X_test, mod.x_rec)
-        test_mseOI = compute_metrics(X_test, X_OI)
-
-        saveRes = False
-        if saveRes == True:
-            save_NetCDF('results/test.nc', mod.x_rec)
-
-        print(' ')
-        print('....................................')
-        print('....... Validation dataset')
-        print('....... MSE Val dataset (SSH) : OI = %.3e -- 4DVarNN = %.3e / %.2f %%' % (
-        val_mseOI['mse'], val_mseRec['mse'], 100. * (1. - val_mseRec['mse'] / val_mseOI['mse'])))
-        print('....... MSE Val dataset (gSSH): OI = %.3e -- 4DVarNN = %.3e / %.2f / %.2f %%' % (
-        val_mseOI['mseGrad'], val_mseRec['mseGrad'], 100. * (1. - val_mseRec['mseGrad'] / val_mseOI['meanGrad']),
-        100. * (1. - val_mseRec['mseGrad'] / val_mseOI['meanGrad'])))
-        print(' ')
-        print('....... Test dataset')
-        print('....... MSE Test dataset (SSH) : OI = %.3e -- 4DVarNN = %.3e / %.2f %%' % (
-        test_mseOI['mse'], test_mseRec['mse'], 100. * (1. - test_mseRec['mse'] / test_mseOI['mse'])))
-        print('....... MSE Test dataset (gSSH): OI = %.3e -- 4DVarNN = %.3e / %.2f / %.2f %%' % (
-        test_mseOI['mseGrad'], test_mseRec['mseGrad'], 100. * (1. - test_mseRec['mseGrad'] / test_mseOI['meanGrad']),
-        100. * (1. - test_mseRec['mseGrad'] / test_mseOI['meanGrad'])))
+if __name__ == '__main__':
+    import fire
+    fire.Fire(FourDVarNEtRunner)

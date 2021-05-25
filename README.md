@@ -41,6 +41,7 @@ https://s3.eu-central-1.wasabisys.com/melody/NATL/ref/NATL60-CJM165_NATL_sst_y20
 
 ### Run
 ```
+# To get the list of available commands
 python main.py
 ```
 

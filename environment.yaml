@@ -5,7 +5,8 @@ channels:
   - anaconda
 dependencies:
   - python=3.9
-  - pip=21.0
+  - pip=21.1
+  - fire=0.4
   - cudatoolkit=10.2
   - pytorch=1.8
   - torchvision=0.9.1
