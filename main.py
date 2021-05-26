@@ -221,7 +221,7 @@ class  FourDVarNEtRunner:
                                               filename='modelSLAInterpGF-Exp3-{epoch:02d}-{val_loss:.2f}',
                                               save_top_k=3,
                                               mode='min')
-        trainer = pl.Trainer(gpus=2, auto_select_gpus=True,  callbacks=[checkpoint_callback], **trainer_kwargs)
+        trainer = pl.Trainer(gpus=1, auto_select_gpus=True,  callbacks=[checkpoint_callback], **trainer_kwargs)
         trainer.fit(mod, self.dataloaders['train'], self.dataloaders['val'])
         return mod, trainer
 
@@ -267,3 +267,8 @@ class  FourDVarNEtRunner:
 if __name__ == '__main__':
     import fire
     fire.Fire(FourDVarNEtRunner)
+
+
+    # %%
+    # runner = FourDVarNEtRunner()
+    # runner.train()

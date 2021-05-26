@@ -17,8 +17,12 @@ class LegacyDataLoading(pl.LightningDataModule):
         self.var_Tr = None
         self.var_Tt = None
         self.var_Val = None
+        self.training_dataset=None
+        self.val_dataset=None
+        self.test_dataset=None
 
-    def prepare_data(self, *args, **kwargs):
+
+    def setup(self, stage=None):
         # Definiton of training, validation and test dataset
         # from dayly indices over a one-year time series
         cfg = self.cfg
@@ -205,14 +209,14 @@ class LegacyDataLoading(pl.LightningDataModule):
 
 
     def train_dataloader(self):
-        return DataLoader(self.training_dataset, batch_size=cfg.batch_size, shuffle=True,
+        return DataLoader(self.training_dataset, batch_size=self.cfg.batch_size, shuffle=True,
                                     num_workers=4, pin_memory=True)
 
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=cfg.batch_size, shuffle=False,
+        return DataLoader(self.val_dataset, batch_size=self.cfg.batch_size, shuffle=False,
                                     num_workers=4, pin_memory=True)
 
     def val_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=cfg.batch_size, shuffle=False,
+        return DataLoader(self.test_dataset, batch_size=self.cfg.batch_size, shuffle=False,
                                     num_workers=4, pin_memory=True)
 

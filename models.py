@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import pytorch_lightning as pl
 import solver as NN_4DVar
+from omegaconf import OmegaConf
 
 class BiLinUnit(torch.nn.Module):
     def __init__(self,dimIn,dim,dW,dW2,dropout=0.):
@@ -141,10 +142,12 @@ class ModelLR(torch.nn.Module):
 ############################################ Lightning Module #######################################################################
 
 
+
+
 class LitModel(pl.LightningModule):
     def __init__(self, hparam, *args, **kwargs):
         super().__init__()
-        # self.save_hyperparameters(conf)
+        self.save_hyperparameters(OmegaConf.to_container(hparam, resolve=True))
         self.hparam  = hparam
         self.var_Val = kwargs['var_Val']
         self.var_Tr  = kwargs['var_Tr']
