@@ -216,7 +216,7 @@ class LegacyDataLoading(pl.LightningDataModule):
         return DataLoader(self.val_dataset, batch_size=self.cfg.batch_size, shuffle=False,
                                     num_workers=4, pin_memory=True)
 
-    def val_dataloader(self):
+    def test_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=self.cfg.batch_size, shuffle=False,
                                     num_workers=4, pin_memory=True)
 
