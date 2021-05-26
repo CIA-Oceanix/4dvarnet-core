@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import pytorch_lightning as pl
 import solver as NN_4DVar
+from omegaconf import OmegaConf
 
 class BiLinUnit(torch.nn.Module):
     def __init__(self,dimIn,dim,dW,dW2,dropout=0.):
@@ -138,85 +139,68 @@ class ModelLR(torch.nn.Module):
         return self.pool(im)
 
 
-############################################Lightning Module#######################################################################
+############################################ Lightning Module #######################################################################
+
+
 
 
 class LitModel(pl.LightningModule):
     def __init__(self, hparam, *args, **kwargs):
         super().__init__()
-        # self.save_hyperparameters(conf)
-        self.hparam  = hparam
+        self.save_hyperparameters(OmegaConf.to_container(hparam, resolve=True))
         self.var_Val = kwargs['var_Val']
         self.var_Tr  = kwargs['var_Tr']
         self.var_Tt  = kwargs['var_Tt']
 
         # main model
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
-            Phi_r(self.hparam.shapeData[0], self.hparam.DimAE, self.hparam.dW, self.hparam.dW2, self.hparam.sS, self.hparam.nbBlocks, self.hparam.dropout),
-            Model_H(self.hparam.shapeData[0]), 
-            NN_4DVar.model_GradUpdateLSTM(self.hparam.shapeData, self.hparam.UsePriodicBoundary, self.hparam.dim_grad_solver, self.hparam.dropout), 
-                None, None, self.hparam.shapeData, self.hparam.n_grad)
+            Phi_r(self.hparams.shapeData[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS, self.hparams.nbBlocks, self.hparams.dropout),
+            Model_H(self.hparams.shapeData[0]),
+            NN_4DVar.model_GradUpdateLSTM(self.hparams.shapeData, self.hparams.UsePriodicBoundary, self.hparams.dim_grad_solver, self.hparams.dropout),
+                None, None, self.hparams.shapeData, self.hparams.n_grad)
 
         self.model_LR     = ModelLR()
         self.gradient_img = Gradient_img()
-        self.w_loss       = kwargs['w_loss'] # duplicate for automatic upload to gpu
+        # loss weghing wrt time
+
+        self.w_loss       = torch.nn.Parameter(kwargs['w_loss'], requires_grad=False) # duplicate for automatic upload to gpu
         self.x_gt  = None # variable to store Ground Truth
         self.x_oi  = None # variable to store OI
         self.x_rec = None # variable to store output of test method
 
-        self.automatic_optimization = self.hparam.automatic_optimization
+        self.automatic_optimization = self.hparams.automatic_optimization
         
     def forward(self):
         return 1
 
     def configure_optimizers(self):
-        #optimizer = optim.Adam(self.model.parameters(), lr= self.lrUpdate[0])
-        if 1*1 :
-            #optimizer   = optim.Adam(self.model.parameters(), lr = self.lrUpdate[0])
-            optimizer   = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparam.lr_update[0]},
-                                      {'params': self.model.model_VarCost.parameters(), 'lr': self.hparam.lr_update[0]},
-                                    {'params': self.model.phi_r.parameters(), 'lr': 0.5*self.hparam.lr_update[0]},
-                                    ], lr=0.)
-        elif 1*0:
-            optimizer   = optim.RMSprop([{'params': self.model.model_Grad.parameters(), 'lr': self.hparam.lr_update[0]},
-                                      {'params': self.model.model_VarCost.parameters(), 'lr': self.hparam.lr_update[0]},
-                                    {'params': self.model.phi_r.parameters(), 'lr': self.hparam.lr_update[0]},
-                                    ], lr=0.)
 
-        else:
-            optimizer   = optim.ASGD([{'params': self.model.model_Grad.parameters(), 'lr': self.hparam.lr_update[0]},
-                                      {'params': self.model.model_VarCost.parameters(), 'lr': self.hparam.lr_update[0]},
-                                    {'params': self.model.phi_r.parameters(), 'lr': self.hparam.lr_update[0]},
-                                    ], lr=0.)
-        #optPhi     = optim.Adam(self.model.phi_r.parameters(),lr=self.lrUpdate[0])
-        #optGrad    = optim.Adam(self.model.model_Grad.parameters(),lr=self.lrUpdate[0])
-        #optVarCost = optim.Adam(self.model.model_VarCost.parameters(),lr=self.lrUpdate[0])
+        optimizer   = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                                  {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                                {'params': self.model.phi_r.parameters(), 'lr': 0.5*self.hparams.lr_update[0]},
+                                ], lr=0.)
 
 
         return optimizer
 
     def on_epoch_start(self):
         # enfore acnd check some hyperparameters
-        self.model.n_grad   = self.hparam.n_grad
-    
-    def on_epoch_start(self):
-        # enfore acnd check some hyperparameters 
-        self.model.n_grad   = self.hparam.n_grad 
+        self.model.n_grad   = self.hparams.n_grad
 
     def on_train_epoch_start(self):
         opt = self.optimizers()
-        if (self.current_epoch in self.hparam.iter_update) & (self.current_epoch > 0):
-            indx             = self.hparam.iter_update.index(self.current_epoch)
-            print('... Update Iterations number/learning rate #%d: NGrad = %d -- lr = %f'%(self.current_epoch,self.hparam.nb_grad_update[indx],self.hparam.lr_update[indx]))
+        if (self.current_epoch in self.hparams.iter_update) & (self.current_epoch > 0):
+            indx             = self.hparams.iter_update.index(self.current_epoch)
+            print('... Update Iterations number/learning rate #%d: NGrad = %d -- lr = %f'%(self.current_epoch,self.hparams.nb_grad_update[indx],self.hparams.lr_update[indx]))
             
-            self.hparam.n_grad = self.hparam.nb_grad_update[indx]
-            self.model.n_grad   = self.hparam.n_grad 
+            self.hparams.n_grad = self.hparams.nb_grad_update[indx]
+            self.model.n_grad   = self.hparams.n_grad
             
             mm = 0
-            lrCurrent = self.hparam.lr_update[indx]
+            lrCurrent = self.hparams.lr_update[indx]
             lr = np.array([lrCurrent,lrCurrent,0.5*lrCurrent,0.])            
             for pg in opt.param_groups:
-                pg['lr'] = lr[mm]# * self.hparam.learning_rate
+                pg['lr'] = lr[mm]# * self.hparams.learning_rate
                 mm += 1
         
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
@@ -233,11 +217,11 @@ class LitModel(pl.LightningModule):
         self.log("tr_mseG", metrics['mseGrad'] / metrics['meanGrad'] , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         
         # initial grad value
-        if self.hparam.automatic_optimization == False :
+        if self.hparams.automatic_optimization == False :
             # backward
             self.manual_backward(loss)
         
-            if (batch_idx + 1) % self.hparam.k_batch == 0:
+            if (batch_idx + 1) % self.hparams.k_batch == 0:
                 # optimisation step
                 opt.step()
                 
@@ -276,9 +260,9 @@ class LitModel(pl.LightningModule):
         oi = torch.cat([chunk['oi'] for chunk in outputs]).numpy()
         x_test_rec = torch.cat([chunk['preds'] for chunk in outputs]).numpy()
 
-        self.x_gt = gt[:,int(self.hparam.dT/2),:,:]
-        self.x_oi = oi[:,int(self.hparam.dT/2),:,:]
-        self.x_rec = x_test_rec[:,int(self.hparam.dT/2),:,:]
+        self.x_gt = gt[:,int(self.hparams.dT/2),:,:]
+        self.x_oi = oi[:,int(self.hparams.dT/2),:,:]
+        self.x_rec = x_test_rec[:,int(self.hparams.dT/2),:,:]
 
         # save NetCDF
         path_save1 = self.logger.log_dir+'/test.nc'
@@ -312,8 +296,8 @@ class LitModel(pl.LightningModule):
                 outputs = outputs.detach()
 
             outputsSLRHR = outputs
-            outputsSLR   = outputs[:, 0:self.hparam.dT, :, :]
-            outputs      = outputsSLR + outputs[:, self.hparam.dT:, :, :]
+            outputsSLR   = outputs[:, 0:self.hparams.dT, :, :]
+            outputs      = outputsSLR + outputs[:, self.hparams.dT:, :, :]
 
             # reconstruction losses
             g_outputs  = self.gradient_img(outputs)
@@ -335,9 +319,9 @@ class LitModel(pl.LightningModule):
             loss_LR      = NN_4DVar.compute_WeightedLoss(self.model_LR(outputs) - targets_GTLR, self.w_loss)
 
             # total loss
-            loss     = self.hparam.alpha_MSE * (self.hparam.betaX * loss_All + self.hparam.betagX * loss_GAll) \
-                 + 0.5 * self.hparam.alpha_Proj * (loss_AE + loss_AE_GT)
-            loss    += self.hparam.alpha_LR * loss_LR + self.hparam.alpha_SR * loss_SR
+            loss     = self.hparams.alpha_MSE * (self.hparams.betaX * loss_All + self.hparams.betagX * loss_GAll) \
+                 + 0.5 * self.hparams.alpha_Proj * (loss_AE + loss_AE_GT)
+            loss    += self.hparams.alpha_LR * loss_LR + self.hparams.alpha_SR * loss_SR
             
             # metrics
             mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_GT,self.w_loss)
