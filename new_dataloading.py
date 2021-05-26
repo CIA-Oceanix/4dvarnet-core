@@ -140,6 +140,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         super().__init__()
         self.slice_win = slice_win
         self.dim_range = dim_range
+        self.strides = strides
 
         self.oi_path = oi_path
         self.oi_var = oi_var
