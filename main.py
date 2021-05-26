@@ -90,11 +90,22 @@ class FourDVarNetRunner:
             self.var_Tr = datamodule.var_Tr
             self.var_Tt = datamodule.var_Tt
             self.var_Val = datamodule.var_Val
+        if dataloading == "old":
+            datamodule = LegacyDataLoading(cfg)
+            datamodule.setup()
+            self.dataloaders = {
+                'train': datamodule.train_dataloader(),
+                'val': datamodule.val_dataloader(),
+                'test': datamodule.val_dataloader(),
+            }
+            self.var_Tr = datamodule.var_Tr
+            self.var_Tt = datamodule.var_Tt
+            self.var_Val = datamodule.var_Val
         elif dataloading == "with_sst":
             # Specify the dataset spatial bounds
             dim_range = {
-                'lat': slice(35, 45),
-                'lon': slice(-65, -55),
+                #'lat': slice(35, 45),
+                #'lon': slice(-65, -55),
             }
 
             # Specify the batch patch size
