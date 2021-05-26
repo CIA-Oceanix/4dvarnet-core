@@ -156,6 +156,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             **(dl_kwargs or {})
         }
 
+        print('sst path ='+self.sst_path)
+
         self.train_slices, self.test_slices, self.val_slices = train_slices, test_slices, val_slices
         self.train_ds, self.val_ds, self.test_ds = None, None, None
         self.norm_stats = None
