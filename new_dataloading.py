@@ -90,7 +90,7 @@ class FourDVarNetDataset(Dataset):
         mean, std = self.norm_stats
         _oi_item = self.oi_ds[item]
         _oi_item = (np.where(
-            _oi_item < 10,
+            np.abs(_oi_item) < 10,
             _oi_item,
             np.nan,
         ) - mean) / std
