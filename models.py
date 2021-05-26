@@ -159,7 +159,9 @@ class LitModel(pl.LightningModule):
 
         self.model_LR     = ModelLR()
         self.gradient_img = Gradient_img()
-        self.w_loss       = kwargs['w_loss'] # duplicate for automatic upload to gpu
+        # loss weghing wrt time
+
+        self.w_loss       = torch.nn.Parameter(kwargs['w_loss'], requires_grad=False) # duplicate for automatic upload to gpu
         self.x_gt  = None # variable to store Ground Truth
         self.x_oi  = None # variable to store OI
         self.x_rec = None # variable to store output of test method
