@@ -340,7 +340,7 @@ class LitModel(pl.LightningModule):
 
 class LitModelwithSST(LitModel):
     def __init__(self, hparam, *args, **kwargs):
-        super().__init__()
+        super().__init__(hparam, *args, **kwargs)
         self.save_hyperparameters(OmegaConf.to_container(hparam, resolve=True))
         self.var_Val = kwargs['var_Val']
         self.var_Tr  = kwargs['var_Tr']
