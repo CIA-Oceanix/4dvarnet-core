@@ -99,12 +99,9 @@ class FourDVarNetDataset(Dataset):
     def __getitem__(self, item):
         if self.sst_ds == None :        
             mean, std = self.norm_stats
-            print( self.norm_stats )
         else:
-            print( self.norm_stats )
             mean, std = self.norm_stats
         _oi_item = self.oi_ds[item]
-        print(_oi_item.shape,flush=True)
 
         _oi_item = (np.where(
             np.abs(_oi_item) < 10,
