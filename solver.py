@@ -106,11 +106,11 @@ class ConvLSTM1d(torch.nn.Module):
         return hidden, cell
 
 def compute_WeightedLoss(x2,w):
-    loss_ = torch.sum(x2**2 , dim = 3)
-    loss_ = torch.sum( loss_ , dim = 2)
-    loss_ = torch.sum( loss_ , dim = 0)
-    loss_ = torch.sum( loss_ * w )
-    loss_ = loss_ / (x2.shape[0]*x2.shape[2]*x2.shape[2])
+    loss_ = torch.nansum(x2**2 , dim = 3)
+    loss_ = torch.nansum( loss_ , dim = 2)
+    loss_ = torch.nansum( loss_ , dim = 0)
+    loss_ = torch.nansum( loss_ * w )
+    loss_ = loss_ / (torch.sum(~torch.isnan(x2)))
     
     return loss_
 
@@ -122,11 +122,11 @@ class Model_WeightedL2Norm(torch.nn.Module):
         super(Model_WeightedL2Norm, self).__init__()
  
     def forward(self,x,w,eps=0.):
-        loss_ = torch.sum( x**2 , dim = 3)
-        loss_ = torch.sum( loss_ , dim = 2)
-        loss_ = torch.sum( loss_ , dim = 0)
-        loss_ = torch.sum( loss_ * w )
-        loss_ = loss_ / (x.shape[0]*x.shape[2]*x.shape[2])
+        loss_ = torch.nansum( x**2 , dim = 3)
+        loss_ = torch.nansum( loss_ , dim = 2)
+        loss_ = torch.nansum( loss_ , dim = 0)
+        loss_ = torch.nansum( loss_ * w )
+        loss_ = loss_ / (torch.sum(~torch.isnan(x)))
 
         return loss_
 
@@ -136,11 +136,11 @@ class Model_WeightedL1Norm(torch.nn.Module):
  
     def forward(self,x,w,eps):
 
-        loss_ = torch.sum( torch.sqrt( eps**2 + x**2 ) , dim = 3)
-        loss_ = torch.sum( loss_ , dim = 2)
-        loss_ = torch.sum( loss_ , dim = 0)
-        loss_ = torch.sum( loss_ * w )
-        loss_ = loss_ / (x.shape[0]*x.shape[2]*x.shape[2])
+        loss_ = torch.nansum( torch.sqrt( eps**2 + x**2 ) , dim = 3)
+        loss_ = torch.nansum( loss_ , dim = 2)
+        loss_ = torch.nansum( loss_ , dim = 0)
+        loss_ = torch.nansum( loss_ * w )
+        loss_ = loss_ / (torch.sum(~torch.isnan(x)))
 
         return loss_
 
@@ -150,11 +150,11 @@ class Model_WeightedLorenzNorm(torch.nn.Module):
  
     def forward(self,x,w,eps):
 
-        loss_ = torch.sum( torch.log( 1. + eps**2 * x**2 ) , dim = 3)
-        loss_ = torch.sum( loss_ , dim = 2)
-        loss_ = torch.sum( loss_ , dim = 0)
-        loss_ = torch.sum( loss_ * w )
-        loss_ = loss_ / (x.shape[0]*x.shape[2]*x.shape[2])
+        loss_ = torch.nansum( torch.log( 1. + eps**2 * x**2 ) , dim = 3)
+        loss_ = torch.nansum( loss_ , dim = 2)
+        loss_ = torch.nansum( loss_ , dim = 0)
+        loss_ = torch.nansum( loss_ * w )
+        loss_ = loss_ / (torch.sum(~torch.isnan(x)))
 
         return loss_
 
@@ -164,19 +164,19 @@ class Model_WeightedGMcLNorm(torch.nn.Module):
  
     def forward(self,x,w,eps):
 
-        loss_ = torch.sum( 1.0 - torch.exp( - eps**2 * x**2 ) , dim = 3)
-        loss_ = torch.sum( loss_ , dim = 2)
-        loss_ = torch.sum( loss_ , dim = 0)
-        loss_ = torch.sum( loss_ * w )
-        loss_ = loss_ / (x.shape[0]*x.shape[2]*x.shape[2])
+        loss_ = torch.nansum( 1.0 - torch.exp( - eps**2 * x**2 ) , dim = 3)
+        loss_ = torch.nansum( loss_ , dim = 2)
+        loss_ = torch.nansum( loss_ , dim = 0)
+        loss_ = torch.nansum( loss_ * w )
+        loss_ = loss_ / (torch.sum(~torch.isnan(x)))
 
         return loss_
 
 def compute_WeightedL2Norm1D(x2,w):
-    loss_ = torch.sum(x2**2 , dim = 2)
-    loss_ = torch.sum( loss_ , dim = 0)
-    loss_ = torch.sum( loss_ * w )
-    loss_ = loss_ / (x2.shape[0]*x2.shape[2])
+    loss_ = torch.nansum(x2**2 , dim = 2)
+    loss_ = torch.nansum( loss_ , dim = 0)
+    loss_ = torch.nansum( loss_ * w )
+    loss_ = loss_ / (torch.sum(~torch.isnan(x2)))
     
     return loss_
 
@@ -199,20 +199,20 @@ class model_GradUpdateLSTM(torch.nn.Module):
         self.convLayer     = self._make_ConvGrad()
         K = torch.Tensor([0.1]).view(1,1,1,1)
         self.convLayer.weight = torch.nn.Parameter(K)
-        
+
         self.dropout = torch.nn.Dropout(rateDropout)
 
         if len(self.shape) == 2: ## 1D Data
             self.lstm = ConvLSTM1d(self.shape[0],self.DimState,3)
         elif len(self.shape) == 3: ## 2D Data
             self.lstm = ConvLSTM2d(self.shape[0],self.DimState,3)
-        
+
     def _make_ConvGrad(self):
         layers = []
 
         if len(self.shape) == 2: ## 1D Data
             layers.append(torch.nn.Conv1d(self.DimState, self.shape[0], 1, padding=0,bias=False))
-        elif len(self.shape) == 3: ## 2D Data            
+        elif len(self.shape) == 3: ## 2D Data
             layers.append(torch.nn.Conv2d(self.DimState, self.shape[0], (1,1), padding=0,bias=False))
 
         return torch.nn.Sequential(*layers)
@@ -221,17 +221,17 @@ class model_GradUpdateLSTM(torch.nn.Module):
 
         if len(self.shape) == 2: ## 1D Data
             layers.append(ConvLSTM1d(self.shape[0],self.DimState,3))
-        elif len(self.shape) == 3: ## 2D Data            
+        elif len(self.shape) == 3: ## 2D Data
             layers.append(ConvLSTM2d(self.shape[0],self.DimState,3))
 
         return torch.nn.Sequential(*layers)
- 
+
     def forward(self,hidden,cell,grad,gradnorm=1.0):
 
         # compute gradient
         grad  = grad / gradnorm
         grad  = self.dropout( grad )
-          
+
         if self.PeriodicBnd == True :
             dB     = 7
             #
@@ -242,7 +242,7 @@ class model_GradUpdateLSTM(torch.nn.Module):
                 hidden_  = torch.cat((hidden[:,:,x.size(2)-dB:,:],hidden,hidden[:,:,0:dB,:]),dim=2)
                 cell_    = torch.cat((cell[:,:,x.size(2)-dB:,:],cell,cell[:,:,0:dB,:]),dim=2)
                 hidden_,cell_ = self.lstm(grad_,[hidden_,cell_])
-                
+
             hidden = hidden_[:,:,dB:x.size(2)+dB,:]
             cell   = cell_[:,:,dB:x.size(2)+dB,:]
         else:
