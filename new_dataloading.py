@@ -169,8 +169,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         mean = float(xr.concat([_ds.gt_ds.ds[_ds.gt_ds.var] for _ds in ds.datasets], dim='time').mean())
         std = float(xr.concat([_ds.gt_ds.ds[_ds.gt_ds.var] for _ds in ds.datasets], dim='time').std())
         
-        print(ds.__dict__)
-        if hasattr(ds, 'sst_ds') == False :
+        if self.sst_var == None :
             print('... NO SST data')
             return mean, std
         else: 
