@@ -99,6 +99,7 @@ class FourDVarNetDataset(Dataset):
     def __getitem__(self, item):
         if self.sst_ds == None :        
             mean, std = self.norm_stats
+            print( self.norm_stats )
         else:
             print( self.norm_stats )
             mean, std = self.norm_stats
@@ -167,6 +168,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.train_slices, self.test_slices, self.val_slices = train_slices, test_slices, val_slices
         self.train_ds, self.val_ds, self.test_ds = None, None, None
         self.norm_stats = None
+        self.norm_stats_sst = None
 
     def compute_norm_stats(self, ds):
         mean = float(xr.concat([_ds.gt_ds.ds[_ds.gt_ds.var] for _ds in ds.datasets], dim='time').mean())
@@ -180,7 +182,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             mean_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').mean())
             std_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').std())
             
-            return [[mean, std],[mean_sst, std_sst]]
+            return [mean, std],[mean_sst, std_sst]
             
 
     def set_norm_stats(self, ds, ns, ns_sst = None):
@@ -207,13 +209,18 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             )
             for slices in (self.train_slices, self.val_slices, self.test_slices)
         ]
-        
-        
-        print(self.train_ds.__dict__)
-        self.norm_stats = self.compute_norm_stats(self.train_ds)
-        self.set_norm_stats(self.train_ds, self.norm_stats)
-        self.set_norm_stats(self.val_ds, self.norm_stats)
-        self.set_norm_stats(self.test_ds, self.norm_stats)
+                
+        if self.sst_var == None :
+            self.norm_stats = self.compute_norm_stats(self.train_ds)
+            self.set_norm_stats(self.train_ds, self.norm_stats)
+            self.set_norm_stats(self.val_ds, self.norm_stats)
+            self.set_norm_stats(self.test_ds, self.norm_stats)
+        else:
+            self.norm_stats,self.norm_stats_sst = self.compute_norm_stats(self.train_ds)
+            
+            self.set_norm_stats(self.train_ds, self.norm_stats,self.norm_stats_sst)
+            self.set_norm_stats(self.val_ds, self.norm_stats,self.norm_stats_sst)
+            self.set_norm_stats(self.test_ds, self.norm_stats,self.norm_stats_sst)
 
     def train_dataloader(self):
         return DataLoader(self.train_ds, **self.dl_kwargs, shuffle=True)
