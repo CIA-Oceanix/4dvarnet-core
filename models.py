@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import pytorch_lightning as pl
 import solver as NN_4DVar
-from data_utils import save_netcdf, nrmse_scores
+from metrics import save_netcdf, nrmse_scores
 from omegaconf import OmegaConf
 
 class BiLinUnit(torch.nn.Module):
