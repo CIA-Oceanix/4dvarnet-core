@@ -129,9 +129,9 @@ class FourDVarNetRunner:
                 'test': datamodule.val_dataloader(),
             }
             # Warning not the same as before
-            self.var_Tr = datamodule.norm_stats[0][1] ** 2
-            self.var_Tt = datamodule.norm_stats[0][1] ** 2
-            self.var_Val = datamodule.norm_stats[0][1] ** 2
+            self.var_Tr = datamodule.norm_stats[1] ** 2
+            self.var_Tt = datamodule.norm_stats[1] ** 2
+            self.var_Val = datamodule.norm_stats[1] ** 2
         else:
             # Specify the dataset spatial bounds
             dim_range = {
