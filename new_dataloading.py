@@ -127,12 +127,29 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             train_slices=(slice('2012-10-01', "2012-11-20"), slice('2013-02-08', "2013-09-30")),
             test_slices=(slice('2012-12-30', "2013-01-19"),),
             val_slices=(slice('2012-11-30', "2012-12-20"),),
+            oi_path='/gpfsscratch/rech/nlu/commun/large/ssh_NATL60_swot_4nadir.nc',
+            oi_var='ssh_mod',
+            obs_mask_path='/gpfsscratch/rech/nlu/commun/large/dataset_nadir_0d_swot.nc',
+            obs_mask_var='mask',
+            gt_path='/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
+            gt_var='ssh',
+            sst_path = None,
+            sst_var = None,
             dl_kwargs=None,
     ):
         super().__init__()
         self.slice_win = slice_win
         self.dim_range = dim_range
-        self.strides = strides
+
+        self.oi_path = oi_path
+        self.oi_var = oi_var
+        self.obs_mask_path = obs_mask_path
+        self.obs_mask_var = obs_mask_var
+        self.gt_path = gt_path
+        self.gt_var = gt_var
+        self.sst_path = sst_path
+        self.sst_var = sst_var
+        
         self.dl_kwargs = {
             **{'batch_size': 2, 'num_workers': 3},
             **(dl_kwargs or {})
@@ -165,7 +182,16 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 [FourDVarNetDataset(
                     dim_range={**self.dim_range, **{'time': sl}},
                     strides=self.strides,
-                    slice_win=self.slice_win
+                    slice_win=self.slice_win,
+                    oi_path=self.oi_path,
+                    oi_var=self.oi_var,
+                    obs_mask_path=self.obs_mask_path,
+                    obs_mask_var=self.obs_mask_var,
+                    gt_path=self.gt_path,
+                    gt_var=self.gt_var,
+                    sst_path=self.sst_path, 
+                    sst_var=self.sst_var
+                    
                 ) for sl in slices]
             )
             for slices in (self.train_slices, self.val_slices, self.test_slices)
