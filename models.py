@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import pytorch_lightning as pl
 import solver as NN_4DVar
-from metrics import save_netcdf, nrmse_scores
+from metrics import save_netcdf, nrmse_scores, plot_nrmse, plot_snr
 from omegaconf import OmegaConf
 
 class BiLinUnit(torch.nn.Module):
@@ -152,6 +152,14 @@ class LitModel(pl.LightningModule):
         self.var_Val = kwargs['var_Val']
         self.var_Tr  = kwargs['var_Tr']
         self.var_Tt  = kwargs['var_Tt']
+ 
+        # create longitudes & latitudes coordinates
+        self.xmin = kwargs['min_lon']
+        self.xmax = kwargs['max_lon']
+        self.ymin = kwargs['min_lat']
+        self.ymax = kwargs['max_lat']
+        self.lon = np.arange(self.xmin,self.xmax,.05)
+        self.lat = np.arange(self.ymin,self.ymax,.05)
 
         # main model
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
@@ -260,19 +268,27 @@ class LitModel(pl.LightningModule):
         oi = torch.cat([chunk['oi'] for chunk in outputs]).numpy()
         x_test_rec = torch.cat([chunk['preds'] for chunk in outputs]).numpy()
 
+        print(self.lon.shape)
+        print(x_test_rec.shape)
         self.x_gt = gt[:,int(self.hparams.dT/2),:,:]
         self.x_oi = oi[:,int(self.hparams.dT/2),:,:]
         self.x_rec = x_test_rec[:,int(self.hparams.dT/2),:,:]
 
         # save NetCDF
         path_save1 = self.logger.log_dir+'/test.nc'
-        save_netcdf(saved_path1 = path_save1, x_test_rec = x_test_rec,
-            lon = lon,lat = lat)
+        save_netcdf(saved_path1 = path_save1, pred = x_test_rec,
+            lon = self.lon,lat = self.lat, index_train = np.arange(60, 77))
         # compute nRMSE
         path_save2 = self.logger.log_dir+'/nRMSE.txt'
         tab_scores = nrmse_scores(gt,oi,x_test_rec,path_save2)
         print('*** Display nRMSE scores ***')
         print(tab_scores)
+        # plot nRMSE
+        path_save3 = self.logger.log_dir+'/nRMSE.png'
+        plot_nrmse(gt,oi,x_test_rec,path_save3,index_train = np.arange(60, 77))        
+        # plot SNR
+        path_save4 = self.logger.log_dir+'/SNR.png'
+        plot_snr(gt,oi,x_test_rec,path_save4)
 
     def compute_loss(self, batch, phase):
 

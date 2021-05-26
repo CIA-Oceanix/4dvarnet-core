@@ -94,8 +94,8 @@ class FourDVarNetRunner:
         else:
             # Specify the dataset spatial bounds
             dim_range = {
-                # 'lat': slice(35, 45),
-                # 'lon': slice(-65, -55),
+                 'lat': slice(35, 45),
+                 'lon': slice(-65, -55),
             }
 
             # Specify the batch patch size
@@ -125,6 +125,10 @@ class FourDVarNetRunner:
             self.var_Tr = datamodule.norm_stats[1] ** 2
             self.var_Tt = datamodule.norm_stats[1] ** 2
             self.var_Val = datamodule.norm_stats[1] ** 2
+            self.min_lon = dim_range['lon'].start
+            self.max_lon = dim_range['lon'].stop
+            self.min_lat = dim_range['lat'].start
+            self.max_lat = dim_range['lat'].stop
 
     def run(self, ckpt_path=None, dataloader="test", **trainer_kwargs):
         """
@@ -146,7 +150,10 @@ class FourDVarNetRunner:
         if ckpt_path:
             mod = LitModel.load_from_checkpoint(ckpt_path)
         else:
-            mod = LitModel(hparam=cfg, w_loss=wLoss, var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val)
+            mod = LitModel(hparam=cfg, w_loss=wLoss,
+                           var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val,
+                           min_lon=self.min_lon, max_lon=self.max_lon,
+                           min_lat=self.min_lat, max_lat=self.max_lat)
         return mod
 
     def train(self, ckpt_path=None, **trainer_kwargs):
@@ -178,7 +185,7 @@ class FourDVarNetRunner:
         """
         mod = _mod or self._get_model(ckpt_path=ckpt_path)
         trainer = _trainer or pl.Trainer(gpus=1, **trainer_kwargs)
-        trainer.test(mod, test_dataloaders=self.dataloaders[dataloader])
+        trainer.test(mod, test_dataloaders = self.dataloaders[dataloader])
 
     def profile(self):
         """

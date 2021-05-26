@@ -118,7 +118,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.dim_range = dim_range
         self.strides = strides
         self.dl_kwargs = {
-            **{'batch_size': 2, 'num_workers': 3},
+            **{'batch_size': 1, 'num_workers': 3},
             **(dl_kwargs or {})
         }
 
@@ -146,7 +146,6 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             )
             for slices in (self.train_slices, self.val_slices, self.test_slices)
         ]
-
         self.norm_stats = self.compute_norm_stats(self.train_ds)
         self.set_norm_stats(self.train_ds, self.norm_stats)
         self.set_norm_stats(self.val_ds, self.norm_stats)
