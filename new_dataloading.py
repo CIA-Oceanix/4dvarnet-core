@@ -8,6 +8,7 @@ class XrDataset(Dataset):
     """
     torch Dataset based on an xarray file with on the fly slicing.
     """
+
     def __init__(self, path, var, slice_win, dim_range=None, strides=None, decode=False):
         """
         :param path: xarray file
@@ -57,6 +58,7 @@ class FourDVarNetDataset(Dataset):
         an item contains a slice of OI, mask, and GT
         does the preprocessing for the item
     """
+
     def __init__(
             self,
             slice_win,
@@ -64,8 +66,8 @@ class FourDVarNetDataset(Dataset):
             strides=None,
             oi_path='/gpfsscratch/rech/nlu/commun/large/ssh_NATL60_swot_4nadir.nc',
             oi_var='ssh_mod',
-            mask_path='/gpfsscratch/rech/nlu/commun/large/dataset_nadir_0d_swot.nc',
-            mask_var='mask',
+            obs_mask_path='/gpfsscratch/rech/nlu/commun/large/dataset_nadir_0d_swot.nc',
+            obs_mask_var='mask',
             gt_path='/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
             gt_var='ssh',
     ):
@@ -73,32 +75,31 @@ class FourDVarNetDataset(Dataset):
 
         self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win, dim_range=dim_range, strides=strides)
         self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win, dim_range=dim_range, strides=strides, decode=True)
-        self.mask_ds = XrDataset(mask_path, mask_var, slice_win=slice_win, dim_range=dim_range, strides=strides)
+        self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win, dim_range=dim_range,
+                                     strides=strides)
 
         self.norm_stats = None
 
     def set_norm_stats(self, stats):
         self.norm_stats = stats
+
     def __len__(self):
-        return min(len(self.oi_ds), len(self.gt_ds), len(self.mask_ds))
+        return min(len(self.oi_ds), len(self.gt_ds), len(self.obs_mask_ds))
 
     def __getitem__(self, item):
         mean, std = self.norm_stats
         _oi_item = self.oi_ds[item]
         _oi_item = (np.where(
-             _oi_item < 10,
+            _oi_item < 10,
             _oi_item,
             np.nan,
         ) - mean) / std
         oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
-        mask_item = (1 - self.mask_ds[item]).astype(bool) & ~np.isnan(oi_item)
+        obs_mask_item = (1 - self.obs_mask_ds[item]).astype(bool) & ~np.isnan(oi_item)
 
         _gt_item = (self.gt_ds[item] - mean) / std
         gt_item = np.where(~np.isnan(_gt_item), _gt_item, 0.)
-        # assert not np.any(np.isnan(gt_item))
-        # assert not np.any(np.isnan(oi_item))
-        # assert not np.any(np.isnan(mask_item))
-        return oi_item, mask_item, gt_item
+        return oi_item, obs_mask_item, gt_item
 
 
 class FourDVarNetDataModule(pl.LightningDataModule):
@@ -117,7 +118,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.dim_range = dim_range
         self.strides = strides
         self.dl_kwargs = {
-            **{'batch_size': 10, 'num_workers':3},
+            **{'batch_size': 10, 'num_workers': 3},
             **(dl_kwargs or {})
         }
 
@@ -162,16 +163,23 @@ class FourDVarNetDataModule(pl.LightningDataModule):
 
 
 if __name__ == '__main__':
+    """
+    Test run for single batch loading and trainer.fit 
+    """
+
+    # Specify the dataset spatial bounds
     dim_range = {
-        # 'time': slice("2012-10-01", "2013-01-01"),
         'lat': slice(35, 45),
         'lon': slice(-65, -55),
     }
+
+    # Specify the batch patch size
     slice_win = {
         'time': 5,
         'lat': 200,
         'lon': 200,
     }
+    # Specify the stride between two patches
     strides = {
         'time': 1,
         'lat': 200,
@@ -184,14 +192,15 @@ if __name__ == '__main__':
         strides=strides,
     )
 
+    # Test a single batch loading
     dm.setup()
-
     dl = dm.val_dataloader()
     batch = next(iter(dl))
     oi, mask, gt = batch
 
-
+    # Test fit
     from main import LitModel
+
     lit_mod = LitModel()
     trainer = pl.Trainer(gpus=1)
     # dm.setup()
