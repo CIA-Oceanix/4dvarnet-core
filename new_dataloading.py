@@ -70,6 +70,8 @@ class FourDVarNetDataset(Dataset):
             obs_mask_var='mask',
             gt_path='/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
             gt_var='ssh',
+            sst_path = None,
+            sst_var = None
     ):
         super().__init__()
 
@@ -77,11 +79,18 @@ class FourDVarNetDataset(Dataset):
         self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win, dim_range=dim_range, strides=strides, decode=True)
         self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win, dim_range=dim_range,
                                      strides=strides)
-
+            
         self.norm_stats = None
+        
+        if sst_var == 'sst' :
+            self.sst_ds = XrDataset(sst_path, sst_var, slice_win=slice_win, dim_range=dim_range, strides=strides, decode=True)
+        else:
+           self.sst_ds = None 
+        self.norm_stats_sst = None
 
-    def set_norm_stats(self, stats):
+    def set_norm_stats(self, stats,stats_sst=None):
         self.norm_stats = stats
+        self.norm_stats_sst = stats_sst
 
     def __len__(self):
         return min(len(self.oi_ds), len(self.gt_ds), len(self.obs_mask_ds))
@@ -99,8 +108,15 @@ class FourDVarNetDataset(Dataset):
 
         _gt_item = (self.gt_ds[item] - mean) / std
         gt_item = np.where(~np.isnan(_gt_item), _gt_item, 0.)
-        return oi_item, obs_mask_item, gt_item
-
+        
+        if self.sst_ds == None :
+            return oi_item, obs_mask_item, gt_item
+        else:
+            mean, std = self.norm_stats_sst
+            _sst_item = (self.sst_ds[item] - mean) / std
+            sst_item = np.where(~np.isnan(_sst_item), _sst_item, 0.)
+            
+            return oi_item, obs_mask_item, gt_item, sst_item
 
 class FourDVarNetDataModule(pl.LightningDataModule):
     def __init__(
@@ -129,11 +145,19 @@ class FourDVarNetDataModule(pl.LightningDataModule):
     def compute_norm_stats(self, ds):
         mean = float(xr.concat([_ds.gt_ds.ds[_ds.gt_ds.var] for _ds in ds.datasets], dim='time').mean())
         std = float(xr.concat([_ds.gt_ds.ds[_ds.gt_ds.var] for _ds in ds.datasets], dim='time').std())
-        return mean, std
+        
+        if ds.sst_ds == None :
+            return mean, std
+        else: 
+            mean_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').mean())
+            std_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').std())
+            
+            return [[mean, std],[mean_sst, std_sst]]
+            
 
-    def set_norm_stats(self, ds, ns):
+    def set_norm_stats(self, ds, ns, ns_sst = None):
         for _ds in ds.datasets:
-            _ds.set_norm_stats(ns)
+            _ds.set_norm_stats(ns,ns_sst)
 
     def setup(self, stage=None):
         self.train_ds, self.val_ds, self.test_ds = [

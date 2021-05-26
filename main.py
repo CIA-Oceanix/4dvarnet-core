@@ -16,7 +16,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 import config
 import solver as NN_4DVar
-from models import Gradient_img, LitModel
+from models import Gradient_img, LitModel, LitModelwithSST
 from new_dataloading import FourDVarNetDataModule
 from old_dataloading import LegacyDataLoading
 
@@ -24,7 +24,6 @@ cfg = OmegaConf.create(config.params)
 
 
 #######################################Phi_r, Model_H, Model_Sampling architectures ################################################
-
 print('........ Define AE architecture')
 shapeData = cfg.shapeData  # np.array(x_train.shape[1:])
 # shapeData_test = np.array(x_test.shape[1:])
@@ -91,6 +90,48 @@ class FourDVarNetRunner:
             self.var_Tr = datamodule.var_Tr
             self.var_Tt = datamodule.var_Tt
             self.var_Val = datamodule.var_Val
+        elif dataloading == "with_sst":
+            # Specify the dataset spatial bounds
+            dim_range = {
+                'lat': slice(35, 45),
+                'lon': slice(-65, -55),
+            }
+
+            # Specify the batch patch size
+            slice_win = {
+                'time': 5,
+                'lat': 200,
+                'lon': 200,
+            }
+            # Specify the stride between two patches
+            strides = {
+                'time': 1,
+                'lat': 200,
+                'lon': 200,
+            }
+            datamodule = FourDVarNetDataModule(
+                slice_win=slice_win,
+                dim_range=dim_range,
+                strides=strides,
+                oi_path='/gpfsscratch/rech/nlu/commun/large/ssh_NATL60_swot_4nadir.nc',
+                oi_var='ssh_mod',
+                obs_mask_path='/gpfsscratch/rech/nlu/commun/large/dataset_nadir_0d_swot.nc',
+                obs_mask_var='mask',
+                gt_path='/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
+                gt_var='ssh',
+                sst_path = '/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_sst_y2013.1y.nc',
+                sst_var = 'sst'
+           )
+            datamodule.setup()
+            self.dataloaders = {
+                'train': datamodule.train_dataloader(),
+                'val': datamodule.val_dataloader(),
+                'test': datamodule.val_dataloader(),
+            }
+            # Warning not the same as before
+            self.var_Tr = datamodule.norm_stats[1] ** 2
+            self.var_Tt = datamodule.norm_stats[1] ** 2
+            self.var_Val = datamodule.norm_stats[1] ** 2
         else:
             # Specify the dataset spatial bounds
             dim_range = {
@@ -136,6 +177,16 @@ class FourDVarNetRunner:
         mod, trainer = self.train(ckpt_path, **trainer_kwargs)
         self.test(dataloader=dataloader, _mod=mod, _trainer=trainer)
 
+    def run_with_sst(self, ckpt_path=None, dataloader="test", **trainer_kwargs):
+        """
+        Train and test model and run the test suite
+        :param ckpt_path: (Optional) Checkpoint from which to resume
+        :param dataloader: Dataloader on which to run the test Checkpoint from which to resume
+        :param trainer_kwargs: (Optional)
+        """
+        mod, trainer = self.train(ckpt_path, **trainer_kwargs)
+        self.test(dataloader=dataloader, _mod=mod, _trainer=trainer)
+
     def _get_model(self, ckpt_path=None):
         """
         Load model from ckpt_path or instantiate new model
@@ -147,6 +198,19 @@ class FourDVarNetRunner:
             mod = LitModel.load_from_checkpoint(ckpt_path)
         else:
             mod = LitModel(hparam=cfg, w_loss=wLoss, var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val)
+        return mod
+
+    def _get_model_with_sst(self, ckpt_path=None):
+        """
+        Load model from ckpt_path or instantiate new model
+        :param ckpt_path: (Optional) Checkpoint path to load
+        :return: lightning module
+        """
+
+        if ckpt_path:
+            mod = LitModelwithSST.load_from_checkpoint(ckpt_path)
+        else:
+            mod = LitModelwithSST(hparam=cfg, w_loss=wLoss, var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val)
         return mod
 
     def train(self, ckpt_path=None, **trainer_kwargs):
@@ -166,6 +230,23 @@ class FourDVarNetRunner:
         num_gpus = torch.cuda.device_count()
         accelerator = "ddp" if num_gpus > 1 else None
         trainer = pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, auto_select_gpus=True,  callbacks=[checkpoint_callback], **trainer_kwargs)
+        trainer.fit(mod, self.dataloaders['train'], self.dataloaders['val'])
+        return mod, trainer
+
+    def train_with_sst(self, ckpt_path=None, **trainer_kwargs):
+        """
+        Train a model
+        :param ckpt_path: (Optional) Checkpoint from which to resume
+        :param trainer_kwargs: (Optional) Trainer arguments
+        :return:
+        """
+        mod = self._get_model_with_sst(ckpt_path=ckpt_path)
+        checkpoint_callback = ModelCheckpoint(monitor='val_loss',
+                                              dirpath=cfg.dir_save,
+                                              filename='modelSLAInterpGF-wSST-Exp3-{epoch:02d}-{val_loss:.2f}',
+                                              save_top_k=3,
+                                              mode='min')
+        trainer = pl.Trainer(gpus=1, auto_select_gpus=True,  callbacks=[checkpoint_callback], **trainer_kwargs)
         trainer.fit(mod, self.dataloaders['train'], self.dataloaders['val'])
         return mod, trainer
 
