@@ -205,20 +205,22 @@ class LitModel(pl.LightningModule):
                 mm += 1
         
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
-        opt = self.optimizers()
+
                     
         # compute loss and metrics    
         loss, out, metrics = self.compute_loss(train_batch, phase='train')
-
+        if loss is None:
+            return loss
         # log step metric        
         #self.log('train_mse', mse)
         #self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
-        self.log("loss", loss , on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
+        self.log("loss", loss , on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         self.log("tr_mse", metrics['mse'] / self.var_Tr , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         self.log("tr_mseG", metrics['mseGrad'] / metrics['meanGrad'] , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         
         # initial grad value
         if self.hparams.automatic_optimization == False :
+            opt = self.optimizers()
             # backward
             self.manual_backward(loss)
         
@@ -233,7 +235,8 @@ class LitModel(pl.LightningModule):
     
     def validation_step(self, val_batch, batch_idx):
         loss, out, metrics = self.compute_loss(val_batch, phase='val')
-
+        if loss is None:
+            return loss
         self.log('val_loss', loss)
         self.log("val_mse", metrics['mse'] / self.var_Val , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         self.log("val_mseG", metrics['mseGrad'] / metrics['meanGrad'] , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
@@ -243,18 +246,14 @@ class LitModel(pl.LightningModule):
 
         targets_OI, inputs_Mask, targets_GT = test_batch
         loss, out, metrics = self.compute_loss(test_batch, phase='test')
-
-        self.log('test_loss', loss)
-        self.log("test_mse", metrics['mse'] / self.var_Tt , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
-        self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'] , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
+        if loss is not None:
+            self.log('test_loss', loss)
+            self.log("test_mse", metrics['mse'] / self.var_Tt , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
+            self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'] , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         return {'gt' : targets_GT.detach().cpu(),
                 'oi' : targets_OI.detach().cpu(),
                 'preds' : out.detach().cpu()}
 
-    def training_epoch_end(self, training_step_outputs):
-        # do something with all training_step outputs
-        print('.. \n')
-    
     def test_epoch_end(self, outputs):
 
         gt = torch.cat([chunk['gt'] for chunk in outputs]).numpy()
@@ -278,14 +277,21 @@ class LitModel(pl.LightningModule):
     def compute_loss(self, batch, phase):
 
         targets_OI, inputs_Mask, targets_GT = batch
-
+        # handle patch with no observation
+        if inputs_Mask.sum().item() == 0:
+            return (
+                None,
+                torch.zeros_like(targets_GT),
+                dict([('mse', 0.), ('mseGrad', 0.), ('meanGrad', 1.), ('mseOI', 0.),
+                      ('mseGOI', 0.)])
+            )
         new_masks      = torch.cat((1. + 0. * inputs_Mask, inputs_Mask ), dim=1)
         inputs_init    = torch.cat((targets_OI, inputs_Mask * (targets_GT - targets_OI)), dim=1)
         inputs_missing = torch.cat((targets_OI, inputs_Mask * (targets_GT - targets_OI)), dim=1)
 
+
         # gradient norm field
         g_targets_GT = self.gradient_img(targets_GT)
-
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
             # with torch.set_grad_enabled(phase == 'train'):
@@ -329,6 +335,5 @@ class LitModel(pl.LightningModule):
             mse       = loss_All.detach()
             mseGrad   = loss_GAll.detach()  
             metrics   = dict([('mse',mse),('mseGrad',mseGrad),('meanGrad',mean_GAll),('mseOI',loss_OI.detach()),('mseGOI',loss_GOI.detach())])
-            #print(mse.cpu().detach().numpy())
-            
+
         return loss,outputs, metrics

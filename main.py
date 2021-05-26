@@ -94,8 +94,8 @@ class FourDVarNetRunner:
         else:
             # Specify the dataset spatial bounds
             dim_range = {
-                'lat': slice(35, 45),
-                'lon': slice(-65, -55),
+                # 'lat': slice(35, 45),
+                # 'lon': slice(-65, -55),
             }
 
             # Specify the batch patch size
@@ -213,6 +213,4 @@ if __name__ == '__main__':
     fire.Fire(FourDVarNetRunner)
 
 
-    # %%
-    # runner = FourDVarNetRunner()
-    # runner.train()
+
