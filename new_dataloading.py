@@ -107,6 +107,8 @@ class FourDVarNetDataset(Dataset):
         oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
         obs_mask_item = (1 - self.obs_mask_ds[item]).astype(bool) & ~np.isnan(oi_item)
 
+        print(_oi_item.shape)
+
         _gt_item = (self.gt_ds[item] - mean) / std
         gt_item = np.where(~np.isnan(_gt_item), _gt_item, 0.)
         
