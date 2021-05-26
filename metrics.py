@@ -55,13 +55,13 @@ def plot_snr(gt,oi,pred,resfile):
     plt.close()          # close the figure
 
 
-def plot_nrmse(gt, oi, pred, resfile, index_train):
+def plot_nrmse(gt, oi, pred, resfile, index_test):
     '''
     gt: 3d numpy array (Ground Truth)
     oi: 3d numpy array (OI)
     pred: 3d numpy array (4DVarNet-based predictions)
     resfile: string
-    index_train: 1d numpy array (ex: np.concatenate([np.arange(60, 80)]))
+    index_test: 1d numpy array (ex: np.concatenate([np.arange(60, 80)]))
     '''
 
     # Compute daily nRMSE scores
@@ -81,8 +81,8 @@ def plot_nrmse(gt, oi, pred, resfile, index_train):
     plt.ylabel('nRMSE')
     plt.xlabel('Time (days)')
     lday = [datetime.datetime.strftime(datetime.datetime.strptime("2012-10-01", '%Y-%m-%d') \
-                                       + datetime.timedelta(days=np.float64(i)), "%Y-%m-%d") for i in index_train]
-    plt.xticks(range(0,len(index_train)),lday,
+                                       + datetime.timedelta(days=np.float64(i)), "%Y-%m-%d") for i in index_test]
+    plt.xticks(range(0,len(index_test)),lday,
            rotation=45, ha='right')
     plt.margins(x=0)
     plt.grid(True,alpha=.3)
@@ -90,13 +90,13 @@ def plot_nrmse(gt, oi, pred, resfile, index_train):
     plt.savefig(resfile,bbox_inches="tight")    # save the figure
     plt.close()                                 # close the figure
 
-def save_netcdf(saved_path1, pred, lon, lat, index_train):
+def save_netcdf(saved_path1, pred, lon, lat, index_test):
     '''
     saved_path1: string 
     pred: 3d numpy array (4DVarNet-based predictions)
     lon: 1d numpy array 
     lat: 1d numpy array
-    index_train: 1d numpy array (ex: np.concatenate([np.arange(60, 80)]))
+    index_test: 1d numpy array (ex: np.concatenate([np.arange(60, 80)]))
     '''
 
     mesh_lat, mesh_lon = np.meshgrid(lat, lon)
@@ -104,7 +104,7 @@ def save_netcdf(saved_path1, pred, lon, lat, index_train):
     mesh_lon = mesh_lon.T
 
     time = [datetime.datetime.strftime(datetime.datetime.strptime("2012-10-01", '%Y-%m-%d') \
-                                       + datetime.timedelta(days=np.float64(i)), "%Y-%m-%d") for i in index_train]
+                                       + datetime.timedelta(days=np.float64(i)), "%Y-%m-%d") for i in index_test]
 
     dt = pred.shape[1]
     xrdata = xr.Dataset( \
@@ -112,7 +112,7 @@ def save_netcdf(saved_path1, pred, lon, lat, index_train):
                    'latitude': (('lat', 'lon'), mesh_lat), \
                    'Time': (('time'), time), \
                    'ssh': (('time', 'lat', 'lon'), pred[:, int(dt / 2), :, :])}, \
-        coords={'lon': lon, 'lat': lat, 'time': index_train})
+        coords={'lon': lon, 'lat': lat, 'time': index_test})
     xrdata.time.attrs['units'] = 'days since 2012-10-01 00:00:00'
     xrdata.to_netcdf(path=saved_path1, mode='w')
 

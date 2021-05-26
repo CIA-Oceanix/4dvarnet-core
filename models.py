@@ -274,7 +274,7 @@ class LitModel(pl.LightningModule):
         # save NetCDF
         path_save1 = self.logger.log_dir+'/test.nc'
         save_netcdf(saved_path1 = path_save1, pred = x_test_rec,
-            lon = self.lon,lat = self.lat, index_train = np.arange(60, 77))
+            lon = self.lon,lat = self.lat, index_test = np.arange(60, 77))
         # compute nRMSE
         path_save2 = self.logger.log_dir+'/nRMSE.txt'
         tab_scores = nrmse_scores(gt,oi,x_test_rec,path_save2)
@@ -282,7 +282,7 @@ class LitModel(pl.LightningModule):
         print(tab_scores)
         # plot nRMSE
         path_save3 = self.logger.log_dir+'/nRMSE.png'
-        plot_nrmse(gt,oi,x_test_rec,path_save3,index_train = np.arange(60, 77))        
+        plot_nrmse(gt,oi,x_test_rec,path_save3,index_test = np.arange(60, 77))        
         # plot SNR
         path_save4 = self.logger.log_dir+'/SNR.png'
         plot_snr(gt,oi,x_test_rec,path_save4)
