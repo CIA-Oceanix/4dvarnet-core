@@ -213,7 +213,6 @@ class LitModel(pl.LightningModule):
                 mm += 1
         
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
-
                     
         # compute loss and metrics    
         loss, out, metrics = self.compute_loss(train_batch, phase='train')
@@ -268,8 +267,6 @@ class LitModel(pl.LightningModule):
         oi = torch.cat([chunk['oi'] for chunk in outputs]).numpy()
         x_test_rec = torch.cat([chunk['preds'] for chunk in outputs]).numpy()
 
-        print(self.lon.shape)
-        print(x_test_rec.shape)
         self.x_gt = gt[:,int(self.hparams.dT/2),:,:]
         self.x_oi = oi[:,int(self.hparams.dT/2),:,:]
         self.x_rec = x_test_rec[:,int(self.hparams.dT/2),:,:]
