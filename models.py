@@ -138,7 +138,7 @@ class ModelLR(torch.nn.Module):
         return self.pool(im)
 
 
-############################################Lightning Module#######################################################################
+############################################ Lightning Module #######################################################################
 
 
 class LitModel(pl.LightningModule):
@@ -170,27 +170,11 @@ class LitModel(pl.LightningModule):
         return 1
 
     def configure_optimizers(self):
-        #optimizer = optim.Adam(self.model.parameters(), lr= self.lrUpdate[0])
-        if 1*1 :
-            #optimizer   = optim.Adam(self.model.parameters(), lr = self.lrUpdate[0])
-            optimizer   = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparam.lr_update[0]},
-                                      {'params': self.model.model_VarCost.parameters(), 'lr': self.hparam.lr_update[0]},
-                                    {'params': self.model.phi_r.parameters(), 'lr': 0.5*self.hparam.lr_update[0]},
-                                    ], lr=0.)
-        elif 1*0:
-            optimizer   = optim.RMSprop([{'params': self.model.model_Grad.parameters(), 'lr': self.hparam.lr_update[0]},
-                                      {'params': self.model.model_VarCost.parameters(), 'lr': self.hparam.lr_update[0]},
-                                    {'params': self.model.phi_r.parameters(), 'lr': self.hparam.lr_update[0]},
-                                    ], lr=0.)
 
-        else:
-            optimizer   = optim.ASGD([{'params': self.model.model_Grad.parameters(), 'lr': self.hparam.lr_update[0]},
-                                      {'params': self.model.model_VarCost.parameters(), 'lr': self.hparam.lr_update[0]},
-                                    {'params': self.model.phi_r.parameters(), 'lr': self.hparam.lr_update[0]},
-                                    ], lr=0.)
-        #optPhi     = optim.Adam(self.model.phi_r.parameters(),lr=self.lrUpdate[0])
-        #optGrad    = optim.Adam(self.model.model_Grad.parameters(),lr=self.lrUpdate[0])
-        #optVarCost = optim.Adam(self.model.model_VarCost.parameters(),lr=self.lrUpdate[0])
+        optimizer   = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparam.lr_update[0]},
+                                  {'params': self.model.model_VarCost.parameters(), 'lr': self.hparam.lr_update[0]},
+                                {'params': self.model.phi_r.parameters(), 'lr': 0.5*self.hparam.lr_update[0]},
+                                ], lr=0.)
 
 
         return optimizer
@@ -198,10 +182,6 @@ class LitModel(pl.LightningModule):
     def on_epoch_start(self):
         # enfore acnd check some hyperparameters
         self.model.n_grad   = self.hparam.n_grad
-    
-    def on_epoch_start(self):
-        # enfore acnd check some hyperparameters 
-        self.model.n_grad   = self.hparam.n_grad 
 
     def on_train_epoch_start(self):
         opt = self.optimizers()
