@@ -164,7 +164,7 @@ class FourDVarNetRunner:
                                               mode='min')
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         num_gpus = torch.cuda.device_count()
-        accelerator = "ddp" if num_gpus >= 1 else None
+        accelerator = "ddp" if num_gpus > 1 else None
         trainer = pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, auto_select_gpus=True,  callbacks=[checkpoint_callback], **trainer_kwargs)
         trainer.fit(mod, self.dataloaders['train'], self.dataloaders['val'])
         return mod, trainer
