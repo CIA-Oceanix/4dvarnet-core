@@ -173,7 +173,29 @@ class  FourDVarNEtRunner:
             self.var_Tt = datamodule.var_Tt
             self.var_Val = datamodule.var_Val
         else:
-            datamodule = FourDVarNetDataModule(cfg)
+            # Specify the dataset spatial bounds
+            dim_range = {
+                'lat': slice(35, 45),
+                'lon': slice(-65, -55),
+            }
+
+            # Specify the batch patch size
+            slice_win = {
+                'time': 5,
+                'lat': 200,
+                'lon': 200,
+            }
+            # Specify the stride between two patches
+            strides = {
+                'time': 1,
+                'lat': 200,
+                'lon': 200,
+            }
+            datamodule = FourDVarNetDataModule(
+                slice_win=slice_win,
+                dim_range=dim_range,
+                strides=strides,
+            )
             datamodule.setup()
             self.dataloaders = {
                 'train': datamodule.train_dataloader(),
