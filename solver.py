@@ -110,7 +110,7 @@ def compute_WeightedLoss(x2,w):
     loss_ = torch.nansum( loss_ , dim = 2)
     loss_ = torch.nansum( loss_ , dim = 0)
     loss_ = torch.nansum( loss_ * w )
-    loss_ = loss_ / (torch.sum(~torch.isnan(x2)))
+    loss_ = loss_ / (torch.sum(~torch.isnan(x2))) / x2.shape[1]
     
     return loss_
 
@@ -126,7 +126,7 @@ class Model_WeightedL2Norm(torch.nn.Module):
         loss_ = torch.nansum( loss_ , dim = 2)
         loss_ = torch.nansum( loss_ , dim = 0)
         loss_ = torch.nansum( loss_ * w )
-        loss_ = loss_ / (torch.sum(~torch.isnan(x)))
+        loss_ = loss_ / (torch.sum(~torch.isnan(x))) / x.shape[1]
 
         return loss_
 
@@ -140,7 +140,7 @@ class Model_WeightedL1Norm(torch.nn.Module):
         loss_ = torch.nansum( loss_ , dim = 2)
         loss_ = torch.nansum( loss_ , dim = 0)
         loss_ = torch.nansum( loss_ * w )
-        loss_ = loss_ / (torch.sum(~torch.isnan(x)))
+        loss_ = loss_ / (torch.sum(~torch.isnan(x))) / x.shape[1]
 
         return loss_
 
@@ -154,7 +154,7 @@ class Model_WeightedLorenzNorm(torch.nn.Module):
         loss_ = torch.nansum( loss_ , dim = 2)
         loss_ = torch.nansum( loss_ , dim = 0)
         loss_ = torch.nansum( loss_ * w )
-        loss_ = loss_ / (torch.sum(~torch.isnan(x)))
+        loss_ = loss_ / (torch.sum(~torch.isnan(x))) / x.shape[1]
 
         return loss_
 
@@ -168,7 +168,7 @@ class Model_WeightedGMcLNorm(torch.nn.Module):
         loss_ = torch.nansum( loss_ , dim = 2)
         loss_ = torch.nansum( loss_ , dim = 0)
         loss_ = torch.nansum( loss_ * w )
-        loss_ = loss_ / (torch.sum(~torch.isnan(x)))
+        loss_ = loss_ / (torch.sum(~torch.isnan(x))) / x.shape[1]
 
         return loss_
 
@@ -176,7 +176,7 @@ def compute_WeightedL2Norm1D(x2,w):
     loss_ = torch.nansum(x2**2 , dim = 2)
     loss_ = torch.nansum( loss_ , dim = 0)
     loss_ = torch.nansum( loss_ * w )
-    loss_ = loss_ / (torch.sum(~torch.isnan(x2)))
+    loss_ = loss_ / (torch.sum(~torch.isnan(x2))) / x2.shape[1]
     
     return loss_
 
