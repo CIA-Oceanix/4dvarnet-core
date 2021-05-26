@@ -4,6 +4,7 @@
 Created on Mon May 18 17:59:23 2020
 @author: rfablet
 """
+import os
 
 import numpy as np
 import pytorch_lightning as pl
@@ -161,7 +162,10 @@ class FourDVarNetRunner:
                                               filename='modelSLAInterpGF-Exp3-{epoch:02d}-{val_loss:.2f}',
                                               save_top_k=3,
                                               mode='min')
-        trainer = pl.Trainer(gpus=1, auto_select_gpus=True,  callbacks=[checkpoint_callback], **trainer_kwargs)
+        num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
+        num_gpus = torch.cuda.device_count()
+        accelerator = "ddp" if num_gpus >= 1 else None
+        trainer = pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, auto_select_gpus=True,  callbacks=[checkpoint_callback], **trainer_kwargs)
         trainer.fit(mod, self.dataloaders['train'], self.dataloaders['val'])
         return mod, trainer
 
