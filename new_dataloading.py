@@ -111,7 +111,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             slice_win,
             dim_range=None,
             strides=None,
-            train_slices=(slice('2012-10-01', "2012-11-20"), slice('2013-02-08', "2013-09-30")),
+            #train_slices=(slice('2012-10-01', "2012-11-20"), slice('2013-02-08', "2013-09-30")),
+            train_slices=(slice('2012-10-01', "2012-10-10"),),
             test_slices=(slice('2012-12-30', "2013-01-19"),),
             val_slices=(slice('2012-11-30', "2012-12-20"),),
             dl_kwargs=None,
@@ -145,6 +146,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         max_lat = round(np.max(np.concatenate([_ds.gt_ds.ds['lat'].values for _ds in ds.datasets])),2)       
         return min_lon, max_lon, min_lat, max_lat
 
+    def get_domain_split(self):
+        return self.test_ds.datasets[0].gt_ds.ds_size
+
     def setup(self, stage=None):
         self.train_ds, self.val_ds, self.test_ds = [
             ConcatDataset(
@@ -161,6 +165,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.set_norm_stats(self.val_ds, self.norm_stats)
         self.set_norm_stats(self.test_ds, self.norm_stats)
         self.bounding_box = self.get_domain_bounds(self.train_ds)
+        self.ds_size = self.get_domain_split()
 
     def train_dataloader(self):
         return DataLoader(self.train_ds, **self.dl_kwargs, shuffle=True)

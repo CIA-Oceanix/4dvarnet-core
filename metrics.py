@@ -15,6 +15,7 @@ from cartopy import crs as ccrs
 import cartopy.feature as cfeature
 from cartopy.io import shapereader
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+import cv2
 
 from spectral import *
 
@@ -93,6 +94,65 @@ def plot_nrmse(gt, oi, pred, resfile, index_test):
     fig = plt.gcf()
     plt.close()                                 # close the figure
     return  fig
+
+
+def plot(ax,i,j,lon,lat,data,title,extent=[-65,-55,30,40],cmap="coolwarm",gridded=True,vmin=-2,vmax=2,colorbar=True,orientation="horizontal"):
+    ax[i][j].set_extent(list(extent))
+    if gridded:
+        im=ax[i][j].pcolormesh(lon, lat, data, cmap=cmap,\
+                          vmin=vmin, vmax=vmax,edgecolors='face', alpha=1, \
+                          transform= ccrs.PlateCarree(central_longitude=0.0))
+    else:
+        im=ax[i][j].scatter(lon, lat, c=data, cmap=cmap, s=1,\
+                       vmin=vmin, vmax=vmax,edgecolors='face', alpha=1, \
+                       transform= ccrs.PlateCarree(central_longitude=0.0))
+    im.set_clim(vmin,vmax)
+    if colorbar==True:
+        clb = plt.colorbar(im, orientation=orientation, extend='both', pad=0.1, ax=ax[i][j])
+    ax[i][j].set_title(title, pad=40, fontsize = 15)
+    gl = ax[i][j].gridlines(alpha=0.5,draw_labels=True)
+    gl.xformatter = LONGITUDE_FORMATTER
+    gl.yformatter = LATITUDE_FORMATTER
+    gl.xlabels_bottom = False
+    gl.ylabels_right = False
+    gl.xlabel_style = {'fontsize': 10, 'rotation' : 45}
+    gl.ylabel_style = {'fontsize': 10}
+    ax[i][j].coastlines(resolution='50m')
+
+def gradient(img, order):
+    """ calcuate x, y gradient and magnitude """
+    sobelx = cv2.Sobel(img,cv2.CV_64F,1,0,ksize=3)
+    sobelx = sobelx/8.0
+    sobely = cv2.Sobel(img,cv2.CV_64F,0,1,ksize=3)
+    sobely = sobely/8.0
+    sobel_norm = np.sqrt(sobelx*sobelx+sobely*sobely)
+    if (order==0):
+        return sobelx
+    elif (order==1):
+        return sobely
+    else:
+        return sobel_norm
+
+def plot_maps(gt,oi,pred,lon,lat,resfile):
+
+    vmax = np.nanmax(np.abs(gt))
+    vmin = -1.*vmax
+    grad_vmax = np.nanmax(np.abs(gradient(gt,2)))
+    grad_vmin = 0
+    extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
+
+    print(gt.shape)
+
+    fig, ax = plt.subplots(3,2,figsize=(10,10),squeeze=False,
+                          subplot_kw=dict(projection=ccrs.PlateCarree(central_longitude=0.0)))
+    plot(ax,0,0,lon,lat,gt,'GT',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
+    plot(ax,0,1,lon,lat,gradient(gt,2),r"$\nabla_{GT}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax)
+    plot(ax,1,0,lon,lat,oi,'OI',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
+    plot(ax,1,1,lon,lat,gradient(oi,2),r"$\nabla_{OI}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax)
+    plot(ax,2,0,lon,lat,pred,'4DVarNet',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
+    plot(ax,2,1,lon,lat,gradient(pred,2),r"$\nabla_{4DVarNet}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax)
+    plt.savefig(resfile)       # save the figure
+    plt.close()                # close the figure
 
 def save_netcdf(saved_path1, pred, lon, lat, index_test):
     '''

@@ -127,6 +127,9 @@ class FourDVarNetRunner:
             self.var_Tt = datamodule.norm_stats[1] ** 2
             self.var_Val = datamodule.norm_stats[1] ** 2
             self.min_lon, self.max_lon, self.min_lat, self.max_lat = datamodule.bounding_box
+            self.ds_size_time = datamodule.ds_size['time']
+            self.ds_size_lon = datamodule.ds_size['lon']
+            self.ds_size_lat = datamodule.ds_size['lat']
 
     def run(self, ckpt_path=None, dataloader="test", **trainer_kwargs):
         """
@@ -154,7 +157,10 @@ class FourDVarNetRunner:
             mod = LitModel(hparam=cfg, w_loss=wLoss,
                            var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val,
                            min_lon=self.min_lon, max_lon=self.max_lon,
-                           min_lat=self.min_lat, max_lat=self.max_lat)
+                           min_lat=self.min_lat, max_lat=self.max_lat,
+                           ds_size_time = self.ds_size_time,
+                           ds_size_lon = self.ds_size_lon,
+                           ds_size_lat = self.ds_size_lat)
         return mod
 
     def train(self, ckpt_path=None, **trainer_kwargs):
