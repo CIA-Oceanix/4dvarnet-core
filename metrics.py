@@ -52,7 +52,9 @@ def plot_snr(gt,oi,pred,resfile):
     ax.invert_xaxis()
     plt.grid(which='both', linestyle='--')
     plt.savefig(resfile) # save the figure
+    fig = plt.gcf()
     plt.close()          # close the figure
+    return fig
 
 
 def plot_nrmse(gt, oi, pred, resfile, index_test):
@@ -88,7 +90,9 @@ def plot_nrmse(gt, oi, pred, resfile, index_test):
     plt.grid(True,alpha=.3)
     plt.legend(loc='upper left',prop=dict(size='small'),frameon=False,bbox_to_anchor=(0,1.02,1,0.2),ncol=2,mode="expand")
     plt.savefig(resfile,bbox_inches="tight")    # save the figure
+    fig = plt.gcf()
     plt.close()                                 # close the figure
+    return  fig
 
 def save_netcdf(saved_path1, pred, lon, lat, index_test):
     '''

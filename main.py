@@ -24,7 +24,6 @@ cfg = OmegaConf.create(config.params)
 
 #######################################Phi_r, Model_H, Model_Sampling architectures ################################################
 
-print('........ Define AE architecture')
 shapeData = cfg.shapeData  # np.array(x_train.shape[1:])
 # shapeData_test = np.array(x_test.shape[1:])
 # shapeData[0]  += shapeData[0]
@@ -147,7 +146,10 @@ class FourDVarNetRunner:
         """
 
         if ckpt_path:
-            mod = LitModel.load_from_checkpoint(ckpt_path)
+            mod = LitModel.load_from_checkpoint(ckpt_path, w_loss=wLoss,
+                           var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val,
+                           min_lon=self.min_lon, max_lon=self.max_lon,
+                           min_lat=self.min_lat, max_lat=self.max_lat)
         else:
             mod = LitModel(hparam=cfg, w_loss=wLoss,
                            var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val,
@@ -183,7 +185,10 @@ class FourDVarNetRunner:
         :param trainer_kwargs: (Optional)
         """
         mod = _mod or self._get_model(ckpt_path=ckpt_path)
-        trainer = _trainer or pl.Trainer(gpus=1, **trainer_kwargs)
+        num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
+        num_gpus = torch.cuda.device_count()
+        accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
+        trainer = _trainer or pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, **trainer_kwargs)
         trainer.test(mod, test_dataloaders=self.dataloaders[dataloader])
 
     def profile(self):
