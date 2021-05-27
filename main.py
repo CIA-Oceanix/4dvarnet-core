@@ -103,12 +103,16 @@ class FourDVarNetRunner:
                 'time': 5,
                 'lat': 200,
                 'lon': 200,
+                #'lat': 20,
+                #'lon': 20,
             }
             # Specify the stride between two patches
             strides = {
                 'time': 1,
                 'lat': 200,
                 'lon': 200,
+                #'lat': 20,
+                #'lon': 20,
             }
             datamodule = FourDVarNetDataModule(
                 slice_win=slice_win,
@@ -125,10 +129,7 @@ class FourDVarNetRunner:
             self.var_Tr = datamodule.norm_stats[1] ** 2
             self.var_Tt = datamodule.norm_stats[1] ** 2
             self.var_Val = datamodule.norm_stats[1] ** 2
-            self.min_lon = dim_range['lon'].start
-            self.max_lon = dim_range['lon'].stop
-            self.min_lat = dim_range['lat'].start
-            self.max_lat = dim_range['lat'].stop
+            self.min_lon, self.max_lon, self.min_lat, self.max_lat = datamodule.bounding_box
 
     def run(self, ckpt_path=None, dataloader="test", **trainer_kwargs):
         """

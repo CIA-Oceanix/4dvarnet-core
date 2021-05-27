@@ -11,7 +11,7 @@
 #SBATCH --time=02:00:00             # temps exécution maximum demande (HH:MM:SS)
 #SBATCH --output=FourDVarNet%j.out     # nom du fichier de sortie
 #SBATCH --error=FourDVarNet%j.err      # nom du fichier erreur (ici commun avec la sortie)
-#SBATCH --reservation=hackathon_idr26
+#SBATCH --reservation=hackathon_idr27
  
 # nettoyage des modules charges en interactif et hérités par défaut
 module purge
