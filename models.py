@@ -245,8 +245,8 @@ class LitModel(pl.LightningModule):
         if loss is None:
             return loss
         self.log('val_loss', loss)
-        self.log("val_mse", metrics['mse'] / self.var_Val , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
-        self.log("val_mseG", metrics['mseGrad'] / metrics['meanGrad'] , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
+        self.log("val_mse", metrics['mse'] / self.var_Val , on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val_mseG", metrics['mseGrad'] / metrics['meanGrad'] , on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
     def test_step(self, test_batch, batch_idx):
@@ -255,8 +255,8 @@ class LitModel(pl.LightningModule):
         loss, out, metrics = self.compute_loss(test_batch, phase='test')
         if loss is not None:
             self.log('test_loss', loss)
-            self.log("test_mse", metrics['mse'] / self.var_Tt , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
-            self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'] , on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
+            self.log("test_mse", metrics['mse'] / self.var_Tt , on_step=False, on_epoch=True, prog_bar=True)
+            self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'] , on_step=False, on_epoch=True, prog_bar=True)
         return {'gt' : targets_GT.detach().cpu(),
                 'oi' : targets_OI.detach().cpu(),
                 'preds' : out.detach().cpu()}
