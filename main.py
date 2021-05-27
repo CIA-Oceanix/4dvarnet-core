@@ -22,7 +22,6 @@ from old_dataloading import LegacyDataLoading
 
 cfg = OmegaConf.create(config.params)
 
-
 #######################################Phi_r, Model_H, Model_Sampling architectures ################################################
 
 print('........ Define AE architecture')
@@ -38,7 +37,6 @@ gradient_img = Gradient_img()
 w_ = np.zeros(cfg.dT)
 w_[int(cfg.dT / 2)] = 1.
 wLoss = torch.Tensor(w_)
-
 
 # recompute the MSE for OI on training dataset
 # to define weighing parameters in the training
@@ -94,8 +92,8 @@ class FourDVarNetRunner:
         else:
             # Specify the dataset spatial bounds
             dim_range = {
-                 # 'lat': slice(35, 45),
-                 # 'lon': slice(-65, -55),
+                # 'lat': slice(35, 45),
+                # 'lon': slice(-65, -55),
             }
 
             # Specify the batch patch size
@@ -103,16 +101,16 @@ class FourDVarNetRunner:
                 'time': 5,
                 'lat': 200,
                 'lon': 200,
-                #'lat': 20,
-                #'lon': 20,
+                # 'lat': 20,
+                # 'lon': 20,
             }
             # Specify the stride between two patches
             strides = {
                 'time': 1,
                 'lat': 200,
                 'lon': 200,
-                #'lat': 20,
-                #'lon': 20,
+                # 'lat': 20,
+                # 'lon': 20,
             }
             datamodule = FourDVarNetDataModule(
                 slice_win=slice_win,
@@ -172,11 +170,12 @@ class FourDVarNetRunner:
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         num_gpus = torch.cuda.device_count()
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
-        trainer = pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, auto_select_gpus=True,  callbacks=[checkpoint_callback], **trainer_kwargs)
+        trainer = pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, auto_select_gpus=True,
+                             callbacks=[checkpoint_callback], **trainer_kwargs)
         trainer.fit(mod, self.dataloaders['train'], self.dataloaders['val'])
         return mod, trainer
 
-    def test(self, ckpt_path=None, dataloader="test",  _mod=None, _trainer=None,  **trainer_kwargs):
+    def test(self, ckpt_path=None, dataloader="test", _mod=None, _trainer=None, **trainer_kwargs):
         """
         Test a model
         :param ckpt_path: (Optional) Checkpoint from which to resume
@@ -185,7 +184,7 @@ class FourDVarNetRunner:
         """
         mod = _mod or self._get_model(ckpt_path=ckpt_path)
         trainer = _trainer or pl.Trainer(gpus=1, **trainer_kwargs)
-        trainer.test(mod, test_dataloaders = self.dataloaders[dataloader])
+        trainer.test(mod, test_dataloaders=self.dataloaders[dataloader])
 
     def profile(self):
         """
@@ -215,9 +214,8 @@ class FourDVarNetRunner:
             }
         )
 
+
 if __name__ == '__main__':
     import fire
+
     fire.Fire(FourDVarNetRunner)
-
-
-
