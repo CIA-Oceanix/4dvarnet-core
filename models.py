@@ -148,7 +148,8 @@ class ModelLR(torch.nn.Module):
 class LitModel(pl.LightningModule):
     def __init__(self, hparam, *args, **kwargs):
         super().__init__()
-        self.save_hyperparameters(OmegaConf.to_container(hparam, resolve=True))
+        hparams = hparam if isinstance(hparam, dict) else OmegaConf.to_container(hparam, resolve=True)
+        self.save_hyperparameters(hparams)
         self.var_Val = kwargs['var_Val']
         self.var_Tr  = kwargs['var_Tr']
         self.var_Tt  = kwargs['var_Tt']
@@ -282,10 +283,14 @@ class LitModel(pl.LightningModule):
         print(tab_scores)
         # plot nRMSE
         path_save3 = self.logger.log_dir+'/nRMSE.png'
-        plot_nrmse(gt,oi,x_test_rec,path_save3,index_test = np.arange(60, 77))        
+        nrmse_fig = plot_nrmse(gt,oi,x_test_rec,path_save3,index_test = np.arange(60, 77))
+        self.logger.experiment.add_figure('NRMSE', nrmse_fig, global_step=self.current_epoch)
+
         # plot SNR
         path_save4 = self.logger.log_dir+'/SNR.png'
-        plot_snr(gt,oi,x_test_rec,path_save4)
+        snr_fig = plot_snr(gt,oi,x_test_rec,path_save4)
+        self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
+
 
     def compute_loss(self, batch, phase):
 
