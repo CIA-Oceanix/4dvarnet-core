@@ -135,6 +135,13 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         for _ds in ds.datasets:
             _ds.set_norm_stats(ns)
 
+    def get_domain_bounds(self,ds):
+        min_lon = round(np.min(np.concatenate([_ds.gt_ds.ds['lon'].values for _ds in ds.datasets])),2)
+        max_lon = round(np.max(np.concatenate([_ds.gt_ds.ds['lon'].values for _ds in ds.datasets])),2)
+        min_lat = round(np.min(np.concatenate([_ds.gt_ds.ds['lat'].values for _ds in ds.datasets])),2)
+        max_lat = round(np.max(np.concatenate([_ds.gt_ds.ds['lat'].values for _ds in ds.datasets])),2)       
+        return min_lon, max_lon, min_lat, max_lat
+
     def setup(self, stage=None):
         self.train_ds, self.val_ds, self.test_ds = [
             ConcatDataset(
@@ -146,11 +153,11 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             )
             for slices in (self.train_slices, self.val_slices, self.test_slices)
         ]
-
         self.norm_stats = self.compute_norm_stats(self.train_ds)
         self.set_norm_stats(self.train_ds, self.norm_stats)
         self.set_norm_stats(self.val_ds, self.norm_stats)
         self.set_norm_stats(self.test_ds, self.norm_stats)
+        self.bounding_box = self.get_domain_bounds(self.train_ds)
 
     def train_dataloader(self):
         return DataLoader(self.train_ds, **self.dl_kwargs, shuffle=True)

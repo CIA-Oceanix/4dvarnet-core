@@ -4,3 +4,6 @@ __pycache__
 .idea
 results
 tb_profile
+*err
+*out
+submit_4DVarNet.slurm
