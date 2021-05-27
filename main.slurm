@@ -18,4 +18,4 @@
 source activate $1
 
 # run script from above
-srun python -u main.py --dataloading=new train --progress_bar_refresh_rate=50
+srun python main.py --dataloading=new train --progress_bar_refresh_rate=5

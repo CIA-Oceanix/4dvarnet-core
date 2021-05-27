@@ -94,8 +94,8 @@ class FourDVarNetRunner:
         else:
             # Specify the dataset spatial bounds
             dim_range = {
-                 'lat': slice(35, 45),
-                 'lon': slice(-65, -55),
+                 # 'lat': slice(35, 45),
+                 # 'lon': slice(-65, -55),
             }
 
             # Specify the batch patch size
@@ -166,13 +166,12 @@ class FourDVarNetRunner:
         """
         mod = self._get_model(ckpt_path=ckpt_path)
         checkpoint_callback = ModelCheckpoint(monitor='val_loss',
-                                              dirpath=cfg.dir_save,
                                               filename='modelSLAInterpGF-Exp3-{epoch:02d}-{val_loss:.2f}',
                                               save_top_k=3,
                                               mode='min')
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         num_gpus = torch.cuda.device_count()
-        accelerator = "ddp" if num_gpus > 1 else None
+        accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
         trainer = pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, auto_select_gpus=True,  callbacks=[checkpoint_callback], **trainer_kwargs)
         trainer.fit(mod, self.dataloaders['train'], self.dataloaders['val'])
         return mod, trainer

@@ -94,11 +94,14 @@ class FourDVarNetDataset(Dataset):
             _oi_item,
             np.nan,
         ) - mean) / std
-        oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
-        obs_mask_item = (1 - self.obs_mask_ds[item]).astype(bool) & ~np.isnan(oi_item)
-
         _gt_item = (self.gt_ds[item] - mean) / std
+        oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
+        obs_mask_item = self.obs_mask_ds[item].astype(bool) & ~np.isnan(oi_item) & ~np.isnan(_gt_item)
+
+
         gt_item = np.where(~np.isnan(_gt_item), _gt_item, 0.)
+
+
         return oi_item, obs_mask_item, gt_item
 
 
@@ -118,7 +121,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.dim_range = dim_range
         self.strides = strides
         self.dl_kwargs = {
-            **{'batch_size': 2, 'num_workers': 2},
+            **{'batch_size': 2, 'num_workers': 2, 'pin_memory': True},
             **(dl_kwargs or {})
         }
 
