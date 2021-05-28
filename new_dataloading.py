@@ -84,7 +84,6 @@ class FourDVarNetDataset(Dataset):
 
         if sst_var == 'sst' :
             self.sst_ds = XrDataset(sst_path, sst_var, slice_win=slice_win, dim_range=dim_range, strides=strides, decode=True)
-            print('....... create SST dataset')
         else:
            self.sst_ds = None 
         self.norm_stats_sst = None

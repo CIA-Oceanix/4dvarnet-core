@@ -393,11 +393,9 @@ class Model_HwithSST(torch.nn.Module):
         self.dimObsChannel = np.array([shapeData,dim])
 
         self.conv11  = torch.nn.Conv2d(shapeData,self.dimObsChannel[1],(3,3),padding=1,bias=False)
-        self.conv12  = torch.nn.Conv2d(shapeData,self.dimObsChannel[1],(3,3),padding=1,bias=False)
                     
-        self.conv21  = torch.nn.Conv2d(shapeData,self.dimObsChannel[1],(3,3),padding=1,bias=False)
-        self.conv22  = torch.nn.Conv2d(shapeData,self.dimObsChannel[1],(3,3),padding=1,bias=False)
-        self.convM   = torch.nn.Conv2d(shapeData,self.dimObsChannel[1],(3,3),padding=1,bias=False)
+        self.conv21  = torch.nn.Conv2d(int(shapeData/2),self.dimObsChannel[1],(3,3),padding=1,bias=False)
+        self.convM   = torch.nn.Conv2d(int(shapeData/2),self.dimObsChannel[1],(3,3),padding=1,bias=False)
         self.S       = torch.nn.Sigmoid()#torch.nn.Softmax(dim=1)
 
     def forward(self, x , y , mask):
