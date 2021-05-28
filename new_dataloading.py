@@ -70,6 +70,8 @@ class FourDVarNetDataset(Dataset):
             obs_mask_var='mask',
             gt_path='/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
             gt_var='ssh',
+            sst_path = None,
+            sst_var = None
     ):
         super().__init__()
 
@@ -80,8 +82,16 @@ class FourDVarNetDataset(Dataset):
 
         self.norm_stats = None
 
-    def set_norm_stats(self, stats):
+        if sst_var == 'sst' :
+            self.sst_ds = XrDataset(sst_path, sst_var, slice_win=slice_win, dim_range=dim_range, strides=strides, decode=True)
+            print('....... create SST dataset')
+        else:
+           self.sst_ds = None 
+        self.norm_stats_sst = None
+
+    def set_norm_stats(self, stats,stats_sst=None):
         self.norm_stats = stats
+        self.norm_stats_sst = stats_sst
 
     def __len__(self):
         return min(len(self.oi_ds), len(self.gt_ds), len(self.obs_mask_ds))
@@ -102,7 +112,14 @@ class FourDVarNetDataset(Dataset):
         gt_item = np.where(~np.isnan(_gt_item), _gt_item, 0.)
 
 
-        return oi_item, obs_mask_item, gt_item
+        if self.sst_ds == None :
+            return oi_item, obs_mask_item, gt_item
+        else:
+            mean, std = self.norm_stats_sst
+            _sst_item = (self.sst_ds[item] - mean) / std
+            sst_item = np.where(~np.isnan(_sst_item), _sst_item, 0.)
+            
+            return oi_item, obs_mask_item, gt_item, sst_item
 
 
 class FourDVarNetDataModule(pl.LightningDataModule):
@@ -115,6 +132,14 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             train_slices=(slice('2012-10-01', "2012-10-10"),),
             test_slices=(slice('2012-12-30', "2013-01-19"),),
             val_slices=(slice('2012-11-30', "2012-12-20"),),
+            oi_path='/gpfsscratch/rech/nlu/commun/large/ssh_NATL60_swot_4nadir.nc',
+            oi_var='ssh_mod',
+            obs_mask_path='/gpfsscratch/rech/nlu/commun/large/dataset_nadir_0d_swot.nc',
+            obs_mask_var='mask',
+            gt_path='/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
+            gt_var='ssh',
+            sst_path = None,
+            sst_var = None,
             dl_kwargs=None,
     ):
         super().__init__()
@@ -126,14 +151,32 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             **(dl_kwargs or {})
         }
 
+        self.oi_path = oi_path
+        self.oi_var = oi_var
+        self.obs_mask_path = obs_mask_path
+        self.obs_mask_var = obs_mask_var
+        self.gt_path = gt_path
+        self.gt_var = gt_var
+        self.sst_path = sst_path
+        self.sst_var = sst_var
+
         self.train_slices, self.test_slices, self.val_slices = train_slices, test_slices, val_slices
         self.train_ds, self.val_ds, self.test_ds = None, None, None
         self.norm_stats = None
+        self.norm_stats_sst = None
 
     def compute_norm_stats(self, ds):
         mean = float(xr.concat([_ds.gt_ds.ds[_ds.gt_ds.var] for _ds in ds.datasets], dim='time').mean())
         std = float(xr.concat([_ds.gt_ds.ds[_ds.gt_ds.var] for _ds in ds.datasets], dim='time').std())
-        return mean, std
+
+        if self.sst_var == None :
+            return mean, std
+        else: 
+            print('... Use SST data')
+            mean_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').mean())
+            std_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').std())
+            
+            return [mean, std],[mean_sst, std_sst]
 
     def set_norm_stats(self, ds, ns):
         for _ds in ds.datasets:
@@ -155,15 +198,32 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 [FourDVarNetDataset(
                     dim_range={**self.dim_range, **{'time': sl}},
                     strides=self.strides,
-                    slice_win=self.slice_win
+                    slice_win=self.slice_win,
+                    oi_path=self.oi_path,
+                    oi_var=self.oi_var,
+                    obs_mask_path=self.obs_mask_path,
+                    obs_mask_var=self.obs_mask_var,
+                    gt_path=self.gt_path,
+                    gt_var=self.gt_var,
+                    sst_path=self.sst_path, 
+                    sst_var=self.sst_var
                 ) for sl in slices]
             )
             for slices in (self.train_slices, self.val_slices, self.test_slices)
         ]
-        self.norm_stats = self.compute_norm_stats(self.train_ds)
-        self.set_norm_stats(self.train_ds, self.norm_stats)
-        self.set_norm_stats(self.val_ds, self.norm_stats)
-        self.set_norm_stats(self.test_ds, self.norm_stats)
+
+        if self.sst_var == None :
+            self.norm_stats = self.compute_norm_stats(self.train_ds)
+            self.set_norm_stats(self.train_ds, self.norm_stats)
+            self.set_norm_stats(self.val_ds, self.norm_stats)
+            self.set_norm_stats(self.test_ds, self.norm_stats)
+        else:
+            self.norm_stats,self.norm_stats_sst = self.compute_norm_stats(self.train_ds)
+            
+            self.set_norm_stats(self.train_ds, self.norm_stats,self.norm_stats_sst)
+            self.set_norm_stats(self.val_ds, self.norm_stats,self.norm_stats_sst)
+            self.set_norm_stats(self.test_ds, self.norm_stats,self.norm_stats_sst)
+
         self.bounding_box = self.get_domain_bounds(self.train_ds)
         self.ds_size = self.get_domain_split()
 
