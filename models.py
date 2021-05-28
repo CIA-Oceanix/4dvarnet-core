@@ -474,6 +474,7 @@ class LitModelWithSST(LitModel):
         new_masks      = torch.cat((1. + 0. * inputs_Mask, inputs_Mask ), dim=1)
         inputs_init    = torch.cat((targets_OI, inputs_Mask * (targets_GT - targets_OI)), dim=1)
         inputs_missing = torch.cat((targets_OI, inputs_Mask * (targets_GT - targets_OI)), dim=1)
+        mask_SST       = 1. + 0. * sst_GT
 
 
         # gradient norm field
@@ -483,7 +484,7 @@ class LitModelWithSST(LitModel):
             # with torch.set_grad_enabled(phase == 'train'):
             inputs_init = torch.autograd.Variable(inputs_init, requires_grad=True)
 
-            outputs, hidden_new, cell_new, normgrad = self.model(inputs_init, inputs_missing, new_masks)
+            outputs, hidden_new, cell_new, normgrad = self.model(inputs_init, [inputs_missing,sst_GT], [new_masks,mask_SST])
 
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
