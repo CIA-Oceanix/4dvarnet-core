@@ -16,7 +16,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 import config
 import solver as NN_4DVar
-from models import Gradient_img, LitModel
+from models import Gradient_img, LitModel, LitModelWithSST
 from new_dataloading import FourDVarNetDataModule
 from old_dataloading import LegacyDataLoading
 
@@ -77,6 +77,7 @@ if cfg.betaX is None or cfg.betagX is None:
 
 class FourDVarNetRunner:
     def __init__(self, dataloading="old"):
+        self.filename_chkpt = 'modelSLAInterpGF-Exp3-{epoch:02d}-{val_loss:.2f}'
         if dataloading == "old":
             datamodule = LegacyDataLoading(cfg)
             datamodule.setup()
@@ -88,6 +89,57 @@ class FourDVarNetRunner:
             self.var_Tr = datamodule.var_Tr
             self.var_Tt = datamodule.var_Tt
             self.var_Val = datamodule.var_Val
+        elif dataloading == "with_sst":
+            self.filename_chkpt = 'modelSLAInterpGF-withSST-Exp3-{epoch:02d}-{val_loss:.2f}'
+            # Specify the dataset spatial bounds
+            dim_range = {
+                # 'lat': slice(35, 45),
+                # 'lon': slice(-65, -55),
+            }
+
+            # Specify the batch patch size
+            slice_win = {
+                'time': 5,
+                'lat': 200,
+                'lon': 200,
+                # 'lat': 20,
+                # 'lon': 20,
+            }
+            # Specify the stride between two patches
+            strides = {
+                'time': 1,
+                'lat': 200,
+                'lon': 200,
+                # 'lat': 20,
+                # 'lon': 20,
+            }
+            datamodule = FourDVarNetDataModule(
+                slice_win=slice_win,
+                dim_range=dim_range,
+                strides=strides,
+                oi_path='/gpfsscratch/rech/nlu/commun/large/ssh_NATL60_swot_4nadir.nc',
+                oi_var='ssh_mod',
+                obs_mask_path='/gpfsscratch/rech/nlu/commun/large/dataset_nadir_0d_swot.nc',
+                obs_mask_var='mask',
+                gt_path='/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
+                gt_var='ssh',
+                sst_path = '/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_sst_y2013.1y.nc',
+                sst_var = 'sst'
+           )
+            datamodule.setup()
+            self.dataloaders = {
+                'train': datamodule.train_dataloader(),
+                'val': datamodule.val_dataloader(),
+                'test': datamodule.val_dataloader(),
+            }
+            # Warning not the same as before
+            self.var_Tr = datamodule.norm_stats[1] ** 2
+            self.var_Tt = datamodule.norm_stats[1] ** 2
+            self.var_Val = datamodule.norm_stats[1] ** 2
+            self.min_lon, self.max_lon, self.min_lat, self.max_lat = datamodule.bounding_box
+            self.ds_size_time = datamodule.ds_size['time']
+            self.ds_size_lon = datamodule.ds_size['lon']
+            self.ds_size_lat = datamodule.ds_size['lat']
         else:
             # Specify the dataset spatial bounds
             dim_range = {
@@ -131,6 +183,8 @@ class FourDVarNetRunner:
             self.ds_size_lon = datamodule.ds_size['lon']
             self.ds_size_lat = datamodule.ds_size['lat']
 
+        self.lit_cls = LitModelWithSST if dataloading == "with_sst" else LitModel
+
     def run(self, ckpt_path=None, dataloader="test", **trainer_kwargs):
         """
         Train and test model and run the test suite
@@ -149,12 +203,12 @@ class FourDVarNetRunner:
         """
 
         if ckpt_path:
-            mod = LitModel.load_from_checkpoint(ckpt_path, w_loss=wLoss,
+            mod = self.lit_cls.load_from_checkpoint(ckpt_path, w_loss=wLoss,
                            var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val,
                            min_lon=self.min_lon, max_lon=self.max_lon,
                            min_lat=self.min_lat, max_lat=self.max_lat)
         else:
-            mod = LitModel(hparam=cfg, w_loss=wLoss,
+            mod = self.lit_cls(hparam=cfg, w_loss=wLoss,
                            var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val,
                            min_lon=self.min_lon, max_lon=self.max_lon,
                            min_lat=self.min_lat, max_lat=self.max_lat,
@@ -171,8 +225,9 @@ class FourDVarNetRunner:
         :return:
         """
         mod = self._get_model(ckpt_path=ckpt_path)
+        
         checkpoint_callback = ModelCheckpoint(monitor='val_loss',
-                                              filename='modelSLAInterpGF-Exp3-{epoch:02d}-{val_loss:.2f}',
+                                              filename=self.filename_chkpt,
                                               save_top_k=3,
                                               mode='min')
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
@@ -182,6 +237,7 @@ class FourDVarNetRunner:
                              callbacks=[checkpoint_callback], **trainer_kwargs)
         trainer.fit(mod, self.dataloaders['train'], self.dataloaders['val'])
         return mod, trainer
+
 
     def test(self, ckpt_path=None, dataloader="test", _mod=None, _trainer=None, **trainer_kwargs):
         """

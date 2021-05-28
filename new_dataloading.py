@@ -84,7 +84,6 @@ class FourDVarNetDataset(Dataset):
 
         if sst_var == 'sst' :
             self.sst_ds = XrDataset(sst_path, sst_var, slice_win=slice_win, dim_range=dim_range, strides=strides, decode=True)
-            print('....... create SST dataset')
         else:
            self.sst_ds = None 
         self.norm_stats_sst = None
@@ -178,9 +177,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             
             return [mean, std],[mean_sst, std_sst]
 
-    def set_norm_stats(self, ds, ns):
+    def set_norm_stats(self, ds, ns, ns_sst = None):
         for _ds in ds.datasets:
-            _ds.set_norm_stats(ns)
+            _ds.set_norm_stats(ns,ns_sst)
 
     def get_domain_bounds(self,ds):
         min_lon = round(np.min(np.concatenate([_ds.gt_ds.ds['lon'].values for _ds in ds.datasets])),2)
