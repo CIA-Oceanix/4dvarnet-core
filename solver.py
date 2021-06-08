@@ -235,16 +235,16 @@ class model_GradUpdateLSTM(torch.nn.Module):
         if self.PeriodicBnd == True :
             dB     = 7
             #
-            grad_  = torch.cat((grad[:,:,x.size(2)-dB:,:],grad,grad[:,:,0:dB,:]),dim=2)
+            grad_  = torch.cat((grad[:,:,grad.size(2)-dB:,:],grad,grad[:,:,0:dB,:]),dim=2)
             if hidden is None:
                 hidden_,cell_ = self.lstm(grad_,None)
             else:
-                hidden_  = torch.cat((hidden[:,:,x.size(2)-dB:,:],hidden,hidden[:,:,0:dB,:]),dim=2)
-                cell_    = torch.cat((cell[:,:,x.size(2)-dB:,:],cell,cell[:,:,0:dB,:]),dim=2)
+                hidden_  = torch.cat((hidden[:,:,grad.size(2)-dB:,:],hidden,hidden[:,:,0:dB,:]),dim=2)
+                cell_    = torch.cat((cell[:,:,grad.size(2)-dB:,:],cell,cell[:,:,0:dB,:]),dim=2)
                 hidden_,cell_ = self.lstm(grad_,[hidden_,cell_])
 
-            hidden = hidden_[:,:,dB:x.size(2)+dB,:]
-            cell   = cell_[:,:,dB:x.size(2)+dB,:]
+            hidden = hidden_[:,:,dB:grad.size(2)+dB,:]
+            cell   = cell_[:,:,dB:grad.size(2)+dB,:]
         else:
             if hidden is None:
                 hidden,cell = self.lstm(grad,None)
