@@ -14,7 +14,7 @@ import torch
 from omegaconf import OmegaConf
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-import config
+import config_stochastic as config
 import solver as NN_4DVar
 from models import Gradient_img, LitModel, LitModelWithSST
 from new_dataloading import FourDVarNetDataModule
@@ -93,8 +93,8 @@ class FourDVarNetRunner:
             self.filename_chkpt = 'modelSLAInterpGF-withSST-Exp3-{epoch:02d}-{val_loss:.2f}'
             # Specify the dataset spatial bounds
             dim_range = {
-                # 'lat': slice(35, 45),
-                # 'lon': slice(-65, -55),
+                'lat': slice(33, 43),
+                'lon': slice(-65, -55),
             }
 
             # Specify the batch patch size
@@ -102,16 +102,16 @@ class FourDVarNetRunner:
                 'time': 5,
                 'lat': 200,
                 'lon': 200,
-                # 'lat': 20,
-                # 'lon': 20,
+                #'lat': 20,
+                #'lon': 20,
             }
             # Specify the stride between two patches
             strides = {
                 'time': 1,
                 'lat': 200,
                 'lon': 200,
-                # 'lat': 20,
-                # 'lon': 20,
+                #'lat': 20,
+                #'lon': 20,
             }
             datamodule = FourDVarNetDataModule(
                 slice_win=slice_win,
@@ -143,8 +143,8 @@ class FourDVarNetRunner:
         else:
             # Specify the dataset spatial bounds
             dim_range = {
-                # 'lat': slice(35, 45),
-                # 'lon': slice(-65, -55),
+                'lat': slice(33, 43),
+                'lon': slice(-65, -55),
             }
 
             # Specify the batch patch size
@@ -152,16 +152,16 @@ class FourDVarNetRunner:
                 'time': 5,
                 'lat': 200,
                 'lon': 200,
-                # 'lat': 20,
-                # 'lon': 20,
+                #'lat': 20,
+                #'lon': 20,
             }
             # Specify the stride between two patches
             strides = {
                 'time': 1,
                 'lat': 200,
                 'lon': 200,
-                # 'lat': 20,
-                # 'lon': 20,
+                #'lat': 20,
+                #'lon': 20,
             }
             datamodule = FourDVarNetDataModule(
                 slice_win=slice_win,
@@ -250,7 +250,8 @@ class FourDVarNetRunner:
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         num_gpus = torch.cuda.device_count()
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
-        trainer = _trainer or pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, **trainer_kwargs)
+        #trainer = _trainer or pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, **trainer_kwargs)
+        trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs)
         trainer.test(mod, test_dataloaders=self.dataloaders[dataloader])
 
     def profile(self):
