@@ -19,6 +19,9 @@ params = {
     'nbBlocks'        : 1,
     'Nbpatches'       : 1, #10#10#25 ## number of patches extracted from each time-step 
 
+    # stochastic version
+    'stochastic'      : False,
+
     # NN architectures and optimization parameters
     'batch_size'      : 10, #16#4#4#8#12#8#256#
     'DimAE'           : 50, #10#10#50
