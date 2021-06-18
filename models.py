@@ -75,12 +75,12 @@ class Decoder(torch.nn.Module):
     def forward(self, x):
         return torch.mul(1.,x)
 
-class Correlate_Noise(torch.nn.Module):
-    def __init__(self,ShapeData, Dim_CN):
-        super(Correlate_Noise, self).__init__()
-        self.conv1 = torch.nn.Conv2d(ShapeData,Dim_CN,(3,3),padding=1,bias=False)
-        self.conv2 = torch.nn.Conv2d(Dim_CN,2*Dim_CN,(3,3),padding=1,bias=False)
-        self.conv3 = torch.nn.Conv2d(2*Dim_CN,ShapeData,(3,3),padding=1,bias=False)
+class CorrelateNoise(torch.nn.Module):
+    def __init__(self,shape_data, dim_cn):
+        super(CorrelateNoise, self).__init__()
+        self.conv1 = torch.nn.Conv2d(shape_data,dim_cn,(3,3),padding=1,bias=False)
+        self.conv2 = torch.nn.Conv2d(dim_cn,2*dim_cn,(3,3),padding=1,bias=False)
+        self.conv3 = torch.nn.Conv2d(2*dim_cn,shape_data,(3,3),padding=1,bias=False)
 
     def forward(self, w):
         w = self.conv1(F.relu(w)).to(device)
@@ -88,12 +88,12 @@ class Correlate_Noise(torch.nn.Module):
         w = self.conv3(w).to(device)
         return w
 
-class Regularize_Variance(torch.nn.Module):
-    def __init__(self,ShapeData, Dim_RV):
-        super(Regularize_Variance, self).__init__()
-        self.conv1 = torch.nn.Conv2d(ShapeData,Dim_RV,(3,3),padding=1,bias=False)
-        self.conv2 = torch.nn.Conv2d(Dim_RV,2*Dim_RV,(3,3),padding=1,bias=False)
-        self.conv3 = torch.nn.Conv2d(2*Dim_RV,ShapeData,(3,3),padding=1,bias=False)
+class RegularizeVariance(torch.nn.Module):
+    def __init__(self,shape_data, dim_rv):
+        super(RegularizeVariance, self).__init__()
+        self.conv1 = torch.nn.Conv2d(shape_data,dim_rv,(3,3),padding=1,bias=False)
+        self.conv2 = torch.nn.Conv2d(dim_rv,2*dim_rv,(3,3),padding=1,bias=False)
+        self.conv3 = torch.nn.Conv2d(2*dim_rv,shape_data,(3,3),padding=1,bias=False)
 
     def forward(self, v):
         v = self.conv1(F.relu(v)).to(device)
@@ -106,8 +106,8 @@ class Phi_r(torch.nn.Module):
         super(Phi_r, self).__init__()
         self.encoder = Encoder(shapeData,DimAE,dW,dW2,sS,nbBlocks,rateDr)
         self.decoder = Decoder()
-        self.correlate_noise = Correlate_Noise(shapeData,10)
-        self.regularize_variance = Regularize_Variance(shapeData,10)        
+        self.correlate_noise = CorrelateNoise(shapeData,10)
+        self.regularize_variance = RegularizeVariance(shapeData,10)        
         self.stochastic = stochastic
 
     def forward(self, x):
@@ -297,10 +297,10 @@ class LitModel(pl.LightningModule):
                 if loss_ is not None:
                     loss.append(loss_)
                     metrics.append(metrics_)
-                self.log('test_loss', np.nanmean(loss))
-                self.log("test_mse", np.nanmean([ metrics[i]['mse']/self.var_Tt for i in range(len(metrics)) ]),
+                self.log('test_loss', np.nanmean([loss[i].detach().cpu() for i in range(len(loss))]))
+                self.log("test_mse", np.nanmean([ metrics[i]['mse'].detach().cpu()/self.var_Tt for i in range(len(metrics)) ]),
                                       on_step=False, on_epoch=True, prog_bar=True)
-                self.log("test_mseG", np.nanmean([ metrics[i]['mseGrad']/metrics[i]['meanGrad']  for i in range(len(metrics)) ]),
+                self.log("test_mseG", np.nanmean([ metrics[i]['mseGrad'].detach().cpu()/metrics[i]['meanGrad'].detach().cpu()  for i in range(len(metrics)) ]),
                                       on_step=False, on_epoch=True, prog_bar=True)
                 out.append(out_)
             return {'gt' : targets_GT.detach().cpu(),
@@ -357,7 +357,6 @@ class LitModel(pl.LightningModule):
 
         self.x_gt = gt[:,int(self.hparams.dT/2),:,:]
         self.x_oi = oi[:,int(self.hparams.dT/2),:,:]
-        self.x_rec = pred[:,int(self.hparams.dT/2),:,:,]
 
         # display ensemble
         if self.hparams.stochastic == True :

@@ -13,82 +13,62 @@ import torch
 # -*- coding: utf-8 -*-
 from omegaconf import OmegaConf
 from pytorch_lightning.callbacks import ModelCheckpoint
-
-import config_stochastic as config
 import solver as NN_4DVar
 from models import Gradient_img, LitModel, LitModelWithSST
 from new_dataloading import FourDVarNetDataModule
 from old_dataloading import LegacyDataLoading
-
-cfg = OmegaConf.create(config.params)
-
-#######################################Phi_r, Model_H, Model_Sampling architectures ################################################
-
-shapeData = cfg.shapeData  # np.array(x_train.shape[1:])
-# shapeData_test = np.array(x_test.shape[1:])
-# shapeData[0]  += shapeData[0]
-# shapeData_test[0] += shapeData_test[0]
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 gradient_img = Gradient_img()
 
-# model_LR = ModelLR()
-
-w_ = np.zeros(cfg.dT)
-w_[int(cfg.dT / 2)] = 1.
-wLoss = torch.Tensor(w_)
-
-# recompute the MSE for OI on training dataset
-# to define weighing parameters in the training
-
-if cfg.betaX is None or cfg.betagX is None:
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    running_loss_GOI = 0.
-    running_loss_OI = 0.
-    num_loss = 0
-
-    gradient_img = gradient_img.to(device)
-    wLoss = wLoss.to(device)
-
-    for targets_OI, inputs_Mask, targets_GT in dataloaders['train']:
-        targets_OI = targets_OI.to(device)
-        inputs_Mask = inputs_Mask.to(device)
-        targets_GT = targets_GT.to(device)
-
-        # gradient norm field
-        g_targets_GT = gradient_img(targets_GT)
-        loss_OI = NN_4DVar.compute_WeightedLoss(targets_GT - targets_OI, wLoss)
-        loss_GOI = NN_4DVar.compute_WeightedLoss(gradient_img(targets_OI) - g_targets_GT, wLoss)
-        running_loss_GOI += loss_GOI.item() * targets_GT.size(0)
-        running_loss_OI += loss_OI.item() * targets_GT.size(0)
-        num_loss += targets_GT.size(0)
-
-    epoch_loss_GOI = running_loss_GOI / num_loss
-    epoch_loss_OI = running_loss_OI / num_loss
-
-    betaX = 1. / epoch_loss_OI
-    betagX = 1. / epoch_loss_GOI
-
-    print(".... MSE(Tr) OI %.3f -- MSE(Tr) gOI %.3f " % (epoch_loss_OI, epoch_loss_GOI))
-    print(".... betaX = %.3f -- betagX %.3f " % (betaX, betagX))
-
-
-# print(f"{(betaX, betagX)=}")
-
-
 class FourDVarNetRunner:
-    def __init__(self, dataloading="old"):
+    def __init__(self, dataloading="old", config=None):
         self.filename_chkpt = 'modelSLAInterpGF-Exp3-{epoch:02d}-{val_loss:.2f}'
+        if config is None:
+            import config
+        else:
+            config = __import__("config_"+str(config))
+      
+        self.cfg = OmegaConf.create(config.params)
+        shapeData = self.cfg.shapeData
+        w_ = np.zeros(self.cfg.dT)
+        w_[int(self.cfg.dT / 2)] = 1.
+        self.wLoss = torch.Tensor(w_)
+
+        # recompute the MSE for OI on training dataset
+        # to define weighing parameters in the training
+        if self.cfg.betaX is None or self.cfg.betagX is None:
+            running_loss_GOI = 0.
+            running_loss_OI = 0.
+            num_loss = 0
+
+            gradient_img = gradient_img.to(device)
+            self.wLoss = wself.Loss.to(device)
+
+            for targets_OI, inputs_Mask, targets_GT in dataloaders['train']:
+                targets_OI = targets_OI.to(device)
+                inputs_Mask = inputs_Mask.to(device)
+                targets_GT = targets_GT.to(device)
+
+                # gradient norm field
+                g_targets_GT = gradient_img(targets_GT)
+                loss_OI = NN_4DVar.compute_WeightedLoss(targets_GT - targets_OI, self.wLoss)
+                loss_GOI = NN_4DVar.compute_WeightedLoss(gradient_img(targets_OI) - g_targets_GT, self.wLoss)
+                running_loss_GOI += loss_GOI.item() * targets_GT.size(0)
+                running_loss_OI += loss_OI.item() * targets_GT.size(0)
+                num_loss += targets_GT.size(0)
+
+            epoch_loss_GOI = running_loss_GOI / num_loss
+            epoch_loss_OI = running_loss_OI / num_loss
+
+            betaX = 1. / epoch_loss_OI
+            betagX = 1. / epoch_loss_GOI
+
+            print(".... MSE(Tr) OI %.3f -- MSE(Tr) gOI %.3f " % (epoch_loss_OI, epoch_loss_GOI))
+            print(".... betaX = %.3f -- betagX %.3f " % (betaX, betagX))
+
+
         if dataloading == "old":
-            datamodule = LegacyDataLoading(cfg)
-            datamodule.setup()
-            self.dataloaders = {
-                'train': datamodule.train_dataloader(),
-                'val': datamodule.val_dataloader(),
-                'test': datamodule.val_dataloader(),
-            }
-            self.var_Tr = datamodule.var_Tr
-            self.var_Tt = datamodule.var_Tt
-            self.var_Val = datamodule.var_Val
+            datamodule = LegacyDataLoading(self.cfg)
         elif dataloading == "with_sst":
             self.filename_chkpt = 'modelSLAInterpGF-withSST-Exp3-{epoch:02d}-{val_loss:.2f}'
             # Specify the dataset spatial bounds
@@ -126,20 +106,6 @@ class FourDVarNetRunner:
                 sst_path = '/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_sst_y2013.1y.nc',
                 sst_var = 'sst'
            )
-            datamodule.setup()
-            self.dataloaders = {
-                'train': datamodule.train_dataloader(),
-                'val': datamodule.val_dataloader(),
-                'test': datamodule.val_dataloader(),
-            }
-            # Warning not the same as before
-            self.var_Tr = datamodule.norm_stats[1] ** 2
-            self.var_Tt = datamodule.norm_stats[1] ** 2
-            self.var_Val = datamodule.norm_stats[1] ** 2
-            self.min_lon, self.max_lon, self.min_lat, self.max_lat = datamodule.bounding_box
-            self.ds_size_time = datamodule.ds_size['time']
-            self.ds_size_lon = datamodule.ds_size['lon']
-            self.ds_size_lat = datamodule.ds_size['lat']
         else:
             # Specify the dataset spatial bounds
             dim_range = {
@@ -168,13 +134,19 @@ class FourDVarNetRunner:
                 dim_range=dim_range,
                 strides=strides,
             )
-            datamodule.setup()
-            self.dataloaders = {
+
+
+        datamodule.setup()
+        self.dataloaders = {
                 'train': datamodule.train_dataloader(),
                 'val': datamodule.val_dataloader(),
                 'test': datamodule.val_dataloader(),
-            }
-            # Warning not the same as before
+        }
+        if dataloading == "old":
+            self.var_Tr = datamodule.var_Tr
+            self.var_Tt = datamodule.var_Tt
+            self.var_Val = datamodule.var_Val
+        else:
             self.var_Tr = datamodule.norm_stats[1] ** 2
             self.var_Tt = datamodule.norm_stats[1] ** 2
             self.var_Val = datamodule.norm_stats[1] ** 2
@@ -182,7 +154,6 @@ class FourDVarNetRunner:
             self.ds_size_time = datamodule.ds_size['time']
             self.ds_size_lon = datamodule.ds_size['lon']
             self.ds_size_lat = datamodule.ds_size['lat']
-
         self.lit_cls = LitModelWithSST if dataloading == "with_sst" else LitModel
 
     def run(self, ckpt_path=None, dataloader="test", **trainer_kwargs):
@@ -203,12 +174,12 @@ class FourDVarNetRunner:
         """
 
         if ckpt_path:
-            mod = self.lit_cls.load_from_checkpoint(ckpt_path, w_loss=wLoss,
+            mod = self.lit_cls.load_from_checkpoint(ckpt_path, w_loss=self.wLoss,
                            var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val,
                            min_lon=self.min_lon, max_lon=self.max_lon,
                            min_lat=self.min_lat, max_lat=self.max_lat)
         else:
-            mod = self.lit_cls(hparam=cfg, w_loss=wLoss,
+            mod = self.lit_cls(hparam=self.cfg, w_loss=self.wLoss,
                            var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val,
                            min_lon=self.min_lon, max_lon=self.max_lon,
                            min_lat=self.min_lat, max_lat=self.max_lat,
