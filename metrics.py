@@ -16,6 +16,7 @@ import cartopy.feature as cfeature
 from cartopy.io import shapereader
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 import cv2
+import matplotlib.animation as animation
 
 from spectral import *
 
@@ -153,6 +154,33 @@ def plot_maps(gt,oi,pred,lon,lat,resfile):
     plot(ax,2,1,lon,lat,gradient(pred,2),r"$\nabla_{4DVarNet}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax)
     plt.savefig(resfile)       # save the figure
     plt.close()                # close the figure
+
+
+def animate_maps(gt,oi,pred,lon,lat,resfile):
+
+    def animate(i, fig, ax):
+        print(i)
+        plot(ax,0,0,lon,lat,gt[i],'GT',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
+        plot(ax,0,1,lon,lat,gradient(gt[i],2),r"$\nabla_{GT}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax)
+        plot(ax,1,0,lon,lat,oi[i],'OI',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
+        plot(ax,1,1,lon,lat,gradient(oi[i],2),r"$\nabla_{OI}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax)
+        plot(ax,2,0,lon,lat,pred[i],'4DVarNet',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
+        plot(ax,2,1,lon,lat,gradient(pred[i],2),r"$\nabla_{4DVarNet}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax)
+        return fig, ax
+
+    vmax = np.nanmax(np.abs(pred))
+    vmin = -1.*vmax
+    grad_vmax = np.nanmax(np.abs(gradient(pred,2)))
+    grad_vmin = 0
+    extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
+
+    fig, ax = plt.subplots(3,2,figsize=(15,10),\
+              subplot_kw=dict(projection=ccrs.PlateCarree(central_longitude=0.0)))
+    plt.subplots_adjust(hspace=0.5)
+    ani = animation.FuncAnimation(fig, animate, frames=np.arange(1,len(gt)), fargs=(fig,ax,), interval=1000, repeat=False)
+    writer = animation.FFMpegWriter(fps=1, bitrate=5000)
+    ani.save(resfile, writer = writer)
+    plt.close()
 
 def plot_ensemble(pred,lon,lat,resfile):
 

@@ -23,6 +23,9 @@ params = {
     'stochastic'      : True,
     'size_ensemble'   : 3,
 
+    # animation maps 
+    'animate'         : False,
+
     # NN architectures and optimization parameters
     'batch_size'      : 10, #16#4#4#8#12#8#256#
     'DimAE'           : 50, #10#10#50

@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import pytorch_lightning as pl
 import solver as NN_4DVar
-from metrics import save_netcdf, nrmse_scores, plot_nrmse, plot_snr, plot_maps, plot_ensemble
+from metrics import save_netcdf, nrmse_scores, plot_nrmse, plot_snr, plot_maps, animate_maps, plot_ensemble
 from omegaconf import OmegaConf
 import einops
 from scipy import stats
@@ -289,31 +289,12 @@ class LitModel(pl.LightningModule):
     def test_step(self, test_batch, batch_idx):
 
         targets_OI, inputs_Mask, targets_GT = test_batch
-        if self.hparams.stochastic == True :
-            loss = []
-            out = []
-            metrics = []
-            for i in range(self.hparams.size_ensemble):
-                loss_, out_, metrics_ = self.compute_loss(test_batch, phase='test')
-                if loss_ is not None:
-                    loss.append(loss_)
-                    metrics.append(metrics_)
-                self.log('test_loss', np.nanmean([loss[i].detach().cpu() for i in range(len(loss))]))
-                self.log("test_mse", np.nanmean([ metrics[i]['mse'].detach().cpu()/self.var_Tt for i in range(len(metrics)) ]),
-                                      on_step=False, on_epoch=True, prog_bar=True)
-                self.log("test_mseG", np.nanmean([ metrics[i]['mseGrad'].detach().cpu()/metrics[i]['meanGrad'].detach().cpu()  for i in range(len(metrics)) ]),
-                                      on_step=False, on_epoch=True, prog_bar=True)
-                out.append(out_)
-            return {'gt' : targets_GT.detach().cpu(),
-                'oi' : targets_OI.detach().cpu(),
-                'preds' : torch.stack([out_.detach().cpu() for out_ in out],dim=-1)}
-        else:
-            loss, out, metrics = self.compute_loss(test_batch, phase='test')
-            if loss is not None:
+        loss, out, metrics = self.compute_loss(test_batch, phase='test')
+        if loss is not None:
                 self.log('test_loss', loss)
                 self.log("test_mse", metrics['mse'] / self.var_Tt , on_step=False, on_epoch=True, prog_bar=True)
                 self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'] , on_step=False, on_epoch=True, prog_bar=True)
-            return {'gt' : targets_GT.detach().cpu(),
+        return {'gt' : targets_GT.detach().cpu(),
                 'oi' : targets_OI.detach().cpu(),
                 'preds' : out.detach().cpu()}
 
@@ -340,16 +321,7 @@ class LitModel(pl.LightningModule):
                 lat_idx=ds_size['lat'],
                 lon_idx=ds_size['lon'],
                 )
-        if self.hparams.stochastic == True :
-            pred = einops.rearrange(pred,
-                '(t_idx lat_idx lon_idx ens_idx) win_time win_lat win_lon win_ens -> t_idx win_time (lat_idx win_lat) (lon_idx win_lon) (ens_idx win_ens)',
-                ens_idx=1,
-                t_idx=ds_size['time'],
-                lat_idx=ds_size['lat'],
-                lon_idx=ds_size['lon'],
-                )
-        else:
-            pred = einops.rearrange(pred,
+        pred = einops.rearrange(pred,
                 '(t_idx lat_idx lon_idx) win_time win_lat win_lon -> t_idx win_time (lat_idx win_lat) (lon_idx win_lon)',
                 t_idx=ds_size['time'],
                 lat_idx=ds_size['lat'],
@@ -358,16 +330,7 @@ class LitModel(pl.LightningModule):
 
         self.x_gt = gt[:,int(self.hparams.dT/2),:,:]
         self.x_oi = oi[:,int(self.hparams.dT/2),:,:]
-
-        # display ensemble
-        if self.hparams.stochastic == True :
-            path_save0 = self.logger.log_dir+'/maps_ensemble.png'
-            plot_ensemble(pred[0,int(self.hparams.dT/2),:,:,:],
-                          self.lon,self.lat,path_save0)
-            self.x_rec = np.nanmean(pred[:,int(self.hparams.dT/2),:,:,:],axis=-1)
-            pred = np.nanmean(pred,axis=-1)
-        else:
-            self.x_rec = pred[:,int(self.hparams.dT/2),:,:]
+        self.x_rec = pred[:,int(self.hparams.dT/2),:,:]
 
         # display map
         path_save0 = self.logger.log_dir+'/maps.png'
@@ -375,6 +338,13 @@ class LitModel(pl.LightningModule):
                   oi[0,int(self.hparams.dT/2),:,:],
                   pred[0,int(self.hparams.dT/2),:,:],
                   self.lon,self.lat,path_save0)
+        # animate maps
+        if self.hparams.animate==True:
+            path_save0 = self.logger.log_dir+'/animation.mp4'
+            animate_maps(gt[:,int(self.hparams.dT/2),:,:],
+                  oi[:,int(self.hparams.dT/2),:,:],
+                  pred[:,int(self.hparams.dT/2),:,:],
+                  self.lon,self.lat,path_save0)        
         # save NetCDF
         path_save1 = self.logger.log_dir+'/test.nc'
         save_netcdf(saved_path1 = path_save1, pred = pred,
