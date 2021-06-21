@@ -4,9 +4,11 @@ import torch.nn.functional as F
 import torch.optim as optim
 import pytorch_lightning as pl
 import solver as NN_4DVar
-from metrics import save_netcdf, nrmse_scores, plot_nrmse, plot_snr, plot_maps
+from metrics import save_netcdf, nrmse_scores, plot_nrmse, plot_snr, plot_maps, plot_ensemble
 from omegaconf import OmegaConf
 import einops
+from scipy import stats
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class BiLinUnit(torch.nn.Module):
     def __init__(self,dimIn,dim,dW,dW2,dropout=0.):
@@ -73,18 +75,52 @@ class Decoder(torch.nn.Module):
     def forward(self, x):
         return torch.mul(1.,x)
 
+class CorrelateNoise(torch.nn.Module):
+    def __init__(self,shape_data, dim_cn):
+        super(CorrelateNoise, self).__init__()
+        self.conv1 = torch.nn.Conv2d(shape_data,dim_cn,(3,3),padding=1,bias=False)
+        self.conv2 = torch.nn.Conv2d(dim_cn,2*dim_cn,(3,3),padding=1,bias=False)
+        self.conv3 = torch.nn.Conv2d(2*dim_cn,shape_data,(3,3),padding=1,bias=False)
+
+    def forward(self, w):
+        w = self.conv1(F.relu(w)).to(device)
+        w = self.conv2(F.relu(w)).to(device)
+        w = self.conv3(w).to(device)
+        return w
+
+class RegularizeVariance(torch.nn.Module):
+    def __init__(self,shape_data, dim_rv):
+        super(RegularizeVariance, self).__init__()
+        self.conv1 = torch.nn.Conv2d(shape_data,dim_rv,(3,3),padding=1,bias=False)
+        self.conv2 = torch.nn.Conv2d(dim_rv,2*dim_rv,(3,3),padding=1,bias=False)
+        self.conv3 = torch.nn.Conv2d(2*dim_rv,shape_data,(3,3),padding=1,bias=False)
+
+    def forward(self, v):
+        v = self.conv1(F.relu(v)).to(device)
+        v = self.conv2(F.relu(v)).to(device)
+        v = self.conv3(v).to(device)
+        return v
 
 class Phi_r(torch.nn.Module):
-    def __init__(self, shapeData, DimAE, dW, dW2, sS, nbBlocks, rateDr):
+    def __init__(self, shapeData, DimAE, dW, dW2, sS, nbBlocks, rateDr,stochastic):
         super(Phi_r, self).__init__()
         self.encoder = Encoder(shapeData,DimAE,dW,dW2,sS,nbBlocks,rateDr)
         self.decoder = Decoder()
+        self.correlate_noise = CorrelateNoise(shapeData,10)
+        self.regularize_variance = RegularizeVariance(shapeData,10)        
+        self.stochastic = stochastic
 
     def forward(self, x):
         x = self.encoder(x)
         x = self.decoder(x)
+        if self.stochastic==True:
+            W = torch.randn(x.shape).to(device)
+            # g(W) = alpha(x)*h(W) 
+            #gW = torch.mul(self.regularize_variance(x),self.correlate_noise(W))
+            gW = self.correlate_noise(W)
+            #print(stats.describe(gW.detach().cpu().numpy()))
+            x = x + gW
         return x
-
 
 class Model_H(torch.nn.Module):
     def __init__(self, shapeData):
@@ -164,7 +200,7 @@ class LitModel(pl.LightningModule):
 
         # main model
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
-            Phi_r(self.hparams.shapeData[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS, self.hparams.nbBlocks, self.hparams.dropout),
+            Phi_r(self.hparams.shapeData[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS, self.hparams.nbBlocks, self.hparams.dropout, self.hparams.stochastic),
             Model_H(self.hparams.shapeData[0]),
             NN_4DVar.model_GradUpdateLSTM(self.hparams.shapeData, self.hparams.UsePriodicBoundary, self.hparams.dim_grad_solver, self.hparams.dropout),
                 None, None, self.hparams.shapeData, self.hparams.n_grad)
@@ -253,12 +289,31 @@ class LitModel(pl.LightningModule):
     def test_step(self, test_batch, batch_idx):
 
         targets_OI, inputs_Mask, targets_GT = test_batch
-        loss, out, metrics = self.compute_loss(test_batch, phase='test')
-        if loss is not None:
-            self.log('test_loss', loss)
-            self.log("test_mse", metrics['mse'] / self.var_Tt , on_step=False, on_epoch=True, prog_bar=True)
-            self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'] , on_step=False, on_epoch=True, prog_bar=True)
-        return {'gt' : targets_GT.detach().cpu(),
+        if self.hparams.stochastic == True :
+            loss = []
+            out = []
+            metrics = []
+            for i in range(self.hparams.size_ensemble):
+                loss_, out_, metrics_ = self.compute_loss(test_batch, phase='test')
+                if loss_ is not None:
+                    loss.append(loss_)
+                    metrics.append(metrics_)
+                self.log('test_loss', np.nanmean([loss[i].detach().cpu() for i in range(len(loss))]))
+                self.log("test_mse", np.nanmean([ metrics[i]['mse'].detach().cpu()/self.var_Tt for i in range(len(metrics)) ]),
+                                      on_step=False, on_epoch=True, prog_bar=True)
+                self.log("test_mseG", np.nanmean([ metrics[i]['mseGrad'].detach().cpu()/metrics[i]['meanGrad'].detach().cpu()  for i in range(len(metrics)) ]),
+                                      on_step=False, on_epoch=True, prog_bar=True)
+                out.append(out_)
+            return {'gt' : targets_GT.detach().cpu(),
+                'oi' : targets_OI.detach().cpu(),
+                'preds' : torch.stack([out_.detach().cpu() for out_ in out],dim=-1)}
+        else:
+            loss, out, metrics = self.compute_loss(test_batch, phase='test')
+            if loss is not None:
+                self.log('test_loss', loss)
+                self.log("test_mse", metrics['mse'] / self.var_Tt , on_step=False, on_epoch=True, prog_bar=True)
+                self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'] , on_step=False, on_epoch=True, prog_bar=True)
+            return {'gt' : targets_GT.detach().cpu(),
                 'oi' : targets_OI.detach().cpu(),
                 'preds' : out.detach().cpu()}
 
@@ -267,7 +322,7 @@ class LitModel(pl.LightningModule):
         gt = torch.cat([chunk['gt'] for chunk in outputs]).numpy()
         oi = torch.cat([chunk['oi'] for chunk in outputs]).numpy()
         pred = torch.cat([chunk['preds'] for chunk in outputs]).numpy()
-
+        print(pred.shape)
         ds_size = {'time': self.ds_size_time,
                    'lon': self.ds_size_lon,
                    'lat': self.ds_size_lat,
@@ -285,7 +340,16 @@ class LitModel(pl.LightningModule):
                 lat_idx=ds_size['lat'],
                 lon_idx=ds_size['lon'],
                 )
-        pred = einops.rearrange(pred,
+        if self.hparams.stochastic == True :
+            pred = einops.rearrange(pred,
+                '(t_idx lat_idx lon_idx ens_idx) win_time win_lat win_lon win_ens -> t_idx win_time (lat_idx win_lat) (lon_idx win_lon) (ens_idx win_ens)',
+                ens_idx=1,
+                t_idx=ds_size['time'],
+                lat_idx=ds_size['lat'],
+                lon_idx=ds_size['lon'],
+                )
+        else:
+            pred = einops.rearrange(pred,
                 '(t_idx lat_idx lon_idx) win_time win_lat win_lon -> t_idx win_time (lat_idx win_lat) (lon_idx win_lon)',
                 t_idx=ds_size['time'],
                 lat_idx=ds_size['lat'],
@@ -294,7 +358,16 @@ class LitModel(pl.LightningModule):
 
         self.x_gt = gt[:,int(self.hparams.dT/2),:,:]
         self.x_oi = oi[:,int(self.hparams.dT/2),:,:]
-        self.x_rec = pred[:,int(self.hparams.dT/2),:,:]
+
+        # display ensemble
+        if self.hparams.stochastic == True :
+            path_save0 = self.logger.log_dir+'/maps_ensemble.png'
+            plot_ensemble(pred[0,int(self.hparams.dT/2),:,:,:],
+                          self.lon,self.lat,path_save0)
+            self.x_rec = np.nanmean(pred[:,int(self.hparams.dT/2),:,:,:],axis=-1)
+            pred = np.nanmean(pred,axis=-1)
+        else:
+            self.x_rec = pred[:,int(self.hparams.dT/2),:,:]
 
         # display map
         path_save0 = self.logger.log_dir+'/maps.png'
@@ -313,11 +386,11 @@ class LitModel(pl.LightningModule):
         print(tab_scores)
         # plot nRMSE
         path_save3 = self.logger.log_dir+'/nRMSE.png'
-        nrmse_fig = plot_nrmse(gt,oi,x_test_rec,path_save3,index_test = np.arange(60, 77))
+        nrmse_fig = plot_nrmse(gt,oi,pred,path_save3,index_test = np.arange(60, 77))
         self.logger.experiment.add_figure('NRMSE', nrmse_fig, global_step=self.current_epoch)
         # plot SNR
         path_save4 = self.logger.log_dir+'/SNR.png'
-        snr_fig = plot_snr(gt,oi,x_test_rec,path_save4)
+        snr_fig = plot_snr(gt,oi,pred,path_save4)
         self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
 
     def compute_loss(self, batch, phase):

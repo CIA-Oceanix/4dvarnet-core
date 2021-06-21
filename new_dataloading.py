@@ -67,7 +67,8 @@ class FourDVarNetDataset(Dataset):
             oi_path='/gpfsscratch/rech/nlu/commun/large/ssh_NATL60_swot_4nadir.nc',
             oi_var='ssh_mod',
             obs_mask_path='/gpfsscratch/rech/nlu/commun/large/dataset_nadir_0d_swot.nc',
-            obs_mask_var='mask',
+            obs_mask_var='ssh_mod',
+            #obs_mask_var='mask',
             gt_path='/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
             gt_var='ssh',
             sst_path = None,
@@ -77,8 +78,7 @@ class FourDVarNetDataset(Dataset):
 
         self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win, dim_range=dim_range, strides=strides)
         self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win, dim_range=dim_range, strides=strides, decode=True)
-        self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win, dim_range=dim_range,
-                                     strides=strides)
+        self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win, dim_range=dim_range,strides=strides)
 
         self.norm_stats = None
 
@@ -105,11 +105,10 @@ class FourDVarNetDataset(Dataset):
         ) - mean) / std
         _gt_item = (self.gt_ds[item] - mean) / std
         oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
-        obs_mask_item = self.obs_mask_ds[item].astype(bool) & ~np.isnan(oi_item) & ~np.isnan(_gt_item)
-
+        #obs_mask_item = self.obs_mask_ds[item].astype(bool) & ~np.isnan(oi_item) & ~np.isnan(_gt_item)
+        obs_mask_item = ~np.isnan(self.obs_mask_ds[item])
 
         gt_item = np.where(~np.isnan(_gt_item), _gt_item, 0.)
-
 
         if self.sst_ds == None :
             return oi_item, obs_mask_item, gt_item
@@ -134,7 +133,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             oi_path='/gpfsscratch/rech/nlu/commun/large/ssh_NATL60_swot_4nadir.nc',
             oi_var='ssh_mod',
             obs_mask_path='/gpfsscratch/rech/nlu/commun/large/dataset_nadir_0d_swot.nc',
-            obs_mask_var='mask',
+            obs_mask_var='ssh_mod',
+            #obs_mask_var='mask',
             gt_path='/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
             gt_var='ssh',
             sst_path = None,

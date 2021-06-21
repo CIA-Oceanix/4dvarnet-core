@@ -154,6 +154,23 @@ def plot_maps(gt,oi,pred,lon,lat,resfile):
     plt.savefig(resfile)       # save the figure
     plt.close()                # close the figure
 
+def plot_ensemble(pred,lon,lat,resfile):
+
+    vmax = np.nanmax(np.abs(pred))
+    vmin = -1.*vmax
+    grad_vmax = np.nanmax(np.abs(gradient(pred,2)))
+    grad_vmin = 0
+    extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
+
+    n_members = pred.shape[-1]
+    fig, ax = plt.subplots(2,n_members,figsize=(5*n_members,15),squeeze=False,
+                          subplot_kw=dict(projection=ccrs.PlateCarree(central_longitude=0.0)))
+    for i in range(n_members):
+        plot(ax,0,i,lon,lat,pred[:,:,i],'M'+str(i),extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
+        plot(ax,1,i,lon,lat,gradient(pred[:,:,i],2),r"$\nabla_{M"+str(i)+"}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax)
+    plt.savefig(resfile)       # save the figure
+    plt.close()                # close the figure
+
 def save_netcdf(saved_path1, pred, lon, lat, index_test):
     '''
     saved_path1: string 

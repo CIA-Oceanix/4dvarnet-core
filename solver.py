@@ -9,6 +9,7 @@ Created on Fri May  1 15:38:05 2020
 import numpy as np
 import torch
 from torch import nn
+import torch.nn.functional as F
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class ConvLSTM2d(torch.nn.Module):
@@ -295,7 +296,6 @@ class Model_Var_Cost(nn.Module):
 
         return loss
 
-    
 # 4DVarNN Solver class using automatic differentiation for the computation of gradient of the variational cost
 # input modules: operator phi_r, gradient-based update model m_Grad
 # modules for the definition of the norm of the observation and prior terms given as input parameters 
