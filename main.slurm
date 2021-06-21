@@ -8,7 +8,7 @@
 #SBATCH --time=00:10:00
 #SBATCH --cpus-per-task=10
 #SBATCH --hint=nomultithread
-#SBATCH -C v100-32g
+#SBATCH -C v100-16g
 #SBATCH --qos=qos_gpu-dev
 #SBATCH --output=log%j.out
 #SBATCH --error=log%j.err

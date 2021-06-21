@@ -116,8 +116,9 @@ class Phi_r(torch.nn.Module):
         if self.stochastic==True:
             W = torch.randn(x.shape).to(device)
             # g(W) = alpha(x)*h(W) 
-            gW = torch.mul(self.regularize_variance(x),self.correlate_noise(W))
-            print(stats.describe(gW.detach().cpu().numpy()))
+            #gW = torch.mul(self.regularize_variance(x),self.correlate_noise(W))
+            gW = self.correlate_noise(W)
+            #print(stats.describe(gW.detach().cpu().numpy()))
             x = x + gW
         return x
 

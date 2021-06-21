@@ -15,6 +15,7 @@ from omegaconf import OmegaConf
 from pytorch_lightning.callbacks import ModelCheckpoint
 import solver as NN_4DVar
 from models import Gradient_img, LitModel, LitModelWithSST
+from lit_model_stochastic import LitModelStochastic 
 from new_dataloading import FourDVarNetDataModule
 from old_dataloading import LegacyDataLoading
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -154,7 +155,10 @@ class FourDVarNetRunner:
             self.ds_size_time = datamodule.ds_size['time']
             self.ds_size_lon = datamodule.ds_size['lon']
             self.ds_size_lat = datamodule.ds_size['lat']
-        self.lit_cls = LitModelWithSST if dataloading == "with_sst" else LitModel
+        if self.cfg.stochastic==False:
+            self.lit_cls = LitModelWithSST if dataloading == "with_sst" else LitModel
+        else:
+            self.lit_cls = LitModelStochastic
 
     def run(self, ckpt_path=None, dataloader="test", **trainer_kwargs):
         """
