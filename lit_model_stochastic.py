@@ -18,7 +18,7 @@ class LitModelStochastic(LitModel):
                      on_step=False, on_epoch=True, prog_bar=True)
             self.log("test_mseG", np.nanmean([ metrics[i]['mseGrad'].detach().cpu()/metrics[i]['meanGrad'].detach().cpu()  for i in range(len(metrics)) ]),
                      on_step=False, on_epoch=True, prog_bar=True)
-                out.append(out_)
+            out.append(out_)
         return {'gt' : targets_GT.detach().cpu(),
                 'oi' : targets_OI.detach().cpu(),
                 'preds' : torch.stack([out_.detach().cpu() for out_ in out],dim=-1)}
