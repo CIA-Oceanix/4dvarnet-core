@@ -9,17 +9,18 @@ import os
 import numpy as np
 import pytorch_lightning as pl
 import torch
-# !/usr/bin/env python3
-# -*- coding: utf-8 -*-
 from omegaconf import OmegaConf
 from pytorch_lightning.callbacks import ModelCheckpoint
+
 import solver as NN_4DVar
+from lit_model_stochastic import LitModelStochastic
 from models import Gradient_img, LitModel, LitModelWithSST
-from lit_model_stochastic import LitModelStochastic 
 from new_dataloading import FourDVarNetDataModule
 from old_dataloading import LegacyDataLoading
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 gradient_img = Gradient_img()
+
 
 class FourDVarNetRunner:
     def __init__(self, dataloading="old", config=None):
@@ -27,8 +28,8 @@ class FourDVarNetRunner:
         if config is None:
             import config
         else:
-            config = __import__("config_"+str(config))
-      
+            config = __import__("config_" + str(config))
+
         self.cfg = OmegaConf.create(config.params)
         shapeData = self.cfg.shapeData
         w_ = np.zeros(self.cfg.dT)
@@ -67,7 +68,6 @@ class FourDVarNetRunner:
             print(".... MSE(Tr) OI %.3f -- MSE(Tr) gOI %.3f " % (epoch_loss_OI, epoch_loss_GOI))
             print(".... betaX = %.3f -- betagX %.3f " % (betaX, betagX))
 
-
         if dataloading == "old":
             datamodule = LegacyDataLoading(self.cfg)
         elif dataloading == "with_sst":
@@ -83,16 +83,16 @@ class FourDVarNetRunner:
                 'time': 5,
                 'lat': 200,
                 'lon': 200,
-                #'lat': 20,
-                #'lon': 20,
+                # 'lat': 20,
+                # 'lon': 20,
             }
             # Specify the stride between two patches
             strides = {
                 'time': 1,
                 'lat': 200,
                 'lon': 200,
-                #'lat': 20,
-                #'lon': 20,
+                # 'lat': 20,
+                # 'lon': 20,
             }
             datamodule = FourDVarNetDataModule(
                 slice_win=slice_win,
@@ -104,9 +104,9 @@ class FourDVarNetRunner:
                 obs_mask_var='mask',
                 gt_path='/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
                 gt_var='ssh',
-                sst_path = '/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_sst_y2013.1y.nc',
-                sst_var = 'sst'
-           )
+                sst_path='/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_sst_y2013.1y.nc',
+                sst_var='sst'
+            )
         else:
             # Specify the dataset spatial bounds
             dim_range = {
@@ -119,16 +119,16 @@ class FourDVarNetRunner:
                 'time': 5,
                 'lat': 200,
                 'lon': 200,
-                #'lat': 20,
-                #'lon': 20,
+                # 'lat': 20,
+                # 'lon': 20,
             }
             # Specify the stride between two patches
             strides = {
                 'time': 1,
                 'lat': 200,
                 'lon': 200,
-                #'lat': 20,
-                #'lon': 20,
+                # 'lat': 20,
+                # 'lon': 20,
             }
             datamodule = FourDVarNetDataModule(
                 slice_win=slice_win,
@@ -136,12 +136,11 @@ class FourDVarNetRunner:
                 strides=strides,
             )
 
-
         datamodule.setup()
         self.dataloaders = {
-                'train': datamodule.train_dataloader(),
-                'val': datamodule.val_dataloader(),
-                'test': datamodule.val_dataloader(),
+            'train': datamodule.train_dataloader(),
+            'val': datamodule.val_dataloader(),
+            'test': datamodule.val_dataloader(),
         }
         if dataloading == "old":
             self.var_Tr = datamodule.var_Tr
@@ -155,7 +154,8 @@ class FourDVarNetRunner:
             self.ds_size_time = datamodule.ds_size['time']
             self.ds_size_lon = datamodule.ds_size['lon']
             self.ds_size_lat = datamodule.ds_size['lat']
-        if self.cfg.stochastic==False:
+
+        if self.cfg.stochastic == False:
             self.lit_cls = LitModelWithSST if dataloading == "with_sst" else LitModel
         else:
             self.lit_cls = LitModelStochastic
@@ -179,17 +179,17 @@ class FourDVarNetRunner:
 
         if ckpt_path:
             mod = self.lit_cls.load_from_checkpoint(ckpt_path, w_loss=self.wLoss,
-                           var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val,
-                           min_lon=self.min_lon, max_lon=self.max_lon,
-                           min_lat=self.min_lat, max_lat=self.max_lat)
+                                                    var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val,
+                                                    min_lon=self.min_lon, max_lon=self.max_lon,
+                                                    min_lat=self.min_lat, max_lat=self.max_lat)
         else:
             mod = self.lit_cls(hparam=self.cfg, w_loss=self.wLoss,
-                           var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val,
-                           min_lon=self.min_lon, max_lon=self.max_lon,
-                           min_lat=self.min_lat, max_lat=self.max_lat,
-                           ds_size_time = self.ds_size_time,
-                           ds_size_lon = self.ds_size_lon,
-                           ds_size_lat = self.ds_size_lat)
+                               var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val,
+                               min_lon=self.min_lon, max_lon=self.max_lon,
+                               min_lat=self.min_lat, max_lat=self.max_lat,
+                               ds_size_time=self.ds_size_time,
+                               ds_size_lon=self.ds_size_lon,
+                               ds_size_lat=self.ds_size_lat)
         return mod
 
     def train(self, ckpt_path=None, **trainer_kwargs):
@@ -200,7 +200,7 @@ class FourDVarNetRunner:
         :return:
         """
         mod = self._get_model(ckpt_path=ckpt_path)
-        
+
         checkpoint_callback = ModelCheckpoint(monitor='val_loss',
                                               filename=self.filename_chkpt,
                                               save_top_k=3,
@@ -213,7 +213,6 @@ class FourDVarNetRunner:
         trainer.fit(mod, self.dataloaders['train'], self.dataloaders['val'])
         return mod, trainer
 
-
     def test(self, ckpt_path=None, dataloader="test", _mod=None, _trainer=None, **trainer_kwargs):
         """
         Test a model
@@ -225,7 +224,7 @@ class FourDVarNetRunner:
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         num_gpus = torch.cuda.device_count()
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
-        #trainer = _trainer or pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, **trainer_kwargs)
+        # trainer = _trainer or pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, **trainer_kwargs)
         trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs)
         trainer.test(mod, test_dataloaders=self.dataloaders[dataloader])
 
