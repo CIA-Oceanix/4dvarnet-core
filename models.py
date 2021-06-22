@@ -347,9 +347,9 @@ class LitModel(pl.LightningModule):
         # animate maps
         if self.hparams.animate == True:
             path_save0 = self.logger.log_dir + '/animation.mp4'
-            animate_maps(gt[:, int(self.hparams.dT / 2), :, :],
-                         oi[:, int(self.hparams.dT / 2), :, :],
-                         pred[:, int(self.hparams.dT / 2), :, :],
+            animate_maps(self.x_gt,
+                         self.x_oi,
+                         self.x_rec,
                          self.lon, self.lat, path_save0)
             # save NetCDF
         path_save1 = self.logger.log_dir + '/test.nc'
