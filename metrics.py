@@ -29,9 +29,6 @@ def plot_snr(gt,oi,pred,resfile):
     '''
 
     dt = pred.shape[1]
-    gt = gt[:,int(dt/2),:,:]
-    oi = oi[:,int(dt/2),:,:]
-    pred = pred[:,int(dt/2),:,:]
 
     # Compute Signal-to-Noise ratio
     f, pf = avg_err_rapsd2dv1(oi,gt,4.,True)
@@ -142,7 +139,6 @@ def plot_maps(gt,oi,pred,lon,lat,resfile):
     grad_vmin = 0
     extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
 
-    print(gt.shape)
 
     fig, ax = plt.subplots(3,2,figsize=(10,10),squeeze=False,
                           subplot_kw=dict(projection=ccrs.PlateCarree(central_longitude=0.0)))
@@ -153,13 +149,14 @@ def plot_maps(gt,oi,pred,lon,lat,resfile):
     plot(ax,2,0,lon,lat,pred,'4DVarNet',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
     plot(ax,2,1,lon,lat,gradient(pred,2),r"$\nabla_{4DVarNet}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax)
     plt.savefig(resfile)       # save the figure
-    plt.close()                # close the figure
+    fig = plt.gcf()
+    plt.close()                                 # close the figure
+    return fig
 
 
 def animate_maps(gt,oi,pred,lon,lat,resfile):
 
     def animate(i, fig, ax):
-        print(i)
         plot(ax,0,0,lon,lat,gt[i],'GT',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
         plot(ax,0,1,lon,lat,gradient(gt[i],2),r"$\nabla_{GT}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax)
         plot(ax,1,0,lon,lat,oi[i],'OI',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)

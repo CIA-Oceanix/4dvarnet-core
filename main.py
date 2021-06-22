@@ -44,7 +44,7 @@ class FourDVarNetRunner:
             num_loss = 0
 
             gradient_img = gradient_img.to(device)
-            self.wLoss = wself.Loss.to(device)
+            self.wLoss = self.wLoss.to(device)
 
             for targets_OI, inputs_Mask, targets_GT in dataloaders['train']:
                 targets_OI = targets_OI.to(device)

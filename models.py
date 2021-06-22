@@ -224,6 +224,7 @@ class LitModel(pl.LightningModule):
         self.x_gt = None  # variable to store Ground Truth
         self.x_oi = None  # variable to store OI
         self.x_rec = None  # variable to store output of test method
+        self.test_figs = {}
 
         self.automatic_optimization = self.hparams.automatic_optimization
 
@@ -315,7 +316,7 @@ class LitModel(pl.LightningModule):
         gt = torch.cat([chunk['gt'] for chunk in outputs]).numpy()
         oi = torch.cat([chunk['oi'] for chunk in outputs]).numpy()
         pred = torch.cat([chunk['preds'] for chunk in outputs]).numpy()
-        print(pred.shape)
+
         ds_size = {'time': self.ds_size_time,
                    'lon': self.ds_size_lon,
                    'lat': self.ds_size_lat,
@@ -337,10 +338,12 @@ class LitModel(pl.LightningModule):
 
         # display map
         path_save0 = self.logger.log_dir + '/maps.png'
-        plot_maps(gt[0, int(self.hparams.dT / 2), :, :],
-                  oi[0, int(self.hparams.dT / 2), :, :],
-                  pred[0, int(self.hparams.dT / 2), :, :],
+        fig_maps = plot_maps(
+                self.x_gt[0],
+                  self.x_oi[0],
+                  self.x_rec[0],
                   self.lon, self.lat, path_save0)
+        self.test_figs['maps'] = fig_maps
         # animate maps
         if self.hparams.animate == True:
             path_save0 = self.logger.log_dir + '/animation.mp4'
@@ -359,11 +362,15 @@ class LitModel(pl.LightningModule):
         print(tab_scores)
         # plot nRMSE
         path_save3 = self.logger.log_dir + '/nRMSE.png'
-        nrmse_fig = plot_nrmse(gt, oi, pred, path_save3, index_test=np.arange(60, 77))
+        nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, index_test=np.arange(60, 77))
+        self.test_figs['nrmse'] = nrmse_fig
+
         self.logger.experiment.add_figure('NRMSE', nrmse_fig, global_step=self.current_epoch)
         # plot SNR
         path_save4 = self.logger.log_dir + '/SNR.png'
-        snr_fig = plot_snr(gt, oi, pred, path_save4)
+        snr_fig = plot_snr(self.x_gt, self.x_oi, self.x_rec, path_save4)
+        self.test_figs['snr'] = snr_fig
+
         self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
 
     def compute_loss(self, batch, phase):

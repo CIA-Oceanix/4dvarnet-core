@@ -68,27 +68,29 @@ class FourDVarNetDataset(Dataset):
             oi_var='ssh_mod',
             obs_mask_path='/gpfsscratch/rech/nlu/commun/large/dataset_nadir_0d_swot.nc',
             obs_mask_var='ssh_mod',
-            #obs_mask_var='mask',
+            # obs_mask_var='mask',
             gt_path='/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
             gt_var='ssh',
-            sst_path = None,
-            sst_var = None
+            sst_path=None,
+            sst_var=None
     ):
         super().__init__()
 
         self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win, dim_range=dim_range, strides=strides)
         self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win, dim_range=dim_range, strides=strides, decode=True)
-        self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win, dim_range=dim_range,strides=strides)
+        self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win, dim_range=dim_range,
+                                     strides=strides)
 
         self.norm_stats = None
 
-        if sst_var == 'sst' :
-            self.sst_ds = XrDataset(sst_path, sst_var, slice_win=slice_win, dim_range=dim_range, strides=strides, decode=True)
+        if sst_var == 'sst':
+            self.sst_ds = XrDataset(sst_path, sst_var, slice_win=slice_win, dim_range=dim_range, strides=strides,
+                                    decode=True)
         else:
-           self.sst_ds = None 
+            self.sst_ds = None
         self.norm_stats_sst = None
 
-    def set_norm_stats(self, stats,stats_sst=None):
+    def set_norm_stats(self, stats, stats_sst=None):
         self.norm_stats = stats
         self.norm_stats_sst = stats_sst
 
@@ -105,18 +107,18 @@ class FourDVarNetDataset(Dataset):
         ) - mean) / std
         _gt_item = (self.gt_ds[item] - mean) / std
         oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
-        #obs_mask_item = self.obs_mask_ds[item].astype(bool) & ~np.isnan(oi_item) & ~np.isnan(_gt_item)
+        # obs_mask_item = self.obs_mask_ds[item].astype(bool) & ~np.isnan(oi_item) & ~np.isnan(_gt_item)
         obs_mask_item = ~np.isnan(self.obs_mask_ds[item])
 
         gt_item = np.where(~np.isnan(_gt_item), _gt_item, 0.)
 
-        if self.sst_ds == None :
+        if self.sst_ds == None:
             return oi_item, obs_mask_item, gt_item
         else:
             mean, std = self.norm_stats_sst
             _sst_item = (self.sst_ds[item] - mean) / std
             sst_item = np.where(~np.isnan(_sst_item), _sst_item, 0.)
-            
+
             return oi_item, obs_mask_item, gt_item, sst_item
 
 
@@ -126,19 +128,19 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             slice_win,
             dim_range=None,
             strides=None,
-            #train_slices=(slice('2012-10-01', "2012-11-20"), slice('2013-02-08', "2013-09-30")),
-            train_slices=(slice('2012-10-01', "2012-10-10"),),
+            train_slices=(slice('2012-10-01', "2012-11-20"), slice('2013-02-08', "2013-09-30")),
+            # train_slices=(slice('2012-10-01', "2012-10-10"),),
             test_slices=(slice('2012-12-30', "2013-01-19"),),
             val_slices=(slice('2012-11-30', "2012-12-20"),),
             oi_path='/gpfsscratch/rech/nlu/commun/large/ssh_NATL60_swot_4nadir.nc',
             oi_var='ssh_mod',
             obs_mask_path='/gpfsscratch/rech/nlu/commun/large/dataset_nadir_0d_swot.nc',
             obs_mask_var='ssh_mod',
-            #obs_mask_var='mask',
+            # obs_mask_var='mask',
             gt_path='/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
             gt_var='ssh',
-            sst_path = None,
-            sst_var = None,
+            sst_path=None,
+            sst_var=None,
             dl_kwargs=None,
     ):
         super().__init__()
@@ -146,7 +148,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.dim_range = dim_range
         self.strides = strides
         self.dl_kwargs = {
-            **{'batch_size': 2, 'num_workers': 2, 'pin_memory': True},
+            **{'batch_size': 8, 'num_workers': 2, 'pin_memory': True},
             **(dl_kwargs or {})
         }
 
@@ -168,24 +170,24 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         mean = float(xr.concat([_ds.gt_ds.ds[_ds.gt_ds.var] for _ds in ds.datasets], dim='time').mean())
         std = float(xr.concat([_ds.gt_ds.ds[_ds.gt_ds.var] for _ds in ds.datasets], dim='time').std())
 
-        if self.sst_var == None :
+        if self.sst_var == None:
             return mean, std
-        else: 
+        else:
             print('... Use SST data')
             mean_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').mean())
             std_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').std())
-            
-            return [mean, std],[mean_sst, std_sst]
 
-    def set_norm_stats(self, ds, ns, ns_sst = None):
+            return [mean, std], [mean_sst, std_sst]
+
+    def set_norm_stats(self, ds, ns, ns_sst=None):
         for _ds in ds.datasets:
-            _ds.set_norm_stats(ns,ns_sst)
+            _ds.set_norm_stats(ns, ns_sst)
 
-    def get_domain_bounds(self,ds):
-        min_lon = round(np.min(np.concatenate([_ds.gt_ds.ds['lon'].values for _ds in ds.datasets])),2)
-        max_lon = round(np.max(np.concatenate([_ds.gt_ds.ds['lon'].values for _ds in ds.datasets])),2)
-        min_lat = round(np.min(np.concatenate([_ds.gt_ds.ds['lat'].values for _ds in ds.datasets])),2)
-        max_lat = round(np.max(np.concatenate([_ds.gt_ds.ds['lat'].values for _ds in ds.datasets])),2)       
+    def get_domain_bounds(self, ds):
+        min_lon = round(np.min(np.concatenate([_ds.gt_ds.ds['lon'].values for _ds in ds.datasets])), 2)
+        max_lon = round(np.max(np.concatenate([_ds.gt_ds.ds['lon'].values for _ds in ds.datasets])), 2)
+        min_lat = round(np.min(np.concatenate([_ds.gt_ds.ds['lat'].values for _ds in ds.datasets])), 2)
+        max_lat = round(np.max(np.concatenate([_ds.gt_ds.ds['lat'].values for _ds in ds.datasets])), 2)
         return min_lon, max_lon, min_lat, max_lat
 
     def get_domain_split(self):
@@ -204,24 +206,24 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     obs_mask_var=self.obs_mask_var,
                     gt_path=self.gt_path,
                     gt_var=self.gt_var,
-                    sst_path=self.sst_path, 
+                    sst_path=self.sst_path,
                     sst_var=self.sst_var
                 ) for sl in slices]
             )
             for slices in (self.train_slices, self.val_slices, self.test_slices)
         ]
 
-        if self.sst_var == None :
+        if self.sst_var == None:
             self.norm_stats = self.compute_norm_stats(self.train_ds)
             self.set_norm_stats(self.train_ds, self.norm_stats)
             self.set_norm_stats(self.val_ds, self.norm_stats)
             self.set_norm_stats(self.test_ds, self.norm_stats)
         else:
-            self.norm_stats,self.norm_stats_sst = self.compute_norm_stats(self.train_ds)
-            
-            self.set_norm_stats(self.train_ds, self.norm_stats,self.norm_stats_sst)
-            self.set_norm_stats(self.val_ds, self.norm_stats,self.norm_stats_sst)
-            self.set_norm_stats(self.test_ds, self.norm_stats,self.norm_stats_sst)
+            self.norm_stats, self.norm_stats_sst = self.compute_norm_stats(self.train_ds)
+
+            self.set_norm_stats(self.train_ds, self.norm_stats, self.norm_stats_sst)
+            self.set_norm_stats(self.val_ds, self.norm_stats, self.norm_stats_sst)
+            self.set_norm_stats(self.test_ds, self.norm_stats, self.norm_stats_sst)
 
         self.bounding_box = self.get_domain_bounds(self.train_ds)
         self.ds_size = self.get_domain_split()
