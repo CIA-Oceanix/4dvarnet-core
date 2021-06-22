@@ -110,7 +110,7 @@ class FourDVarNetDataset(Dataset):
         # obs_mask_item = self.obs_mask_ds[item].astype(bool) & ~np.isnan(oi_item) & ~np.isnan(_gt_item)
         obs_mask_item = ~np.isnan(self.obs_mask_ds[item])
 
-        gt_item = np.where(~np.isnan(_gt_item), _gt_item, 0.)
+        gt_item = _gt_item
 
         if self.sst_ds == None:
             return oi_item, obs_mask_item, gt_item

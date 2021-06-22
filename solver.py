@@ -107,12 +107,13 @@ class ConvLSTM1d(torch.nn.Module):
         return hidden, cell
 
 def compute_WeightedLoss(x2,w):
-    loss_ = torch.nansum(x2**2 , dim = 3)
-    loss_ = torch.nansum( loss_ , dim = 2)
-    loss_ = torch.nansum( loss_ , dim = 0)
+    x2_wo_inf = x2.where(~x2.isinf(), torch.full_like(x2, float('nan')))
+    loss_ = torch.nansum(x2_wo_inf**2 , dim = 3)
+    loss_ = torch.nansum(loss_ , dim = 2)
+    loss_ = torch.nansum(loss_ , dim = 0)
     loss_ = torch.nansum( loss_ * w )
-    loss_ = loss_ / (torch.sum(~torch.isnan(x2)) / x2.shape[1] )
-    
+    loss_ = loss_ / (torch.sum(~torch.isnan(x2_wo_inf)) / x2.shape[1] )
+
     return loss_
 
 
@@ -340,10 +341,9 @@ class Solver_Grad_4DVarNN(nn.Module):
     def solver_step(self, x_k, obs, mask, hidden, cell,normgrad = 0.):
         var_cost, var_cost_grad= self.var_cost(x_k, obs, mask)
         if normgrad == 0. :
-            normgrad_= torch.sqrt( torch.mean( var_cost_grad**2 ) )
+            normgrad_= torch.sqrt( torch.mean( var_cost_grad**2 + 10**-6))
         else:
             normgrad_= normgrad
-
         grad, hidden, cell = self.model_Grad(hidden, cell, var_cost_grad, normgrad_)
         grad *= 1./ self.n_grad
         x_k_plus_1 = x_k - grad

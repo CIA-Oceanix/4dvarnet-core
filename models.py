@@ -154,12 +154,14 @@ class Gradient_img(torch.nn.Module):
         self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0),
                                                 requires_grad=False)
 
+        self.eps=10**-6
+
     def forward(self, im):
 
         if im.size(1) == 1:
             G_x = self.convGx(im)
             G_y = self.convGy(im)
-            G = torch.sqrt(torch.pow(0.5 * G_x, 2) + torch.pow(0.5 * G_y, 2))
+            G = torch.sqrt(torch.pow(0.5 * G_x, 2) + torch.pow(0.5 * G_y, 2) + self.eps)
         else:
 
             for kk in range(0, im.size(1)):
@@ -168,7 +170,7 @@ class Gradient_img(torch.nn.Module):
 
                 G_x = G_x.view(-1, 1, im.size(2) - 2, im.size(2) - 2)
                 G_y = G_y.view(-1, 1, im.size(2) - 2, im.size(2) - 2)
-                nG = torch.sqrt(torch.pow(0.5 * G_x, 2) + torch.pow(0.5 * G_y, 2))
+                nG = torch.sqrt(torch.pow(0.5 * G_x, 2) + torch.pow(0.5 * G_y, 2)+ self.eps)
 
                 if kk == 0:
                     G = nG.view(-1, 1, im.size(1) - 2, im.size(2) - 2)
@@ -201,8 +203,8 @@ class LitModel(pl.LightningModule):
         self.xmax = kwargs['max_lon']
         self.ymin = kwargs['min_lat']
         self.ymax = kwargs['max_lat']
-        self.lon = np.arange(self.xmin, self.xmax, .05)
-        self.lat = np.arange(self.ymin, self.ymax, .05)
+        self.lon = np.arange(self.xmin, self.xmax + .05, .05)
+        self.lat = np.arange(self.ymin, self.ymax + .05, .05)
         self.ds_size_time = kwargs['ds_size_time']
         self.ds_size_lon = kwargs['ds_size_lon']
         self.ds_size_lat = kwargs['ds_size_lat']
@@ -297,7 +299,7 @@ class LitModel(pl.LightningModule):
         self.log('val_loss', loss)
         self.log("val_mse", metrics['mse'] / self.var_Val, on_step=False, on_epoch=True, prog_bar=True)
         self.log("val_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
-        return loss
+        return loss.detach()
 
     def test_step(self, test_batch, batch_idx):
 
@@ -385,8 +387,9 @@ class LitModel(pl.LightningModule):
                       ('mseGOI', 0.)])
             )
         new_masks = torch.cat((1. + 0. * inputs_Mask, inputs_Mask), dim=1)
-        inputs_init = torch.cat((targets_OI, inputs_Mask * (targets_GT - targets_OI)), dim=1)
-        inputs_missing = torch.cat((targets_OI, inputs_Mask * (targets_GT - targets_OI)), dim=1)
+        targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
+        inputs_init = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
+        inputs_missing = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
 
         # gradient norm field
         g_targets_GT = self.gradient_img(targets_GT)
@@ -407,14 +410,14 @@ class LitModel(pl.LightningModule):
             # reconstruction losses
             g_outputs = self.gradient_img(outputs)
             loss_All = NN_4DVar.compute_WeightedLoss((outputs - targets_GT), self.w_loss)
-            loss_GAll = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_GT, self.w_loss)
 
+            loss_GAll = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_GT, self.w_loss)
             loss_OI = NN_4DVar.compute_WeightedLoss(targets_GT - targets_OI, self.w_loss)
             loss_GOI = NN_4DVar.compute_WeightedLoss(self.gradient_img(targets_OI) - g_targets_GT, self.w_loss)
 
             # projection losses
             loss_AE = torch.mean((self.model.phi_r(outputsSLRHR) - outputsSLRHR) ** 2)
-            yGT = torch.cat((targets_GT, outputsSLR - targets_GT), dim=1)
+            yGT = torch.cat((targets_GT_wo_nan, outputsSLR - targets_GT_wo_nan), dim=1)
             # yGT        = torch.cat((targets_OI,targets_GT-targets_OI),dim=1)
             loss_AE_GT = torch.mean((self.model.phi_r(yGT) - yGT) ** 2)
 
