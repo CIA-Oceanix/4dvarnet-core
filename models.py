@@ -108,7 +108,7 @@ class RegularizeVariance(torch.nn.Module):
 
 
 class Phi_r(torch.nn.Module):
-    def __init__(self, shapeData, DimAE, dW, dW2, sS, nbBlocks, rateDr, stochastic):
+    def __init__(self, shapeData, DimAE, dW, dW2, sS, nbBlocks, rateDr, stochastic=False):
         super(Phi_r, self).__init__()
         self.encoder = Encoder(shapeData, DimAE, dW, dW2, sS, nbBlocks, rateDr)
         self.decoder = Decoder()
@@ -528,9 +528,13 @@ class LitModelWithSST(LitModel):
                       ('mseGOI', 0.)])
             )
         new_masks = torch.cat((1. + 0. * inputs_Mask, inputs_Mask), dim=1)
-        inputs_init = torch.cat((targets_OI, inputs_Mask * (targets_GT - targets_OI)), dim=1)
-        inputs_missing = torch.cat((targets_OI, inputs_Mask * (targets_GT - targets_OI)), dim=1)
+        # inputs_init = torch.cat((targets_OI, inputs_Mask * (targets_GT - targets_OI)), dim=1)
+        # inputs_missing = torch.cat((targets_OI, inputs_Mask * (targets_GT - targets_OI)), dim=1)
         mask_SST = 1. + 0. * sst_GT
+
+        targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
+        inputs_init = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
+        inputs_missing = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
 
         # gradient norm field
         g_targets_GT = self.gradient_img(targets_GT)
@@ -559,7 +563,7 @@ class LitModelWithSST(LitModel):
 
             # projection losses
             loss_AE = torch.mean((self.model.phi_r(outputsSLRHR) - outputsSLRHR) ** 2)
-            yGT = torch.cat((targets_GT, outputsSLR - targets_GT), dim=1)
+            yGT = torch.cat((targets_GT_wo_nan, outputsSLR - targets_GT_wo_nan), dim=1)
             # yGT        = torch.cat((targets_OI,targets_GT-targets_OI),dim=1)
             loss_AE_GT = torch.mean((self.model.phi_r(yGT) - yGT) ** 2)
 
