@@ -7,7 +7,7 @@ params = {
     'lr_update'       : [1e-3, 1e-4, 1e-3, 1e-4, 1e-4, 1e-5, 1e-5, 1e-6, 1e-7],
     'k_batch'         : 1,
     'n_grad'          : 5,
-    'dim_grad_solver' : 10,
+    'dim_grad_solver' : 150,
     'dropout'         : 0.25,
     'dT'              : 5, ## Time window of each space-time patch
     'dx'              : 1,   ## subsampling step if > 1
