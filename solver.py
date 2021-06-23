@@ -107,14 +107,11 @@ class ConvLSTM1d(torch.nn.Module):
         return hidden, cell
 
 def compute_WeightedLoss(x2,w):
-    x2_wo_inf = x2.where(~x2.isinf(), torch.full_like(x2, float('nan')))
-    loss_ = torch.nansum(x2_wo_inf**2 , dim = 3)
-    loss_ = torch.nansum(loss_ , dim = 2)
-    loss_ = torch.nansum(loss_ , dim = 0)
-    loss_ = torch.nansum( loss_ * w )
-    loss_ = loss_ / (torch.sum(~torch.isnan(x2_wo_inf)) / x2.shape[1] )
-
-    return loss_
+    x2_msk = x2[:, w==1, ...]
+    x2_num = ~x2_msk.isnan() & ~x2_msk.isinf()
+    loss2 = F.mse_loss(x2_msk[x2_num], torch.zeros_like(x2_msk[x2_num]))
+    loss2 = loss2 *  w.sum()
+    return loss2
 
 
 # Modules for the definition of the norms for
