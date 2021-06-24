@@ -36,38 +36,6 @@ class FourDVarNetRunner:
         w_[int(self.cfg.dT / 2)] = 1.
         self.wLoss = torch.Tensor(w_)
 
-        # recompute the MSE for OI on training dataset
-        # to define weighing parameters in the training
-        if self.cfg.betaX is None or self.cfg.betagX is None:
-            running_loss_GOI = 0.
-            running_loss_OI = 0.
-            num_loss = 0
-
-            gradient_img = gradient_img.to(device)
-            self.wLoss = self.wLoss.to(device)
-
-            for targets_OI, inputs_Mask, targets_GT in dataloaders['train']:
-                targets_OI = targets_OI.to(device)
-                inputs_Mask = inputs_Mask.to(device)
-                targets_GT = targets_GT.to(device)
-
-                # gradient norm field
-                g_targets_GT = gradient_img(targets_GT)
-                loss_OI = NN_4DVar.compute_WeightedLoss(targets_GT - targets_OI, self.wLoss)
-                loss_GOI = NN_4DVar.compute_WeightedLoss(gradient_img(targets_OI) - g_targets_GT, self.wLoss)
-                running_loss_GOI += loss_GOI.item() * targets_GT.size(0)
-                running_loss_OI += loss_OI.item() * targets_GT.size(0)
-                num_loss += targets_GT.size(0)
-
-            epoch_loss_GOI = running_loss_GOI / num_loss
-            epoch_loss_OI = running_loss_OI / num_loss
-
-            betaX = 1. / epoch_loss_OI
-            betagX = 1. / epoch_loss_GOI
-
-            print(".... MSE(Tr) OI %.3f -- MSE(Tr) gOI %.3f " % (epoch_loss_OI, epoch_loss_GOI))
-            print(".... betaX = %.3f -- betagX %.3f " % (betaX, betagX))
-
         if dataloading == "old":
             datamodule = LegacyDataLoading(self.cfg)
         elif dataloading == "with_sst":
