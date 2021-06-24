@@ -26,17 +26,19 @@ class LegacyDataLoading(pl.LightningDataModule):
         # Definiton of training, validation and test dataset
         # from dayly indices over a one-year time series
         cfg = self.cfg
-        iiTr1 = 0
-        jjTr1 = 50 - int(cfg.dT / 2)
-
-        iiTr2 = 130 + int(cfg.dT / 2)
-        jjTr2 = 365
 
         iiVal = 60 - int(cfg.dT / 2)
         jjVal = 80 + int(cfg.dT / 2)
 
         iiTest = 90 - int(cfg.dT / 2)
         jjTest = 110 + int(cfg.dT / 2)
+
+        iiTr1 = 0
+        jjTr1 = iiVal - 10
+
+        iiTr2 = jjTest + 10
+        jjTr2 = 365
+
 
         ############################################## Data generation ###############################################################
         print('........ Random seed set to 100')
