@@ -121,7 +121,7 @@ class Phi_r(torch.nn.Module):
         x = self.decoder(x)
         if self.stochastic == True:
             W = torch.randn(x.shape).to(device)
-            #  g(W) = alpha(x)*h(W)
+            #  g(W) = alpha(x)*h(W)
             # gW = torch.mul(self.regularize_variance(x),self.correlate_noise(W))
             gW = self.correlate_noise(W)
             # print(stats.describe(gW.detach().cpu().numpy()))
@@ -212,7 +212,7 @@ class LitModel(pl.LightningModule):
         # main model
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
             Phi_r(self.hparams.shapeData[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
-                  self.hparams.nbBlocks, self.hparams.dropout, self.hparams.stochastic),
+                  self.hparams.nbBlocks, self.hparams.dropout_phi_r, self.hparams.stochastic),
             Model_H(self.hparams.shapeData[0]),
             NN_4DVar.model_GradUpdateLSTM(self.hparams.shapeData, self.hparams.UsePriodicBoundary,
                                           self.hparams.dim_grad_solver, self.hparams.dropout),
@@ -427,9 +427,9 @@ class LitModel(pl.LightningModule):
             loss_LR = NN_4DVar.compute_WeightedLoss(self.model_LR(outputs) - targets_GTLR, self.w_loss)
 
             # total loss
-            loss = self.hparams.alpha_MSE * (self.hparams.betaX * loss_All + self.hparams.betagX * loss_GAll) \
-                   + 0.5 * self.hparams.alpha_Proj * (loss_AE + loss_AE_GT)
-            loss += self.hparams.alpha_LR * loss_LR + self.hparams.alpha_SR * loss_SR
+            loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
+            loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
+            loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
 
             # metrics
             mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_GT, self.w_loss)
@@ -471,7 +471,7 @@ class LitModelWithSST(LitModel):
         # main model
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
             Phi_r(self.hparams.shapeData[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
-                  self.hparams.nbBlocks, self.hparams.dropout),
+                  self.hparams.nbBlocks, self.hparams.dropout_phi_r),
             Model_HwithSST(self.hparams.shapeData[0], self.hparams.shapeData[0]),
             NN_4DVar.model_GradUpdateLSTM(self.hparams.shapeData, self.hparams.UsePriodicBoundary,
                                           self.hparams.dim_grad_solver, self.hparams.dropout),
@@ -573,9 +573,9 @@ class LitModelWithSST(LitModel):
             loss_LR = NN_4DVar.compute_WeightedLoss(self.model_LR(outputs) - targets_GTLR, self.w_loss)
 
             # total loss
-            loss = self.hparams.alpha_MSE * (self.hparams.betaX * loss_All + self.hparams.betagX * loss_GAll) \
-                   + 0.5 * self.hparams.alpha_Proj * (loss_AE + loss_AE_GT)
-            loss += self.hparams.alpha_LR * loss_LR + self.hparams.alpha_SR * loss_SR
+            loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
+            loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
+            loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
 
             # metrics
             mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_GT, self.w_loss)
