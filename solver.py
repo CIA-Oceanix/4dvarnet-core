@@ -9,7 +9,6 @@ Created on Fri May  1 15:38:05 2020
 import numpy as np
 import torch
 from torch import nn
-import torch.nn.functional as F
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class ConvLSTM2d(torch.nn.Module):
@@ -107,11 +106,13 @@ class ConvLSTM1d(torch.nn.Module):
         return hidden, cell
 
 def compute_WeightedLoss(x2,w):
-    x2_msk = x2[:, w==1, ...]
-    x2_num = ~x2_msk.isnan() & ~x2_msk.isinf()
-    loss2 = F.mse_loss(x2_msk[x2_num], torch.zeros_like(x2_msk[x2_num]))
-    loss2 = loss2 *  w.sum()
-    return loss2
+    loss_ = torch.nansum(x2**2 , dim = 3)
+    loss_ = torch.nansum( loss_ , dim = 2)
+    loss_ = torch.nansum( loss_ , dim = 0)
+    loss_ = torch.nansum( loss_ * w )
+    loss_ = loss_ / (torch.sum(~torch.isnan(x2)) / x2.shape[1] )
+    
+    return loss_
 
 
 # Modules for the definition of the norms for
@@ -234,16 +235,16 @@ class model_GradUpdateLSTM(torch.nn.Module):
         if self.PeriodicBnd == True :
             dB     = 7
             #
-            grad_  = torch.cat((grad[:,:,grad.size(2)-dB:,:],grad,grad[:,:,0:dB,:]),dim=2)
+            grad_  = torch.cat((grad[:,:,x.size(2)-dB:,:],grad,grad[:,:,0:dB,:]),dim=2)
             if hidden is None:
                 hidden_,cell_ = self.lstm(grad_,None)
             else:
-                hidden_  = torch.cat((hidden[:,:,grad.size(2)-dB:,:],hidden,hidden[:,:,0:dB,:]),dim=2)
-                cell_    = torch.cat((cell[:,:,grad.size(2)-dB:,:],cell,cell[:,:,0:dB,:]),dim=2)
+                hidden_  = torch.cat((hidden[:,:,x.size(2)-dB:,:],hidden,hidden[:,:,0:dB,:]),dim=2)
+                cell_    = torch.cat((cell[:,:,x.size(2)-dB:,:],cell,cell[:,:,0:dB,:]),dim=2)
                 hidden_,cell_ = self.lstm(grad_,[hidden_,cell_])
 
-            hidden = hidden_[:,:,dB:grad.size(2)+dB,:]
-            cell   = cell_[:,:,dB:grad.size(2)+dB,:]
+            hidden = hidden_[:,:,dB:x.size(2)+dB,:]
+            cell   = cell_[:,:,dB:x.size(2)+dB,:]
         else:
             if hidden is None:
                 hidden,cell = self.lstm(grad,None)
@@ -294,6 +295,7 @@ class Model_Var_Cost(nn.Module):
 
         return loss
 
+    
 # 4DVarNN Solver class using automatic differentiation for the computation of gradient of the variational cost
 # input modules: operator phi_r, gradient-based update model m_Grad
 # modules for the definition of the norm of the observation and prior terms given as input parameters 
@@ -338,9 +340,10 @@ class Solver_Grad_4DVarNN(nn.Module):
     def solver_step(self, x_k, obs, mask, hidden, cell,normgrad = 0.):
         var_cost, var_cost_grad= self.var_cost(x_k, obs, mask)
         if normgrad == 0. :
-            normgrad_= torch.sqrt( torch.mean( var_cost_grad**2 + 10**-6))
+            normgrad_= torch.sqrt( torch.mean( var_cost_grad**2 ) )
         else:
             normgrad_= normgrad
+
         grad, hidden, cell = self.model_Grad(hidden, cell, var_cost_grad, normgrad_)
         grad *= 1./ self.n_grad
         x_k_plus_1 = x_k - grad
