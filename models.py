@@ -8,7 +8,7 @@ from omegaconf import OmegaConf
 from scipy import stats
 
 import solver as NN_4DVar
-from metrics import save_netcdf, nrmse_scores, plot_nrmse, plot_snr, plot_maps, animate_maps, plot_ensemble
+from metrics import save_netcdf, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, plot_ensemble
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -154,7 +154,8 @@ class Gradient_img(torch.nn.Module):
         self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0),
                                                 requires_grad=False)
 
-        self.eps=10**-6
+        #self.eps=10**-6
+        self.eps=0.
 
     def forward(self, im):
 
@@ -209,6 +210,12 @@ class LitModel(pl.LightningModule):
         self.ds_size_lon = kwargs['ds_size_lon']
         self.ds_size_lat = kwargs['ds_size_lat']
 
+        self.var_Val = kwargs['var_Val']
+        self.var_Tr = kwargs['var_Tr']
+        self.var_Tt = kwargs['var_Tt']
+        self.mean_Val = kwargs['mean_Val']
+        self.mean_Tr = kwargs['mean_Tr']
+        self.mean_Tt = kwargs['mean_Tt']
         # main model
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
             Phi_r(self.hparams.shapeData[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
@@ -309,9 +316,11 @@ class LitModel(pl.LightningModule):
             self.log('test_loss', loss)
             self.log("test_mse", metrics['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
-        return {'gt': targets_GT.detach().cpu(),
-                'oi': targets_OI.detach().cpu(),
-                'preds': out.detach().cpu()}
+
+        return {'gt'    : (targets_GT.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'oi'    : (targets_OI.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'preds' : (out.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr}
+
 
     def test_epoch_end(self, outputs):
 
@@ -354,20 +363,36 @@ class LitModel(pl.LightningModule):
                          self.x_rec,
                          self.lon, self.lat, path_save0)
             # save NetCDF
+        """
         path_save1 = self.logger.log_dir + '/test.nc'
         save_netcdf(saved_path1=path_save1, pred=pred,
                     lon=self.lon, lat=self.lat, index_test=np.arange(60, 77))
+        """
         # compute nRMSE
         path_save2 = self.logger.log_dir + '/nRMSE.txt'
         tab_scores = nrmse_scores(gt, oi, pred, path_save2)
         print('*** Display nRMSE scores ***')
         print(tab_scores)
+
+        path_save21 = self.logger.log_dir + '/MSE.txt'
+        tab_scores = mse_scores(gt, oi, pred, path_save21)
+        print('*** Display MSE scores ***')
+        print(tab_scores)
+
         # plot nRMSE
         path_save3 = self.logger.log_dir + '/nRMSE.png'
-        nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, index_test=np.arange(60, 77))
+        nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, index_test=np.arange(96, 96+self.ds_size_time))
         self.test_figs['nrmse'] = nrmse_fig
 
+        # plot MSE
+        path_save31 = self.logger.log_dir + '/MSE.png'
+        mse_fig = plot_mse(self.x_gt, self.x_oi, self.x_rec, path_save31,
+                               index_test=np.arange(96, 96 + self.ds_size_time))
+        self.test_figs['mse'] = mse_fig
+        self.logger.experiment.add_figure('Maps', fig_maps, global_step=self.current_epoch)
         self.logger.experiment.add_figure('NRMSE', nrmse_fig, global_step=self.current_epoch)
+        self.logger.experiment.add_figure('MSE', mse_fig, global_step=self.current_epoch)
+
         # plot SNR
         path_save4 = self.logger.log_dir + '/SNR.png'
         snr_fig = plot_snr(self.x_gt, self.x_oi, self.x_rec, path_save4)

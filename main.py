@@ -114,7 +114,17 @@ class FourDVarNetRunner:
             self.var_Tr = datamodule.var_Tr
             self.var_Tt = datamodule.var_Tt
             self.var_Val = datamodule.var_Val
+            self.mean_Tr = datamodule.mean_Tr
+            self.mean_Tt = datamodule.mean_Tt
+            self.mean_Val = datamodule.mean_Val
+            self.min_lon, self.max_lon, self.min_lat, self.max_lat = -65, -55, 33, 43
+            self.ds_size_time = 20
+            self.ds_size_lon = 1
+            self.ds_size_lat = 1
         else:
+            self.mean_Tr = datamodule.norm_stats[0]
+            self.mean_Tt = datamodule.norm_stats[0]
+            self.mean_Val = datamodule.norm_stats[0]
             self.var_Tr = datamodule.norm_stats[1] ** 2
             self.var_Tt = datamodule.norm_stats[1] ** 2
             self.var_Val = datamodule.norm_stats[1] ** 2
@@ -147,11 +157,16 @@ class FourDVarNetRunner:
 
         if ckpt_path:
             mod = self.lit_cls.load_from_checkpoint(ckpt_path, w_loss=self.wLoss,
+                                                    mean_Tr=self.mean_Tr, mean_Tt=self.mean_Tt, mean_Val=self.mean_Val,
                                                     var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val,
                                                     min_lon=self.min_lon, max_lon=self.max_lon,
-                                                    min_lat=self.min_lat, max_lat=self.max_lat)
+                                                    min_lat=self.min_lat, max_lat=self.max_lat,
+                                                    ds_size_time=self.ds_size_time,
+                                                    ds_size_lon=self.ds_size_lon,
+                                                    ds_size_lat=self.ds_size_lat)
         else:
             mod = self.lit_cls(hparam=self.cfg, w_loss=self.wLoss,
+                               mean_Tr=self.mean_Tr, mean_Tt=self.mean_Tt, mean_Val=self.mean_Val,
                                var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val,
                                min_lon=self.min_lon, max_lon=self.max_lon,
                                min_lat=self.min_lat, max_lat=self.max_lat,
@@ -188,12 +203,18 @@ class FourDVarNetRunner:
         :param dataloader: Dataloader on which to run the test Checkpoint from which to resume
         :param trainer_kwargs: (Optional)
         """
-        mod = _mod or self._get_model(ckpt_path=ckpt_path)
+        #mod = _mod or self._get_model(ckpt_path=ckpt_path)
+        ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_296208/checkpoints/modelSLAInterpGF-Exp3-epoch=45-val_loss=0.05.ckpt'
+        print("model not yet loaded")
+        mod = self._get_model(ckpt_path=ckpt_pth)
+        print("model loaded")
+
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         num_gpus = torch.cuda.device_count()
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
         # trainer = _trainer or pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, **trainer_kwargs)
         trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs)
+        print(mod)
         trainer.test(mod, test_dataloaders=self.dataloaders[dataloader])
 
     def profile(self):
