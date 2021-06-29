@@ -169,14 +169,14 @@ class Gradient_img(torch.nn.Module):
                 G_x = self.convGx(im[:, kk, :, :].view(-1, 1, im.size(2), im.size(3)))
                 G_y = self.convGy(im[:, kk, :, :].view(-1, 1, im.size(2), im.size(3)))
 
-                G_x = G_x.view(-1, 1, im.size(2) - 2, im.size(2) - 2)
-                G_y = G_y.view(-1, 1, im.size(2) - 2, im.size(2) - 2)
+                G_x = G_x.view(-1, 1, im.size(2) - 2, im.size(3) - 2)
+                G_y = G_y.view(-1, 1, im.size(2) - 2, im.size(3) - 2)
                 nG = torch.sqrt(torch.pow(0.5 * G_x, 2) + torch.pow(0.5 * G_y, 2)+ self.eps)
 
                 if kk == 0:
-                    G = nG.view(-1, 1, im.size(1) - 2, im.size(2) - 2)
+                    G = nG.view(-1, 1, im.size(2) - 2, im.size(3) - 2)
                 else:
-                    G = torch.cat((G, nG.view(-1, 1, im.size(1) - 2, im.size(2) - 2)), dim=1)
+                    G = torch.cat((G, nG.view(-1, 1, im.size(2) - 2, im.size(3) - 2)), dim=1)
         return G
 
 class ModelLR(torch.nn.Module):

@@ -5,11 +5,11 @@
 #SBATCH --account=yrf@gpu
 #SBATCH --gres=gpu:1
 #SBATCH --ntasks-per-node=1
-#SBATCH --time=02:00:00
+#SBATCH --time=04:00:00
 #SBATCH --cpus-per-task=10
 #SBATCH --hint=nomultithread
-#SBATCH -C v100-32g
-#SBATCH --qos=qos_gpu-dev
+#SBATCH -C v100-16g
+#SBATCH --qos=qos_gpu-t3
 #SBATCH --output=log/%j.out
 #SBATCH --error=log/%j.err
 

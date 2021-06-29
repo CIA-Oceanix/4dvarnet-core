@@ -78,22 +78,29 @@ class FourDVarNetRunner:
         else:
             # Specify the dataset spatial bounds
             dim_range = {
-                'lat': slice(33, 43),
-                'lon': slice(-65, -55),
+                #'lat': slice(33, 43),
+                #'lon': slice(-65, -55),
+                #'lat': slice(45., 55.),
+                #'lon': slice(-19.5, -11.5),
+                'lat': slice(27, 57),
+                'lon': slice(-77, 3)
+
             }
 
             # Specify the batch patch size
             slice_win = {
                 'time': 5,
                 'lat': 200,
+                #'lon': 160,
                 'lon': 200,
-                # 'lat': 20,
-                # 'lon': 20,
+                #'lat': 20,
+                #'lon': 20,
             }
             # Specify the stride between two patches
             strides = {
                 'time': 1,
                 'lat': 200,
+                #'lon': 160,
                 'lon': 200,
                 # 'lat': 20,
                 # 'lon': 20,
@@ -182,6 +189,9 @@ class FourDVarNetRunner:
         :param trainer_kwargs: (Optional) Trainer arguments
         :return:
         """
+
+        ckpt_path = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_318238/checkpoints/modelSLAInterpGF-Exp3-epoch=37-val_loss=0.12.ckpt'
+
         mod = self._get_model(ckpt_path=ckpt_path)
 
         checkpoint_callback = ModelCheckpoint(monitor='val_loss',
@@ -204,11 +214,11 @@ class FourDVarNetRunner:
         :param trainer_kwargs: (Optional)
         """
         #mod = _mod or self._get_model(ckpt_path=ckpt_path)
-        ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_296208/checkpoints/modelSLAInterpGF-Exp3-epoch=45-val_loss=0.05.ckpt'
-        print("model not yet loaded")
-        mod = self._get_model(ckpt_path=ckpt_pth)
-        print("model loaded")
+        #ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_296714/checkpoints/modelSLAInterpGF-Exp3-epoch=98-val_loss=0.05.ckpt'
+        #ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_297967/checkpoints/modelSLAInterpGF-Exp3-epoch=39-val_loss=0.12.ckpt'
+        ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_318238/checkpoints/modelSLAInterpGF-Exp3-epoch=37-val_loss=0.12.ckpt'
 
+        mod = self._get_model(ckpt_path=ckpt_pth)
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         num_gpus = torch.cuda.device_count()
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None

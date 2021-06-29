@@ -154,7 +154,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.dim_range = dim_range
         self.strides = strides
         self.dl_kwargs = {
-            **{'batch_size': 2, 'num_workers': 2, 'pin_memory': True},
+            **{'batch_size': 4, 'num_workers': 2, 'pin_memory': True},
             **(dl_kwargs or {})
         }
 

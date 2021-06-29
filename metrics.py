@@ -105,11 +105,20 @@ def plot_mse(gt, oi, pred, resfile, index_test):
     # Compute daily nRMSE scores
     mse_oi = []
     mse_pred = []
+    grad_mse_oi = []
+    grad_mse_pred = []
     for i in range(len(oi)):
         mse_oi.append(mse(gt[i], oi[i]))
         mse_pred.append(mse(gt[i], pred[i]))
+        grad_mse_oi.append(mse(gradient(gt[i],2), gradient(oi[i],2)))
+        grad_mse_pred.append(mse(gradient(gt[i],2), gradient(pred[i],2)))
     print("mse_oi = ", np.nanmean(mse_oi))
     print("mse_pred = ", np.nanmean(mse_pred))
+    print("grad_mse_oi = ", np.nanmean(grad_mse_oi))
+    print("grad_mse_pred = ", np.nanmean(grad_mse_pred))
+    print("percentage_ssh = ", np.abs(np.nanmean(mse_oi)-np.nanmean(mse_pred))/np.nanmean(mse_oi))
+    print("percentage_ssh_grad = ", np.abs(np.nanmean(grad_mse_oi)-np.nanmean(grad_mse_pred))/np.nanmean(grad_mse_oi))
+
     # plot nRMSE time series
     plt.plot(range(len(oi)),mse_oi,color='red',
                  linewidth=2,label='OI')
