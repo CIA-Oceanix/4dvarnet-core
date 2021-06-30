@@ -351,8 +351,8 @@ class LitModel(pl.LightningModule):
         path_save0 = self.logger.log_dir + '/maps.png'
         fig_maps = plot_maps(
                 self.x_gt[0],
-                  self.x_oi[0],
-                  self.x_rec[0],
+                  self.x_oi[0]+self.x_gt[0]-self.x_gt[0],
+                  self.x_rec[0]+self.x_gt[0]-self.x_gt[0],
                   self.lon, self.lat, path_save0)
         self.test_figs['maps'] = fig_maps
         # animate maps

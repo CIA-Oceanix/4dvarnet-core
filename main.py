@@ -216,8 +216,8 @@ class FourDVarNetRunner:
         #mod = _mod or self._get_model(ckpt_path=ckpt_path)
         #ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_296714/checkpoints/modelSLAInterpGF-Exp3-epoch=98-val_loss=0.05.ckpt'
         #ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_297967/checkpoints/modelSLAInterpGF-Exp3-epoch=39-val_loss=0.12.ckpt'
-        ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_318238/checkpoints/modelSLAInterpGF-Exp3-epoch=37-val_loss=0.12.ckpt'
-
+        #ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_318238/checkpoints/modelSLAInterpGF-Exp3-epoch=37-val_loss=0.12.ckpt'
+        ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_319471/checkpoints/modelSLAInterpGF-Exp3-epoch=16-val_loss=0.11.ckpt'
         mod = self._get_model(ckpt_path=ckpt_pth)
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         num_gpus = torch.cuda.device_count()

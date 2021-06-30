@@ -21,7 +21,7 @@ params = {
     'stochastic'      : False,
 
     # animation maps 
-    'animate'         : False,
+    'animate'         : True,
 
     # NN architectures and optimization parameters
     'batch_size'      : 2, #16#4#4#8#12#8#256#
