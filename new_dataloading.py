@@ -65,14 +65,11 @@ class FourDVarNetDataset(Dataset):
             dim_range=None,
             strides=None,
             oi_path='/gpfsscratch/rech/nlu/commun/large/ssh_NATL60_swot_4nadir.nc',
-            # oi_path='/gpfsstore/rech/yrf/commun/NATL60/GULFSTREAM/oi/ssh_NATL60_swot_4nadir.nc',
             oi_var='ssh_mod',
             obs_mask_path='/gpfsscratch/rech/nlu/commun/large/dataset_nadir_0d_swot.nc',
-            #obs_mask_path='/gpfsstore/rech/yrf/commun/NATL60/GULFSTREAM/data/dataset_nadir_0d_swot.nc',
             obs_mask_var='ssh_mod',
             # obs_mask_var='mask',
             gt_path='/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
-            #gt_path='/gpfsstore/rech/yrf/commun/NATL60/GULFSTREAM/ref/NATL60-CJM165_GULFSTREAM_ssh_y2013.1y.nc',
             gt_var='ssh',
             sst_path=None,
             sst_var=None
@@ -111,12 +108,14 @@ class FourDVarNetDataset(Dataset):
         _gt_item = (self.gt_ds[item] - mean) / std
         oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
         # obs_mask_item = self.obs_mask_ds[item].astype(bool) & ~np.isnan(oi_item) & ~np.isnan(_gt_item)
-        obs_mask_item = ~np.isnan(self.obs_mask_ds[item])
+        _obs_item = self.obs_mask_ds[item]
+        obs_mask_item = ~np.isnan(_obs_item)
+        obs_item = np.where(~np.isnan(_obs_item), _obs_item, np.zeros_like(_obs_item))
 
         gt_item = _gt_item
 
         if self.sst_ds == None:
-            return oi_item, obs_mask_item, gt_item
+            return oi_item, obs_mask_item, obs_item, gt_item
         else:
             mean, std = self.norm_stats_sst
             _sst_item = (self.sst_ds[item] - mean) / std

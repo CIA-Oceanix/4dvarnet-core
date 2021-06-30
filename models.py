@@ -402,7 +402,8 @@ class LitModel(pl.LightningModule):
 
     def compute_loss(self, batch, phase):
 
-        targets_OI, inputs_Mask, targets_GT = batch
+        targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
+        #targets_OI, inputs_Mask, targets_GT = batch
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:
             return (
@@ -413,7 +414,9 @@ class LitModel(pl.LightningModule):
             )
         new_masks = torch.cat((1. + 0. * inputs_Mask, inputs_Mask), dim=1)
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
-        inputs_init = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
+        inputs_init = torch.cat((targets_OI, inputs_obs), dim=1)
+
+        #inputs_init = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
         inputs_missing = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
 
         # gradient norm field
