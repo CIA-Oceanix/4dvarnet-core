@@ -35,7 +35,7 @@ class FourDVarNetRunner:
         w_ = np.zeros(self.cfg.dT)
         w_[int(self.cfg.dT / 2)] = 1.
         self.wLoss = torch.Tensor(w_)
-
+        datalaoding = config.params['dataloading']
         if dataloading == "old":
             datamodule = LegacyDataLoading(self.cfg)
         elif dataloading == "with_sst":

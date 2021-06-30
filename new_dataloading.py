@@ -121,7 +121,7 @@ class FourDVarNetDataset(Dataset):
             _sst_item = (self.sst_ds[item] - mean) / std
             sst_item = np.where(~np.isnan(_sst_item), _sst_item, 0.)
 
-            return oi_item, obs_mask_item, gt_item, sst_item
+            return oi_item, obs_mask_item, obs_item, gt_item, sst_item
 
 
 class FourDVarNetDataModule(pl.LightningDataModule):
