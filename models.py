@@ -8,7 +8,7 @@ from omegaconf import OmegaConf
 from scipy import stats
 
 import solver as NN_4DVar
-from metrics import save_netcdf, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, plot_ensemble
+from metrics import save_netcdf, nrmse_scores, plot_nrmse, plot_snr, plot_maps, animate_maps, plot_ensemble
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -154,8 +154,7 @@ class Gradient_img(torch.nn.Module):
         self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0),
                                                 requires_grad=False)
 
-        #self.eps=10**-6
-        self.eps=0.
+        self.eps=10**-6
 
     def forward(self, im):
 
@@ -169,14 +168,14 @@ class Gradient_img(torch.nn.Module):
                 G_x = self.convGx(im[:, kk, :, :].view(-1, 1, im.size(2), im.size(3)))
                 G_y = self.convGy(im[:, kk, :, :].view(-1, 1, im.size(2), im.size(3)))
 
-                G_x = G_x.view(-1, 1, im.size(2) - 2, im.size(3) - 2)
-                G_y = G_y.view(-1, 1, im.size(2) - 2, im.size(3) - 2)
+                G_x = G_x.view(-1, 1, im.size(2) - 2, im.size(2) - 2)
+                G_y = G_y.view(-1, 1, im.size(2) - 2, im.size(2) - 2)
                 nG = torch.sqrt(torch.pow(0.5 * G_x, 2) + torch.pow(0.5 * G_y, 2)+ self.eps)
 
                 if kk == 0:
-                    G = nG.view(-1, 1, im.size(2) - 2, im.size(3) - 2)
+                    G = nG.view(-1, 1, im.size(1) - 2, im.size(2) - 2)
                 else:
-                    G = torch.cat((G, nG.view(-1, 1, im.size(2) - 2, im.size(3) - 2)), dim=1)
+                    G = torch.cat((G, nG.view(-1, 1, im.size(1) - 2, im.size(2) - 2)), dim=1)
         return G
 
 class ModelLR(torch.nn.Module):
@@ -210,12 +209,6 @@ class LitModel(pl.LightningModule):
         self.ds_size_lon = kwargs['ds_size_lon']
         self.ds_size_lat = kwargs['ds_size_lat']
 
-        self.var_Val = kwargs['var_Val']
-        self.var_Tr = kwargs['var_Tr']
-        self.var_Tt = kwargs['var_Tt']
-        self.mean_Val = kwargs['mean_Val']
-        self.mean_Tr = kwargs['mean_Tr']
-        self.mean_Tt = kwargs['mean_Tt']
         # main model
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
             Phi_r(self.hparams.shapeData[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
@@ -310,17 +303,15 @@ class LitModel(pl.LightningModule):
 
     def test_step(self, test_batch, batch_idx):
 
-        targets_OI, inputs_Mask, targets_GT = test_batch
+        targets_OI, inputs_Mask, inputs_obs, targets_GT = test_batch
         loss, out, metrics = self.compute_loss(test_batch, phase='test')
         if loss is not None:
             self.log('test_loss', loss)
             self.log("test_mse", metrics['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
-
-        return {'gt'    : (targets_GT.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'oi'    : (targets_OI.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'preds' : (out.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr}
-
+        return {'gt': targets_GT.detach().cpu(),
+                'oi': targets_OI.detach().cpu(),
+                'preds': out.detach().cpu()}
 
     def test_epoch_end(self, outputs):
 
@@ -351,8 +342,8 @@ class LitModel(pl.LightningModule):
         path_save0 = self.logger.log_dir + '/maps.png'
         fig_maps = plot_maps(
                 self.x_gt[0],
-                  self.x_oi[0]+self.x_gt[0]-self.x_gt[0],
-                  self.x_rec[0]+self.x_gt[0]-self.x_gt[0],
+                  self.x_oi[0],
+                  self.x_rec[0],
                   self.lon, self.lat, path_save0)
         self.test_figs['maps'] = fig_maps
         # animate maps
@@ -363,36 +354,20 @@ class LitModel(pl.LightningModule):
                          self.x_rec,
                          self.lon, self.lat, path_save0)
             # save NetCDF
-        """
         path_save1 = self.logger.log_dir + '/test.nc'
         save_netcdf(saved_path1=path_save1, pred=pred,
-                    lon=self.lon, lat=self.lat, index_test=np.arange(60, 77))
-        """
+                    lon=self.lon, lat=self.lat, index_test=np.arange(60, 60 + ds_size['time']))
         # compute nRMSE
         path_save2 = self.logger.log_dir + '/nRMSE.txt'
         tab_scores = nrmse_scores(gt, oi, pred, path_save2)
         print('*** Display nRMSE scores ***')
         print(tab_scores)
-
-        path_save21 = self.logger.log_dir + '/MSE.txt'
-        tab_scores = mse_scores(gt, oi, pred, path_save21)
-        print('*** Display MSE scores ***')
-        print(tab_scores)
-
         # plot nRMSE
         path_save3 = self.logger.log_dir + '/nRMSE.png'
-        nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, index_test=np.arange(96, 96+self.ds_size_time))
+        nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, index_test=np.arange(60, 60 + ds_size['time']))
         self.test_figs['nrmse'] = nrmse_fig
 
-        # plot MSE
-        path_save31 = self.logger.log_dir + '/MSE.png'
-        mse_fig = plot_mse(self.x_gt, self.x_oi, self.x_rec, path_save31,
-                               index_test=np.arange(96, 96 + self.ds_size_time))
-        self.test_figs['mse'] = mse_fig
-        self.logger.experiment.add_figure('Maps', fig_maps, global_step=self.current_epoch)
         self.logger.experiment.add_figure('NRMSE', nrmse_fig, global_step=self.current_epoch)
-        self.logger.experiment.add_figure('MSE', mse_fig, global_step=self.current_epoch)
-
         # plot SNR
         path_save4 = self.logger.log_dir + '/SNR.png'
         snr_fig = plot_snr(self.x_gt, self.x_oi, self.x_rec, path_save4)
@@ -534,7 +509,7 @@ class LitModelWithSST(LitModel):
 
     def test_step(self, test_batch, batch_idx):
 
-        targets_OI, inputs_Mask, targets_GT, sst_GT = test_batch
+        targets_OI, inputs_Mask, input_obs, targets_GT, sst_GT = test_batch
         loss, out, metrics = self.compute_loss(test_batch, phase='test')
         if loss is not None:
             self.log('test_loss', loss)
@@ -546,7 +521,8 @@ class LitModelWithSST(LitModel):
 
     def compute_loss(self, batch, phase):  ## to be updated
 
-        targets_OI, inputs_Mask, targets_GT, sst_GT = batch
+
+        targets_OI, inputs_Mask, input_obs, targets_GT, sst_GT = batch
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:
             return (
@@ -559,10 +535,9 @@ class LitModelWithSST(LitModel):
         # inputs_init = torch.cat((targets_OI, inputs_Mask * (targets_GT - targets_OI)), dim=1)
         # inputs_missing = torch.cat((targets_OI, inputs_Mask * (targets_GT - targets_OI)), dim=1)
         mask_SST = 1. + 0. * sst_GT
-
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
-        inputs_init = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
-        inputs_missing = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
+        inputs_init = torch.cat((targets_OI, input_obs), dim=1)
+        inputs_missing = torch.cat((targets_OI, input_obs), dim=1)
 
         # gradient norm field
         g_targets_GT = self.gradient_img(targets_GT)

@@ -1,14 +1,34 @@
+# Specify the dataset spatial bounds
+dim_range = {
+    'lat': slice(33, 43),
+    'lon': slice(-65, -55),
+
+}
+
+# Specify the batch patch size
+slice_win = {
+    'time': 5,
+    'lat': 200,
+    'lon': 200,
+}
+# Specify the stride between two patches
+strides = {
+    'time': 1,
+    'lat': 200,
+    'lon': 200,
+}
+
 
 params = {
     'files_cfg' : dict(
-                oi_path='/gpfsscratch/rech/nlu/commun/large/ssh_NATL60_swot_4nadir.nc',
+                oi_path='/gpfsscratch/rech/nlu/commun/large/ssh_NATL60_4nadir.nc',
                 oi_var='ssh_mod',
                 obs_mask_path='/gpfsscratch/rech/yrf/ual82ir/4dvarnet-core/full_cal_obs.nc',
                 obs_mask_var='nad_swot',
                 gt_path='/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
                 gt_var='ssh',
         ),
-    'dataloading': False,
+    'dataloading': 'new',
     'data_dir'        : '/gpfsscratch/rech/nlu/commun/large',
     'dir_save'        : '/gpfsscratch/rech/nlu/commun/large/results_maxime',
 

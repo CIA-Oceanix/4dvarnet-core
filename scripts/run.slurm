@@ -23,7 +23,5 @@ eval "$(conda shell.bash hook)"
 conda activate 4dvarnet
 export PYTHONPATH=${WORK}/4dvarnet-core:${PYTHONPATH}
 
-# run script from above
-#srun python main.py --config=stochastic --dataloading=new --max_epochs=3 --progress_bar_refresh_rate=5 run
-srun python main.py --dataloading=new --max_epochs=150 --progress_bar_refresh_rate=5 test
+srun python main.py --max_epochs=150 --config=q.$1 --progress_bar_refresh_rate=5 run
 

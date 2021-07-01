@@ -3,8 +3,8 @@
 # SLURM SUBMIT SCRIPT
 #SBATCH --nodes=1
 #SBATCH --account=yrf@gpu
-#SBATCH --gres=gpu:4
-#SBATCH --ntasks-per-node=4
+#SBATCH --gres=gpu:1
+#SBATCH --ntasks-per-node=1
 #SBATCH --time=04:00:00
 #SBATCH --cpus-per-task=10
 #SBATCH --hint=nomultithread
@@ -16,14 +16,20 @@
 # activate conda env
 #source activate $1
 
-module purge
 
-# chargement des modules
 eval "$(conda shell.bash hook)"
 conda activate 4dvarnet
 export PYTHONPATH=${WORK}/4dvarnet-core:${PYTHONPATH}
 
-# run script from above
-#srun python main.py --config=stochastic --dataloading=new --max_epochs=3 --progress_bar_refresh_rate=5 run
-srun python main.py --dataloading=new --max_epochs=150 --progress_bar_refresh_rate=5 test
+mr_ls() {
+	ls -t **/*$1/checkpoints | head -n1
+}
+
+test_most_recent_ckpt () {
+	ckpt_path="lightning_logs/version_$1/checkpoints/$(mr_ls $1)"
+	echo $ckpt_path
+	srun python main.py --ckpt_path=$ckpt_path --config=q.$2  test
+}
+
+test_most_recent_ckpt $1 $2
 

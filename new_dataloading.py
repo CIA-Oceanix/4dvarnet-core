@@ -75,6 +75,7 @@ class FourDVarNetDataset(Dataset):
             sst_var=None
     ):
         super().__init__()
+        print(sst_path, sst_var, 'hehehehe')
 
         self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win, dim_range=dim_range, strides=strides)
         self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win, dim_range=dim_range, strides=strides, decode=True)
@@ -83,9 +84,9 @@ class FourDVarNetDataset(Dataset):
 
         self.norm_stats = None
 
-        if sst_var == 'sst':
+        if sst_var is not None:
             self.sst_ds = XrDataset(sst_path, sst_var, slice_win=slice_win, dim_range=dim_range, strides=strides,
-                                    decode=True)
+                                    decode=sst_var == 'sst')
         else:
             self.sst_ds = None
         self.norm_stats_sst = None

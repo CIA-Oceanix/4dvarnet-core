@@ -10,3 +10,4 @@ submit_4DVarNet.slurm
 log
 *.swp
 gen_cal_data_4dvar.ipynb
+scripts/*jobs
