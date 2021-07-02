@@ -1,6 +1,4 @@
-
-### Cancel all runs
-squeue -u $USER -h -o %i | xargs scancel
+# Fish commands to manage xps
 
 
 # NADIRS + SWOT : config_q/swot.py
@@ -59,10 +57,9 @@ sbatch scripts/test.slurm $(tail -n1 scripts/nad_sst.jobs) nad_sst >> scripts/na
 tensorboard --logdir=lightning_logs/version_(tail -n1 scripts/nad_sst.test_jobs) --bind_all
 
 
-# NADIRS+SWOT with SST as "sst": config_q/roll_sst.py
+# NADIRS+SWOT+ROLL with SST as "sst": config_q/roll_sst.py
 # test job already running
 squeue -u $USER -h  | grep (tail -n1 scripts/roll_sst.jobs)
-
 ## start training
 echo (sbatch --parsable scripts/run.slurm roll_sst) >> scripts/roll_sst.jobs
 ## See logs
@@ -71,3 +68,16 @@ tail -f *(tail -n1 scripts/roll_sst.jobs)*
 sbatch scripts/test.slurm $(tail -n1 scripts/roll_sst.jobs) roll_sst >> scripts/roll_sst.test_jobs
 ## tb latest test ckpt
 tensorboard --logdir=lightning_logs/version_(tail -n1 scripts/roll_sst.test_jobs) --bind_all
+
+
+# NADIRS+SWOT with SST as "sst": config_q/swot_sst.py
+# test job already running
+squeue -u $USER -h  | grep (tail -n1 scripts/swot_sst.jobs)
+## start training
+echo (sbatch --parsable scripts/run.slurm swot_sst) >> scripts/swot_sst.jobs
+## See logs
+tail -f *(tail -n1 scripts/swot_sst.jobs)*
+## Test latest ckpt
+sbatch scripts/test.slurm $(tail -n1 scripts/swot_sst.jobs) swot_sst >> scripts/swot_sst.test_jobs
+## tb latest test ckpt
+tensorboard --logdir=lightning_logs/version_(tail -n1 scripts/swot_sst.test_jobs) --bind_all
