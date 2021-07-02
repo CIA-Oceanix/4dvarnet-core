@@ -26,20 +26,27 @@ class LegacyDataLoading(pl.LightningDataModule):
         # Definiton of training, validation and test dataset
         # from dayly indices over a one-year time series
         cfg = self.cfg
+        """
+        iiTr1 = 0
+        jjTr1 = 50 - int(cfg.dT / 2)
+
+        iiTr2 = 130 + int(cfg.dT / 2)
+        jjTr2 = 365
 
         iiVal = 60 - int(cfg.dT / 2)
         jjVal = 80 + int(cfg.dT / 2)
 
         iiTest = 90 - int(cfg.dT / 2)
         jjTest = 110 + int(cfg.dT / 2)
-
+        """
+        iiVal = 60
+        jjVal = iiVal + 20 + 2 * int(cfg.dT / 2)
+        iiTest = jjVal + 10  # 90 - int(dT / 2)
+        jjTest = iiTest + 20 + 2 * int(cfg.dT / 2)
         iiTr1 = 0
         jjTr1 = iiVal - 10
-
         iiTr2 = jjTest + 10
         jjTr2 = 365
-
-
         ############################################## Data generation ###############################################################
         print('........ Random seed set to 100')
         np.random.seed(100)
@@ -208,6 +215,12 @@ class LegacyDataLoading(pl.LightningDataModule):
         self.var_Tt = np.var(x_test)
 
         self.var_Val = np.var(x_val)
+
+        self.mean_Tr = meanTr
+
+        self.mean_Tt = np.mean(x_test)
+
+        self.mean_Val = np.mean(x_val)
 
 
     def train_dataloader(self):

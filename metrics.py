@@ -93,6 +93,53 @@ def plot_nrmse(gt, oi, pred, resfile, index_test):
     plt.close()                                 # close the figure
     return  fig
 
+def plot_mse(gt, oi, pred, resfile, index_test):
+    '''
+    gt: 3d numpy array (Ground Truth)
+    oi: 3d numpy array (OI)
+    pred: 3d numpy array (4DVarNet-based predictions)
+    resfile: string
+    index_test: 1d numpy array (ex: np.concatenate([np.arange(60, 80)]))
+    '''
+
+    # Compute daily nRMSE scores
+    mse_oi = []
+    mse_pred = []
+    grad_mse_oi = []
+    grad_mse_pred = []
+    for i in range(len(oi)):
+        mse_oi.append(mse(gt[i], oi[i]))
+        mse_pred.append(mse(gt[i], pred[i]))
+        grad_mse_oi.append(mse(gradient(gt[i],2), gradient(oi[i],2)))
+        grad_mse_pred.append(mse(gradient(gt[i],2), gradient(pred[i],2)))
+    print("mse_oi = ", np.nanmean(mse_oi))
+    print("mse_pred = ", np.nanmean(mse_pred))
+    print("grad_mse_oi = ", np.nanmean(grad_mse_oi))
+    print("grad_mse_pred = ", np.nanmean(grad_mse_pred))
+    print("percentage_ssh = ", np.abs(np.nanmean(mse_oi)-np.nanmean(mse_pred))/np.nanmean(mse_oi))
+    print("percentage_ssh_grad = ", np.abs(np.nanmean(grad_mse_oi)-np.nanmean(grad_mse_pred))/np.nanmean(grad_mse_oi))
+
+    # plot nRMSE time series
+    plt.plot(range(len(oi)),mse_oi,color='red',
+                 linewidth=2,label='OI')
+    plt.plot(range(len(pred)),mse_pred,color='blue',
+                 linewidth=2,label='4DVarNet')
+
+    # graphical options
+    plt.ylabel('MSE')
+    plt.xlabel('Time (days)')
+    lday = [datetime.datetime.strftime(datetime.datetime.strptime("2012-10-01", '%Y-%m-%d') \
+                                       + datetime.timedelta(days=np.float64(i)), "%Y-%m-%d") for i in index_test]
+    plt.xticks(range(0,len(index_test)),lday,
+           rotation=45, ha='right')
+    plt.margins(x=0)
+    plt.grid(True,alpha=.3)
+    plt.legend(loc='upper left',prop=dict(size='small'),frameon=False,bbox_to_anchor=(0,1.02,1,0.2),ncol=2,mode="expand")
+    plt.savefig(resfile,bbox_inches="tight")    # save the figure
+    fig = plt.gcf()
+    plt.close()                                 # close the figure
+    return  fig
+
 
 def plot(ax,i,j,lon,lat,data,title,extent=[-65,-55,30,40],cmap="coolwarm",gridded=True,vmin=-2,vmax=2,colorbar=True,orientation="horizontal"):
     ax[i][j].set_extent(list(extent))
@@ -115,7 +162,7 @@ def plot(ax,i,j,lon,lat,data,title,extent=[-65,-55,30,40],cmap="coolwarm",gridde
     gl.ylabels_right = False
     gl.xlabel_style = {'fontsize': 10, 'rotation' : 45}
     gl.ylabel_style = {'fontsize': 10}
-    ax[i][j].coastlines(resolution='50m')
+    # ax[i][j].coastlines(resolution='50m')
 
 def gradient(img, order):
     """ calcuate x, y gradient and magnitude """
@@ -253,6 +300,38 @@ def nrmse_scores(gt, oi, pred, resfile):
     tab_scores[1, 2] = np.percentile(nrmse_pred, 95)
     np.savetxt(fname=resfile, X=tab_scores, fmt='%2.2f')
     return tab_scores
+
+def mse(ref, pred):
+    '''
+    ref: Ground Truth fields
+    pred: interpolated fields
+    '''
+    return np.nanmean(((ref-np.nanmean(ref))-(pred-np.nanmean(pred)))**2)
+
+
+def mse_scores(gt, oi, pred, resfile):
+    '''
+    gt: 3d numpy array (Ground Truth)
+    oi: 3d numpy array (OI)
+    pred: 3d numpy array (4DVarNet-based predictions)
+    resfile: string
+    '''
+    # Compute daily nRMSE scores
+    mse_oi = []
+    mse_pred = []
+    for i in range(len(oi)):
+        mse_oi.append(mse(gt[i], oi[i]))
+        mse_pred.append(mse(gt[i], pred[i]))
+    tab_scores = np.zeros((2, 3))
+    tab_scores[0, 0] = np.nanmean(mse_oi)
+    tab_scores[0, 1] = np.percentile(mse_oi, 5)
+    tab_scores[0, 2] = np.percentile(mse_oi, 95)
+    tab_scores[1, 0] = np.nanmean(mse_pred)
+    tab_scores[1, 1] = np.percentile(mse_pred, 5)
+    tab_scores[1, 2] = np.percentile(mse_pred, 95)
+    np.savetxt(fname=resfile, X=tab_scores, fmt='%2.2f')
+
+
 
 def compute_metrics(x_test, x_rec):
     # MSE
