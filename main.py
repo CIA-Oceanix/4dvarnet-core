@@ -23,7 +23,7 @@ gradient_img = Gradient_img()
 
 
 class FourDVarNetRunner:
-    def __init__(self, dataloading="old", config='q'):
+    def __init__(self, dataloading="old", config=None):
         self.filename_chkpt = 'modelSLAInterpGF-Exp3-{epoch:02d}-{val_loss:.2f}'
         if config is None:
             import config
