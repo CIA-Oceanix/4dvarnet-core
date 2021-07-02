@@ -392,7 +392,7 @@ class LitModel(pl.LightningModule):
         inputs_init = torch.cat((targets_OI, inputs_obs), dim=1)
 
         #inputs_init = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
-        inputs_missing = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
+        inputs_missing = torch.cat((targets_OI, inputs_obs), dim=1)
 
         # gradient norm field
         g_targets_GT = self.gradient_img(targets_GT)
@@ -532,8 +532,6 @@ class LitModelWithSST(LitModel):
                       ('mseGOI', 0.)])
             )
         new_masks = torch.cat((1. + 0. * inputs_Mask, inputs_Mask), dim=1)
-        # inputs_init = torch.cat((targets_OI, inputs_Mask * (targets_GT - targets_OI)), dim=1)
-        # inputs_missing = torch.cat((targets_OI, inputs_Mask * (targets_GT - targets_OI)), dim=1)
         mask_SST = 1. + 0. * sst_GT
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
         inputs_init = torch.cat((targets_OI, input_obs), dim=1)
