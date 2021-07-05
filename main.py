@@ -40,11 +40,6 @@ class FourDVarNetRunner:
             datamodule = LegacyDataLoading(self.cfg)
         elif dataloading == "with_sst":
             self.filename_chkpt = 'modelSLAInterpGF-withSST-Exp3-{epoch:02d}-{val_loss:.2f}'
-            # Specify the dataset spatial bounds
-            dim_range = {
-                'lat': slice(33, 43),
-                'lon': slice(-65, -55),
-            }
 
             # Specify the batch patch size
             slice_win = {
@@ -64,7 +59,9 @@ class FourDVarNetRunner:
             }
             datamodule = FourDVarNetDataModule(
                 slice_win=slice_win,
-                dim_range=dim_range,
+                train_slices=config.train_slices,
+                val_slices=config.train_slices,
+                test_slices= config.train_slices,
                 strides=strides,
                 oi_path='/gpfsscratch/rech/nlu/commun/large/ssh_NATL60_swot_4nadir.nc',
                 oi_var='ssh_mod',

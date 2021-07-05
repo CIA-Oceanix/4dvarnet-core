@@ -1,3 +1,21 @@
+# gulfstream  33 43  / -65 -55
+train_slices=(
+    {'lon': slice(-55, None)}, #1
+    {'lon': slice(None, -65)}, #2
+    {'lon': slice(-65, -55), 'lat': slice(43, None)}, #3
+    {'lon': slice(-65, -55), 'lat': slice(None, 33)}, #4
+)
+
+"""
+  2  |    3  |  1
+----- ----- -----
+  2  |   GF  |  1
+-----  -----  ----
+  2  |    4  |  1
+"""
+
+val_slices = ({},)
+test_slices = ({'lat': slice(33, 43), 'lon': slice(-65, -55)},)
 params = {
     'data_dir'        : '/gpfsscratch/rech/nlu/commun/large',
     'dir_save'        : '/gpfsscratch/rech/nlu/commun/large/results_maxime',
