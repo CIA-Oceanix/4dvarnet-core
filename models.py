@@ -346,6 +346,7 @@ class LitModel(pl.LightningModule):
                   self.x_rec[0],
                   self.lon, self.lat, path_save0)
         self.test_figs['maps'] = fig_maps
+        self.logger.experiment.add_figure('Maps', fig_maps, global_step=self.current_epoch)
         # animate maps
         if self.hparams.animate == True:
             path_save0 = self.logger.log_dir + '/animation.mp4'
