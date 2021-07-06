@@ -64,12 +64,12 @@ class FourDVarNetDataset(Dataset):
             slice_win,
             dim_range=None,
             strides=None,
-            oi_path='/gpfsscratch/rech/nlu/commun/large/ssh_NATL60_swot_4nadir.nc',
+            oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc',
             oi_var='ssh_mod',
-            obs_mask_path='/gpfsscratch/rech/nlu/commun/large/dataset_nadir_0d_swot.nc',
+            obs_mask_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/data/dataset_nadir_0d_swot.nc',
             obs_mask_var='ssh_mod',
             # obs_mask_var='mask',
-            gt_path='/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
+            gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
             gt_var='ssh',
             sst_path=None,
             sst_var=None
@@ -128,16 +128,19 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             slice_win,
             dim_range=None,
             strides=None,
-            train_slices=(slice('2012-10-01', "2012-11-20"), slice('2013-02-08', "2013-09-30")),
+            #train_slices=(slice('2012-10-01', "2012-11-20"), slice('2013-02-08', "2013-09-30")),
             # train_slices=(slice('2012-10-01', "2012-10-10"),),
-            test_slices=(slice('2012-12-30', "2013-01-19"),),
-            val_slices=(slice('2012-11-30', "2012-12-20"),),
-            oi_path='/gpfsscratch/rech/nlu/commun/large/ssh_NATL60_swot_4nadir.nc',
+            #test_slices=(slice('2012-12-30', "2013-01-19"),),
+            #val_slices=(slice('2012-11-30', "2012-12-20"),),
+            train_slices=(slice('2012-10-01', "2012-11-20"), slice('2013-02-07', "2013-09-30")),
+            test_slices=(slice('2013-01-03', "2013-01-27"),),
+            val_slices=(slice('2012-11-30', "2012-12-24"),),
+            oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc',
             oi_var='ssh_mod',
-            obs_mask_path='/gpfsscratch/rech/nlu/commun/large/dataset_nadir_0d_swot.nc',
+            obs_mask_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/data/dataset_nadir_0d_swot.nc',
             obs_mask_var='ssh_mod',
             # obs_mask_var='mask',
-            gt_path='/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
+            gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
             gt_var='ssh',
             sst_path=None,
             sst_var=None,
@@ -148,7 +151,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.dim_range = dim_range
         self.strides = strides
         self.dl_kwargs = {
-            **{'batch_size': 8, 'num_workers': 2, 'pin_memory': True},
+            **{'batch_size': 2, 'num_workers': 2, 'pin_memory': True},
             **(dl_kwargs or {})
         }
 

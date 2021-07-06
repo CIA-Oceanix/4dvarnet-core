@@ -7,8 +7,6 @@ params = {
     'lr_update'       : [1e-3, 1e-4, 1e-3, 1e-4, 1e-4, 1e-5, 1e-5, 1e-6, 1e-7],
     'k_batch'         : 1,
     'n_grad'          : 5,
-    'dim_grad_solver' : 10,
-    'dropout'         : 0.25,
     'dT'              : 5, ## Time window of each space-time patch
     'dx'              : 1,   ## subsampling step if > 1
     'W'               : 200, # width/height of each space-time patch
@@ -23,18 +21,21 @@ params = {
     'stochastic'      : True,
     'size_ensemble'   : 3,
 
-    # animation maps 
+    # animation maps 
     'animate'         : False,
 
     # NN architectures and optimization parameters
-    'batch_size'      : 10, #16#4#4#8#12#8#256#
+    'batch_size'      : 2, #16#4#4#8#12#8#256#
     'DimAE'           : 50, #10#10#50
-    'dimGradSolver'   : 100, # dimension of the hidden state of the LSTM cell
+    'dim_grad_solver' : 150,
+    'dropout'         : 0.25,
+    'dropout_phi_r'   : 0.,
 
-    'alpha_MSE'       : 0.1,
-    'alpha_Proj'      : 0.5,
-    'alpha_SR'        : 0.5,
-    'alpha_LR'        : 0.5,  # 1e4
+    'alpha_proj'      : 0.5,
+    'alpha_sr'        : 0.5,
+    'alpha_lr'        : 0.5,  # 1e4
+    'alpha_mse_ssh'   : 10.,
+    'alpha_mse_gssh'  : 1.,
 
     # data generation
     'sigNoise'        : 0.,## additive noise standard deviation
@@ -43,9 +44,6 @@ params = {
     'rnd1'            : 0, ## random seed for patch extraction (space sam)
     'rnd2'            : 100, ## random seed for patch extraction
     'dwscale'         : 1,
-
-    'betaX'           : 42.20436766972647, #None
-    'betagX'          : 77.99700321505073, #None
 
     'UsePriodicBoundary' : False,  # use a periodic boundary for all conv operators in the gradient model (see torch_4DVarNN_dinAE)
     'InterpFlag'         : False, # True :> force reconstructed field to observed data after each gradient-based update

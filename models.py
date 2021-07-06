@@ -119,6 +119,7 @@ class Phi_r(torch.nn.Module):
     def forward(self, x):
         x = self.encoder(x)
         x = self.decoder(x)
+        '''
         if self.stochastic == True:
             W = torch.randn(x.shape).to(device)
             #  g(W) = alpha(x)*h(W)
@@ -126,8 +127,8 @@ class Phi_r(torch.nn.Module):
             gW = self.correlate_noise(W)
             # print(stats.describe(gW.detach().cpu().numpy()))
             x = x + gW
+        '''
         return x
-
 
 class Model_H(torch.nn.Module):
     def __init__(self, shapeData):
@@ -154,7 +155,7 @@ class Gradient_img(torch.nn.Module):
         self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0),
                                                 requires_grad=False)
 
-        self.eps=10**-6
+        self.eps=10**-20
 
     def forward(self, im):
 
@@ -216,7 +217,7 @@ class LitModel(pl.LightningModule):
             Model_H(self.hparams.shapeData[0]),
             NN_4DVar.model_GradUpdateLSTM(self.hparams.shapeData, self.hparams.UsePriodicBoundary,
                                           self.hparams.dim_grad_solver, self.hparams.dropout),
-            None, None, self.hparams.shapeData, self.hparams.n_grad)
+            None, None, self.hparams.shapeData, self.hparams.n_grad, self.hparams.stochastic)
 
         self.model_LR = ModelLR()
         self.gradient_img = Gradient_img()
@@ -353,10 +354,6 @@ class LitModel(pl.LightningModule):
                          self.x_oi,
                          self.x_rec,
                          self.lon, self.lat, path_save0)
-            # save NetCDF
-        path_save1 = self.logger.log_dir + '/test.nc'
-        save_netcdf(saved_path1=path_save1, pred=pred,
-                    lon=self.lon, lat=self.lat, index_test=np.arange(60, 77))
         # compute nRMSE
         path_save2 = self.logger.log_dir + '/nRMSE.txt'
         tab_scores = nrmse_scores(gt, oi, pred, path_save2)
@@ -374,6 +371,10 @@ class LitModel(pl.LightningModule):
         self.test_figs['snr'] = snr_fig
 
         self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
+        # save NetCDF
+        path_save1 = self.logger.log_dir + '/test.nc'
+        save_netcdf(saved_path1=path_save1, pred=pred,
+                    lon=self.lon, lat=self.lat, index_test=np.arange(60, 77))
 
     def compute_loss(self, batch, phase):
 
