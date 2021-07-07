@@ -294,13 +294,41 @@ class Model_Var_Cost(nn.Module):
 
         return loss
 
+class CorrelateNoise(torch.nn.Module):
+    def __init__(self, shape_data, dim_cn):
+        super(CorrelateNoise, self).__init__()
+        self.conv1 = torch.nn.Conv2d(shape_data, dim_cn, (3, 3), padding=1, bias=False)
+        self.conv2 = torch.nn.Conv2d(dim_cn, 2 * dim_cn, (3, 3), padding=1, bias=False)
+        self.conv3 = torch.nn.Conv2d(2 * dim_cn, shape_data, (3, 3), padding=1, bias=False)
+
+    def forward(self, w):
+        w = self.conv1(F.relu(w)).to(device)
+        w = self.conv2(F.relu(w)).to(device)
+        w = self.conv3(w).to(device)
+        return w
+
+
+class RegularizeVariance(torch.nn.Module):
+    def __init__(self, shape_data, dim_rv):
+        super(RegularizeVariance, self).__init__()
+        self.conv1 = torch.nn.Conv2d(shape_data, dim_rv, (3, 3), padding=1, bias=False)
+        self.conv2 = torch.nn.Conv2d(dim_rv, 2 * dim_rv, (3, 3), padding=1, bias=False)
+        self.conv3 = torch.nn.Conv2d(2 * dim_rv, shape_data, (3, 3), padding=1, bias=False)
+
+    def forward(self, v):
+        v = self.conv1(F.relu(v)).to(device)
+        v = self.conv2(F.relu(v)).to(device)
+        v = self.conv3(v).to(device)
+        return v
+
+
 # 4DVarNN Solver class using automatic differentiation for the computation of gradient of the variational cost
 # input modules: operator phi_r, gradient-based update model m_Grad
 # modules for the definition of the norm of the observation and prior terms given as input parameters 
 # (default norm (None) refers to the L2 norm)
 # updated inner modles to account for the variational model module
 class Solver_Grad_4DVarNN(nn.Module):
-    def __init__(self ,phi_r,mod_H, m_Grad, m_NormObs, m_NormPhi, ShapeData,n_iter_grad):
+    def __init__(self ,phi_r,mod_H, m_Grad, m_NormObs, m_NormPhi, ShapeData,n_iter_grad, stochastic=False):
         super(Solver_Grad_4DVarNN, self).__init__()
         self.phi_r         = phi_r
         
@@ -312,7 +340,11 @@ class Solver_Grad_4DVarNN(nn.Module):
         self.model_H = mod_H
         self.model_Grad = m_Grad
         self.model_VarCost = Model_Var_Cost(m_NormObs, m_NormPhi, ShapeData,mod_H.DimObs,mod_H.dimObsChannel)
-        
+
+        self.correlate_noise = CorrelateNoise(ShapeData[0], 10)
+        self.regularize_variance = RegularizeVariance(ShapeData[0], 10)
+        self.stochastic = stochastic
+
         with torch.no_grad():
             self.n_grad = int(n_iter_grad)
         
@@ -343,6 +375,10 @@ class Solver_Grad_4DVarNN(nn.Module):
             normgrad_= normgrad
         grad, hidden, cell = self.model_Grad(hidden, cell, var_cost_grad, normgrad_)
         grad *= 1./ self.n_grad
+        if self.stochastic == True:
+            W = torch.randn(x_k.shape).to(device)
+            gW = torch.mul(self.regularize_variance(x_k),self.correlate_noise(W))
+            grad = grad + gW
         x_k_plus_1 = x_k - grad
         return x_k_plus_1, hidden, cell, normgrad_
 
