@@ -64,7 +64,6 @@ class FourDVarNetDataset(Dataset):
             slice_win,
             dim_range=None,
             strides=None,
-
             oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc',
             oi_var='ssh_mod',
             obs_mask_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/data/dataset_nadir_0d_swot.nc',
