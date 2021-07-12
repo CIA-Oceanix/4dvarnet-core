@@ -60,7 +60,7 @@ class Encoder(torch.nn.Module):
         return torch.nn.Sequential(*layers)
 
     def forward(self, xinp):
-        ## LR comlponent
+        ## LR component
         xLR = self.NNLR(self.pool1(xinp))
         xLR = self.dropout(xLR)
         xLR = self.convTr(xLR)
@@ -202,12 +202,15 @@ class LitModel(pl.LightningModule):
         self.var_Tt = kwargs['var_Tt']
 
         # create longitudes & latitudes coordinates
-        self.xmin = kwargs['min_lon']
-        self.xmax = kwargs['max_lon']
-        self.ymin = kwargs['min_lat']
-        self.ymax = kwargs['max_lat']
-        self.lon = np.arange(self.xmin, self.xmax + .05, .05)
-        self.lat = np.arange(self.ymin, self.ymax + .05, .05)
+        self.xmin = np.round(kwargs['min_lon'])
+        self.xmax = np.round(kwargs['max_lon'])
+        self.ymin = np.round(kwargs['min_lat'])
+        self.ymax = np.round(kwargs['max_lat'])
+        self.Nx = int(((self.xmax-self.xmin)/.05)/self.hparams.resize_factor)
+        self.Ny = int(((self.ymax-self.ymin)/.05)/self.hparams.resize_factor)
+        self.lon = np.linspace(self.xmin, self.xmax, self.Nx)
+        self.lat = np.linspace(self.ymin, self.ymax, self.Ny)
+        self.shapeData = [self.hparams.dT*2,self.Ny,self.Nx]
         self.ds_size_time = kwargs['ds_size_time']
         self.ds_size_lon = kwargs['ds_size_lon']
         self.ds_size_lat = kwargs['ds_size_lat']
@@ -218,14 +221,15 @@ class LitModel(pl.LightningModule):
         self.mean_Val = kwargs['mean_Val']
         self.mean_Tr = kwargs['mean_Tr']
         self.mean_Tt = kwargs['mean_Tt']
+
         # main model
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
-            Phi_r(self.hparams.shapeData[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
+            Phi_r(self.shapeData[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
                   self.hparams.nbBlocks, self.hparams.dropout_phi_r, self.hparams.stochastic),
-            Model_H(self.hparams.shapeData[0]),
-            NN_4DVar.model_GradUpdateLSTM(self.hparams.shapeData, self.hparams.UsePriodicBoundary,
+            Model_H(self.shapeData[0]),
+            NN_4DVar.model_GradUpdateLSTM(self.shapeData, self.hparams.UsePriodicBoundary,
                                           self.hparams.dim_grad_solver, self.hparams.dropout),
-            None, None, self.hparams.shapeData, self.hparams.n_grad, self.hparams.stochastic)
+            None, None, self.shapeData, self.hparams.n_grad, self.hparams.stochastic)
 
         self.model_LR = ModelLR()
         self.gradient_img = Gradient_img()
@@ -490,17 +494,44 @@ class Model_HwithSST(torch.nn.Module):
 
 
 class LitModelWithSST(LitModel):
+
     def __init__(self, hparam, *args, **kwargs):
-        super().__init__(hparam, *args, **kwargs)
+        super().__init__()
+        hparams = hparam if isinstance(hparam, dict) else OmegaConf.to_container(hparam, resolve=True)
+        self.save_hyperparameters(hparams)
+        self.var_Val = kwargs['var_Val']
+        self.var_Tr = kwargs['var_Tr']
+        self.var_Tt = kwargs['var_Tt']
+
+        # create longitudes & latitudes coordinates
+        self.xmin = np.round(kwargs['min_lon'])
+        self.xmax = np.round(kwargs['max_lon'])
+        self.ymin = np.round(kwargs['min_lat'])
+        self.ymax = np.round(kwargs['max_lat'])
+        self.Nx = int(((self.xmax-self.xmin)/.05)/self.hparams.resize_factor)
+        self.Ny = int(((self.ymax-self.ymin)/.05)/self.hparams.resize_factor)
+        self.lon = np.linspace(self.xmin, self.xmax, self.Nx)
+        self.lat = np.linspace(self.ymin, self.ymax, self.Ny)
+        self.shapeData = [self.hparams.dT*2,self.Ny,self.Nx]
+        self.ds_size_time = kwargs['ds_size_time']
+        self.ds_size_lon = kwargs['ds_size_lon']
+        self.ds_size_lat = kwargs['ds_size_lat']
+
+        self.var_Val = kwargs['var_Val']
+        self.var_Tr = kwargs['var_Tr']
+        self.var_Tt = kwargs['var_Tt']
+        self.mean_Val = kwargs['mean_Val']
+        self.mean_Tr = kwargs['mean_Tr']
+        self.mean_Tt = kwargs['mean_Tt']
 
         # main model
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
-            Phi_r(self.hparams.shapeData[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
+            Phi_r(self.shapeData[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
                   self.hparams.nbBlocks, self.hparams.dropout_phi_r),
-            Model_HwithSST(self.hparams.shapeData[0], self.hparams.shapeData[0]),
-            NN_4DVar.model_GradUpdateLSTM(self.hparams.shapeData, self.hparams.UsePriodicBoundary,
+            Model_HwithSST(self.shapeData[0], self.shapeData[0]),
+            NN_4DVar.model_GradUpdateLSTM(self.shapeData, self.hparams.UsePriodicBoundary,
                                           self.hparams.dim_grad_solver, self.hparams.dropout),
-            None, None, self.hparams.shapeData, self.hparams.n_grad)
+            None, None, self.shapeData, self.hparams.n_grad)
 
     def configure_optimizers(self):
 

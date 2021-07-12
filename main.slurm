@@ -10,8 +10,8 @@
 #SBATCH --hint=nomultithread
 #SBATCH -C v100-16g
 #SBATCH --qos=qos_gpu-t3
-#SBATCH --output=log/%j.out
-#SBATCH --error=log/%j.err
+#SBATCH --output=log%j.out
+#SBATCH --error=log%j.err
 
 # activate conda env
 #source activate $1

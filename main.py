@@ -31,7 +31,6 @@ class FourDVarNetRunner:
             config = __import__("config_" + str(config))
 
         self.cfg = OmegaConf.create(config.params)
-        shapeData = self.cfg.shapeData
         w_ = np.zeros(self.cfg.dT)
         w_[int(self.cfg.dT / 2)] = 1.
         self.wLoss = torch.Tensor(w_)
@@ -73,17 +72,18 @@ class FourDVarNetRunner:
                 gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
                 gt_var='ssh',
                 sst_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_sst_y2013.1y.nc',
-                sst_var='sst'
+                sst_var='sst',
+                resize_factor=self.cfg.resize_factor,
             )
         else:
             # Specify the dataset spatial bounds
             dim_range = {
-                #'lat': slice(33, 43),
-                #'lon': slice(-65, -55),
+                'lat': slice(33, 43),
+                'lon': slice(-65, -55),
                 #'lat': slice(45., 55.),
                 #'lon': slice(-19.5, -11.5),
-                'lat': slice(27, 57),
-                'lon': slice(-77, 3)
+                #'lat': slice(27, 57),
+                #'lon': slice(-77, 3)
 
             }
 
@@ -109,6 +109,7 @@ class FourDVarNetRunner:
                 slice_win=slice_win,
                 dim_range=dim_range,
                 strides=strides,
+                resize_factor=self.cfg.resize_factor,
             )
 
         datamodule.setup()
@@ -190,7 +191,7 @@ class FourDVarNetRunner:
         :return:
         """
 
-        ckpt_path = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_318238/checkpoints/modelSLAInterpGF-Exp3-epoch=37-val_loss=0.12.ckpt'
+        #ckpt_path = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_318238/checkpoints/modelSLAInterpGF-Exp3-epoch=37-val_loss=0.12.ckpt'
 
         mod = self._get_model(ckpt_path=ckpt_path)
 
@@ -213,12 +214,14 @@ class FourDVarNetRunner:
         :param dataloader: Dataloader on which to run the test Checkpoint from which to resume
         :param trainer_kwargs: (Optional)
         """
-        #mod = _mod or self._get_model(ckpt_path=ckpt_path)
-        #ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_296714/checkpoints/modelSLAInterpGF-Exp3-epoch=98-val_loss=0.05.ckpt'
-        #ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_297967/checkpoints/modelSLAInterpGF-Exp3-epoch=39-val_loss=0.12.ckpt'
-        #ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_318238/checkpoints/modelSLAInterpGF-Exp3-epoch=37-val_loss=0.12.ckpt'
-        ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_319471/checkpoints/modelSLAInterpGF-Exp3-epoch=16-val_loss=0.11.ckpt'
-        mod = self._get_model(ckpt_path=ckpt_pth)
+
+        mod = _mod or self._get_model(ckpt_path=ckpt_path)
+        #ckpt_path = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_296714/checkpoints/modelSLAInterpGF-Exp3-epoch=98-val_loss=0.05.ckpt'
+        #ckpt_path = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_297967/checkpoints/modelSLAInterpGF-Exp3-epoch=39-val_loss=0.12.ckpt'
+        #ckpt_path = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_318238/checkpoints/modelSLAInterpGF-Exp3-epoch=37-val_loss=0.12.ckpt'
+        #ckpt_path = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_319471/checkpoints/modelSLAInterpGF-Exp3-epoch=16-val_loss=0.11.ckpt'
+        #mod = self._get_model(ckpt_path=ckpt_path)
+
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         num_gpus = torch.cuda.device_count()
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None

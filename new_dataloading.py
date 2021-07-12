@@ -9,7 +9,7 @@ class XrDataset(Dataset):
     torch Dataset based on an xarray file with on the fly slicing.
     """
 
-    def __init__(self, path, var, slice_win, dim_range=None, strides=None, decode=False):
+    def __init__(self, path, var, slice_win, dim_range=None, strides=None, decode=False, resize_factor=None):
         """
         :param path: xarray file
         :param var: data variable to fetch
@@ -26,6 +26,8 @@ class XrDataset(Dataset):
             _ds.time.attrs["units"] = "seconds since 2012-10-01"
             _ds = xr.decode_cf(_ds)
         self.ds = _ds.sel(**(dim_range or {}))
+        if resize_factor is not None:
+            self.ds = self.ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
         self.slice_win = slice_win
         self.strides = strides or {}
         self.ds_size = {
@@ -72,20 +74,21 @@ class FourDVarNetDataset(Dataset):
             gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
             gt_var='ssh',
             sst_path=None,
-            sst_var=None
+            sst_var=None,
+            resize_factor=None,
     ):
         super().__init__()
 
-        self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win, dim_range=dim_range, strides=strides)
-        self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win, dim_range=dim_range, strides=strides, decode=True)
+        self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win, dim_range=dim_range, strides=strides, resize_factor=resize_factor)
+        self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win, dim_range=dim_range, strides=strides, decode=True, resize_factor=resize_factor)
         self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win, dim_range=dim_range,
-                                     strides=strides)
+                                     strides=strides, resize_factor=resize_factor)
 
         self.norm_stats = None
 
         if sst_var == 'sst':
             self.sst_ds = XrDataset(sst_path, sst_var, slice_win=slice_win, dim_range=dim_range, strides=strides,
-                                    decode=True)
+                                    decode=True, resize_factor=resize_factor)
         else:
             self.sst_ds = None
         self.norm_stats_sst = None
@@ -141,12 +144,20 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             gt_var='ssh',
             sst_path=None,
             sst_var=None,
+            resize_factor=None,
             dl_kwargs=None,
     ):
         super().__init__()
-        self.slice_win = slice_win
+
+        self.resize_factor = resize_factor
         self.dim_range = dim_range
+        self.slice_win = slice_win
         self.strides = strides
+        if self.resize_factor is not None:
+            self.slice_win['lon'] = int(self.slice_win['lon']/self.resize_factor)
+            self.slice_win['lat'] = int(self.slice_win['lat']/self.resize_factor)
+            self.strides['lon'] = int(self.strides['lon']/self.resize_factor)
+            self.strides['lat'] = int(self.strides['lat']/self.resize_factor)
         self.dl_kwargs = {
             **{'batch_size': 2, 'num_workers': 2, 'pin_memory': True},
             **(dl_kwargs or {})
@@ -160,6 +171,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.gt_var = gt_var
         self.sst_path = sst_path
         self.sst_var = sst_var
+
+        self.resize_factor = resize_factor
 
         self.train_slices, self.test_slices, self.val_slices = train_slices, test_slices, val_slices
         self.train_ds, self.val_ds, self.test_ds = None, None, None
@@ -207,7 +220,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     gt_path=self.gt_path,
                     gt_var=self.gt_var,
                     sst_path=self.sst_path,
-                    sst_var=self.sst_var
+                    sst_var=self.sst_var,
+                    resize_factor=self.resize_factor,
                 ) for sl in slices]
             )
             for slices in (self.train_slices, self.val_slices, self.test_slices)
