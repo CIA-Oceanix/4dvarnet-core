@@ -1,27 +1,57 @@
 from models import *
 
 class LitModelStochastic(LitModel):
-        
+ 
+    def training_step(self, train_batch, batch_idx, optimizer_idx=0):
+
+        # compute loss and metrics    
+        loss, out, metrics = self.compute_loss(train_batch, phase='train')
+        self.log('val_loss', np.nanmean([loss[i].detach().cpu() for i in range(len(loss))]))
+        self.log("val_mse", np.nanmean([ metrics[i]['mse'].detach().cpu()/self.var_Tt for i in range(len(metrics)) ]),
+                on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val_mseG", np.nanmean([ metrics[i]['mseGrad'].detach().cpu()/metrics[i]['meanGrad'].detach().cpu()  for i in range(len(metrics)) ]),
+                on_step=False, on_epoch=True, prog_bar=True)
+
+        # initial grad value
+        if self.hparams.automatic_optimization == False:
+            opt = self.optimizers()
+            # backward
+            self.manual_backward(loss)
+
+            if (batch_idx + 1) % self.hparams.k_batch == 0:
+                # optimisation step
+                opt.step()
+
+                # grad initialization to zero
+                opt.zero_grad()
+
+        return torch.min(torch.stack(loss))
+
+    def validation_step(self, val_batch, batch_idx):
+        loss, out, metrics = self.compute_loss(val_batch, phase='val')
+        self.log('val_loss', np.nanmean([loss[i].detach().cpu() for i in range(len(loss))]))
+        self.log("val_mse", np.nanmean([ metrics[i]['mse'].detach().cpu()/self.var_Tt for i in range(len(metrics)) ]),
+            on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val_mseG", np.nanmean([ metrics[i]['mseGrad'].detach().cpu()/metrics[i]['meanGrad'].detach().cpu()  for i in range(len(metrics)) ]),
+            on_step=False, on_epoch=True, prog_bar=True)
+
+        return torch.min(torch.stack(loss)).detach()
+
+
     def test_step(self, test_batch, batch_idx):
 
         targets_OI, inputs_Mask, targets_GT = test_batch
-        loss = []
-        out = []
-        metrics = []
-        for i in range(self.hparams.size_ensemble):
-            loss_, out_, metrics_ = self.compute_loss(test_batch, phase='test')
-            if loss_ is not None:
-                loss.append(loss_)
-                metrics.append(metrics_)
-            self.log('test_loss', np.nanmean([loss[i].detach().cpu() for i in range(len(loss))]))
-            self.log("test_mse", np.nanmean([ metrics[i]['mse'].detach().cpu()/self.var_Tt for i in range(len(metrics)) ]),
+
+        loss, out, metrics = self.compute_loss(test_batch, phase='test')
+
+        self.log('test_loss', np.nanmean([loss[i].detach().cpu() for i in range(len(loss))]))
+        self.log("test_mse", np.nanmean([ metrics[i]['mse'].detach().cpu()/self.var_Tt for i in range(len(metrics)) ]),
                      on_step=False, on_epoch=True, prog_bar=True)
-            self.log("test_mseG", np.nanmean([ metrics[i]['mseGrad'].detach().cpu()/metrics[i]['meanGrad'].detach().cpu()  for i in range(len(metrics)) ]),
+        self.log("test_mseG", np.nanmean([ metrics[i]['mseGrad'].detach().cpu()/metrics[i]['meanGrad'].detach().cpu()  for i in range(len(metrics)) ]),
                      on_step=False, on_epoch=True, prog_bar=True)
-            out.append(out_)
         return {'gt' : targets_GT.detach().cpu(),
                 'oi' : targets_OI.detach().cpu(),
-                'preds' : torch.stack([out_.detach().cpu() for out_ in out],dim=-1)}
+                'preds' : out.detach().cpu()}
 
     def test_epoch_end(self, outputs):
 
@@ -65,25 +95,45 @@ class LitModelStochastic(LitModel):
 
         # display map
         path_save0 = self.logger.log_dir+'/maps.png'
-        plot_maps(gt[0,int(self.hparams.dT/2),:,:],
-                  oi[0,int(self.hparams.dT/2),:,:],
-                  pred[0,int(self.hparams.dT/2),:,:],
+        plot_maps(self.x_gt[0],
+                  self.x_oi[0],
+                  self.x_rec[0],
                   self.lon,self.lat,path_save0)
-        # save NetCDF
-        path_save1 = self.logger.log_dir+'/test.nc'
-        save_netcdf(saved_path1 = path_save1, pred = pred,
-            lon = self.lon,lat = self.lat, index_test = np.arange(60, 77))
         # compute nRMSE
         path_save2 = self.logger.log_dir+'/nRMSE.txt'
-        tab_scores = nrmse_scores(gt,oi,pred,path_save2)
+        tab_scores = nrmse_scores(self.x_gt,self.x_oi,self.x_rec,path_save2)
         print('*** Display nRMSE scores ***')
         print(tab_scores)
         # plot nRMSE
         path_save3 = self.logger.log_dir+'/nRMSE.png'
-        nrmse_fig = plot_nrmse(gt,oi,pred,path_save3,index_test = np.arange(60, 77))
+        nrmse_fig = plot_nrmse(self.x_gt,self.x_oi,self.x_rec,path_save3,index_test = np.arange(60, 81))
         self.logger.experiment.add_figure('NRMSE', nrmse_fig, global_step=self.current_epoch)
         # plot SNR
         path_save4 = self.logger.log_dir+'/SNR.png'
-        snr_fig = plot_snr(gt,oi,pred,path_save4)
+        snr_fig = plot_snr(self.x_gt,self.x_oi,self.x_rec,path_save4)
         self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
+        # save NetCDF
+        path_save1 = self.logger.log_dir+'/test.nc'
+        save_netcdf(saved_path1 = path_save1, pred = pred,
+            lon = self.lon,lat = self.lat, index_test = np.arange(60, 77))
+
+
+    def compute_loss(self, batch, phase):
+
+        targets_OI, inputs_Mask, targets_GT = batch
+        loss = []
+        out = []
+        metrics = []
+
+        for i in range(self.hparams.size_ensemble):
+
+            loss_, outputs_, metrics_ = super().compute_loss(batch, phase)
+            if loss_ is not None:
+                loss.append(loss_)
+                metrics.append(metrics_)
+            out.append(outputs_)
+
+        outputs = torch.stack([out_.detach().cpu() for out_ in out],dim=-1)
+
+        return loss, outputs, metrics
 
