@@ -201,15 +201,15 @@ def plot_maps(gt,oi,pred,lon,lat,resfile):
     return fig
 
 
-def animate_maps(gt,oi,pred,lon,lat,resfile):
+def animate_maps(gt,oi,pred,lon,lat,resfile,orthographic=True):
 
     def animate(i, fig, ax):
-        plot(ax,0,0,lon,lat,gt[i],'GT',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
-        plot(ax,0,1,lon,lat,gradient(gt[i],2),r"$\nabla_{GT}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax)
-        plot(ax,1,0,lon,lat,oi[i],'OI',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
-        plot(ax,1,1,lon,lat,gradient(oi[i],2),r"$\nabla_{OI}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax)
-        plot(ax,2,0,lon,lat,pred[i],'4DVarNet',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
-        plot(ax,2,1,lon,lat,gradient(pred[i],2),r"$\nabla_{4DVarNet}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax)
+        plot(ax,0,0,lon,lat,gt[i],'GT',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax,colorbar=False)
+        plot(ax,0,1,lon,lat,gradient(gt[i],2),r"$\nabla_{GT}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax,colorbar=False)
+        plot(ax,1,0,lon,lat,oi[i],'OI',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax,colorbar=False)
+        plot(ax,1,1,lon,lat,gradient(oi[i],2),r"$\nabla_{OI}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax,colorbar=False)
+        plot(ax,2,0,lon,lat,pred[i],'4DVarNet',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax,colorbar=False)
+        plot(ax,2,1,lon,lat,gradient(pred[i],2),r"$\nabla_{4DVarNet}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax,colorbar=False)
         return fig, ax
 
     vmax = np.nanmax(np.abs(pred))
@@ -218,8 +218,17 @@ def animate_maps(gt,oi,pred,lon,lat,resfile):
     grad_vmin = 0
     extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
 
-    fig, ax = plt.subplots(3,2,figsize=(15,10),\
+    if orthographic==False:
+        fig, ax = plt.subplots(3,2,figsize=(15,10),\
               subplot_kw=dict(projection=ccrs.PlateCarree(central_longitude=0.0)))
+    else:
+        fig, ax = plt.subplots(3,2,figsize=(15,10),\
+              subplot_kw=dict(projection=ccrs.Orthographic(-30, 45)))
+        for i in range(3):
+            for j in range(2):
+                ax[i][j].set_global()
+                #ax[i][j].add_feature(cfeature.LAND, zorder=0, edgecolor='black')
+                ax[i][j].gridlines()        
     plt.subplots_adjust(hspace=0.5)
     ani = animation.FuncAnimation(fig, animate, frames=np.arange(1,len(gt)), fargs=(fig,ax,), interval=1000, repeat=False)
     writer = animation.FFMpegWriter(fps=1, bitrate=5000)

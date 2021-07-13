@@ -1,6 +1,6 @@
 #!/bin/bash -l
 
-# SLURM SUBMIT SCRIPT
+
 #SBATCH --nodes=1
 #SBATCH --account=yrf@gpu
 #SBATCH --gres=gpu:1
@@ -24,6 +24,7 @@ conda activate 4dvarnet
 export PYTHONPATH=${WORK}/4dvarnet-core:${PYTHONPATH}
 
 # run script from above
-#srun python main.py --config=stochastic --dataloading=new --max_epochs=3 --progress_bar_refresh_rate=5 run
-srun python main.py --dataloading=new --max_epochs=1 test --progress_bar_refresh_rate=5
+#srun python main.py --config=stochastic --dataloading=new --max_epochs=25 --progress_bar_refresh_rate=5 run
+srun python main.py --dataloading=new --max_epochs=1 --progress_bar_refresh_rate=5 run
+
 
