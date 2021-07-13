@@ -8,8 +8,11 @@ Created on Fri May  1 15:38:05 2020
 
 import numpy as np
 import torch
-from torch import nn
+from torch import nn, einsum
 import torch.nn.functional as F
+from einops import rearrange, repeat
+from einops.layers.torch import Rearrange
+import vidTransformer
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class ConvLSTM2d(torch.nn.Module):
@@ -253,7 +256,89 @@ class model_GradUpdateLSTM(torch.nn.Module):
         grad = self.dropout( hidden )
         grad = self.convLayer( grad )
 
-        return grad,hidden,cell
+        return grad,hidden,cell   
+    
+class model_GradUpdateTransformer(torch.nn.Module):
+    def __init__(self,ShapeData,patch_size=10,channels=2,periodicBnd=False,rateDropout=0.):
+        """ Constructor.
+        
+        Args:
+            ShapeData: data shape
+            patch_size: the size of each patch when we split the frames.
+            channels: the number of channels of each frame.
+            pefiodicBnd: 
+            rateDropout: drop out rate.
+        """
+        super(model_GradUpdateTransformer, self).__init__()
+
+        self.channels = channels
+        self.patch_size = patch_size
+        with torch.no_grad():
+            self.shape = ShapeData
+            self.PeriodicBnd = periodicBnd
+            if( (self.PeriodicBnd == True) & (len(self.shape) == 2) ):
+                print('No periodic boundary available for FxTime (eg, L63) tensors. Forced to False')
+                self.PeriodicBnd = False
+
+        self.convLayer = self._make_ConvGrad()
+        K = torch.Tensor([0.1]).view(1,1,1,1)
+        self.convLayer.weight = torch.nn.Parameter(K)
+
+        self.dropout = torch.nn.Dropout(rateDropout)
+
+        self.vidTransformer = vidTransformer.VidTransformer(
+            image_size=self.shape[-1], patch_size=self.patch_size, 
+            num_frames=int(self.shape[0]/self.channels), in_channels=self.channels)
+
+    def _make_ConvGrad(self):
+        layers = []
+
+        if len(self.shape) == 2: ## 1D Data
+            layers.append(torch.nn.Conv1d(self.shape[0], self.shape[0], 1, padding=0,bias=False))
+        elif len(self.shape) == 3: ## 2D Data
+            layers.append(torch.nn.Conv2d(self.shape[0], self.shape[0], (1,1), padding=0,bias=False))
+
+        return torch.nn.Sequential(*layers)
+
+    def forward(self,hidden,cell,grad,gradnorm=1.0):
+        """
+        Forward pass.
+        
+        Args:
+            hidden, cell: unused, for compatibility purposes.
+            grad: the gradient of the variational loss. The size of grad is (NxCxWxH), with C is the 
+                concatenated of the channel and time dimensions. Specifically, we use two channels 
+                corresponding to two resolutions: L (low) and H(high). The dimision C is organized 
+                as follows: L(t-N)...L(t)...L(t+N)H(t-N)...H(t)...H(t+N).
+            gradnorm: normalization value.
+            
+        Returns:
+            grad_out: a Tensor of size (NxCxWxH), the computed gradient that will be used in gradient 
+            descent.
+            hidden, cell: unused, for compatibility purposes.
+        """
+        grad  = grad / gradnorm
+        grad  = self.dropout( grad )
+
+        # Disentangle time and channel
+        grad = rearrange(grad, 'n (c t) w h -> n t c w h', c=self.channels)
+        
+        # Periodic bound
+        if self.PeriodicBnd == True :
+            dB     = 7
+            grad  = torch.cat((grad[:,:,:,grad.size(2)-dB:,:],grad,grad[:,:,:,0:dB,:]),dim=2) # why only W????
+        
+        # Compute the gradident
+        grad_out, _ = self.vidTransformer(grad)
+        
+        # Reshape back to the original shape
+        grad_out = rearrange(grad_out, 'n t c w h -> n (c t) w h', c=self.channels)
+
+        # Conv head
+        grad_out = self.dropout(grad_out)
+        grad_out = self.convLayer(grad_out)
+
+        return grad_out,hidden,cell
 
 
 # New module for the definition/computation of the variational cost
