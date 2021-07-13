@@ -259,7 +259,7 @@ class model_GradUpdateLSTM(torch.nn.Module):
         return grad,hidden,cell   
     
 class model_GradUpdateTransformer(torch.nn.Module):
-    def __init__(self,ShapeData,patch_size=10,channels=2,periodicBnd=False,rateDropout=0.):
+    def __init__(self,ShapeData,patch_size=20,channels=2,periodicBnd=False,rateDropout=0.):
         """ Constructor.
         
         Args:
