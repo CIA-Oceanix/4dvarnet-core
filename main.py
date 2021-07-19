@@ -31,84 +31,25 @@ class FourDVarNetRunner:
             config = __import__("config_" + str(config))
 
         self.cfg = OmegaConf.create(config.params)
-        shapeData = self.cfg.shapeData
         w_ = np.zeros(self.cfg.dT)
         w_[int(self.cfg.dT / 2)] = 1.
         self.wLoss = torch.Tensor(w_)
 
+        dataloading = config.params['dataloading']
+
+        dim_range = config.dim_range
+        slice_win = config.slice_win
+        strides = config.strides
+
         if dataloading == "old":
             datamodule = LegacyDataLoading(self.cfg)
-        elif dataloading == "with_sst":
-            self.filename_chkpt = 'modelSLAInterpGF-withSST-Exp3-{epoch:02d}-{val_loss:.2f}'
-            # Specify the dataset spatial bounds
-            dim_range = {
-                'lat': slice(33, 43),
-                'lon': slice(-65, -55),
-            }
-
-            # Specify the batch patch size
-            slice_win = {
-                'time': 5,
-                'lat': 200,
-                'lon': 200,
-                # 'lat': 20,
-                # 'lon': 20,
-            }
-            # Specify the stride between two patches
-            strides = {
-                'time': 1,
-                'lat': 200,
-                'lon': 200,
-                # 'lat': 20,
-                # 'lon': 20,
-            }
-            datamodule = FourDVarNetDataModule(
-                slice_win=slice_win,
-                dim_range=dim_range,
-                strides=strides,
-                oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc',
-                oi_var='ssh_mod',
-                obs_mask_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/data/dataset_nadir_0d_swot.nc',
-                obs_mask_var='ssh_mod',
-                gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
-                gt_var='ssh',
-                sst_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_sst_y2013.1y.nc',
-                sst_var='sst'
-            )
         else:
-            # Specify the dataset spatial bounds
-            dim_range = {
-                #'lat': slice(33, 43),
-                #'lon': slice(-65, -55),
-                #'lat': slice(45., 55.),
-                #'lon': slice(-19.5, -11.5),
-                'lat': slice(27, 57),
-                'lon': slice(-77, 3)
-
-            }
-
-            # Specify the batch patch size
-            slice_win = {
-                'time': 5,
-                'lat': 200,
-                #'lon': 160,
-                'lon': 200,
-                #'lat': 20,
-                #'lon': 20,
-            }
-            # Specify the stride between two patches
-            strides = {
-                'time': 1,
-                'lat': 200,
-                #'lon': 160,
-                'lon': 200,
-                # 'lat': 20,
-                # 'lon': 20,
-            }
             datamodule = FourDVarNetDataModule(
                 slice_win=slice_win,
                 dim_range=dim_range,
                 strides=strides,
+                resize_factor=config.params['resize_factor'],
+                **config.params['files_cfg']
             )
 
         datamodule.setup()
@@ -135,12 +76,15 @@ class FourDVarNetRunner:
             self.var_Tr = datamodule.norm_stats[1] ** 2
             self.var_Tt = datamodule.norm_stats[1] ** 2
             self.var_Val = datamodule.norm_stats[1] ** 2
-            self.min_lon, self.max_lon, self.min_lat, self.max_lat = datamodule.bounding_box
+            self.min_lon = dim_range['lon'].start
+            self.max_lon = dim_range['lon'].stop
+            self.min_lat = dim_range['lat'].start
+            self.max_lat = dim_range['lat'].stop
             self.ds_size_time = datamodule.ds_size['time']
             self.ds_size_lon = datamodule.ds_size['lon']
             self.ds_size_lat = datamodule.ds_size['lat']
 
-        if self.cfg.stochastic == False:
+        if config.params['stochastic'] == False:
             self.lit_cls = LitModelWithSST if dataloading == "with_sst" else LitModel
         else:
             self.lit_cls = LitModelStochastic
@@ -190,8 +134,6 @@ class FourDVarNetRunner:
         :return:
         """
 
-        ckpt_path = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_318238/checkpoints/modelSLAInterpGF-Exp3-epoch=37-val_loss=0.12.ckpt'
-
         mod = self._get_model(ckpt_path=ckpt_path)
 
         checkpoint_callback = ModelCheckpoint(monitor='val_loss',
@@ -213,12 +155,9 @@ class FourDVarNetRunner:
         :param dataloader: Dataloader on which to run the test Checkpoint from which to resume
         :param trainer_kwargs: (Optional)
         """
-        #mod = _mod or self._get_model(ckpt_path=ckpt_path)
-        #ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_296714/checkpoints/modelSLAInterpGF-Exp3-epoch=98-val_loss=0.05.ckpt'
-        #ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_297967/checkpoints/modelSLAInterpGF-Exp3-epoch=39-val_loss=0.12.ckpt'
-        #ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_318238/checkpoints/modelSLAInterpGF-Exp3-epoch=37-val_loss=0.12.ckpt'
-        ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_319471/checkpoints/modelSLAInterpGF-Exp3-epoch=16-val_loss=0.11.ckpt'
-        mod = self._get_model(ckpt_path=ckpt_pth)
+
+        mod = _mod or self._get_model(ckpt_path=ckpt_path)
+
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         num_gpus = torch.cuda.device_count()
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None

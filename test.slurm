@@ -1,6 +1,6 @@
 #!/bin/bash -l
 
-
+# SLURM SUBMIT SCRIPT
 #SBATCH --nodes=1
 #SBATCH --account=yrf@gpu
 #SBATCH --gres=gpu:1
@@ -16,15 +16,22 @@
 # activate conda env
 #source activate $1
 
-module purge
 
-# chargement des modules
 eval "$(conda shell.bash hook)"
 conda activate 4dvarnet
 export PYTHONPATH=${WORK}/4dvarnet-core:${PYTHONPATH}
 
-# run script from above
-# config files stored in config_q --> examples: --config=q.nad_swot
+mr_ls() {
+	ls -t **/*$1/checkpoints | head -n1
+}
 
-srun python main.py --config=$1 --max_epochs=1 --progress_bar_refresh_rate=5 run
+test_most_recent_ckpt () {
+	ckpt_path="lightning_logs/version_$1/checkpoints/$(mr_ls $1)"
+	echo $ckpt_path
+	srun python main.py --ckpt_path=$ckpt_path --config=$2  test
+}
+
+test_most_recent_ckpt $1 $2
+
+
 

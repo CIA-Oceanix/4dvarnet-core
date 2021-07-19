@@ -9,7 +9,7 @@ class XrDataset(Dataset):
     torch Dataset based on an xarray file with on the fly slicing.
     """
 
-    def __init__(self, path, var, slice_win, dim_range=None, strides=None, decode=False):
+    def __init__(self, path, var, slice_win, dim_range=None, strides=None, decode=False, resize_factor=1):
         """
         :param path: xarray file
         :param var: data variable to fetch
@@ -26,6 +26,8 @@ class XrDataset(Dataset):
             _ds.time.attrs["units"] = "seconds since 2012-10-01"
             _ds = xr.decode_cf(_ds)
         self.ds = _ds.sel(**(dim_range or {}))
+        if resize_factor!=1:
+            self.ds = self.ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
         self.slice_win = slice_win
         self.strides = strides or {}
         self.ds_size = {
@@ -64,29 +66,30 @@ class FourDVarNetDataset(Dataset):
             slice_win,
             dim_range=None,
             strides=None,
-
             oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc',
             oi_var='ssh_mod',
-            obs_mask_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/data/dataset_nadir_0d_swot.nc',
+            obs_mask_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d_swot.nc',
             obs_mask_var='ssh_mod',
             # obs_mask_var='mask',
             gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
             gt_var='ssh',
             sst_path=None,
-            sst_var=None
+            sst_var=None,
+            resize_factor=1,
     ):
         super().__init__()
 
-        self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win, dim_range=dim_range, strides=strides)
-        self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win, dim_range=dim_range, strides=strides, decode=True)
+        self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win, dim_range=dim_range, strides=strides, resize_factor=resize_factor)
+        self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win, dim_range=dim_range, strides=strides, decode=True, resize_factor=resize_factor)
         self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win, dim_range=dim_range,
-                                     strides=strides)
+                                     strides=strides, resize_factor=resize_factor)
 
         self.norm_stats = None
 
-        if sst_var == 'sst':
-            self.sst_ds = XrDataset(sst_path, sst_var, slice_win=slice_win, dim_range=dim_range, strides=strides,
-                                    decode=True)
+        if sst_var is not None:
+            self.sst_ds = XrDataset(sst_path, sst_var, slice_win=slice_win,
+                                    dim_range=dim_range, strides=strides,
+                                    decode=sst_var == 'sst', resize_factor=resize_factor)
         else:
             self.sst_ds = None
         self.norm_stats_sst = None
@@ -106,22 +109,24 @@ class FourDVarNetDataset(Dataset):
             _oi_item,
             np.nan,
         ) - mean) / std
+
         _gt_item = (self.gt_ds[item] - mean) / std
         oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
         # obs_mask_item = self.obs_mask_ds[item].astype(bool) & ~np.isnan(oi_item) & ~np.isnan(_gt_item)
-        obs_mask_item = ~np.isnan(self.obs_mask_ds[item])
+        _obs_item = self.obs_mask_ds[item]
+        obs_mask_item = ~np.isnan(_obs_item)
+        obs_item = np.where(~np.isnan(_obs_item), _obs_item, np.zeros_like(_obs_item))
 
         gt_item = _gt_item
 
         if self.sst_ds == None:
-            return oi_item, obs_mask_item, gt_item
+            return oi_item, obs_mask_item, obs_item, gt_item
         else:
             mean, std = self.norm_stats_sst
             _sst_item = (self.sst_ds[item] - mean) / std
             sst_item = np.where(~np.isnan(_sst_item), _sst_item, 0.)
 
-            return oi_item, obs_mask_item, gt_item, sst_item
-
+            return oi_item, obs_mask_item, obs_item, gt_item, sst_item
 
 class FourDVarNetDataModule(pl.LightningDataModule):
     def __init__(
@@ -142,14 +147,17 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             gt_var='ssh',
             sst_path=None,
             sst_var=None,
+            resize_factor=1,
             dl_kwargs=None,
     ):
         super().__init__()
-        self.slice_win = slice_win
+
+        self.resize_factor = resize_factor
         self.dim_range = dim_range
+        self.slice_win = slice_win
         self.strides = strides
         self.dl_kwargs = {
-            **{'batch_size': 2, 'num_workers': 2, 'pin_memory': True},
+            **{'batch_size': 4, 'num_workers': 2, 'pin_memory': True},
             **(dl_kwargs or {})
         }
 
@@ -161,6 +169,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.gt_var = gt_var
         self.sst_path = sst_path
         self.sst_var = sst_var
+
+        self.resize_factor = resize_factor
 
         self.train_slices, self.test_slices, self.val_slices = train_slices, test_slices, val_slices
         self.train_ds, self.val_ds, self.test_ds = None, None, None
@@ -208,7 +218,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     gt_path=self.gt_path,
                     gt_var=self.gt_var,
                     sst_path=self.sst_path,
-                    sst_var=self.sst_var
+                    sst_var=self.sst_var,
+                    resize_factor=self.resize_factor,
                 ) for sl in slices]
             )
             for slices in (self.train_slices, self.val_slices, self.test_slices)

@@ -10,10 +10,10 @@ params = {
     'dT'              : 5, ## Time window of each space-time patch
     'dx'              : 1,   ## subsampling step if > 1
     'W'               : 200, # width/height of each space-time patch
-    'shapeData'       : [10, 200, 200],
+    'resize_factor'   : 2,
     'dW'              : 3,
     'dW2'             : 1,
-    'sS'              : 4,  # int(4/dx),
+    'sS'              : 4,  # int(5/dx), # !! must be compatible with original_size/resize_factor
     'nbBlocks'        : 1,
     'Nbpatches'       : 1, #10#10#25 ## number of patches extracted from each time-step 
 
@@ -21,7 +21,7 @@ params = {
     'stochastic'      : False,
 
     # animation maps 
-    'animate'         : True,
+    'animate'         : False,
 
     # NN architectures and optimization parameters
     'batch_size'      : 2, #16#4#4#8#12#8#256#
