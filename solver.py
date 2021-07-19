@@ -375,10 +375,12 @@ class Solver_Grad_4DVarNN(nn.Module):
             normgrad_= normgrad
         grad, hidden, cell = self.model_Grad(hidden, cell, var_cost_grad, normgrad_)
         grad *= 1./ self.n_grad
+        '''
         if self.stochastic == True:
             W = torch.randn(x_k.shape).to(device)
             gW = torch.mul(self.regularize_variance(x_k),self.correlate_noise(W))
             grad = grad + gW
+        '''
         x_k_plus_1 = x_k - grad
         return x_k_plus_1, hidden, cell, normgrad_
 

@@ -9,7 +9,7 @@ class XrDataset(Dataset):
     torch Dataset based on an xarray file with on the fly slicing.
     """
 
-    def __init__(self, path, var, slice_win, dim_range=None, strides=None, decode=False, resize_factor=None):
+    def __init__(self, path, var, slice_win, dim_range=None, strides=None, decode=False, resize_factor=1):
         """
         :param path: xarray file
         :param var: data variable to fetch
@@ -26,7 +26,7 @@ class XrDataset(Dataset):
             _ds.time.attrs["units"] = "seconds since 2012-10-01"
             _ds = xr.decode_cf(_ds)
         self.ds = _ds.sel(**(dim_range or {}))
-        if resize_factor is not None:
+        if resize_factor!=1:
             self.ds = self.ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
         self.slice_win = slice_win
         self.strides = strides or {}
@@ -68,14 +68,14 @@ class FourDVarNetDataset(Dataset):
             strides=None,
             oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc',
             oi_var='ssh_mod',
-            obs_mask_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/data/dataset_nadir_0d_swot.nc',
+            obs_mask_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d_swot.nc',
             obs_mask_var='ssh_mod',
             # obs_mask_var='mask',
             gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
             gt_var='ssh',
             sst_path=None,
             sst_var=None,
-            resize_factor=None,
+            resize_factor=1,
     ):
         super().__init__()
 
@@ -86,9 +86,10 @@ class FourDVarNetDataset(Dataset):
 
         self.norm_stats = None
 
-        if sst_var == 'sst':
-            self.sst_ds = XrDataset(sst_path, sst_var, slice_win=slice_win, dim_range=dim_range, strides=strides,
-                                    decode=True, resize_factor=resize_factor)
+        if sst_var is not None:
+            self.sst_ds = XrDataset(sst_path, sst_var, slice_win=slice_win,
+                                    dim_range=dim_range, strides=strides,
+                                    decode=sst_var == 'sst', resize_factor=resize_factor)
         else:
             self.sst_ds = None
         self.norm_stats_sst = None
@@ -108,22 +109,24 @@ class FourDVarNetDataset(Dataset):
             _oi_item,
             np.nan,
         ) - mean) / std
+
         _gt_item = (self.gt_ds[item] - mean) / std
         oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
         # obs_mask_item = self.obs_mask_ds[item].astype(bool) & ~np.isnan(oi_item) & ~np.isnan(_gt_item)
-        obs_mask_item = ~np.isnan(self.obs_mask_ds[item])
+        _obs_item = self.obs_mask_ds[item]
+        obs_mask_item = ~np.isnan(_obs_item)
+        obs_item = np.where(~np.isnan(_obs_item), _obs_item, np.zeros_like(_obs_item))
 
         gt_item = _gt_item
 
         if self.sst_ds == None:
-            return oi_item, obs_mask_item, gt_item
+            return oi_item, obs_mask_item, obs_item, gt_item
         else:
             mean, std = self.norm_stats_sst
             _sst_item = (self.sst_ds[item] - mean) / std
             sst_item = np.where(~np.isnan(_sst_item), _sst_item, 0.)
 
-            return oi_item, obs_mask_item, gt_item, sst_item
-
+            return oi_item, obs_mask_item, obs_item, gt_item, sst_item
 
 class FourDVarNetDataModule(pl.LightningDataModule):
     def __init__(
@@ -144,7 +147,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             gt_var='ssh',
             sst_path=None,
             sst_var=None,
-            resize_factor=None,
+            resize_factor=1,
             dl_kwargs=None,
     ):
         super().__init__()
@@ -153,13 +156,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.dim_range = dim_range
         self.slice_win = slice_win
         self.strides = strides
-        if self.resize_factor is not None:
-            self.slice_win['lon'] = int(self.slice_win['lon']/self.resize_factor)
-            self.slice_win['lat'] = int(self.slice_win['lat']/self.resize_factor)
-            self.strides['lon'] = int(self.strides['lon']/self.resize_factor)
-            self.strides['lat'] = int(self.strides['lat']/self.resize_factor)
         self.dl_kwargs = {
-            **{'batch_size': 2, 'num_workers': 2, 'pin_memory': True},
+            **{'batch_size': 4, 'num_workers': 2, 'pin_memory': True},
             **(dl_kwargs or {})
         }
 

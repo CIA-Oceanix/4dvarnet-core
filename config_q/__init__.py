@@ -1,4 +1,33 @@
+# Specify the dataset spatial bounds
+dim_range = {
+    'lat': slice(33, 43),
+    'lon': slice(-65, -55),
+
+}
+# Specify the batch patch size
+slice_win = {
+    'time': 5,
+    'lat': 200,
+    'lon': 200,
+}
+# Specify the stride between two patches
+strides = {
+    'time': 1,
+    'lat': 200,
+    'lon': 200,
+}
+
+
 params = {
+    'files_cfg' : dict(
+                oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_4nadir.nc',
+                oi_var='ssh_mod',
+                obs_mask_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d_swot.nc',
+                obs_mask_var='ssh_mod',
+                gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
+                gt_var='ssh',
+        ),
+    'dataloading': 'new',
     'data_dir'        : '/gpfsscratch/rech/nlu/commun/large',
     'dir_save'        : '/gpfsscratch/rech/nlu/commun/large/results_maxime',
 
@@ -10,7 +39,8 @@ params = {
     'dT'              : 5, ## Time window of each space-time patch
     'dx'              : 1,   ## subsampling step if > 1
     'W'               : 200, # width/height of each space-time patch
-    'resize_factor'   : 2,
+    'resize_factor'   : 1,
+    'shapeData'       : [10, 200, 200],
     'dW'              : 3,
     'dW2'             : 1,
     'sS'              : 4,  # int(4/dx),
@@ -18,8 +48,9 @@ params = {
     'Nbpatches'       : 1, #10#10#25 ## number of patches extracted from each time-step 
 
     # stochastic version
-    'stochastic'      : True,
+    'stochastic'      : False,
     'size_ensemble'   : 3,
+
 
     # animation maps 
     'animate'         : False,
@@ -51,3 +82,4 @@ params = {
     'automatic_optimization' : True,
 
 }
+

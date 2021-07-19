@@ -106,7 +106,6 @@ class RegularizeVariance(torch.nn.Module):
         v = self.conv3(v).to(device)
         return v
 
-
 class Phi_r(torch.nn.Module):
     def __init__(self, shapeData, DimAE, dW, dW2, sS, nbBlocks, rateDr, stochastic=False):
         super(Phi_r, self).__init__()
@@ -119,15 +118,14 @@ class Phi_r(torch.nn.Module):
     def forward(self, x):
         x = self.encoder(x)
         x = self.decoder(x)
-        '''
         if self.stochastic == True:
             W = torch.randn(x.shape).to(device)
             #  g(W) = alpha(x)*h(W)
-            # gW = torch.mul(self.regularize_variance(x),self.correlate_noise(W))
-            gW = self.correlate_noise(W)
+            gW = torch.mul(self.regularize_variance(x),self.correlate_noise(W))
+            # variance
+            gW = gW/torch.std(gW)
             # print(stats.describe(gW.detach().cpu().numpy()))
             x = x + gW
-        '''
         return x
 
 class Model_H(torch.nn.Module):
@@ -202,10 +200,10 @@ class LitModel(pl.LightningModule):
         self.var_Tt = kwargs['var_Tt']
 
         # create longitudes & latitudes coordinates
-        self.xmin = np.round(kwargs['min_lon'])
-        self.xmax = np.round(kwargs['max_lon'])
-        self.ymin = np.round(kwargs['min_lat'])
-        self.ymax = np.round(kwargs['max_lat'])
+        self.xmin = kwargs['min_lon']
+        self.xmax = kwargs['max_lon']
+        self.ymin = kwargs['min_lat']
+        self.ymax = kwargs['max_lat']
         self.Nx = int(((self.xmax-self.xmin)/.05)/self.hparams.resize_factor)
         self.Ny = int(((self.ymax-self.ymin)/.05)/self.hparams.resize_factor)
         self.lon = np.linspace(self.xmin, self.xmax, self.Nx)
@@ -316,7 +314,7 @@ class LitModel(pl.LightningModule):
 
     def test_step(self, test_batch, batch_idx):
 
-        targets_OI, inputs_Mask, targets_GT = test_batch
+        targets_OI, inputs_Mask, inputs_obs, targets_GT = test_batch
         loss, out, metrics = self.compute_loss(test_batch, phase='test')
         if loss is not None:
             self.log('test_loss', loss)
@@ -357,8 +355,8 @@ class LitModel(pl.LightningModule):
         path_save0 = self.logger.log_dir + '/maps.png'
         fig_maps = plot_maps(
                 self.x_gt[0],
-                  self.x_oi[0]+self.x_gt[0]-self.x_gt[0],
-                  self.x_rec[0]+self.x_gt[0]-self.x_gt[0],
+                  self.x_oi[0],
+                  self.x_rec[0],
                   self.lon, self.lat, path_save0)
         self.test_figs['maps'] = fig_maps
         # animate maps
@@ -381,13 +379,13 @@ class LitModel(pl.LightningModule):
 
         # plot nRMSE
         path_save3 = self.logger.log_dir + '/nRMSE.png'
-        nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, index_test=np.arange(96, 96+self.ds_size_time))
+        nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, index_test=np.arange(60, 60+self.ds_size_time))
         self.test_figs['nrmse'] = nrmse_fig
 
         # plot MSE
         path_save31 = self.logger.log_dir + '/MSE.png'
         mse_fig = plot_mse(self.x_gt, self.x_oi, self.x_rec, path_save31,
-                               index_test=np.arange(96, 96 + self.ds_size_time))
+                               index_test=np.arange(60, 60 + self.ds_size_time))
         self.test_figs['mse'] = mse_fig
         self.logger.experiment.add_figure('Maps', fig_maps, global_step=self.current_epoch)
         self.logger.experiment.add_figure('NRMSE', nrmse_fig, global_step=self.current_epoch)
@@ -406,7 +404,7 @@ class LitModel(pl.LightningModule):
 
     def compute_loss(self, batch, phase):
 
-        targets_OI, inputs_Mask, targets_GT = batch
+        targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:
             return (
@@ -417,8 +415,8 @@ class LitModel(pl.LightningModule):
             )
         new_masks = torch.cat((1. + 0. * inputs_Mask, inputs_Mask), dim=1)
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
-        inputs_init = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
-        inputs_missing = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
+        inputs_init = torch.cat((targets_OI, inputs_obs), dim=1)
+        inputs_missing = torch.cat((targets_OI, inputs_obs), dim=1)
 
         # gradient norm field
         g_targets_GT = self.gradient_img(targets_GT)
@@ -504,10 +502,10 @@ class LitModelWithSST(LitModel):
         self.var_Tt = kwargs['var_Tt']
 
         # create longitudes & latitudes coordinates
-        self.xmin = np.round(kwargs['min_lon'])
-        self.xmax = np.round(kwargs['max_lon'])
-        self.ymin = np.round(kwargs['min_lat'])
-        self.ymax = np.round(kwargs['max_lat'])
+        self.xmin = kwargs['min_lon']
+        self.xmax = kwargs['max_lon']
+        self.ymin = kwargs['min_lat']
+        self.ymax = kwargs['max_lat']
         self.Nx = int(((self.xmax-self.xmin)/.05)/self.hparams.resize_factor)
         self.Ny = int(((self.ymax-self.ymin)/.05)/self.hparams.resize_factor)
         self.lon = np.linspace(self.xmin, self.xmax, self.Nx)
@@ -562,7 +560,7 @@ class LitModelWithSST(LitModel):
 
     def test_step(self, test_batch, batch_idx):
 
-        targets_OI, inputs_Mask, targets_GT, sst_GT = test_batch
+        targets_OI, inputs_Mask,  input_obs, targets_GT, sst_GT = test_batch
         loss, out, metrics = self.compute_loss(test_batch, phase='test')
         if loss is not None:
             self.log('test_loss', loss)
@@ -574,7 +572,7 @@ class LitModelWithSST(LitModel):
 
     def compute_loss(self, batch, phase):  ## to be updated
 
-        targets_OI, inputs_Mask, targets_GT, sst_GT = batch
+        targets_OI, inputs_Mask,  input_obs, targets_GT, sst_GT = batch
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:
             return (
@@ -584,13 +582,10 @@ class LitModelWithSST(LitModel):
                       ('mseGOI', 0.)])
             )
         new_masks = torch.cat((1. + 0. * inputs_Mask, inputs_Mask), dim=1)
-        # inputs_init = torch.cat((targets_OI, inputs_Mask * (targets_GT - targets_OI)), dim=1)
-        # inputs_missing = torch.cat((targets_OI, inputs_Mask * (targets_GT - targets_OI)), dim=1)
         mask_SST = 1. + 0. * sst_GT
-
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
-        inputs_init = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
-        inputs_missing = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
+        inputs_init = torch.cat((targets_OI, input_obs), dim=1)
+        inputs_missing = torch.cat((targets_OI, input_obs), dim=1)
 
         # gradient norm field
         g_targets_GT = self.gradient_img(targets_GT)

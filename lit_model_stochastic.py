@@ -40,7 +40,7 @@ class LitModelStochastic(LitModel):
 
     def test_step(self, test_batch, batch_idx):
 
-        targets_OI, inputs_Mask, targets_GT = test_batch
+        targets_OI, inputs_Mask, input_obs, targets_GT = test_batch
 
         loss, out, metrics = self.compute_loss(test_batch, phase='test')
 
@@ -120,7 +120,7 @@ class LitModelStochastic(LitModel):
 
     def compute_loss(self, batch, phase):
 
-        targets_OI, inputs_Mask, targets_GT = batch
+        targets_OI, inputs_Mask, input_obs, targets_GT = batch
         loss = []
         out = []
         metrics = []
