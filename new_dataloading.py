@@ -66,9 +66,10 @@ class FourDVarNetDataset(Dataset):
             strides=None,
             oi_path='/gpfsscratch/rech/nlu/commun/large/ssh_NATL60_swot_4nadir.nc',
             oi_var='ssh_mod',
+            obs_target_mask_path='/gpfsscratch/rech/nlu/commun/large/dataset_nadir_0d_swot.nc',
+            obs_target_mask_var='ssh_mod',
             obs_mask_path='/gpfsscratch/rech/nlu/commun/large/dataset_nadir_0d_swot.nc',
             obs_mask_var='ssh_mod',
-            # obs_mask_var='mask',
             gt_path='/gpfsscratch/rech/nlu/commun/large/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
             gt_var='ssh',
             sst_path=None,
@@ -80,6 +81,8 @@ class FourDVarNetDataset(Dataset):
         self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win, dim_range=dim_range, strides=strides)
         self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win, dim_range=dim_range, strides=strides, decode=True)
         self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win, dim_range=dim_range,
+                                     strides=strides)
+        self.obs_target_mask_ds = XrDataset(obs_target_mask_path, obs_target_mask_var, slice_win=slice_win, dim_range=dim_range,
                                      strides=strides)
 
         self.norm_stats = None
@@ -113,16 +116,21 @@ class FourDVarNetDataset(Dataset):
         obs_mask_item = ~np.isnan(_obs_item)
         obs_item = np.where(~np.isnan(_obs_item), _obs_item, np.zeros_like(_obs_item))
 
+        _obs_target_item = self.obs_target_mask_ds[item]
+        obs_target_mask_item = ~np.isnan(_obs_target_item)
+        obs_target_item = np.where(~np.isnan(_obs_target_item), _obs_target_item, np.zeros_like(_obs_target_item))
+
         gt_item = _gt_item
 
+        # TODO: return target obs item
         if self.sst_ds == None:
-            return oi_item, obs_mask_item, obs_item, gt_item
+            return oi_item, obs_mask_item, obs_item, obs_target_item, gt_item
         else:
             mean, std = self.norm_stats_sst
             _sst_item = (self.sst_ds[item] - mean) / std
             sst_item = np.where(~np.isnan(_sst_item), _sst_item, 0.)
 
-            return oi_item, obs_mask_item, obs_item, gt_item, sst_item
+            return oi_item, obs_mask_item, obs_item, obs_target_item, gt_item, sst_item
 
 
 class FourDVarNetDataModule(pl.LightningDataModule):

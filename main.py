@@ -14,12 +14,14 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 import solver as NN_4DVar
 from lit_model_stochastic import LitModelStochastic
-from models import Gradient_img, LitModel, LitModelWithSST
-from new_dataloading import FourDVarNetDataModule
+# from models import Gradient_img, LitModel, LitModelWithSST
+# from new_dataloading import FourDVarNetDataModule
+import models
+import new_dataloading
 from old_dataloading import LegacyDataLoading
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-gradient_img = Gradient_img()
+gradient_img = models.Gradient_img()
 
 
 class FourDVarNetRunner:
@@ -46,7 +48,7 @@ class FourDVarNetRunner:
             datamodule = LegacyDataLoading(self.cfg)
         else:
 
-            datamodule = FourDVarNetDataModule(
+            datamodule = new_dataloading.FourDVarNetDataModule(
                 slice_win=slice_win,
                 dim_range=dim_range,
                 strides=strides,
@@ -82,9 +84,9 @@ class FourDVarNetRunner:
             self.ds_size_time = datamodule.ds_size['time']
             self.ds_size_lon = datamodule.ds_size['lon']
             self.ds_size_lat = datamodule.ds_size['lat']
-
+        # TODO: get lit_cls from config
         if self.cfg.stochastic == False:
-            self.lit_cls = LitModelWithSST if dataloading == "with_sst" else LitModel
+            self.lit_cls = models.LitModelWithSST if dataloading == "with_sst" else models.LitModel
         else:
             self.lit_cls = LitModelStochastic
 
@@ -104,9 +106,9 @@ class FourDVarNetRunner:
         :param ckpt_path: (Optional) Checkpoint path to load
         :return: lightning module
         """
-
+        # TODO: do not pass norm stat if ckpt is provided
         if ckpt_path:
-            mod = self.lit_cls.load_from_checkpoint(ckpt_path, w_loss=self.wLoss,
+            mod = self.lit_cls.load_from_checkpoint(ckpt_path, hparam=OmegaConf.to_container(self.cfg), w_loss=self.wLoss,
                                                     mean_Tr=self.mean_Tr, mean_Tt=self.mean_Tt, mean_Val=self.mean_Val,
                                                     var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val,
                                                     min_lon=self.min_lon, max_lon=self.max_lon,

@@ -194,6 +194,7 @@ class LitModel(pl.LightningModule):
         super().__init__()
         hparams = hparam if isinstance(hparam, dict) else OmegaConf.to_container(hparam, resolve=True)
         self.save_hyperparameters(hparams)
+        # TODO: set those parameters only if provided
         self.var_Val = kwargs['var_Val']
         self.var_Tr = kwargs['var_Tr']
         self.var_Tt = kwargs['var_Tt']
@@ -208,6 +209,13 @@ class LitModel(pl.LightningModule):
         self.ds_size_time = kwargs['ds_size_time']
         self.ds_size_lon = kwargs['ds_size_lon']
         self.ds_size_lat = kwargs['ds_size_lat']
+
+        self.var_Val = kwargs['var_Val']
+        self.var_Tr = kwargs['var_Tr']
+        self.var_Tt = kwargs['var_Tt']
+        self.mean_Val = kwargs['mean_Val']
+        self.mean_Tr = kwargs['mean_Tr']
+        self.mean_Tt = kwargs['mean_Tt']
 
         # main model
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
@@ -303,15 +311,15 @@ class LitModel(pl.LightningModule):
 
     def test_step(self, test_batch, batch_idx):
 
-        targets_OI, inputs_Mask, inputs_obs, targets_GT = test_batch
+        targets_OI, inputs_Mask, inputs_obs, obs_target_item, targets_GT = batch
         loss, out, metrics = self.compute_loss(test_batch, phase='test')
         if loss is not None:
             self.log('test_loss', loss)
             self.log("test_mse", metrics['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
-        return {'gt': targets_GT.detach().cpu(),
-                'oi': targets_OI.detach().cpu(),
-                'preds': out.detach().cpu()}
+        return {'gt'    : (targets_GT.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'oi'    : (targets_OI.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'preds' : (out.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def test_epoch_end(self, outputs):
 
@@ -356,6 +364,7 @@ class LitModel(pl.LightningModule):
                          self.lon, self.lat, path_save0)
             # save NetCDF
         path_save1 = self.logger.log_dir + '/test.nc'
+        # TODO: replace hardcoded 60
         save_netcdf(saved_path1=path_save1, pred=pred,
                     lon=self.lon, lat=self.lat, index_test=np.arange(60, 60 + ds_size['time']))
         # compute nRMSE
@@ -364,6 +373,7 @@ class LitModel(pl.LightningModule):
         print('*** Display nRMSE scores ***')
         print(tab_scores)
         # plot nRMSE
+        # TODO: replace hardcoded 60
         path_save3 = self.logger.log_dir + '/nRMSE.png'
         nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, index_test=np.arange(60, 60 + ds_size['time']))
         self.test_figs['nrmse'] = nrmse_fig
@@ -376,9 +386,20 @@ class LitModel(pl.LightningModule):
 
         self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
 
-    def compute_loss(self, batch, phase):
+        # TODO: Compute metrics on swath
 
-        targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
+    def compute_loss(self, batch, phase):
+        """
+        The state I want to consider is
+
+        [
+            Low res field 
+            obs: Nad + swot + roll 
+            anomaly full field
+            anomaly swath
+        ]
+        """
+        targets_OI, inputs_Mask, inputs_obs, target_obs_GT, targets_GT = batch
         #targets_OI, inputs_Mask, targets_GT = batch
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:
@@ -391,9 +412,11 @@ class LitModel(pl.LightningModule):
         new_masks = torch.cat((1. + 0. * inputs_Mask, inputs_Mask), dim=1)
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
         inputs_init = torch.cat((targets_OI, inputs_obs), dim=1)
+        # TODO: create state with anomaly full and anomaly swath (pad with zeros)
 
         #inputs_init = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
         inputs_missing = torch.cat((targets_OI, inputs_obs), dim=1)
+        # TODO: Add state with zeros
 
         # gradient norm field
         g_targets_GT = self.gradient_img(targets_GT)
@@ -407,6 +430,7 @@ class LitModel(pl.LightningModule):
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
 
+            # TODO: reconstruct outputs, outputs LowRes and outputSwath MegaRes
             outputsSLRHR = outputs
             outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
             outputs = outputsSLR + outputs[:, self.hparams.dT:, :, :]
@@ -414,6 +438,7 @@ class LitModel(pl.LightningModule):
             # reconstruction losses
             g_outputs = self.gradient_img(outputs)
             loss_All = NN_4DVar.compute_WeightedLoss((outputs - targets_GT), self.w_loss)
+            # TODO: add loss term computed on obs (outputs swath - obs_target)
 
             loss_GAll = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_GT, self.w_loss)
             loss_OI = NN_4DVar.compute_WeightedLoss(targets_GT - targets_OI, self.w_loss)
@@ -434,6 +459,7 @@ class LitModel(pl.LightningModule):
             loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
             loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
             loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
+            # TODO: Add loss term
 
             # metrics
             mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_GT, self.w_loss)
@@ -441,6 +467,7 @@ class LitModel(pl.LightningModule):
             mseGrad = loss_GAll.detach()
             metrics = dict([('mse', mse), ('mseGrad', mseGrad), ('meanGrad', mean_GAll), ('mseOI', loss_OI.detach()),
                             ('mseGOI', loss_GOI.detach())])
+            # TODO: Add new loss term to metrics
 
         return loss, outputs, metrics
 
@@ -470,8 +497,8 @@ class Model_HwithSST(torch.nn.Module):
 
 class LitModelWithSST(LitModel):
     def __init__(self, hparam, *args, **kwargs):
+        print(hparam)
         super().__init__(hparam, *args, **kwargs)
-
         # main model
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
             Phi_r(self.hparams.shapeData[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
@@ -510,20 +537,20 @@ class LitModelWithSST(LitModel):
 
     def test_step(self, test_batch, batch_idx):
 
-        targets_OI, inputs_Mask, input_obs, targets_GT, sst_GT = test_batch
+        targets_OI, inputs_Mask, input_obs, target_obs_GT, targets_GT, sst_GT = test_batch
         loss, out, metrics = self.compute_loss(test_batch, phase='test')
         if loss is not None:
             self.log('test_loss', loss)
             self.log("test_mse", metrics['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
-        return {'gt': targets_GT.detach().cpu(),
-                'oi': targets_OI.detach().cpu(),
-                'preds': out.detach().cpu()}
+        return {'gt'    : (targets_GT.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'oi'    : (targets_OI.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'preds' : (out.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def compute_loss(self, batch, phase):  ## to be updated
 
 
-        targets_OI, inputs_Mask, input_obs, targets_GT, sst_GT = batch
+        targets_OI, inputs_Mask, input_obs, target_obs_GT, targets_GT, sst_GT = batch
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:
             return (
