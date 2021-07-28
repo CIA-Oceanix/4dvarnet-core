@@ -33,7 +33,7 @@ class FourDVarNetRunner:
             config = __import__("config_" + str(config))
 
         self.cfg = OmegaConf.create(config.params)
-        shapeData = self.cfg.shapeData
+        shape_state = self.cfg.shape_state
         w_ = np.zeros(self.cfg.dT)
         w_[int(self.cfg.dT / 2)] = 1.
         self.wLoss = torch.Tensor(w_)
@@ -43,7 +43,7 @@ class FourDVarNetRunner:
         dim_range = config.dim_range
         slice_win = config.slice_win
         strides = config.strides
-
+        self.test_dates = config.test_dates
         if dataloading == "old":
             datamodule = LegacyDataLoading(self.cfg)
         else:
@@ -53,6 +53,7 @@ class FourDVarNetRunner:
                 dim_range=dim_range,
                 strides=strides,
                 **config.params['files_cfg'],
+                **config.params['splits'],
             )
 
 
@@ -84,7 +85,6 @@ class FourDVarNetRunner:
             self.ds_size_time = datamodule.ds_size['time']
             self.ds_size_lon = datamodule.ds_size['lon']
             self.ds_size_lat = datamodule.ds_size['lat']
-        # TODO: get lit_cls from config
         if self.cfg.stochastic == False:
             self.lit_cls = models.LitModelWithSST if dataloading == "with_sst" else models.LitModel
         else:
@@ -106,14 +106,9 @@ class FourDVarNetRunner:
         :param ckpt_path: (Optional) Checkpoint path to load
         :return: lightning module
         """
-        # TODO: do not pass norm stat if ckpt is provided
+        # PENDING: do not pass norm stat if ckpt is provided
         if ckpt_path:
-            mod = self.lit_cls.load_from_checkpoint(ckpt_path, hparam=OmegaConf.to_container(self.cfg), w_loss=self.wLoss,
-                                                    mean_Tr=self.mean_Tr, mean_Tt=self.mean_Tt, mean_Val=self.mean_Val,
-                                                    var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val,
-                                                    min_lon=self.min_lon, max_lon=self.max_lon,
-                                                    min_lat=self.min_lat, max_lat=self.max_lat,
-                                                    ds_size_time=self.ds_size_time,
+            mod = self.lit_cls.load_from_checkpoint(ckpt_path, ds_size_time=self.ds_size_time, test_dates=test_dates,
                                                     ds_size_lon=self.ds_size_lon,
                                                     ds_size_lat=self.ds_size_lat)
         else:

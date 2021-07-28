@@ -1,3 +1,6 @@
+import pandas as pd
+
+dT = 5
 # Specify the dataset spatial bounds
 dim_range = {
     'lat': slice(33, 43),
@@ -18,7 +21,7 @@ strides = {
     'lon': 200,
 }
 
-
+test_dates = pd.date_range('2013-01-03', "2013-01-27")
 params = {
     'files_cfg' : dict(
                 oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_4nadir.nc',
@@ -28,6 +31,12 @@ params = {
                 gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
                 gt_var='ssh',
         ),
+    'splits':dict(
+            train_slices=(slice('2012-10-01', "2012-11-20"), slice('2013-02-07', "2013-09-30")),
+            test_slices=(slice(test_dates[0], test_dates[1]),),
+            val_slices=(slice('2012-11-30', "2012-12-24"),),
+    ),
+    'test_dates': test_dates,
     'dataloading': 'new',
     'data_dir'        : '/gpfsscratch/rech/nlu/commun/large',
     'dir_save'        : '/gpfsscratch/rech/nlu/commun/large/results_maxime',
@@ -37,10 +46,11 @@ params = {
     'lr_update'       : [1e-3, 1e-4, 1e-3, 1e-4, 1e-4, 1e-5, 1e-5, 1e-6, 1e-7],
     'k_batch'         : 1,
     'n_grad'          : 5,
-    'dT'              : 5, ## Time window of each space-time patch
+    'dT'              : dT, ## Time window of each space-time patch
     'dx'              : 1,   ## subsampling step if > 1
     'W'               : 200, # width/height of each space-time patch
-    'shapeData'       : [10, 200, 200],
+    'shape_state'       : [dT * 4, 200, 200],
+    'shapeObs'       : [dT * 2, 200, 200],
     'dW'              : 3,
     'dW2'             : 1,
     'sS'              : 4,  # int(4/dx),

@@ -45,7 +45,7 @@ config = __import__("config_q.nad_sst")
 
 
 cfg = OmegaConf.create(config.params)
-shapeData = cfg.shapeData
+shape_state = cfg.shape_state
 w_ = np.zeros(cfg.dT)
 w_[int(cfg.dT / 2)] = 1.
 wLoss = torch.Tensor(w_)

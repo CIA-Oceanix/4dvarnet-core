@@ -5,7 +5,7 @@ Created on Fri May  1 15:38:05 2020
 
 @author: rfablet
 """
-
+import einops
 import numpy as np
 import torch
 from torch import nn
@@ -107,7 +107,9 @@ class ConvLSTM1d(torch.nn.Module):
         return hidden, cell
 
 def compute_WeightedLoss(x2,w):
-    x2_msk = x2[:, w==1, ...]
+    # PENDING: fix normalizing factor ( Sum w = 1 != w~ bool index)
+    shp = len(x2.size) - 2
+    x2_msk = (x2 * einops.rearrange(w, 'w -> () w' + (' ()')* shp))[:, w > 0., ...]
     x2_num = ~x2_msk.isnan() & ~x2_msk.isinf()
     loss2 = F.mse_loss(x2_msk[x2_num], torch.zeros_like(x2_msk[x2_num]))
     loss2 = loss2 *  w.sum()
@@ -120,7 +122,7 @@ class Model_WeightedL2Norm(torch.nn.Module):
     def __init__(self):
         super(Model_WeightedL2Norm, self).__init__()
  
-    def forward(self,x,w,eps=0.):
+    def forward(self,x,w):
         loss_ = torch.nansum( x**2 , dim = 3)
         loss_ = torch.nansum( loss_ , dim = 2)
         loss_ = torch.nansum( loss_ , dim = 0)
@@ -159,7 +161,7 @@ class Model_WeightedLorenzNorm(torch.nn.Module):
 
 class Model_WeightedGMcLNorm(torch.nn.Module):
     def __init__(self):
-        super(Model_WeightedL1Norm, self).__init__()
+        super().__init__()
  
     def forward(self,x,w,eps):
 
@@ -327,7 +329,7 @@ class Solver_Grad_4DVarNN(nn.Module):
         hidden = None
         cell = None 
         normgrad_ = 0.
-        
+        x_k_plus_1 = None
         for _ in range(self.n_grad):
             x_k_plus_1, hidden, cell, normgrad_ = self.solver_step(x_k, obs, mask,hidden, cell, normgrad_)
 
@@ -336,7 +338,7 @@ class Solver_Grad_4DVarNN(nn.Module):
         return x_k_plus_1, hidden, cell, normgrad_
 
     def solver_step(self, x_k, obs, mask, hidden, cell,normgrad = 0.):
-        var_cost, var_cost_grad= self.var_cost(x_k, obs, mask)
+        _, var_cost_grad= self.var_cost(x_k, obs, mask)
         if normgrad == 0. :
             normgrad_= torch.sqrt( torch.mean( var_cost_grad**2 + 0.))
         else:

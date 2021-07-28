@@ -12,7 +12,7 @@ params = {
     'dT'              : 5, ## Time window of each space-time patch
     'dx'              : 1,   ## subsampling step if > 1
     'W'               : 200, # width/height of each space-time patch
-    'shapeData'       : [10, 200, 200],
+    'shape_state'       : [10, 200, 200],
     'dW'              : 3,
     'dW2'             : 1,
     'sS'              : 4,  # int(4/dx),

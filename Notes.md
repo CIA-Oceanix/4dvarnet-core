@@ -26,3 +26,19 @@ The state is made of 4 components:
 #### Cost
  * Add True obs field
  * Add a loss term computed only on the swath
+
+
+# Workflow
+## QT console to get interactive plots
+ * Start kernel on compute node:
+
+``` from jeanzay
+salloc --ntasks=1 --cpus-per-task=10 --gres=gpu:1 --hint=nomultithread -C v100-16g --qos=qos_gpu-t3 -A yrf@gpu --time=05:00:00
+ssh $(squeue -u $USER -h -o %R)  'cd $(pwd) && bash -c " . ~/.bashrc && conda activate --stack 4dvarnet && jupyter console --ip=0.0.0.0 -f=jz_kernel.json"'
+```
+
+```from laptop
+# start sshuttle with 
+scp jeanzay:scratch/<worktree>/jz_kernel.json .
+jupyter qtconsole --ssh=jz-node --existing=/home/q20febvr/jz_kernel.json --ConsoleWidget.include_other_output=True
+```

@@ -56,13 +56,13 @@ def plot_snr(gt,oi,pred,resfile):
     return fig
 
 
-def plot_nrmse(gt, oi, pred, resfile, index_test):
+def plot_nrmse(gt, oi, pred, resfile, test_dates):
     '''
     gt: 3d numpy array (Ground Truth)
     oi: 3d numpy array (OI)
     pred: 3d numpy array (4DVarNet-based predictions)
     resfile: string
-    index_test: 1d numpy array (ex: np.concatenate([np.arange(60, 80)]))
+    test_dates: 1d numpy array with dates
     '''
 
     # Compute daily nRMSE scores
@@ -81,8 +81,7 @@ def plot_nrmse(gt, oi, pred, resfile, index_test):
     # graphical options
     plt.ylabel('nRMSE')
     plt.xlabel('Time (days)')
-    lday = [datetime.datetime.strftime(datetime.datetime.strptime("2012-10-01", '%Y-%m-%d') \
-                                       + datetime.timedelta(days=np.float64(i)), "%Y-%m-%d") for i in index_test]
+    lday = test_dates
     plt.xticks(range(0,len(index_test)),lday,
            rotation=45, ha='right')
     plt.margins(x=0)
@@ -243,7 +242,7 @@ def plot_ensemble(pred,lon,lat,resfile):
     plt.savefig(resfile)       # save the figure
     plt.close()                # close the figure
 
-def save_netcdf(saved_path1, pred, lon, lat, index_test):
+def save_netcdf(saved_path1, pred, lon, lat, dates, index_test):
     '''
     saved_path1: string 
     pred: 3d numpy array (4DVarNet-based predictions)
@@ -256,9 +255,9 @@ def save_netcdf(saved_path1, pred, lon, lat, index_test):
     mesh_lat = mesh_lat.T
     mesh_lon = mesh_lon.T
 
-    time = [datetime.datetime.strftime(datetime.datetime.strptime("2012-10-01", '%Y-%m-%d') \
-                                       + datetime.timedelta(days=np.float64(i)), "%Y-%m-%d") for i in index_test]
-
+    # time = [datetime.datetime.strftime(datetime.datetime.strptime("2012-10-01", '%Y-%m-%d') \
+    #                                    + datetime.timedelta(days=np.float64(i)), "%Y-%m-%d") for i in index_test]
+    time = dates
     dt = pred.shape[1]
     xrdata = xr.Dataset( \
         data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
