@@ -108,7 +108,7 @@ class ConvLSTM1d(torch.nn.Module):
 
 def compute_WeightedLoss(x2,w):
     # PENDING: fix normalizing factor ( Sum w = 1 != w~ bool index)
-    shp = len(x2.size) - 2
+    shp = len(x2.size()) - 2
     x2_msk = (x2 * einops.rearrange(w, 'w -> () w' + (' ()')* shp))[:, w > 0., ...]
     x2_num = ~x2_msk.isnan() & ~x2_msk.isinf()
     loss2 = F.mse_loss(x2_msk[x2_num], torch.zeros_like(x2_msk[x2_num]))
@@ -122,7 +122,7 @@ class Model_WeightedL2Norm(torch.nn.Module):
     def __init__(self):
         super(Model_WeightedL2Norm, self).__init__()
  
-    def forward(self,x,w):
+    def forward(self,x,w, eps=0.):
         loss_ = torch.nansum( x**2 , dim = 3)
         loss_ = torch.nansum( loss_ , dim = 2)
         loss_ = torch.nansum( loss_ , dim = 0)
@@ -260,7 +260,7 @@ class model_GradUpdateLSTM(torch.nn.Module):
 
 # New module for the definition/computation of the variational cost
 class Model_Var_Cost(nn.Module):
-    def __init__(self ,m_NormObs, m_NormPhi, ShapeData,DimObs=1,dimObsChannel=0,dimState=0):
+    def __init__(self, m_NormObs, m_NormPhi, ShapeData, DimObs=1, dimObsChannel=0, dimState=0):
         super(Model_Var_Cost, self).__init__()
         self.dimObsChannel = dimObsChannel
         self.DimObs        = DimObs
@@ -286,7 +286,7 @@ class Model_Var_Cost(nn.Module):
         
     def forward(self, dx, dy):
 
-        loss = self.alphaReg**2 * self.normPrior(dx,self.WReg**2,self.epsReg)
+        loss = self.alphaReg**2 * self.normPrior(dx, self.WReg**2, self.epsReg)
                 
         if self.DimObs == 1 :
             loss +=  self.alphaObs[0]**2 * self.normObs(dy,self.WObs[0,:]**2,self.epsObs[0])
@@ -313,7 +313,7 @@ class Solver_Grad_4DVarNN(nn.Module):
             
         self.model_H = mod_H
         self.model_Grad = m_Grad
-        self.model_VarCost = Model_Var_Cost(m_NormObs, m_NormPhi, ShapeData,mod_H.DimObs,mod_H.dimObsChannel)
+        self.model_VarCost = Model_Var_Cost(m_NormObs, m_NormPhi, ShapeData, mod_H.DimObs, mod_H.dimObsChannel)
         
         with torch.no_grad():
             self.n_grad = int(n_iter_grad)

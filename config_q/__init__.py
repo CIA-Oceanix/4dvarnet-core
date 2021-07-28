@@ -21,7 +21,8 @@ strides = {
     'lon': 200,
 }
 
-test_dates = pd.date_range('2013-01-03', "2013-01-27")
+test_dates = [str(dt.date()) for dt in pd.date_range('2013-01-03', "2013-01-27")]
+
 params = {
     'files_cfg' : dict(
                 oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_4nadir.nc',
@@ -32,9 +33,9 @@ params = {
                 gt_var='ssh',
         ),
     'splits':dict(
-            train_slices=(slice('2012-10-01', "2012-11-20"), slice('2013-02-07', "2013-09-30")),
-            test_slices=(slice(test_dates[0], test_dates[1]),),
-            val_slices=(slice('2012-11-30', "2012-12-24"),),
+            train_slices=(('2012-10-01', "2012-11-20"), ('2013-02-07', "2013-09-30")),
+            test_slices=((test_dates[0], test_dates[-1]),),
+            val_slices=(('2012-11-30', "2012-12-24"),),
     ),
     'test_dates': test_dates,
     'dataloading': 'new',
@@ -50,7 +51,7 @@ params = {
     'dx'              : 1,   ## subsampling step if > 1
     'W'               : 200, # width/height of each space-time patch
     'shape_state'       : [dT * 4, 200, 200],
-    'shapeObs'       : [dT * 2, 200, 200],
+    'shape_obs'       : [dT * 2, 200, 200],
     'dW'              : 3,
     'dW2'             : 1,
     'sS'              : 4,  # int(4/dx),

@@ -56,13 +56,13 @@ def plot_snr(gt,oi,pred,resfile):
     return fig
 
 
-def plot_nrmse(gt, oi, pred, resfile, test_dates):
+def plot_nrmse(gt, oi, pred, resfile, dates):
     '''
     gt: 3d numpy array (Ground Truth)
     oi: 3d numpy array (OI)
     pred: 3d numpy array (4DVarNet-based predictions)
     resfile: string
-    test_dates: 1d numpy array with dates
+    dates: 1d numpy array with dates
     '''
 
     # Compute daily nRMSE scores
@@ -81,8 +81,8 @@ def plot_nrmse(gt, oi, pred, resfile, test_dates):
     # graphical options
     plt.ylabel('nRMSE')
     plt.xlabel('Time (days)')
-    lday = test_dates
-    plt.xticks(range(0,len(index_test)),lday,
+    lday = dates
+    plt.xticks(range(0,len(dates)),lday,
            rotation=45, ha='right')
     plt.margins(x=0)
     plt.grid(True,alpha=.3)
@@ -92,13 +92,13 @@ def plot_nrmse(gt, oi, pred, resfile, test_dates):
     plt.close()                                 # close the figure
     return  fig
 
-def plot_mse(gt, oi, pred, resfile, index_test):
+def plot_mse(gt, oi, pred, resfile, dates):
     '''
     gt: 3d numpy array (Ground Truth)
     oi: 3d numpy array (OI)
     pred: 3d numpy array (4DVarNet-based predictions)
     resfile: string
-    index_test: 1d numpy array (ex: np.concatenate([np.arange(60, 80)]))
+    dates: 1d numpy array (ex: np.concatenate([np.arange(60, 80)]))
     '''
 
     # Compute daily nRMSE scores
@@ -127,9 +127,8 @@ def plot_mse(gt, oi, pred, resfile, index_test):
     # graphical options
     plt.ylabel('MSE')
     plt.xlabel('Time (days)')
-    lday = [datetime.datetime.strftime(datetime.datetime.strptime("2012-10-01", '%Y-%m-%d') \
-                                       + datetime.timedelta(days=np.float64(i)), "%Y-%m-%d") for i in index_test]
-    plt.xticks(range(0,len(index_test)),lday,
+    lday = dates
+    plt.xticks(range(0,len(dates)),lday,
            rotation=45, ha='right')
     plt.margins(x=0)
     plt.grid(True,alpha=.3)
@@ -242,13 +241,13 @@ def plot_ensemble(pred,lon,lat,resfile):
     plt.savefig(resfile)       # save the figure
     plt.close()                # close the figure
 
-def save_netcdf(saved_path1, pred, lon, lat, dates, index_test):
+def save_netcdf(saved_path1, pred, lon, lat, dates):
     '''
     saved_path1: string 
     pred: 3d numpy array (4DVarNet-based predictions)
     lon: 1d numpy array 
     lat: 1d numpy array
-    index_test: 1d numpy array (ex: np.concatenate([np.arange(60, 80)]))
+    dates: 1d numpy array (ex: np.concatenate([np.arange(60, 80)]))
     '''
 
     mesh_lat, mesh_lon = np.meshgrid(lat, lon)
@@ -256,15 +255,15 @@ def save_netcdf(saved_path1, pred, lon, lat, dates, index_test):
     mesh_lon = mesh_lon.T
 
     # time = [datetime.datetime.strftime(datetime.datetime.strptime("2012-10-01", '%Y-%m-%d') \
-    #                                    + datetime.timedelta(days=np.float64(i)), "%Y-%m-%d") for i in index_test]
+    #                                    + datetime.timedelta(days=np.float64(i)), "%Y-%m-%d") for i in dates]
     time = dates
     dt = pred.shape[1]
     xrdata = xr.Dataset( \
         data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
                    'latitude': (('lat', 'lon'), mesh_lat), \
                    'Time': (('time'), time), \
-                   'ssh': (('time', 'lat', 'lon'), pred[:, int(dt / 2), :, :])}, \
-        coords={'lon': lon, 'lat': lat, 'time': index_test})
+                   'ssh': (('time', 'lat', 'lon'), pred)}, \
+        coords={'lon': lon, 'lat': lat, 'time': dates})
     xrdata.time.attrs['units'] = 'days since 2012-10-01 00:00:00'
     xrdata.to_netcdf(path=saved_path1, mode='w')
 
@@ -290,6 +289,8 @@ def nrmse_scores(gt, oi, pred, resfile):
     for i in range(len(oi)):
         nrmse_oi.append(nrmse(gt[i], oi[i]))
         nrmse_pred.append(nrmse(gt[i], pred[i]))
+    print(nrmse_pred)
+    print(nrmse_oi)
     tab_scores = np.zeros((2, 3))
     tab_scores[0, 0] = np.nanmean(nrmse_oi)
     tab_scores[0, 1] = np.percentile(nrmse_oi, 5)
@@ -298,14 +299,18 @@ def nrmse_scores(gt, oi, pred, resfile):
     tab_scores[1, 1] = np.percentile(nrmse_pred, 5)
     tab_scores[1, 2] = np.percentile(nrmse_pred, 95)
     np.savetxt(fname=resfile, X=tab_scores, fmt='%2.2f')
-    return tab_scores
+    return (
+            pd.DataFrame(tab_scores, index=['oi', 'pred'], columns=['mean', '5%', '95%'])
+            .T.assign(ratio=lambda df: df.pred / df.oi)
+            .T.to_markdown()
+    )
 
 def mse(ref, pred):
     '''
     ref: Ground Truth fields
     pred: interpolated fields
     '''
-    return np.nanmean(((ref-np.nanmean(ref))-(pred-np.nanmean(pred)))**2)
+    return np.nanmean((ref - pred)**2)
 
 
 def mse_scores(gt, oi, pred, resfile):
@@ -329,7 +334,11 @@ def mse_scores(gt, oi, pred, resfile):
     tab_scores[1, 1] = np.percentile(mse_pred, 5)
     tab_scores[1, 2] = np.percentile(mse_pred, 95)
     np.savetxt(fname=resfile, X=tab_scores, fmt='%2.2f')
-
+    return (
+            pd.DataFrame(tab_scores, index=['oi', 'pred'], columns=['mean', '5%', '95%'])
+            .T.assign(ratio=lambda df: df.pred / df.oi)
+            .T.to_markdown()
+    )
 
 
 def compute_metrics(x_test, x_rec):

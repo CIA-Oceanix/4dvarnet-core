@@ -34,9 +34,8 @@ class FourDVarNetRunner:
 
         self.cfg = OmegaConf.create(config.params)
         shape_state = self.cfg.shape_state
-        w_ = np.zeros(self.cfg.dT)
-        w_[int(self.cfg.dT / 2)] = 1.
-        self.wLoss = torch.Tensor(w_)
+        self.wLoss = [0] * self.cfg.dT
+        self.wLoss[int(self.cfg.dT / 2)] = 1.
         dataloading = config.params['dataloading']
         print(dataloading)
         
@@ -53,7 +52,7 @@ class FourDVarNetRunner:
                 dim_range=dim_range,
                 strides=strides,
                 **config.params['files_cfg'],
-                **config.params['splits'],
+                **{k: tuple([slice(*dt) for dt in dts]) for k, dts in config.params['splits'].items()},
             )
 
 
@@ -75,16 +74,16 @@ class FourDVarNetRunner:
             self.ds_size_lon = 1
             self.ds_size_lat = 1
         else:
-            self.mean_Tr = datamodule.norm_stats[0]
-            self.mean_Tt = datamodule.norm_stats[0]
-            self.mean_Val = datamodule.norm_stats[0]
-            self.var_Tr = datamodule.norm_stats[1] ** 2
-            self.var_Tt = datamodule.norm_stats[1] ** 2
-            self.var_Val = datamodule.norm_stats[1] ** 2
-            self.min_lon, self.max_lon, self.min_lat, self.max_lat = datamodule.bounding_box
-            self.ds_size_time = datamodule.ds_size['time']
-            self.ds_size_lon = datamodule.ds_size['lon']
-            self.ds_size_lat = datamodule.ds_size['lat']
+            self.mean_Tr = float(datamodule.norm_stats[0])
+            self.mean_Tt = float(datamodule.norm_stats[0])
+            self.mean_Val = float(datamodule.norm_stats[0])
+            self.var_Tr = float(datamodule.norm_stats[1]) ** 2
+            self.var_Tt = float(datamodule.norm_stats[1]) ** 2
+            self.var_Val = float(datamodule.norm_stats[1]) ** 2
+            self.min_lon, self.max_lon, self.min_lat, self.max_lat = (float(x) for x in datamodule.bounding_box)
+            self.ds_size_time = float(datamodule.ds_size['time'])
+            self.ds_size_lon = float(datamodule.ds_size['lon'])
+            self.ds_size_lat = float(datamodule.ds_size['lat'])
         if self.cfg.stochastic == False:
             self.lit_cls = models.LitModelWithSST if dataloading == "with_sst" else models.LitModel
         else:
@@ -108,7 +107,7 @@ class FourDVarNetRunner:
         """
         # PENDING: do not pass norm stat if ckpt is provided
         if ckpt_path:
-            mod = self.lit_cls.load_from_checkpoint(ckpt_path, ds_size_time=self.ds_size_time, test_dates=test_dates,
+            mod = self.lit_cls.load_from_checkpoint(ckpt_path, ds_size_time=self.ds_size_time, test_dates=self.test_dates,
                                                     ds_size_lon=self.ds_size_lon,
                                                     ds_size_lat=self.ds_size_lat)
         else:

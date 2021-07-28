@@ -5,10 +5,9 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 from omegaconf import OmegaConf
-from scipy import stats
 
 import solver as NN_4DVar
-from metrics import save_netcdf, nrmse_scores, plot_nrmse, plot_snr, plot_maps, animate_maps, plot_ensemble
+from metrics import save_netcdf, nrmse_scores, mse_scores, plot_nrmse, plot_snr, plot_maps, animate_maps
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -145,24 +144,19 @@ class Model_H_with_noisy_Swot(torch.nn.Module):
     obs: [oi, obs]
     mask: [ones, obs_mask]
     """
-    def __init__(self, shape_state, shape_obs, dim=5):
+    def __init__(self, shape_state, shape_obs):
         super().__init__()
 
+        self.DimObs = 1
+        self.dimObsChannel = np.array([shape_obs])
 
-        self.conv11 = torch.nn.Conv2d(shape_state, self.dimObsChannel[1], (3, 3), padding=1, bias=False)
+        self.conv_state_to_obs = torch.nn.Conv2d(shape_state, shape_obs, (3, 3), padding=1, bias=False)
 
-        self.conv21 = torch.nn.Conv2d(int(shape_state / 2), self.dimObsChannel[1], (3, 3), padding=1, bias=False)
-        self.convM = torch.nn.Conv2d(int(shape_state / 2), self.dimObsChannel[1], (3, 3), padding=1, bias=False)
-        self.S = torch.nn.Sigmoid()  # torch.nn.Softmax(dim=1)
 
     def forward(self, x, y, mask):
-        dyout = (x - y[0]) * mask[0]
+        dyout = (self.conv_state_to_obs(x) - y) * mask
 
-        y1 = y[1] * mask[1]
-        dyout1 = self.conv11(x) - self.conv21(y1)
-        dyout1 = dyout1 * self.S(self.convM(mask[1]))
-
-        return [dyout, dyout1]
+        return dyout
 
 
 class Gradient_img(torch.nn.Module):
@@ -215,19 +209,22 @@ class ModelLR(torch.nn.Module):
 
 ############################################ Lightning Module #######################################################################
 class LitModel(pl.LightningModule):
-    def __init__(self, hparam, *args, **kwargs):
+    def __init__(self, hparam=None, *args, **kwargs):
         super().__init__()
+        hparam = {} if hparam is None else hparam
         hparams = hparam if isinstance(hparam, dict) else OmegaConf.to_container(hparam, resolve=True)
-        self.save_hyperparameters(hparams)
+        self.save_hyperparameters({**hparams, **kwargs})
+
         # TOTEST: set those parameters only if provided
         self.var_Val = self.hparams.var_Val
         self.var_Tr = self.hparams.var_Tr
         self.var_Tt = self.hparams.var_Tt
 
         # create longitudes & latitudes coordinates
-        self.test_lon = self.hparams.test_lon
-        self.test_lat = self.hparams.test_lat
-        self.test_dates = self.hparams.test_dates
+        self.test_lon = np.arange(self.hparams.min_lon, self.hparams.max_lon, 0.05)
+        self.test_lat = np.arange(self.hparams.min_lat, self.hparams.max_lat, 0.05)
+        self.test_dates = self.hparams.test_dates[self.hparams.dT // 2: -(self.hparams.dT // 2)]
+        print(len(self.test_dates), len(self.hparams.test_dates), self.hparams.dT)
         self.ds_size_time = self.hparams.ds_size_time
         self.ds_size_lon = self.hparams.ds_size_lon
         self.ds_size_lat = self.hparams.ds_size_lat
@@ -252,7 +249,7 @@ class LitModel(pl.LightningModule):
         self.gradient_img = Gradient_img()
         # loss weghing wrt time
 
-        self.w_loss = torch.nn.Parameter(self.hparams.w_loss, requires_grad=False)  # duplicate for automatic upload to gpu
+        self.w_loss = torch.nn.Parameter(torch.Tensor(self.hparams.w_loss), requires_grad=False)  # duplicate for automatic upload to gpu
         self.x_gt = None  # variable to store Ground Truth
         self.x_oi = None  # variable to store OI
         self.x_rec = None  # variable to store output of test method
@@ -301,11 +298,12 @@ class LitModel(pl.LightningModule):
             return loss
         # log step metric        
         # self.log('train_mse', mse)
-        # self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
-        self.log("loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        self.log("tr_mse", metrics['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
-        self.log("tr_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True,
-                 sync_dist=True)
+        # self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True)
+        self.log("loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log("tr_mse", metrics['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_mse_swath", metrics['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_mseG_swath", metrics['mseGradSwath'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
 
         # initial grad value
         if self.hparams.automatic_optimization == False:
@@ -339,11 +337,11 @@ class LitModel(pl.LightningModule):
             self.log('test_loss', loss)
             self.log("test_mse", metrics['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
-        return {'gt'    : (targets_GT.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'oi'    : (targets_OI.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'target_obs'    : (obs_target_item.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'inp_obs'    : (inputs_obs.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'preds' : (out.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr}
+        return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'oi'    : (targets_OI.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'target_obs'    : (obs_target_item.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'inp_obs'    : (inputs_obs.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'preds' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def test_epoch_end(self, outputs):
 
@@ -358,21 +356,31 @@ class LitModel(pl.LightningModule):
                    'lat': self.ds_size_lat,
                    }
 
-        gt, oi, pred, inputs_obs, target_obs = map(
+        gt, oi, pred = map(
             lambda t: einops.rearrange(
                 t,
                 '(t_idx lat_idx lon_idx) win_time win_lat win_lon -> t_idx win_time (lat_idx win_lat) (lon_idx win_lon)',
-                t_idx=ds_size['time'],
-                lat_idx=ds_size['lat'],
-                lon_idx=ds_size['lon'],
+                t_idx=int(ds_size['time']),
+                lat_idx=int(ds_size['lat']),
+                lon_idx=int(ds_size['lon']),
             ),
-            [gt, oi, pred, inputs_obs, target_obs])
+            [gt, oi, pred])
+        
+        # gt, oi, pred, inputs_obs, target_obs = map(
+        #     lambda t: einops.rearrange(
+        #         t,
+        #         '(t_idx lat_idx lon_idx) win_time win_lat win_lon -> t_idx win_time (lat_idx win_lat) (lon_idx win_lon)',
+        #         t_idx=ds_size['time'],
+        #         lat_idx=ds_size['lat'],
+        #         lon_idx=ds_size['lon'],
+        #     ),
+        #     [gt, oi, pred, inputs_obs, target_obs])
 
         self.x_gt = gt[:, int(self.hparams.dT / 2), :, :]
         self.x_oi = oi[:, int(self.hparams.dT / 2), :, :]
         self.x_rec = pred[:, int(self.hparams.dT / 2), :, :]
-        self.obs_gt = target_obs[:, int(self.hparams.dT / 2), :, :]
-        self.obs_inp = inputs_obs[:, int(self.hparams.dT / 2), :, :]
+        # self.obs_gt = target_obs[:, int(self.hparams.dT / 2), :, :]
+        # self.obs_inp = inputs_obs[:, int(self.hparams.dT / 2), :, :]
 
         # display map
         path_save0 = self.logger.log_dir + '/maps.png'
@@ -380,7 +388,7 @@ class LitModel(pl.LightningModule):
                 self.x_gt[0],
                   self.x_oi[0],
                   self.x_rec[0],
-                  self.lon, self.lat, path_save0)
+                  self.test_lon, self.test_lat, path_save0)
         self.test_figs['maps'] = fig_maps
         self.logger.experiment.add_figure('Maps', fig_maps, global_step=self.current_epoch)
         # animate maps
@@ -393,17 +401,22 @@ class LitModel(pl.LightningModule):
             # save NetCDF
         path_save1 = self.logger.log_dir + '/test.nc'
         # PENDING: replace hardcoded 60
-        save_netcdf(saved_path1=path_save1, pred=pred,
-                    test_lon=self.test_lon, test_lat=self.test_lat, test_dates=self.test_dates))
+        print(len(self.test_dates))
+        save_netcdf(saved_path1=path_save1, pred=self.x_rec,
+                   lon=self.test_lon, lat=self.test_lat, dates=self.test_dates)
         # compute nRMSE
         path_save2 = self.logger.log_dir + '/nRMSE.txt'
-        tab_scores = nrmse_scores(gt, oi, pred, path_save2)
+        tab_n_scores = nrmse_scores(self.x_gt, self.x_oi, self.x_rec, path_save2)
         print('*** Display nRMSE scores ***')
+        print(tab_n_scores)
+        path_save22 = self.logger.log_dir + '/MSE.txt'
+        tab_scores = mse_scores(self.x_gt, self.x_oi, self.x_rec, path_save22)
+        print('*** Display MSE scores ***')
         print(tab_scores)
         # plot nRMSE
         # PENDING: replace hardcoded 60
         path_save3 = self.logger.log_dir + '/nRMSE.png'
-        nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, test_dates=self.tes_dates)
+        nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, dates=self.test_dates)
         self.test_figs['nrmse'] = nrmse_fig
 
         self.logger.experiment.add_figure('NRMSE', nrmse_fig, global_step=self.current_epoch)
@@ -415,6 +428,7 @@ class LitModel(pl.LightningModule):
         self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
 
         # TODO: Compute metrics on swath
+        # TODO: log hparams and metrics
 
     def compute_loss(self, batch, phase):
         targets_OI, inputs_Mask, inputs_obs, target_obs_GT, targets_GT = batch
@@ -429,6 +443,7 @@ class LitModel(pl.LightningModule):
             )
         new_masks = torch.cat((torch.ones_like(inputs_Mask), inputs_Mask), dim=1)
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
+        target_obs_GT_wo_nan = target_obs_GT.where(~target_obs_GT.isnan(), torch.zeros_like(target_obs_GT))
         anomaly_global = torch.zeros_like(targets_OI)
         anomaly_swath = torch.zeros_like(targets_OI)
         state = torch.cat((targets_OI, inputs_obs, anomaly_global, anomaly_swath), dim=1)
@@ -452,10 +467,9 @@ class LitModel(pl.LightningModule):
                 outputs = outputs.detach()
 
             # PENDING: reconstruct outputs, outputs LowRes and outputSwath MegaRes
-            output_low_res, _, output_anom_glob, output_anom_swath = torch.split(outputs, split_size_or_sections=targets_OI.size(1))
-            output_low_res = outputs[:, 0:self.hparams.dT, :, :]
+            output_low_res, _, output_anom_glob, output_anom_swath = torch.split(outputs, split_size_or_sections=targets_OI.size(1), dim=1)
             output_global = output_low_res + output_anom_glob
-            output_swath = outputs + output_anom_swath
+            output_swath = output_global + output_anom_swath
 
             # reconstruction losses
             g_output_global = self.gradient_img(output_global)
@@ -463,7 +477,7 @@ class LitModel(pl.LightningModule):
             loss_All = NN_4DVar.compute_WeightedLoss((output_global - targets_GT), self.w_loss)
             # PENDING: add loss term computed on obs (outputs swath - obs_target)
             
-            loss_swath = NN_4DVar.compute_WeightedLoss((output_swath - obs_target)**2, self.w_loss)
+            loss_swath = NN_4DVar.compute_WeightedLoss((output_swath - target_obs_GT)**2, self.w_loss)
             loss_grad_swath = NN_4DVar.compute_WeightedLoss((g_output_swath - g_targets_obs)**2, self.w_loss)
 
             loss_GAll = NN_4DVar.compute_WeightedLoss(g_output_global - g_targets_GT, self.w_loss)
@@ -472,7 +486,7 @@ class LitModel(pl.LightningModule):
 
             # projection losses
             loss_AE = torch.mean((self.model.phi_r(outputs) - outputs) ** 2)
-            yGT = torch.cat((targets_GT_wo_nan, output_low_res - targets_GT_wo_nan), dim=1)
+            yGT = torch.cat((targets_GT_wo_nan, inputs_obs, targets_GT_wo_nan - output_low_res, target_obs_GT_wo_nan - output_global), dim=1)
             # yGT        = torch.cat((targets_OI,targets_GT-targets_OI),dim=1)
             loss_AE_GT = torch.mean((self.model.phi_r(yGT) - yGT) ** 2)
 
