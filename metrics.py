@@ -176,7 +176,7 @@ def gradient(img, order):
     else:
         return sobel_norm
 
-def plot_maps(gt,oi,pred,lon,lat,resfile):
+def plot_maps(gt,oi,pred ,lon,lat,resfile):
 
     vmax = np.nanmax(np.abs(gt))
     vmin = -1.*vmax
@@ -187,12 +187,16 @@ def plot_maps(gt,oi,pred,lon,lat,resfile):
 
     fig, ax = plt.subplots(3,2,figsize=(10,10),squeeze=False,
                           subplot_kw=dict(projection=ccrs.PlateCarree(central_longitude=0.0)))
+
     plot(ax,0,0,lon,lat,gt,'GT',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
     plot(ax,0,1,lon,lat,gradient(gt,2),r"$\nabla_{GT}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax)
+
     plot(ax,1,0,lon,lat,oi,'OI',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
     plot(ax,1,1,lon,lat,gradient(oi,2),r"$\nabla_{OI}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax)
+
     plot(ax,2,0,lon,lat,pred,'4DVarNet',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
     plot(ax,2,1,lon,lat,gradient(pred,2),r"$\nabla_{4DVarNet}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax)
+
     plt.savefig(resfile)       # save the figure
     fig = plt.gcf()
     plt.close()                                 # close the figure
@@ -302,7 +306,7 @@ def nrmse_scores(gt, oi, pred, resfile):
     return (
             pd.DataFrame(tab_scores, index=['oi', 'pred'], columns=['mean', '5%', '95%'])
             .T.assign(ratio=lambda df: df.pred / df.oi)
-            .T.to_markdown()
+            .T
     )
 
 def mse(ref, pred):
@@ -337,7 +341,7 @@ def mse_scores(gt, oi, pred, resfile):
     return (
             pd.DataFrame(tab_scores, index=['oi', 'pred'], columns=['mean', '5%', '95%'])
             .T.assign(ratio=lambda df: df.pred / df.oi)
-            .T.to_markdown()
+            .T
     )
 
 

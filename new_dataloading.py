@@ -111,13 +111,14 @@ class FourDVarNetDataset(Dataset):
         _gt_item = (self.gt_ds[item] - mean) / std
         oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
         # obs_mask_item = self.obs_mask_ds[item].astype(bool) & ~np.isnan(oi_item) & ~np.isnan(_gt_item)
-        _obs_item = self.obs_mask_ds[item]
+        _obs_item = (self.obs_mask_ds[item] - mean) / std
         obs_mask_item = ~np.isnan(_obs_item)
         obs_item = np.where(~np.isnan(_obs_item), _obs_item, np.zeros_like(_obs_item))
 
-        _obs_target_item = self.obs_target_ds[item]
-        obs_target_item = ~np.isnan(_obs_target_item)
-        obs_target_item = np.where(~np.isnan(_obs_target_item), _obs_target_item, np.zeros_like(_obs_target_item))
+        obs_target_item = (self.obs_target_ds[item] - mean) / std
+        # _obs_target_item = self.obs_target_ds[item]
+        # obs_target_item = ~np.isnan(_obs_target_item)
+        # obs_target_item = np.where(~np.isnan(_obs_target_item), _obs_target_item, np.zeros_like(_obs_target_item))
 
         gt_item = _gt_item
 

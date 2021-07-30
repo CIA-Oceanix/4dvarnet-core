@@ -108,11 +108,12 @@ class ConvLSTM1d(torch.nn.Module):
 
 def compute_WeightedLoss(x2,w):
     # PENDING: fix normalizing factor ( Sum w = 1 != w~ bool index)
-    shp = len(x2.size()) - 2
-    x2_msk = (x2 * einops.rearrange(w, 'w -> () w' + (' ()')* shp))[:, w > 0., ...]
+    x2_msk = (x2 * w[None, :, None, None])[:, w>0, ...]
     x2_num = ~x2_msk.isnan() & ~x2_msk.isinf()
+    if x2_num.sum() == 0:
+        return torch.scalar_tensor(0., device=x2_num.device)
+    # loss2 = x2_msk[x2_num].sum()
     loss2 = F.mse_loss(x2_msk[x2_num], torch.zeros_like(x2_msk[x2_num]))
-    loss2 = loss2 *  w.sum()
     return loss2
 
 
@@ -123,7 +124,7 @@ class Model_WeightedL2Norm(torch.nn.Module):
         super(Model_WeightedL2Norm, self).__init__()
  
     def forward(self,x,w, eps=0.):
-        loss_ = torch.nansum( x**2 , dim = 3)
+        loss_ = torch.nansum( torch.sqrt( eps**2 + x**2 )  , dim = 3)
         loss_ = torch.nansum( loss_ , dim = 2)
         loss_ = torch.nansum( loss_ , dim = 0)
         loss_ = torch.nansum( loss_ * w )

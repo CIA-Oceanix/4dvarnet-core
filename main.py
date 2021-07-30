@@ -150,17 +150,14 @@ class FourDVarNetRunner:
         :param dataloader: Dataloader on which to run the test Checkpoint from which to resume
         :param trainer_kwargs: (Optional)
         """
-        #mod = _mod or self._get_model(ckpt_path=ckpt_path)
-        #ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_296714/checkpoints/modelSLAInterpGF-Exp3-epoch=98-val_loss=0.05.ckpt'
-        #ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_297967/checkpoints/modelSLAInterpGF-Exp3-epoch=39-val_loss=0.12.ckpt'
-        #ckpt_pth = '/gpfswork/rech/yrf/ueh53pd/4dvarnet-core/lightning_logs/version_318238/checkpoints/modelSLAInterpGF-Exp3-epoch=37-val_loss=0.12.ckpt'
+        mod = _mod or self._get_model(ckpt_path=ckpt_path)
+        logger = pl.loggers.TensorboardLogger(default_hp_metric=False)
         mod = self._get_model(ckpt_path=ckpt_path)
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         num_gpus = torch.cuda.device_count()
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
         # trainer = _trainer or pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, **trainer_kwargs)
-        trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs)
-        print(mod)
+        trainer = pl.Trainer(num_nodes=1, gpus=1, loggers=logger, accelerator=None, **trainer_kwargs)
         trainer.test(mod, test_dataloaders=self.dataloaders[dataloader])
 
     def profile(self):

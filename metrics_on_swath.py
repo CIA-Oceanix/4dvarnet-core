@@ -49,15 +49,18 @@ for config_pkg in [
         # 'q.nad_sst',
         # 'q.swot',
         # 'q.nad_roll',
-        # 'q.roll',
-        'q.roll_sst',
+        'q.roll',
+        # 'q.roll_sst',
         # 'q.swot_sst',
     ]:
     ckpt_paths = {
             'q.nad_sst': "../4dvarnet-core/dashboard/train/nad_sst/checkpoints/modelSLAInterpGF-Exp3-epoch=22-val_loss=0.05.ckpt",
             'q.swot': "../4dvarnet-core/dashboard/train/swot/checkpoints/modelSLAInterpGF-Exp3-epoch=39-val_loss=0.08.ckpt",
             'q.nad_roll': "../4dvarnet-core/dashboard/train/nad_roll/checkpoints/modelSLAInterpGF-Exp3-epoch=129-val_loss=0.09.ckpt",
-            'q.roll': "../4dvarnet-core/dashboard/train/roll/checkpoints/modelSLAInterpGF-Exp3-epoch=103-val_loss=0.08.ckpt",
+            # 'q.roll': "../4dvarnet-core/dashboard/train/roll/checkpoints/modelSLAInterpGF-Exp3-epoch=103-val_loss=0.08.ckpt",
+            # 'q.roll': 'lightning_logs/version_598566/checkpoints/modelSLAInterpGF-Exp3-epoch=24-val_loss=0.08.ckpt',
+            'q.roll': 'lightning_logs/version_606207/checkpoints/modelSLAInterpGF-Exp3-epoch=25-val_loss=0.09.ckpt',
+            # 'q.roll': 'lightning_logs/version_599362/checkpoints/modelSLAInterpGF-Exp3-epoch=62-val_loss=0.08.ckpt',
             'q.roll_sst': "../4dvarnet-core/dashboard/train/roll_sst/checkpoints/modelSLAInterpGF-Exp3-epoch=132-val_loss=0.05.ckpt",
             'q.swot_sst': "../4dvarnet-core/dashboard/train/swot_sst/checkpoints/modelSLAInterpGF-Exp3-epoch=137-val_loss=0.05.ckpt",
     }
@@ -415,6 +418,7 @@ for i, da in enumerate(das):
 |  5 |   62615 | 0.000626997 | 4dvarnet_q.swot | swath |
 |  6 |   62615 | 0.00123173  | 4dvarnet_q.nad_roll | swath |
 |  7 |   62615 | 0.00393216  | 4dvarnet_q.roll | swath |
+|  4 |   62615 | 0.00075328  | 4dvarnet_q.roll | swath |
 |  4 |   62615 | 0.00193471  | 4dvarnet_q.roll_sst | swath |
 |  4 |   62615 | 0.00375245  | 4dvarnet_q.swot_sst | swath |
 |  8  |   62615 | 0.000837556 | roll               | grid  |
@@ -425,6 +429,7 @@ for i, da in enumerate(das):
 |  9 |   77260 | 0.00130725  | 4dvarnet_q.nad_roll | grid  |
 |  9 |   77260 | 0.000645756 | 4dvarnet_q.swot | grid  |
 |  9 |   77260 | 0.00377194  | 4dvarnet_q.roll | grid  |
+|  9 |   77260 | 0.000796328 | 4dvarnet_q.roll | grid  |
 |  9 |   77260 | 0.00198621  | 4dvarnet_q.roll_sst | grid  |
 |  9 |   77260 | 0.00370027  | 4dvarnet_q.swot_sst | grid  |
 
@@ -444,6 +449,7 @@ for i, da in enumerate(das):
 |  5 |   50199 | 0.00143043  | 4dvarnet_q.swot | swath |
 |  6 |   50199 | 0.00217775  | 4dvarnet_q.nad_roll | swath |
 |  7 |   50199 | 0.00349608  | 4dvarnet_q.roll | swath |
+|  4 |   50199 | 0.00149082  | 4dvarnet_q.roll | swath |
 |  4 |   50199 | 0.00228682  | 4dvarnet_q.swot_sst | swath |
 |  8 |   50199 | 0.000499668 | roll               | grid  |
 |  9 |   50199 | 0.000124958 | duacs_cal          | grid  |
@@ -453,8 +459,10 @@ for i, da in enumerate(das):
 |  13 |   63139 | 0.00149355  | 4dvarnet_q.swot | grid  |
 |  14 |   63139 | 0.00224537  | 4dvarnet_q.nad_roll | grid  |
 |  15 |   63139 | 0.00343332  | 4dvarnet_q.roll | grid  |
+|  9 |   63139 | 0.00157915  | 4dvarnet_q.roll | grid  |
 |  9 |   63139 | 0.00261241  | 4dvarnet_q.roll_sst | grid  |
 |  9 |   63139 | 0.0022965   | 4dvarnet_q.swot_sst | grid  |
+
 
 """
 
