@@ -1,4 +1,5 @@
 import einops
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
@@ -376,7 +377,7 @@ class LitModel(pl.LightningModule):
         self.obs_inp = np.where(~np.isnan(self.obs_gt), inputs_obs[:, int(self.hparams.dT / 2), :, :], np.full_like(self.obs_gt, float('nan')))
         self.obs_pred = np.where(~np.isnan(self.obs_gt), obs_pred[:, int(self.hparams.dT / 2), :, :], np.full_like(self.obs_gt, float('nan')))
 
-        
+        Path(self.logger.log_dir).mkdir(exist_ok=True)
         # display map
         path_save0 = self.logger.log_dir + '/maps.png'
         fig_maps = plot_maps(
@@ -491,7 +492,7 @@ class LitModel(pl.LightningModule):
         g_targets_GT = self.gradient_img(targets_GT)
         g_targets_obs = self.gradient_img(target_obs_GT_wo_nan)
         g_targets_obs_mask = self.gradient_img(target_obs_GT)
-        # TODO: Deal with nan instability
+        # PENDING: Deal with nan instability
         # _g_targets_obs = self.gradient_img(target_obs_GT)
         # g_targets_obs = _g_targets_obs.where(~_g_targets_obs.isnan() & ~_g_targets_obs.isinf(), torch.zeros_like(_g_targets_obs))
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
@@ -508,23 +509,12 @@ class LitModel(pl.LightningModule):
             output_low_res, _, output_anom_glob, output_anom_swath = torch.split(outputs, split_size_or_sections=targets_OI.size(1), dim=1)
             output_global = output_low_res + output_anom_glob
             output_swath = output_global + output_anom_swath
-            # print(f"{torch.sum(torch.isnan(output_anom_glob))=}")
-            # print(f"{torch.sum(torch.isnan(output_anom_swath))=}")
-            # print(f"{torch.sum(torch.isnan(output_low_res))=}")
-            # print(f"{torch.sum(torch.isinf(output_anom_glob))=}")
-            # print(f"{torch.sum(torch.isinf(output_anom_swath))=}")
-            # print(f"{torch.sum(torch.isinf(output_low_res))=}")
+
             # reconstruction losses
             g_output_global = self.gradient_img(output_global)
             g_output_swath = self.gradient_img(output_swath)
-            loss_All = NN_4DVar.compute_WeightedLoss((output_global - targets_GT), self.w_loss)
             # PENDING: add loss term computed on obs (outputs swath - obs_target)
-            # print(f"{torch.sum(~torch.isnan(target_obs_GT))=}")
-            # print(f"{torch.sum(~torch.isinf(target_obs_GT))=}")
-            # print(f"{torch.sum(~torch.isnan(g_targets_obs))=}")
-            # print(f"{torch.sum(~torch.isinf(g_targets_obs))=}")
-            
-            # _err_swath =(output_swath - target_obs_GT)**2
+
             _err_swath =(output_swath - target_obs_GT_wo_nan)**2 
             err_swath = torch.where(target_obs_GT.isnan() | target_obs_GT.isinf(), torch.zeros_like(_err_swath), _err_swath)
             _err_g_swath =(g_output_swath - g_targets_obs)**2
@@ -535,6 +525,7 @@ class LitModel(pl.LightningModule):
             loss_grad_swath = NN_4DVar.compute_WeightedLoss(err_g_swath, self.w_loss)
             # print(f"{loss_grad_swath=}")
 
+            loss_All = NN_4DVar.compute_WeightedLoss((output_global - targets_GT), self.w_loss)
             loss_GAll = NN_4DVar.compute_WeightedLoss(g_output_global - g_targets_GT, self.w_loss)
             loss_OI = NN_4DVar.compute_WeightedLoss(targets_GT - targets_OI, self.w_loss)
             loss_GOI = NN_4DVar.compute_WeightedLoss(self.gradient_img(targets_OI) - g_targets_GT, self.w_loss)
@@ -605,15 +596,45 @@ class Model_HwithSST(torch.nn.Module):
         return [dyout, dyout1]
 
 
+class Model_H_with_SST_and_noisy_Swot(torch.nn.Module):
+    """
+    state: [oi, obs, anom_glob, anom_swath ]
+    obs: [oi, obs], ~sst
+    mask: [ones, obs_mask]
+    """
+    def __init__(self, shape_state, shape_obs, shape_sst, dim=5):
+        super().__init__()
+
+        self.DimObs = 2
+        self.dimObsChannel = np.array([shape_state, dim])
+
+        self.conv_state_to_obs = torch.nn.Conv2d(shape_state, shape_obs, (3, 3), padding=1, bias=False)
+        self.conv11 = torch.nn.Conv2d(shape_state, self.dimObsChannel[1], (3, 3), padding=1, bias=False)
+
+        self.conv21 = torch.nn.Conv2d(shape_sst, self.dimObsChannel[1], (3, 3), padding=1, bias=False)
+        self.convM = torch.nn.Conv2d(shape_sst, self.dimObsChannel[1], (3, 3), padding=1, bias=False)
+        self.S = torch.nn.Sigmoid()  # torch.nn.Softmax(dim=1)
+
+    def forward(self, x, y, mask):
+
+        dyout = (self.conv_state_to_obs(x) - y[0]) * mask[0]
+
+        y1 = y[1] * mask[1]
+        dyout1 = self.conv11(x) - self.conv21(y1)
+        dyout1 = dyout1 * self.S(self.convM(mask[1]))
+
+        return [dyout, dyout1]
+
 class LitModelWithSST(LitModel):
-    def __init__(self, hparam, *args, **kwargs):
+    def __init__(self, hparam=None, *args, **kwargs):
         print(hparam)
         super().__init__(hparam, *args, **kwargs)
         # main model
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
             Phi_r(self.hparams.shape_state[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
                   self.hparams.nbBlocks, self.hparams.dropout_phi_r),
-            Model_HwithSST(self.hparams.shape_state[0], self.hparams.shape_state[0]),
+            Model_H_with_SST_and_noisy_Swot(self.hparams.shape_state[0], self.hparams.shape_obs[0],  self.hparams.shape_obs[0]//2
+                ,self.hparams.shape_state[0]),
             NN_4DVar.model_GradUpdateLSTM(self.hparams.shape_state, self.hparams.UsePriodicBoundary,
                                           self.hparams.dim_grad_solver, self.hparams.dropout),
             None, None, self.hparams.shape_state, self.hparams.n_grad)
@@ -648,7 +669,7 @@ class LitModelWithSST(LitModel):
     def test_step(self, test_batch, batch_idx):
 
         targets_OI, inputs_Mask, input_obs, target_obs_GT, targets_GT, sst_GT = test_batch
-        loss, out, metrics = self.compute_loss(test_batch, phase='test')
+        loss, out, out_pred,  metrics = self.compute_loss(test_batch, phase='test')
         if loss is not None:
             self.log('test_loss', loss)
             self.log("test_mse", metrics['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
@@ -657,10 +678,11 @@ class LitModelWithSST(LitModel):
                 'oi'    : (targets_OI.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'inp_obs'    : (input_obs.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'target_obs'    : (target_obs_GT.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'obs_pred'    : (out_pred.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'preds' : (out.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def compute_loss(self, batch, phase):  ## to be updated
-        targets_OI, inputs_Mask, input_obs, target_obs_GT, targets_GT, sst_GT = batch
+        targets_OI, inputs_Mask, inputs_obs, target_obs_GT, targets_GT, sst_GT = batch
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:
             return (
@@ -672,55 +694,96 @@ class LitModelWithSST(LitModel):
         new_masks = torch.cat((1. + 0. * inputs_Mask, inputs_Mask), dim=1)
         mask_SST = 1. + 0. * sst_GT
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
-        inputs_init = torch.cat((targets_OI, input_obs), dim=1)
-        inputs_missing = torch.cat((targets_OI, input_obs), dim=1)
+        target_obs_GT_wo_nan = target_obs_GT.where(~target_obs_GT.isnan(), torch.zeros_like(target_obs_GT))
+        anomaly_global = torch.zeros_like(targets_OI)
+        anomaly_swath = torch.zeros_like(targets_OI)
+        state = torch.cat((targets_OI, inputs_obs, anomaly_global, anomaly_swath), dim=1)
+        # PENDING: create state with anomaly full and anomaly swath (pad with zeros)
+
+        #state = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
+        obs = torch.cat((targets_OI, inputs_obs), dim=1)
+        # PENDING: Add state with zeros
 
         # gradient norm field
         g_targets_GT = self.gradient_img(targets_GT)
+        g_targets_obs = self.gradient_img(target_obs_GT_wo_nan)
+        g_targets_obs_mask = self.gradient_img(target_obs_GT)
+
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
             # with torch.set_grad_enabled(phase == 'train'):
-            inputs_init = torch.autograd.Variable(inputs_init, requires_grad=True)
+            state = torch.autograd.Variable(state, requires_grad=True)
 
-            outputs, hidden_new, cell_new, normgrad = self.model.forward(inputs_init, [inputs_missing, sst_GT],
+            outputs, _, _, _ = self.model.forward(state, [obs, sst_GT],
                                                                  [new_masks, mask_SST])
 
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
 
-            outputsSLRHR = outputs
-            outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
-            outputs = outputsSLR + outputs[:, self.hparams.dT:, :, :]
+
+            output_low_res, _, output_anom_glob, output_anom_swath = torch.split(outputs, split_size_or_sections=targets_OI.size(1), dim=1)
+            output_global = output_low_res + output_anom_glob
+            output_swath = output_global + output_anom_swath
 
             # reconstruction losses
-            g_outputs = self.gradient_img(outputs)
-            loss_All = NN_4DVar.compute_WeightedLoss((outputs - targets_GT), self.w_loss)
-            loss_GAll = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_GT, self.w_loss)
+            g_output_global = self.gradient_img(output_global)
+            g_output_swath = self.gradient_img(output_swath)
+            # PENDING: add loss term computed on obs (outputs swath - obs_target)
 
+            _err_swath =(output_swath - target_obs_GT_wo_nan)**2 
+            err_swath = torch.where(target_obs_GT.isnan() | target_obs_GT.isinf(), torch.zeros_like(_err_swath), _err_swath)
+            _err_g_swath =(g_output_swath - g_targets_obs)**2
+            err_g_swath = torch.where(g_targets_obs_mask.isnan() | g_targets_obs_mask.isinf(), torch.zeros_like(_err_g_swath), _err_g_swath)
+
+            loss_swath = NN_4DVar.compute_WeightedLoss(err_swath, self.w_loss)
+            # print(f"{loss_swath=}")
+            loss_grad_swath = NN_4DVar.compute_WeightedLoss(err_g_swath, self.w_loss)
+            # print(f"{loss_grad_swath=}")
+
+            # reconstruction losses
+            loss_All = NN_4DVar.compute_WeightedLoss((output_global - targets_GT), self.w_loss)
+            loss_GAll = NN_4DVar.compute_WeightedLoss(g_output_global - g_targets_GT, self.w_loss)
             loss_OI = NN_4DVar.compute_WeightedLoss(targets_GT - targets_OI, self.w_loss)
             loss_GOI = NN_4DVar.compute_WeightedLoss(self.gradient_img(targets_OI) - g_targets_GT, self.w_loss)
 
             # projection losses
-            loss_AE = torch.mean((self.model.phi_r(outputsSLRHR) - outputsSLRHR) ** 2)
-            yGT = torch.cat((targets_GT_wo_nan, outputsSLR - targets_GT_wo_nan), dim=1)
+            loss_AE = torch.mean((self.model.phi_r(outputs) - outputs) ** 2)
+            yGT = torch.cat((targets_GT_wo_nan, inputs_obs, targets_GT_wo_nan - output_low_res, target_obs_GT_wo_nan - output_global), dim=1)
             # yGT        = torch.cat((targets_OI,targets_GT-targets_OI),dim=1)
             loss_AE_GT = torch.mean((self.model.phi_r(yGT) - yGT) ** 2)
 
             # low-resolution loss
-            loss_SR = NN_4DVar.compute_WeightedLoss(outputsSLR - targets_OI, self.w_loss)
+            loss_SR = NN_4DVar.compute_WeightedLoss(output_low_res - targets_OI, self.w_loss)
             targets_GTLR = self.model_LR(targets_OI)
-            loss_LR = NN_4DVar.compute_WeightedLoss(self.model_LR(outputs) - targets_GTLR, self.w_loss)
+            loss_LR = NN_4DVar.compute_WeightedLoss(self.model_LR(output_global) - targets_GTLR, self.w_loss)
 
             # total loss
             loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
+            if loss_swath > 0:
+                pass
+                loss += self.hparams.alpha_mse_ssh * loss_swath
+            if loss_grad_swath > 0:
+                pass
+                loss += self.hparams.alpha_mse_gssh * loss_grad_swath
+                
             loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
             loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
+            # PENDING: Add loss term
 
             # metrics
             mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_GT, self.w_loss)
             mse = loss_All.detach()
             mseGrad = loss_GAll.detach()
-            metrics = dict([('mse', mse), ('mseGrad', mseGrad), ('meanGrad', mean_GAll), ('mseOI', loss_OI.detach()),
-                            ('mseGOI', loss_GOI.detach())])
+            mseSwath = loss_swath.detach()
+            mseGradSwath = loss_grad_swath.detach()
+            metrics = dict([
+                ('mse', mse),
+                ('mseGrad', mseGrad),
+                ('mseSwath', mseSwath),
+                ('mseGradSwath', mseGradSwath),
+                ('meanGrad', mean_GAll),
+                ('mseOI', loss_OI.detach()),
+                ('mseGOI', loss_GOI.detach())])
+            # PENDING: Add new loss term to metrics
 
-        return loss, outputs, metrics
+        return loss, output_global, output_swath, metrics

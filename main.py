@@ -151,13 +151,18 @@ class FourDVarNetRunner:
         :param trainer_kwargs: (Optional)
         """
         mod = _mod or self._get_model(ckpt_path=ckpt_path)
-        logger = pl.loggers.TensorboardLogger(default_hp_metric=False)
+        version = os.getenv('SLURM_JOB_ID')
+        logger = pl.loggers.TensorBoardLogger(save_dir='lightning_logs',
+                name='',
+                version=f'version_{version}' if version is not None else None,
+                default_hp_metric=False)
+
         mod = self._get_model(ckpt_path=ckpt_path)
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         num_gpus = torch.cuda.device_count()
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
         # trainer = _trainer or pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, **trainer_kwargs)
-        trainer = pl.Trainer(num_nodes=1, gpus=1, loggers=logger, accelerator=None, **trainer_kwargs)
+        trainer = pl.Trainer(num_nodes=1, gpus=1, logger=logger, accelerator=None, **trainer_kwargs)
         trainer.test(mod, test_dataloaders=self.dataloaders[dataloader])
 
     def profile(self):

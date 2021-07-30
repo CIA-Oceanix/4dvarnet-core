@@ -47,19 +47,24 @@ mods = {}
 # Mod sst
 for config_pkg in [
         # 'q.nad_sst',
-        # 'q.swot',
+        'q.swot',
         # 'q.nad_roll',
-        'q.roll',
+        # 'q.roll',
         # 'q.roll_sst',
         # 'q.swot_sst',
     ]:
     ckpt_paths = {
             'q.nad_sst': "../4dvarnet-core/dashboard/train/nad_sst/checkpoints/modelSLAInterpGF-Exp3-epoch=22-val_loss=0.05.ckpt",
-            'q.swot': "../4dvarnet-core/dashboard/train/swot/checkpoints/modelSLAInterpGF-Exp3-epoch=39-val_loss=0.08.ckpt",
-            'q.nad_roll': "../4dvarnet-core/dashboard/train/nad_roll/checkpoints/modelSLAInterpGF-Exp3-epoch=129-val_loss=0.09.ckpt",
+            # 'q.swot': "../4dvarnet-core/dashboard/train/swot/checkpoints/modelSLAInterpGF-Exp3-epoch=39-val_loss=0.08.ckpt",
+            'q.swot': 'dashboard/train/swot/checkpoints/modelSLAInterpGF-Exp3-epoch=134-val_loss=0.08.ckpt',
+
+            # 'q.nad_roll': "../4dvarnet-core/dashboard/train/nad_roll/checkpoints/modelSLAInterpGF-Exp3-epoch=129-val_loss=0.09.ckpt",
+            'q.nad_roll': "dashboard/train/nad_roll/checkpoints/modelSLAInterpGF-Exp3-epoch=22-val_loss=0.07.ckpt",
             # 'q.roll': "../4dvarnet-core/dashboard/train/roll/checkpoints/modelSLAInterpGF-Exp3-epoch=103-val_loss=0.08.ckpt",
             # 'q.roll': 'lightning_logs/version_598566/checkpoints/modelSLAInterpGF-Exp3-epoch=24-val_loss=0.08.ckpt',
-            'q.roll': 'lightning_logs/version_606207/checkpoints/modelSLAInterpGF-Exp3-epoch=25-val_loss=0.09.ckpt',
+            'q.roll': 'dashboard/train/roll/checkpoints/modelSLAInterpGF-Exp3-epoch=56-val_loss=0.08.ckpt',
+
+            # 'q.roll': 'lightning_logs/version_606207/checkpoints/modelSLAInterpGF-Exp3-epoch=25-val_loss=0.09.ckpt',
             # 'q.roll': 'lightning_logs/version_599362/checkpoints/modelSLAInterpGF-Exp3-epoch=62-val_loss=0.08.ckpt',
             'q.roll_sst': "../4dvarnet-core/dashboard/train/roll_sst/checkpoints/modelSLAInterpGF-Exp3-epoch=132-val_loss=0.05.ckpt",
             'q.swot_sst': "../4dvarnet-core/dashboard/train/swot_sst/checkpoints/modelSLAInterpGF-Exp3-epoch=137-val_loss=0.05.ckpt",
@@ -468,4 +473,19 @@ for i, da in enumerate(das):
 
 
 
+"""
+|  5 |   62615 | 0.000837556 | roll            | grid  |
+|  9  |   62615 | 0.000139124 | duacs_cal          | grid  |
+|  9 |   77260 | 0.000740362 | 4dvarnet_q.roll | grid  |
+|  9 |   77260 | 0.000630234 | 4dvarnet_q.nad_roll | grid  |
+|  9 |   77260 | 0.000283701 | 4dvarnet_q.swot | grid  |
 
+grad
+
+|  5 |   50199 | 0.000499668 | roll            | grid  |
+|  10 |   63139 | 0.00330375  | duacs_4_nad        | grid  |
+|  9 |   63139 | 0.00149976  | 4dvarnet_q.roll | grid  |
+|  9 |   63139 | 0.00145627  | 4dvarnet_q.nad_roll | grid  |
+|  9 |   63139 | 0.000875856 | 4dvarnet_q.swot | grid  |
+
+"""
