@@ -1,4 +1,5 @@
 import einops
+import xarray as xr
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -9,7 +10,7 @@ import torch.optim as optim
 from omegaconf import OmegaConf
 
 import solver as NN_4DVar
-from metrics import save_netcdf, nrmse_scores, mse_scores, plot_nrmse, plot_snr, plot_maps, animate_maps
+from metrics import save_netcdf, nrmse_scores, mse_scores, plot_nrmse, plot_snr, plot_maps, animate_maps, get_psd_score
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -168,12 +169,12 @@ class Gradient_img(torch.nn.Module):
         a = np.array([[1., 0., -1.], [2., 0., -2.], [1., 0., -1.]])
         self.convGx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
         self.convGx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0),
-                                                requires_grad=False)
+                requires_grad=False)
 
         b = np.array([[1., 2., 1.], [0., 0., 0.], [-1., -2., -1.]])
         self.convGy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
         self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0),
-                                                requires_grad=False)
+                requires_grad=False)
 
         self.eps=10**-3
 
@@ -240,12 +241,12 @@ class LitModel(pl.LightningModule):
 
         # main model
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
-            Phi_r(self.hparams.shape_state[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
-                  self.hparams.nbBlocks, self.hparams.dropout_phi_r, self.hparams.stochastic),
-            Model_H_with_noisy_Swot(self.hparams.shape_state[0], self.hparams.shape_obs[0]),
-            NN_4DVar.model_GradUpdateLSTM(self.hparams.shape_state, self.hparams.UsePriodicBoundary,
-                                          self.hparams.dim_grad_solver, self.hparams.dropout),
-            None, None, self.hparams.shape_state, self.hparams.n_grad)
+                Phi_r(self.hparams.shape_state[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
+                    self.hparams.nbBlocks, self.hparams.dropout_phi_r, self.hparams.stochastic),
+                Model_H_with_noisy_Swot(self.hparams.shape_state[0], self.hparams.shape_obs[0]),
+                NN_4DVar.model_GradUpdateLSTM(self.hparams.shape_state, self.hparams.UsePriodicBoundary,
+                    self.hparams.dim_grad_solver, self.hparams.dropout),
+                None, None, self.hparams.shape_state, self.hparams.n_grad)
 
         self.model_LR = ModelLR()
         self.gradient_img = Gradient_img()
@@ -265,9 +266,9 @@ class LitModel(pl.LightningModule):
     def configure_optimizers(self):
 
         optimizer = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
-                                {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
-                                {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
-                                ], lr=0.)
+            {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+            {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+            ], lr=0.)
 
         return optimizer
 
@@ -356,19 +357,19 @@ class LitModel(pl.LightningModule):
         obs_pred = torch.cat([chunk['obs_pred'] for chunk in outputs]).numpy()
 
         ds_size = {'time': self.ds_size_time,
-                   'lon': self.ds_size_lon,
-                   'lat': self.ds_size_lat,
-                   }
+                'lon': self.ds_size_lon,
+                'lat': self.ds_size_lat,
+                }
 
         gt, oi, pred, inputs_obs, target_obs, obs_pred = map(
-            lambda t: einops.rearrange(
-                t,
-                '(t_idx lat_idx lon_idx) win_time win_lat win_lon -> t_idx win_time (lat_idx win_lat) (lon_idx win_lon)',
-                t_idx=int(ds_size['time']),
-                lat_idx=int(ds_size['lat']),
-                lon_idx=int(ds_size['lon']),
-            ),
-            [gt, oi, pred, inputs_obs, target_obs, obs_pred])
+                lambda t: einops.rearrange(
+                    t,
+                    '(t_idx lat_idx lon_idx) win_time win_lat win_lon -> t_idx win_time (lat_idx win_lat) (lon_idx win_lon)',
+                    t_idx=int(ds_size['time']),
+                    lat_idx=int(ds_size['lat']),
+                    lon_idx=int(ds_size['lon']),
+                    ),
+                [gt, oi, pred, inputs_obs, target_obs, obs_pred])
 
         self.x_gt = gt[:, int(self.hparams.dT / 2), :, :]
         self.x_oi = oi[:, int(self.hparams.dT / 2), :, :]
@@ -377,23 +378,40 @@ class LitModel(pl.LightningModule):
         self.obs_inp = np.where(~np.isnan(self.obs_gt), inputs_obs[:, int(self.hparams.dT / 2), :, :], np.full_like(self.obs_gt, float('nan')))
         self.obs_pred = np.where(~np.isnan(self.obs_gt), obs_pred[:, int(self.hparams.dT / 2), :, :], np.full_like(self.obs_gt, float('nan')))
 
+        self.test_xr_ds = xr.Dataset(
+                {
+
+                    'gt': (('time', 'lat', 'lon'), self.x_gt),
+                    'oi': (('time', 'lat', 'lon'), self.x_oi),
+                    'pred': (('time', 'lat', 'lon'), self.x_rec),
+                    'obs_gt': (('time', 'lat', 'lon'), self.obs_gt),
+                    'obs_pred': (('time', 'lat', 'lon'), self.obs_pred),
+
+                    },
+                {
+                    'time': (('time',), self.test_dates),
+                    'lat': (('lat',), self.test_lat),
+                    'lon': (('lon',), self.test_lon),
+                    },
+                )
+
         Path(self.logger.log_dir).mkdir(exist_ok=True)
         # display map
         path_save0 = self.logger.log_dir + '/maps.png'
         fig_maps = plot_maps(
                 self.x_gt[3],
-                  self.x_oi[3],
-                  self.x_rec[3],
-                  self.test_lon, self.test_lat, path_save0)
+                self.x_oi[3],
+                self.x_rec[3],
+                self.test_lon, self.test_lat, path_save0)
         self.test_figs['maps'] = fig_maps
         self.logger.experiment.add_figure('Maps', fig_maps, global_step=self.current_epoch)
 
         path_save01 = self.logger.log_dir + '/maps_obs.png'
         fig_maps = plot_maps(
                 self.obs_gt[3],
-                  self.obs_inp[3],
-                  self.obs_pred[3],
-                  self.test_lon, self.test_lat, path_save01)
+                self.obs_inp[3],
+                self.obs_pred[3],
+                self.test_lon, self.test_lat, path_save01)
         self.test_figs['maps_obs'] = fig_maps
         self.logger.experiment.add_figure('Maps Obs', fig_maps, global_step=self.current_epoch)
 
@@ -401,14 +419,14 @@ class LitModel(pl.LightningModule):
         if self.hparams.animate == True:
             path_save0 = self.logger.log_dir + '/animation.mp4'
             animate_maps(self.x_gt,
-                         self.x_oi,
-                         self.x_rec,
-                         self.lon, self.lat, path_save0)
+                    self.x_oi,
+                    self.x_rec,
+                    self.lon, self.lat, path_save0)
             # save NetCDF
         path_save1 = self.logger.log_dir + '/test.nc'
         # PENDING: replace hardcoded 60
         save_netcdf(saved_path1=path_save1, pred=self.x_rec,
-                   lon=self.test_lon, lat=self.test_lat, dates=self.test_dates)
+                lon=self.test_lon, lat=self.test_lat, dates=self.test_dates)
 
         # compute nRMSE
         path_save2 = self.logger.log_dir + '/nRMSE.txt'
@@ -442,7 +460,10 @@ class LitModel(pl.LightningModule):
         self.test_figs['snr'] = snr_fig
 
         self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
-
+        
+        fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt, self.test_xr_ds.pred, self.test_xr_ds.oi, with_fig=True)
+        self.test_figs['res'] = fig
+        self.logger.experiment.add_figure('Spat. Resol', fig, global_step=self.current_epoch)
         # PENDING: Compute metrics on swath
         # TODO: log hparams and metrics
         mdf = pd.concat(
@@ -451,19 +472,23 @@ class LitModel(pl.LightningModule):
                     .rename({'pred': f'{mname}_abs', 'ratio': f'{mname}_imp'}, axis=1)
                     .T['mean']
 
-                for df, mname in [
-                    (tab_n_scores, 'nrmse_glob'),
-                    (tab_scores, 'mse_glob'),
-                    (tab_n_scores_swath, 'nrmse_swath'),
-                    (tab_scores_swath, 'mse_swath'),
+                    for df, mname in [
+                        (tab_n_scores, 'nrmse_glob'),
+                        (tab_scores, 'mse_glob'),
+                        (tab_n_scores_swath, 'nrmse_swath'),
+                        (tab_scores_swath, 'mse_swath'),
+                        ]
                     ]
-                ]
-        )
+                )
         print(mdf.to_frame().to_markdown())
         self.logger.log_hyperparams(
-            {**self.hparams},
-            mdf.to_dict(),
-        )
+                {**self.hparams},
+                {
+                    'spatial_res': float(spatial_res_model),
+                    'spatial_res_imp': float(spatial_res_model / spatial_res_oi),
+                    **mdf.to_dict(), },
+
+                )
 
     def compute_loss(self, batch, phase):
         targets_OI, inputs_Mask, inputs_obs, target_obs_GT, targets_GT = batch
@@ -471,11 +496,11 @@ class LitModel(pl.LightningModule):
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:
             return (
-                None,
-                torch.zeros_like(targets_GT),
-                dict([('mse', 0.), ('mseGrad', 0.),('mseSwath', 0.), ('mseGradSwath', 0.), ('meanGrad', 1.), ('mseOI', 0.),
-                      ('mseGOI', 0.)])
-            )
+                    None,
+                    torch.zeros_like(targets_GT),
+                    dict([('mse', 0.), ('mseGrad', 0.),('mseSwath', 0.), ('mseGradSwath', 0.), ('meanGrad', 1.), ('mseOI', 0.),
+                        ('mseGOI', 0.)])
+                    )
         new_masks = torch.cat((torch.ones_like(inputs_Mask), inputs_Mask), dim=1)
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
         target_obs_GT_wo_nan = target_obs_GT.where(~target_obs_GT.isnan(), torch.zeros_like(target_obs_GT))
@@ -542,14 +567,15 @@ class LitModel(pl.LightningModule):
             loss_LR = NN_4DVar.compute_WeightedLoss(self.model_LR(output_global) - targets_GTLR, self.w_loss)
 
             # total loss
-            loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
+            loss = 0
+            loss += self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
             if loss_swath > 0:
                 pass
-                loss += self.hparams.alpha_mse_ssh * loss_swath
+            loss += self.hparams.alpha_mse_ssh * loss_swath * 20
             if loss_grad_swath > 0:
                 pass
-                loss += self.hparams.alpha_mse_gssh * loss_grad_swath
-                
+            loss += self.hparams.alpha_mse_gssh * loss_grad_swath * 20
+
             loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
             loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
             # PENDING: Add loss term

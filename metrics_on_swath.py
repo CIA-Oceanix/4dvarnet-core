@@ -472,18 +472,23 @@ for i, da in enumerate(das):
 """
 
 
-
 """
-|  5 |   62615 | 0.000837556 | roll            | grid  |
-|  9  |   62615 | 0.000139124 | duacs_cal          | grid  |
-|  9 |   77260 | 0.000740362 | 4dvarnet_q.roll | grid  |
-|  9 |   77260 | 0.000630234 | 4dvarnet_q.nad_roll | grid  |
-|  9 |   77260 | 0.000283701 | 4dvarnet_q.swot | grid  |
+
+training with same weights as glob loss
+
+|    |   count |   grad_mse_score |    mse_score | src                | tgt   |
+|  5 |   62615 |  0.000499668 | 0.000837556 | roll            | grid  |noisy obs|
+|  9  |   62615|  0.00330375 | 0.000139124 | duacs_cal          | grid  |duacs calibration|
+|  9 |   77260 |  0.00343332 | 0.00377194  | 4dvarnet_q.roll | grid  | base 4dvarnet training with noisy obs (no loss term on swath)|
+|  9 |   77260 |  0.00149976 | 0.000740362 | 4dvarnet_q.roll | grid  | With a loss term on the swath |
+|  9 |   77260 |  0.00145627 | 0.000630234 | 4dvarnet_q.nad_roll | grid  | With the noisy obs separated from nadirs|
+|  9 |   77260 |  0.000875856 | 0.000283701 | 4dvarnet_q.swot | grid  | Without perfect obs |
 
 grad
 
 |  5 |   50199 | 0.000499668 | roll            | grid  |
-|  10 |   63139 | 0.00330375  | duacs_4_nad        | grid  |
+|  10 |  63139 | 0.00330375  | duacs_4_nad        | grid  |
+|  15 |  63139 | 0.00343332  | 4dvarnet_q.roll | grid  |
 |  9 |   63139 | 0.00149976  | 4dvarnet_q.roll | grid  |
 |  9 |   63139 | 0.00145627  | 4dvarnet_q.nad_roll | grid  |
 |  9 |   63139 | 0.000875856 | 4dvarnet_q.swot | grid  |

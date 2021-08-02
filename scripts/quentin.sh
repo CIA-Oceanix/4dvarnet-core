@@ -11,17 +11,24 @@
 # tensorboard --logdir=lightning_logs/version_$(tail -n1 scripts/roll.test_jobs) --bind_all
 
 function link(){
-	mkdir -p "dashboard/train"
-	mkdir -p "dashboard/test"
-	ln -sf "../../lightning_logs/version_$2" "dashboard/$1" 
+	mkdir -p "dashboard/current/train"
+	mkdir -p "dashboard/current/test"
+	rm -f "dashboard/current/$1" 
+	ln -s "../../../lightning_logs/version_$2" "dashboard/current/$1" 
 }
 
 function train(){
 	JOBID=$(sbatch --parsable scripts/run.slurm $1)
 	link "train/$1" $JOBID
+	echo $JOBID
 }
 
 function test(){
-	JOBID=$(sbatch --parsable scripts/test.slurm $1 $2)
-	link "test/$2" $JOBID
+	JOBID=$(sbatch --parsable scripts/test.slurm $1)
+	link "test/$1" $JOBID
+	echo $JOBID
+}
+
+function stash(){
+	mv dashboard/current dashboard/$1
 }

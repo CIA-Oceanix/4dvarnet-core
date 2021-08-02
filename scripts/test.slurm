@@ -22,14 +22,14 @@ conda activate 4dvarnet
 export PYTHONPATH=${WORK}/4dvarnet-core:${PYTHONPATH}
 
 mr_ls() {
-	ls -t **/*$1/checkpoints | head -n1
+	ls -t dashboard/current/train/$1/checkpoints | head -n1
 }
 
 test_most_recent_ckpt () {
-	ckpt_path="lightning_logs/version_$1/checkpoints/$(mr_ls $1)"
+	ckpt_path="dashboard/current/train/$1/checkpoints/$(mr_ls $1)"
 	echo $ckpt_path
-	srun python main.py --ckpt_path=$ckpt_path --config=$2  test
+	srun python main.py --ckpt_path=$ckpt_path --config=$1  test
 }
 
-test_most_recent_ckpt $1 $2
+test_most_recent_ckpt $1
 
