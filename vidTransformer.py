@@ -254,7 +254,7 @@ class VidTransformer(nn.Module):
 
         cls_space_tokens = repeat(self.space_token, '() n d -> b t n d', b = b, t=t)
         x = torch.cat((cls_space_tokens, x), dim=2)
-        x += self.pos_embedding[:, :, :(n + 1)]
+        x += self.pos_embedding[:, :t, :(n+1)]
         x = self.dropout(x)
 
         x = rearrange(x, 'b t n d -> (b t) n d')

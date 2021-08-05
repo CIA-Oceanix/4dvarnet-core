@@ -259,7 +259,14 @@ class model_GradUpdateLSTM(torch.nn.Module):
         return grad,hidden,cell   
     
 class model_GradUpdateTransformer(torch.nn.Module):
-    def __init__(self,ShapeData,patch_size=20,channels=2,periodicBnd=False,rateDropout=0.):
+    def __init__(self,
+                 ShapeData,
+                 patch_size=10,
+                 channels=2,
+                 periodicBnd=False,
+                 rateDropout=0.,
+                 iter_transformer=True,
+                 max_iter_len=15):
         """ Constructor.
         
         Args:
@@ -268,11 +275,19 @@ class model_GradUpdateTransformer(torch.nn.Module):
             channels: the number of channels of each frame.
             pefiodicBnd: 
             rateDropout: drop out rate.
+            iter_transformer: if True, use a transformer to takes into
+                account the correlation between iterations.
+            max_iter_len: max length for the iteration transformer.
+            
         """
         super(model_GradUpdateTransformer, self).__init__()
 
         self.channels = channels
         self.patch_size = patch_size
+        self.max_iter_len = max_iter_len
+        self.iter_transformer = iter_transformer
+        assert ShapeData[0] % self.channels == 0, 'The first dimention must be divisible by the number of channels.'
+        self.num_frames = int(ShapeData[0]/self.channels)
         with torch.no_grad():
             self.shape = ShapeData
             self.PeriodicBnd = periodicBnd
@@ -286,17 +301,26 @@ class model_GradUpdateTransformer(torch.nn.Module):
 
         self.dropout = torch.nn.Dropout(rateDropout)
 
-        self.vidTransformer = vidTransformer.VidTransformer(
+        self.time_vidTransformer = vidTransformer.VidTransformer(
             image_size=self.shape[-1], patch_size=self.patch_size, 
-            num_frames=int(self.shape[0]/self.channels), in_channels=self.channels)
+            num_frames=self.num_frames, in_channels=self.channels)
+        
+        self.iter_vidTransformer = vidTransformer.VidTransformer(
+            image_size=self.shape[-1], patch_size=self.patch_size, 
+            num_frames=self.max_iter_len, in_channels=self.channels)
 
     def _make_ConvGrad(self):
         layers = []
-
+        
+        if self.iter_transformer:
+            in_channels = self.max_iter_len*self.channels
+        else:
+            in_channels = self.shape[0] 
+        out_channels = self.shape[0]
         if len(self.shape) == 2: ## 1D Data
-            layers.append(torch.nn.Conv1d(self.shape[0], self.shape[0], 1, padding=0,bias=False))
+            layers.append(torch.nn.Conv1d(in_channels, out_channels, 1, padding=0,bias=False))
         elif len(self.shape) == 3: ## 2D Data
-            layers.append(torch.nn.Conv2d(self.shape[0], self.shape[0], (1,1), padding=0,bias=False))
+            layers.append(torch.nn.Conv2d(in_channels, out_channels, (1,1), padding=0,bias=False))
 
         return torch.nn.Sequential(*layers)
 
@@ -305,7 +329,8 @@ class model_GradUpdateTransformer(torch.nn.Module):
         Forward pass.
         
         Args:
-            hidden, cell: unused, for compatibility purposes.
+            hidden: a sequence of the previous grad used by the optimizer. 
+            cell: unused, for compatibility purposes.
             grad: the gradient of the variational loss. The size of grad is (NxCxWxH), with C is the 
                 concatenated of the channel and time dimensions. Specifically, we use two channels 
                 corresponding to two resolutions: L (low) and H(high). The dimision C is organized 
@@ -326,17 +351,27 @@ class model_GradUpdateTransformer(torch.nn.Module):
         # Periodic bound
         if self.PeriodicBnd == True :
             dB     = 7
-            grad  = torch.cat((grad[:,:,:,grad.size(2)-dB:,:],grad,grad[:,:,:,0:dB,:]),dim=2) # why only W????
+            grad  = torch.cat((grad[:,:,:,grad.size(2)-dB:,:],grad,grad[:,:,:,0:dB,:]),dim=2) # why only W????                
         
-        # Compute the gradident
-        grad_out, _ = self.vidTransformer(grad)
+        # Time transformer
+        time_grad_out, _ = self.time_vidTransformer(grad)
         
-        # Reshape back to the original shape
-        grad_out = rearrange(grad_out, 'n t c w h -> n (c t) w h', c=self.channels)
-
+        if not self.iter_transformer:
+            # Reshape back to the original shape
+            grad_out = rearrange(time_grad_out, 'n t c w h -> n (c t) w h', c=self.channels)
+        else:  
+            time_grad_out = reduce(time_grad_out, 'n t c w h -> n 1 c w h', 'mean')
+            if hidden is None:
+                hidden = repeat(time_grad_out, 'n 1 c w h -> n t c w h',t=self.max_iter_len)
+            else:
+                hidden = torch.cat((hidden, time_grad_out),dim=1)[:,-self.max_iter_len:,...]
+            # Iteration transformer
+            iter_grad_out, _ = self.iter_vidTransformer(self.dropout(hidden))
+            # Reshape back to the original shape
+            grad_out = rearrange(iter_grad_out, 'n t c w h -> n (c t) w h', c=self.channels)
+            
         # Conv head
-        grad_out = self.dropout(grad_out)
-        grad_out = self.convLayer(grad_out)
+        grad_out = self.convLayer(self.dropout(grad_out))
 
         return grad_out,hidden,cell
 
