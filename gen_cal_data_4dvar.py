@@ -101,23 +101,27 @@ Path('obs').mkdir(exist_ok=True)
 
 # %%
 gen_files = {
-     'nad' : {         
+     # 'nad' : {         
+     #    'nadirs': ['ssh_model'],
+    # },
+     # 'nad_swot' : {         
+     #    'swot': ['ssh_model'],
+     #    'nadirs': ['ssh_model'],
+    # },
+    'nad_swot_roll_phase_bd_timing' : {         
+        'swot': ['ssh_model', 'roll_err', 'phase_err', 'bd_err', 'timing_err'],
         'nadirs': ['ssh_model'],
     },
-     'nad_swot' : {         
-        'swot': ['ssh_model'],
-        'nadirs': ['ssh_model'],
-    },
-    'nad_swot_roll' : {         
-        'swot': ['ssh_model', 'roll_err'],
-        'nadirs': ['ssh_model'],
-    },
-    'swot_roll' : {         
-        'swot': ['ssh_model', 'roll_err'],
-    },
-    'swot' : {         
-        'swot': ['ssh_model'],
-    }
+    # 'nad_swot_roll' : {         
+    #     'swot': ['ssh_model', 'roll_err'],
+    #     'nadirs': ['ssh_model'],
+    # },
+    # 'swot_roll' : {         
+    #     'swot': ['ssh_model', 'roll_err'],
+    # },
+    # 'swot' : {         
+    #     'swot': ['ssh_model'],
+    # }
 }
 dates = pd.date_range("2012-10-01", "2013-10-01", freq='1D')
 
@@ -181,6 +185,7 @@ for dt_start, dt_end in zip(dates[:-1], dates[1:]):
 # %%
 xr.open_mfdataset('obs/*').to_netcdf('full_cal_obs.nc')
 
+raise Exception('something else')
 # %%
 xr.open_dataset('full_cal_obs.nc').swot.isel(time=0).plot()
 

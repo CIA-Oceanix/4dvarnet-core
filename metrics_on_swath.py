@@ -34,6 +34,7 @@ import pytorch_lightning as pl
 import models
 # from new_dataloading import FourDVarNetDataModule
 import new_dataloading
+from pathlib import Path
 from omegaconf import OmegaConf
 import numpy as np
 import pandas as pd
@@ -42,34 +43,27 @@ import xarray as xr
 from collections import defaultdict
 # from main import FourDVarNetRunner
 import main
-
 mods = {}
+
 # Mod sst
+def get_most_recent_ckpt(config_pkg):
+    ckpt_fold = Path(f'dashboard/current/train/{config_pkg}/checkpoints')
+    checkpoints = ckpt_fold.glob('*')
+    return max(checkpoints, key=lambda x: x.stat().st_ctime)
+
 for config_pkg in [
         # 'q.nad_sst',
-        'q.swot',
+        # 'q.xp_one.low_zeros_glob',
+        # 'q.xp_one.low_zeros_loc',
+        # 'q.xp_one.high_zeros_glob',
+        'q.xp_one.low_obs_glob',
+        # 'q.swot',
         # 'q.nad_roll',
         # 'q.roll',
         # 'q.roll_sst',
         # 'q.swot_sst',
     ]:
-    ckpt_paths = {
-            'q.nad_sst': "../4dvarnet-core/dashboard/train/nad_sst/checkpoints/modelSLAInterpGF-Exp3-epoch=22-val_loss=0.05.ckpt",
-            # 'q.swot': "../4dvarnet-core/dashboard/train/swot/checkpoints/modelSLAInterpGF-Exp3-epoch=39-val_loss=0.08.ckpt",
-            'q.swot': 'dashboard/train/swot/checkpoints/modelSLAInterpGF-Exp3-epoch=134-val_loss=0.08.ckpt',
-
-            # 'q.nad_roll': "../4dvarnet-core/dashboard/train/nad_roll/checkpoints/modelSLAInterpGF-Exp3-epoch=129-val_loss=0.09.ckpt",
-            'q.nad_roll': "dashboard/train/nad_roll/checkpoints/modelSLAInterpGF-Exp3-epoch=22-val_loss=0.07.ckpt",
-            # 'q.roll': "../4dvarnet-core/dashboard/train/roll/checkpoints/modelSLAInterpGF-Exp3-epoch=103-val_loss=0.08.ckpt",
-            # 'q.roll': 'lightning_logs/version_598566/checkpoints/modelSLAInterpGF-Exp3-epoch=24-val_loss=0.08.ckpt',
-            'q.roll': 'dashboard/train/roll/checkpoints/modelSLAInterpGF-Exp3-epoch=56-val_loss=0.08.ckpt',
-
-            # 'q.roll': 'lightning_logs/version_606207/checkpoints/modelSLAInterpGF-Exp3-epoch=25-val_loss=0.09.ckpt',
-            # 'q.roll': 'lightning_logs/version_599362/checkpoints/modelSLAInterpGF-Exp3-epoch=62-val_loss=0.08.ckpt',
-            'q.roll_sst': "../4dvarnet-core/dashboard/train/roll_sst/checkpoints/modelSLAInterpGF-Exp3-epoch=132-val_loss=0.05.ckpt",
-            'q.swot_sst': "../4dvarnet-core/dashboard/train/swot_sst/checkpoints/modelSLAInterpGF-Exp3-epoch=137-val_loss=0.05.ckpt",
-    }
-    ckpt_path=ckpt_paths[config_pkg]
+    ckpt_path =  get_most_recent_ckpt(config_pkg)
     runner = main.FourDVarNetRunner(config=config_pkg)
 
     mods[config_pkg] = runner._get_model(ckpt_path=ckpt_path)
@@ -492,5 +486,22 @@ grad
 |  9 |   63139 | 0.00149976  | 4dvarnet_q.roll | grid  |
 |  9 |   63139 | 0.00145627  | 4dvarnet_q.nad_roll | grid  |
 |  9 |   63139 | 0.000875856 | 4dvarnet_q.swot | grid  |
+
+
+With Perfect Obs:
+
+|  5 |   62615 |  0.000499668 | 0.000837556 | roll            | grid  |noisy obs|
+|  9  |   62615|  0.000124958 | 0.000139124 | duacs_cal          | grid  |duacs calibration|
+
+|  9 |   77260 | 0.000253226 | 0.000107937 | 4dvarnet_q.xp_one.low_zeros_glob | grid  |
+|  9 |   77260 | 0.00241264  | 0.00158863  | 4dvarnet_q.xp_one.low_zeros_loc | grid  |
+|  9 |   77260 | 0.000236198 | 8.48103e-05 | 4dvarnet_q.xp_one.high_zeros_glob | grid  |
+|  9 |   77260 | 0.000262276 | 9.32416e-05 | 4dvarnet_q.xp_one.low_obs_glob | grid  |
+
+With roll:
+|  9 |   77260 | 0.00029474  | 0.000135757 | 4dvarnet_q.xp_one.low_zeros_glob | grid  |
+|  9 |   77260 | 0.0026019   | 0.00172623  | 4dvarnet_q.xp_one.low_zeros_loc | grid  |
+|  9 |   77260 | 0.000227642 | 9.36744e-05 | 4dvarnet_q.xp_one.high_zeros_glob | grid  |
+|  9 |   77260 | 0.000264168 | 9.90135e-05 | 4dvarnet_q.xp_one.low_obs_glob | grid  |
 
 """

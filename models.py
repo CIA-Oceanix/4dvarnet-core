@@ -143,23 +143,33 @@ class Model_H(torch.nn.Module):
 
 class Model_H_with_noisy_Swot(torch.nn.Module):
     """
-    state: [oi, obs, anom_glob, anom_swath ]
+    state: [oi, anom_glob, anom_swath ]
     obs: [oi, obs]
     mask: [ones, obs_mask]
     """
-    def __init__(self, shape_state, shape_obs):
+    def __init__(self, shape_state, shape_obs, hparams=None):
         super().__init__()
-
+        self.hparams = hparams
         self.DimObs = 1
         self.dimObsChannel = np.array([shape_obs])
 
-        self.conv_state_to_obs = torch.nn.Conv2d(shape_state, shape_obs, (3, 3), padding=1, bias=False)
 
 
     def forward(self, x, y, mask):
-        dyout = (self.conv_state_to_obs(x) - y) * mask
+        output_low_res,  output_anom_glob, output_anom_swath = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
+        output_global = output_low_res + output_anom_glob
 
-        return dyout
+        if self.hparams.swot_anom_wrt == 'low_res':
+            output_swath = output_low_res + output_anom_swath
+        elif self.hparams.swot_anom_wrt == 'high_res':
+            output_swath = output_global + output_anom_swath
+
+        yhat_glob = torch.cat((output_low_res, output_global), dim=1)
+        yhat_swath = torch.cat((output_low_res, output_swath), dim=1)
+        dyout_glob = (yhat_glob - y) * mask
+        dyout_swath = (yhat_swath - y) * mask
+
+        return dyout_glob + dyout_swath
 
 
 class Gradient_img(torch.nn.Module):
@@ -167,13 +177,13 @@ class Gradient_img(torch.nn.Module):
         super(Gradient_img, self).__init__()
 
         a = np.array([[1., 0., -1.], [2., 0., -2.], [1., 0., -1.]])
-        self.convGx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
-        self.convGx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0),
+        self.convgx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+        self.convgx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0),
                 requires_grad=False)
 
         b = np.array([[1., 2., 1.], [0., 0., 0.], [-1., -2., -1.]])
-        self.convGy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
-        self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0),
+        self.convgy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+        self.convgy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0),
                 requires_grad=False)
 
         self.eps=10**-3
@@ -181,24 +191,24 @@ class Gradient_img(torch.nn.Module):
     def forward(self, im):
 
         if im.size(1) == 1:
-            G_x = self.convGx(im)
-            G_y = self.convGy(im)
-            G = torch.sqrt(torch.pow(0.5 * G_x, 2) + torch.pow(0.5 * G_y, 2) + self.eps)
+            g_x = self.convgx(im)
+            g_y = self.convgy(im)
+            g = torch.sqrt(torch.pow(0.5 * g_x, 2) + torch.pow(0.5 * g_y, 2) + self.eps)
         else:
 
             for kk in range(0, im.size(1)):
-                G_x = self.convGx(im[:, kk, :, :].view(-1, 1, im.size(2), im.size(3)))
-                G_y = self.convGy(im[:, kk, :, :].view(-1, 1, im.size(2), im.size(3)))
+                g_x = self.convgx(im[:, kk, :, :].view(-1, 1, im.size(2), im.size(3)))
+                g_y = self.convgy(im[:, kk, :, :].view(-1, 1, im.size(2), im.size(3)))
 
-                G_x = G_x.view(-1, 1, im.size(2) - 2, im.size(2) - 2)
-                G_y = G_y.view(-1, 1, im.size(2) - 2, im.size(2) - 2)
-                nG = torch.sqrt(torch.pow(0.5 * G_x, 2) + torch.pow(0.5 * G_y, 2)+ self.eps)
+                g_x = g_x.view(-1, 1, im.size(2) - 2, im.size(2) - 2)
+                g_y = g_y.view(-1, 1, im.size(2) - 2, im.size(2) - 2)
+                ng = torch.sqrt(torch.pow(0.5 * g_x, 2) + torch.pow(0.5 * g_y, 2)+ self.eps)
 
                 if kk == 0:
-                    G = nG.view(-1, 1, im.size(1) - 2, im.size(2) - 2)
+                    g = ng.view(-1, 1, im.size(1) - 2, im.size(2) - 2)
                 else:
-                    G = torch.cat((G, nG.view(-1, 1, im.size(1) - 2, im.size(2) - 2)), dim=1)
-        return G
+                    g = torch.cat((g, ng.view(-1, 1, im.size(1) - 2, im.size(2) - 2)), dim=1)
+        return g
 
 class ModelLR(torch.nn.Module):
     def __init__(self):
@@ -243,7 +253,7 @@ class LitModel(pl.LightningModule):
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(self.hparams.shape_state[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
                     self.hparams.nbBlocks, self.hparams.dropout_phi_r, self.hparams.stochastic),
-                Model_H_with_noisy_Swot(self.hparams.shape_state[0], self.hparams.shape_obs[0]),
+                Model_H_with_noisy_Swot(self.hparams.shape_state[0], self.hparams.shape_obs[0], hparams=self.hparams),
                 NN_4DVar.model_GradUpdateLSTM(self.hparams.shape_state, self.hparams.UsePriodicBoundary,
                     self.hparams.dim_grad_solver, self.hparams.dropout),
                 None, None, self.hparams.shape_state, self.hparams.n_grad)
@@ -330,6 +340,8 @@ class LitModel(pl.LightningModule):
         self.log('val_loss', loss)
         self.log("val_mse", metrics['mse'] / self.var_Val, on_step=False, on_epoch=True, prog_bar=True)
         self.log("val_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val_mse_swath", metrics['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val_mseG_swath", metrics['mseGradSwath'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
         return loss.detach()
 
     def test_step(self, test_batch, batch_idx):
@@ -340,6 +352,8 @@ class LitModel(pl.LightningModule):
             self.log('test_loss', loss)
             self.log("test_mse", metrics['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+            self.log("test_mse_swath", metrics['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
+            self.log("test_mseG_swath", metrics['mseGradSwath'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
         return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'oi'    : (targets_OI.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'target_obs'    : (obs_target_item.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
@@ -505,8 +519,11 @@ class LitModel(pl.LightningModule):
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
         target_obs_GT_wo_nan = target_obs_GT.where(~target_obs_GT.isnan(), torch.zeros_like(target_obs_GT))
         anomaly_global = torch.zeros_like(targets_OI)
-        anomaly_swath = torch.zeros_like(targets_OI)
-        state = torch.cat((targets_OI, inputs_obs, anomaly_global, anomaly_swath), dim=1)
+        if self.hparams.anom_swath_init == 'zeros':
+            anomaly_swath = torch.zeros_like(targets_OI)
+        elif self.hparams.anom_swath_init == 'obs':
+            anomaly_swath = (inputs_obs - targets_OI).detach()
+        state = torch.cat((targets_OI, anomaly_global, anomaly_swath), dim=1)
         # PENDING: create state with anomaly full and anomaly swath (pad with zeros)
 
         #state = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
@@ -531,9 +548,13 @@ class LitModel(pl.LightningModule):
                 outputs = outputs.detach()
 
             # PENDING: reconstruct outputs, outputs LowRes and outputSwath MegaRes
-            output_low_res, _, output_anom_glob, output_anom_swath = torch.split(outputs, split_size_or_sections=targets_OI.size(1), dim=1)
+            output_low_res,  output_anom_glob, output_anom_swath = torch.split(outputs, split_size_or_sections=targets_OI.size(1), dim=1)
             output_global = output_low_res + output_anom_glob
-            output_swath = output_global + output_anom_swath
+
+            if self.hparams.swot_anom_wrt == 'low_res':
+                output_swath = output_low_res + output_anom_swath
+            elif self.hparams.swot_anom_wrt == 'high_res':
+                output_swath = output_global + output_anom_swath
 
             # reconstruction losses
             g_output_global = self.gradient_img(output_global)
@@ -557,7 +578,7 @@ class LitModel(pl.LightningModule):
 
             # projection losses
             loss_AE = torch.mean((self.model.phi_r(outputs) - outputs) ** 2)
-            yGT = torch.cat((targets_GT_wo_nan, inputs_obs, targets_GT_wo_nan - output_low_res, target_obs_GT_wo_nan - output_global), dim=1)
+            yGT = torch.cat((targets_GT_wo_nan, targets_GT_wo_nan - output_low_res, target_obs_GT_wo_nan - output_global), dim=1)
             # yGT        = torch.cat((targets_OI,targets_GT-targets_OI),dim=1)
             loss_AE_GT = torch.mean((self.model.phi_r(yGT) - yGT) ** 2)
 
@@ -568,7 +589,9 @@ class LitModel(pl.LightningModule):
 
             # total loss
             loss = 0
-            loss += self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
+            if self.hparams.loss_glob:
+                loss += self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
+
             if loss_swath > 0:
                 pass
             loss += self.hparams.alpha_mse_ssh * loss_swath * 20

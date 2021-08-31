@@ -27,7 +27,9 @@ params = {
     'files_cfg' : dict(
                 oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_4nadir.nc',
                 oi_var='ssh_mod',
-                obs_mask_path='/gpfsscratch/rech/yrf/ual82ir/4dvarnet-core/full_cal_obs.nc',
+                obs_target_path='/gpfswork/rech/yrf/commun/CalData/full_cal_obs.nc',
+                obs_target_var='swot',
+                obs_mask_path='/gpfswork/rech/yrf/commun/CalData/full_cal_obs.nc',
                 obs_mask_var='nad_swot',
                 gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
                 gt_var='ssh',
@@ -50,7 +52,7 @@ params = {
     'dT'              : dT, ## Time window of each space-time patch
     'dx'              : 1,   ## subsampling step if > 1
     'W'               : 200, # width/height of each space-time patch
-    'shape_state'       : [dT * 4, 200, 200],
+    'shape_state'       : [dT * 3, 200, 200],
     'shape_obs'       : [dT * 2, 200, 200],
     'dW'              : 3,
     'dW2'             : 1,
