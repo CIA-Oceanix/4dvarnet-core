@@ -60,7 +60,7 @@ class FourDVarNetRunner:
         self.dataloaders = {
             'train': datamodule.train_dataloader(),
             'val': datamodule.val_dataloader(),
-            'test': datamodule.val_dataloader(),
+            'test': datamodule.test_dataloader(),
         }
         if dataloading == "old":
             self.var_Tr = datamodule.var_Tr

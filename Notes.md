@@ -1,3 +1,18 @@
+- [] training swot somme 2 comp
+
+
+--------------------
+Étape 1 : arriver à 0 erreur en utilisant des observation non bruitées sur la fauchée
+
+- plusieurs variables d'observations dans l'état: O / N
+- fauchée somme de 3 ou de 2 composantes: O / N
+
+
+Étape 2 : impact loss rec globale
+
+
+-----------------------
+
 # Xp description
 
 ### Motivation

@@ -29,6 +29,7 @@ del sys.modules['main'], sys.modules['models'], sys.modules['new_dataloading']
 I want to compute metrics on the swath from the models 4Dvarnet with roll
 """
 # %% Load nad_sst model
+from functools import reduce
 import pytorch_lightning as pl
 # from models import LitModel, LitModelWithSST
 import models
@@ -130,8 +131,12 @@ def clean_oi(ds, var='ssh', thres=10):
         .rename({f'clean_{var}': var})
     )
 
-swot_ds = raw_item['swot']
-nadirs = raw_item['nadirs']
+swot_ds = raw_item['swot'].assign(err=lambda ds:
+        ds.roll_err
+        + ds.phase_err
+        + ds.timing_err
+        + ds.bd_err)
+
 swot_nadir = raw_item['swot_nadir']
 oi_ds = reindex(clean_oi(raw_item['oi']), ('time', 'lon', 'lat'))
 natl_ds = reindex(raw_item['natl'], ('time', 'lon', 'lat'))
@@ -159,7 +164,7 @@ swot_chunk.ssh_model.T.plot(figsize=(10,3))
 def compute_duacs_cal(swot_ds, oi_ds):
     return  (
         swot_ds
-        .assign(uncal=lambda ds: ds.ssh_model + ds.roll_err)
+        .assign(uncal=lambda ds: ds.ssh_model + ds.err)
         .assign(
             oi=lambda ds: (
                 ds.ssh_model.dims, 
@@ -288,11 +293,11 @@ tgt_grid.obs_tgt.isel(time=4).plot()
 
 gridded_data = {
     'tgt': {
-        'swath': tgt_grid.pipe(lambda ds: ds.uncal - ds.roll_err),
+        'swath': tgt_grid.pipe(lambda ds: ds.uncal - ds.err),
         'grid': tgt_grid.ssh,
         },
     'src': {
-        'roll': tgt_grid.uncal,
+        'err': tgt_grid.uncal,
         'duacs_cal': tgt_grid.pipe(lambda ds: ds.uncal - ds.op),
         'duacs_4_nad': tgt_grid.oi,
         'natl': tgt_grid.gt,
@@ -393,7 +398,7 @@ For
 fig, axs = plt.subplots(4, 3, figsize=(15, 15))
 das =  [
         gridded_data['tgt']['grid'],
-        gridded_data['src']['roll'],
+        gridded_data['src']['err'],
         gridded_data['src']['duacs_cal'],
         gridded_data['src']['4dvarnet_' + config_pkg],
 ] 
@@ -499,9 +504,21 @@ With Perfect Obs:
 |  9 |   77260 | 0.000262276 | 9.32416e-05 | 4dvarnet_q.xp_one.low_obs_glob | grid  |
 
 With roll:
+
 |  9 |   77260 | 0.00029474  | 0.000135757 | 4dvarnet_q.xp_one.low_zeros_glob | grid  |
 |  9 |   77260 | 0.0026019   | 0.00172623  | 4dvarnet_q.xp_one.low_zeros_loc | grid  |
 |  9 |   77260 | 0.000227642 | 9.36744e-05 | 4dvarnet_q.xp_one.high_zeros_glob | grid  |
 |  9 |   77260 | 0.000264168 | 9.90135e-05 | 4dvarnet_q.xp_one.low_obs_glob | grid  |
 
+With all errs
+
+|  5 |   50199 | 0.00253221  | 0.00434421  | err                             | grid  |
+|  6 |   50199 | 0.00110035  | 0.00188047  | duacs_cal                       | grid  |
+|  8 |   63139 | 0.000387403 | 0.000224822 | natl                            | grid  |
+|  7 |   63139 | 0.00330375  | 0.00200381  | duacs_4_nad                     | grid  |
+
+|  9 |   77260 | 0.00012595  | 0.000264325 | 4dvarnet_q.xp_one.low_zeros_glob | grid  |
+|  9 |   63139 | 0.00260308  | 0.00174058  | 4dvarnet_q.xp_one.low_zeros_loc | grid  |
+|  9 |   63139 | 0.000225968 | 8.58969e-05 | 4dvarnet_q.xp_one.high_zeros_glob | grid  |
+|  9 |   63139 | 0.000274901 | 9.16486e-05 | 4dvarnet_q.xp_one.low_obs_glob | grid  |
 """
