@@ -176,6 +176,7 @@ natl_swath = mod.test_xr_ds.sel(time=str(chunk_date)).drop('time').gt.interp(lat
 fmted_chunk = reindex(
         swot_chunk_with_op.assign(
             pred_err=lambda ds: obs_pred_swath.data - ds.ssh_model,
+            pred=lambda ds: (ds.ssh_model.dims, obs_pred_swath.data),
             natl_err=lambda ds: natl_swath.data - ds.ssh_model,
             duacs_cal_err=lambda ds: ds.op - ds.err ),
         ('x_ac', 'x_al')
@@ -196,10 +197,10 @@ im.set_clim(vmin, vmax)
 fmted_chunk.op.plot(figsize=size)
 
 fig, ax = plt.subplots()
-slope(swot_chunk_with_op.op).plot(ax=ax)
-slope(swot_chunk_with_op.err).plot(ax=ax)
+slope(swot_chunk_with_op).op.plot(ax=ax)
+slope(swot_chunk_with_op).err.plot(ax=ax)
 fig.show()
-fig.close()
+
 def sobel(da):
     dx_ac = xr.apply_ufunc(lambda _da: ndimage.sobel(_da, 0), da)
     dx_al = xr.apply_ufunc(lambda _da: ndimage.sobel(_da, 1), da)

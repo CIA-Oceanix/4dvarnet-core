@@ -30,6 +30,7 @@ class FourDVarNetRunner:
         if config is None:
             import config
         else:
+            
             config = __import__("config_" + str(config))
 
         self.cfg = OmegaConf.create(config.params)

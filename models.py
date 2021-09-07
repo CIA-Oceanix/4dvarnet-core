@@ -592,15 +592,14 @@ class LitModel(pl.LightningModule):
             if self.hparams.loss_glob:
                 loss += self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
 
-            if loss_swath > 0:
-                pass
-            loss += self.hparams.alpha_mse_ssh * loss_swath * 20
-            if loss_grad_swath > 0:
-                pass
-            loss += self.hparams.alpha_mse_gssh * loss_grad_swath * 20
+            if self.hparams.loss_loc:
+                loss += self.hparams.alpha_mse_ssh * loss_swath * 20
+                loss += self.hparams.alpha_mse_gssh * loss_grad_swath * 20
 
-            loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
-            loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
+            if self.hparams.loss_proj:
+                loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
+            if self.hparams.loss_low_res:
+                loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
             # PENDING: Add loss term
 
             # metrics

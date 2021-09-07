@@ -368,14 +368,14 @@ def get_psd_score(x_t, x, ref, with_fig=False):
         psd_x_t = (
             x_t.copy()
                 .pipe(
-                lambda _da: xrft.isotropic_power_spectrum(_da, dim=['lat', 'lon'], window=True, detrend='linear'))
+                lambda _da: xrft.isotropic_power_spectrum(_da, dim=['lat', 'lon'], window='hann', detrend='linear'))
                 .mean(['time'])
         ).compute()
 
         psd_err = (
             err.copy()
                 .pipe(
-                lambda _da: xrft.isotropic_power_spectrum(_da, dim=['lat', 'lon'], window=True, detrend='linear'))
+                lambda _da: xrft.isotropic_power_spectrum(_da, dim=['lat', 'lon'], window='hann', detrend='linear'))
                 .mean(['time'])
         ).compute()
 

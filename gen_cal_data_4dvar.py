@@ -43,6 +43,43 @@ from src.data_processing.get_slice import get_nadir_slice, get_swot_slice, get_o
 dates = pd.date_range("2012-10-01", "2013-10-01", freq='1D')
 
 
+def compute_duacs_cal(swot_ds, oi_ds):
+    return  (
+        swot_ds
+        .assign(uncal=lambda ds: ds.ssh_model + ds.err)
+        .assign(
+            oi=lambda ds: (
+                ds.ssh_model.dims, 
+                oi_ds
+                .pipe(lambda ds: coords_to_dim(ds, ('lat', 'lon'), drop=('x', 'y')))
+                .assign({f'clean_ssh': lambda _ds: (_ds.ssh.dims, np.where(_ds.ssh < 10, _ds.ssh, np.nan))})
+                .clean_ssh
+                .interp(
+                    time=ds.time.broadcast_like(ds.ssh_model),
+                    lat=ds.lat.broadcast_like(ds.ssh_model),
+                    lon=ds.lon.broadcast_like(ds.ssh_model),
+                ).data
+            )
+        ).pipe(lambda ds: ds.isel(time = ~np.isnan(ds.oi).any('nC')))
+        .assign(res=lambda ds: ds.uncal - ds.oi)
+        .assign(conti_chunks=lambda ds: (ds.time.dims, np.cumsum(np.diff(ds.time.values.astype(float), prepend=0) > pd.to_timedelta(0.5, 's') / pd.to_timedelta(1, 'ns'))))
+        .pipe(
+            lambda ds: ds.assign(
+                op = (
+                    ds.res.dims,
+                    slope(ds).to_dataframe()
+                    .groupby('conti_chunks')
+                    .apply(
+                        lambda df: df.assign(op_slope=lambda df: df.res.rolling(225, win_type="gaussian", center=True, min_periods=1).mean(std=75))
+                    )
+                    .reset_index(level=0, drop=True)
+                    .pipe(xr.Dataset.from_dataframe)
+                    .pipe(lambda _ds: _ds.op_slope * ds.x_ac)
+                )
+            )
+        )
+    )
+
 
 # %%
 slice_args = {
@@ -108,9 +145,15 @@ gen_files = {
      #    'swot': ['ssh_model'],
      #    'nadirs': ['ssh_model'],
     # },
-    'nad_swot_roll_phase_bd_timing' : {         
-        'swot': ['ssh_model', 'roll_err', 'phase_err', 'bd_err', 'timing_err'],
+    'nad_swot_roll_phase_bd_timing_karin' : {         
+        'swot': ['ssh_model', 'roll_err', 'phase_err', 'bd_err', 'timing_err', 'karin_err'],
         'nadirs': ['ssh_model'],
+    },
+    'roll_phase_bd_timing_karin' : {         
+        'swot': ['roll_err', 'phase_err', 'bd_err', 'timing_err', 'karin_err'],
+    },
+    'roll' : {         
+        'swot': ['roll_err'],
     },
     # 'nad_swot_roll' : {         
     #     'swot': ['ssh_model', 'roll_err'],
@@ -140,6 +183,7 @@ for dt_start, dt_end in zip(dates[:-1], dates[1:]):
         'nadirs': xr.concat([get_nadir_slice(f'../research-quentin/data/zarr/nadir/{name}', **slice_args) for name in
                              ['swot', 'en', 'tpn', 'g2', 'j1']], dim='time'),
         'swot': get_swot_slice(f'../research-quentin/data/zarr/swot', **slice_args),
+        'oi': get_oi_slice('../research-quentin/data/raw/DUACS-OI_maps/ssh_model/ssh_sla_boost_NATL60_en_j1_tpn_g2.nc', **slice_args),
     }
     
     grideds = []
