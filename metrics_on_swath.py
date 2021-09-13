@@ -197,7 +197,7 @@ def compute_duacs_cal(swot_ds, oi_ds):
                     .pipe(lambda _ds: _ds.op_slope * ds.x_ac)
                 )
             )
-        )
+
     )
 
 swot_chunk_with_op = compute_duacs_cal(swot_chunk, raw_item['oi'])
@@ -207,7 +207,7 @@ swot_with_op = compute_duacs_cal(swot_ds, raw_item['oi'])
 # %% Compute spatial resolution
 
 
-def get_psd_score(x_t, x, ref, with_fig=False):
+def get_swath_psd_score(x_t, x, ref, with_fig=False):
     def psd_score(da: xr.DataArray) -> xr.DataArray:
         err = x_t - da
         psd_x_t = (
@@ -283,7 +283,7 @@ x_t = fmted_chunk.ssh_model
 x =  fmted_chunk.uncal
 ref = fmted_chunk.oi
 
-fig, mod_res, oi_res = get_psd_score(x_t, x, ref, with_fig=True)
+fig, mod_res, oi_res = get_swath_psd_score(x_t, x, ref, with_fig=True)
 
 # %% Grid swath data
 res = dict(

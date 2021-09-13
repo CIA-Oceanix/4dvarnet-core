@@ -400,6 +400,7 @@ class LitModel(pl.LightningModule):
                     'pred': (('time', 'lat', 'lon'), self.x_rec),
                     'obs_gt': (('time', 'lat', 'lon'), self.obs_gt),
                     'obs_pred': (('time', 'lat', 'lon'), self.obs_pred),
+                    'obs_inp': (('time', 'lat', 'lon'), self.obs_inp),
 
                     },
                 {
@@ -553,8 +554,10 @@ class LitModel(pl.LightningModule):
 
             if self.hparams.swot_anom_wrt == 'low_res':
                 output_swath = output_low_res + output_anom_swath
+                gt_anom_swath = targets_OI
             elif self.hparams.swot_anom_wrt == 'high_res':
                 output_swath = output_global + output_anom_swath
+                gt_anom_swath = targets_GT
 
             # reconstruction losses
             g_output_global = self.gradient_img(output_global)
@@ -578,7 +581,9 @@ class LitModel(pl.LightningModule):
 
             # projection losses
             loss_AE = torch.mean((self.model.phi_r(outputs) - outputs) ** 2)
-            yGT = torch.cat((targets_GT_wo_nan, targets_GT_wo_nan - output_low_res, target_obs_GT_wo_nan - output_global), dim=1)
+
+            yGT = torch.cat((targets_OI, targets_GT_wo_nan - targets_OI, target_obs_GT_wo_nan - gt_anom_swath), dim=1)
+
             # yGT        = torch.cat((targets_OI,targets_GT-targets_OI),dim=1)
             loss_AE_GT = torch.mean((self.model.phi_r(yGT) - yGT) ** 2)
 
@@ -592,13 +597,13 @@ class LitModel(pl.LightningModule):
             if self.hparams.loss_glob:
                 loss += self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
 
-            if self.hparams.loss_loc:
+            if (self.hparams.loss_loc if hasattr(self.hparams, 'loss_loc') else 1):
                 loss += self.hparams.alpha_mse_ssh * loss_swath * 20
                 loss += self.hparams.alpha_mse_gssh * loss_grad_swath * 20
 
-            if self.hparams.loss_proj:
+            if (self.hparams.loss_proj if hasattr(self.hparams, 'loss_proj') else 1):
                 loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
-            if self.hparams.loss_low_res:
+            if (self.hparams.loss_low_res if hasattr(self.hparams, 'loss_low_res') else 1):
                 loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
             # PENDING: Add loss term
 
