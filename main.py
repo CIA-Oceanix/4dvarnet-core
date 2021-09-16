@@ -31,7 +31,8 @@ class FourDVarNetRunner:
             import config
         else:
             
-            config = __import__("config_" + str(config))
+            import importlib
+            config = importlib.import_module("config_" + str(config))
 
         self.cfg = OmegaConf.create(config.params)
         shape_state = self.cfg.shape_state

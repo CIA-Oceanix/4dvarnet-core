@@ -1,3 +1,4 @@
+from .. import *
 from ..all_errs import params
 params['swot_anom_wrt'] = 'low_res'
 # params['swot_anom_wrt'] = 'high_res'

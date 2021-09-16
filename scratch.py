@@ -1,23 +1,28 @@
 import importlib
+import seaborn as sns
 import pytorch_lightning as pl
 import pandas as pd
 from pathlib import Path
 import main
 
 xp_configs = [
-    # 'q.xp_two.err',
-    # 'q.xp_two.err_no_glob',
-    # 'q.xp_two.err_no_loc',
-    # 'q.xp_two.roll',
-    # 'q.xp_two.roll_no_glob',
-    # 'q.xp_two.roll_no_loc',
-    # 'q.xp_two.swot',
-    # 'q.xp_two.swot_no_glob',
-    ('current', 'q.xp_two.swot_no_loc'),
-    ('xp1_all_errs_no_karin', 'q.xp_one.high_zeros_glob'),
-    ('xp1_all_errs_no_karin', 'q.xp_one.low_obs_glob'),
-    ('xp1_all_errs_no_karin', 'q.xp_one.low_zeros_glob'),
-    ('xp1_all_errs_no_karin', 'q.xp_one.low_zeros_loc'),
+    # ('current', 'q.xp_three.err_high'),
+    ('current', 'q.xp_three.err_low'),
+    # ('current', 'q.xp_three.swot_high'),
+    ('current', 'q.xp_three.swot_low'),
+    # ('xp2_with_proj_coquille', 'q.xp_two.err'),
+    # ('xp2_with_proj_coquille', 'q.xp_two.err_no_glob'),
+    ('xp2_with_proj_coquille', 'q.xp_two.err_no_loc'),
+    # ('xp2_with_proj_coquille', 'q.xp_two.roll'),
+    # ('xp2_with_proj_coquille', 'q.xp_two.roll_no_glob'),
+    # ('xp2_with_proj_coquille', 'q.xp_two.roll_no_loc'),
+    # ('xp2_with_proj_coquille', 'q.xp_two.swot'),
+    # ('xp2_with_proj_coquille', 'q.xp_two.swot_no_glob'),
+    ('xp2_with_proj_coquille', 'q.xp_two.swot_no_loc'),
+    # ('xp1_all_errs_no_karin', 'q.xp_one.high_zeros_glob'),
+    # ('xp1_all_errs_no_karin', 'q.xp_one.low_obs_glob'),
+    # ('xp1_all_errs_no_karin', 'q.xp_one.low_zeros_glob'),
+    # ('xp1_all_errs_no_karin', 'q.xp_one.low_zeros_loc'),
 
 ]
 
@@ -34,7 +39,12 @@ def get_most_recent_ckpt(config_pkg, xp='no_roll'):
 # %% Swath maps ssh + grad
 # %% Global scores mse, grad mse, spat res
 # %% Swath scores mse, grad mse, spat mse
-
+# from config_q.xp_three.err_low import params
+# params['files_cfg']
+# import importlib
+# config = importlib.import_module("config_q.xp_three.err_low")
+# config = __import__("config_q.xp_three.err_low")
+# print(config.params['files_cfg'])
 # %% components decomposition: gde échelle, anom glob, anom loc
 # ckpt_path= "first_results_dash/train/nad_roll/checkpoints/modelSLAInterpGF-Exp3-epoch=22-val_loss=0.07.ckpt"
 mods = {}
@@ -46,10 +56,11 @@ for xp, config_pkg in xp_configs:
             # xp='roll',
         )
     runner = main.FourDVarNetRunner(config=config_pkg)
-
     mod = runner._get_model(ckpt_path=ckpt_path)
-
+    print()
     print(" #### ", config_pkg, " #### ")
+    print(runner.cfg.files_cfg)
+    print()
     # %% Generate maps
 
     trainer = pl.Trainer(gpus=1)
@@ -173,6 +184,7 @@ mod_swath_das = {}
 for cfg, mod in mods.items():
     mod_swath_das[f'{cfg}_glob'] = mod.test_xr_ds.pred
     mod_swath_das[f'{cfg}_loc'] = mod.test_xr_ds.obs_pred
+    mod_swath_das[f'{cfg}_obs'] = mod.test_xr_ds.obs_inp
 
 mod_swath_das['gt_glob'] = mod.test_xr_ds.gt
 mod_swath_das['gt_loc'] = mod.test_xr_ds.obs_gt
@@ -246,7 +258,11 @@ swot_chunk =  swot_ds.sel(time=swot_nadir_chunk.time)
 # swot_chunk =  swot_ds.isel(time=slice(1000, 3000))
 fmted_chunk = reindex(swot_chunk, ['x_al', 'x_ac'])
 chunk_date = pd.to_datetime(swot_chunk.time)[0].date()
-swath_ds = mod_swath_ds.sel(time=str(chunk_date)).drop('time').interp(lat=fmted_chunk.lat, lon=fmted_chunk.lon-360,)
+swath_ds = (
+    mod_swath_ds.sel(time=str(chunk_date)).drop('time').interp(lat=fmted_chunk.lat, lon=fmted_chunk.lon-360,)
+    .assign(gt_loc2=fmted_chunk.ssh_model)
+)
+
 import xrft
 import einops
 import matplotlib.pyplot as plt
@@ -271,10 +287,11 @@ def get_swath_fig(to_plot_ds):
         ).options(
             colorbar=True,
             cmap='PiYG',
-            aspect=3
+            aspect=3,
+            clim=(-0.05, 0.05)
         )
         for var in to_plot_ds
-    ]).cols(3)
+    ]).cols(2)
 
     return hv.render(hv_layout, backend='matplotlib',)
 
@@ -288,14 +305,14 @@ def get_swath_psd_score(x_t, x, ref, with_fig=False):
         psd_x_t = (
             x_t.copy()
                 .pipe(
-                lambda _da: xrft.power_spectrum(_da, dim='x_al', real_dim='x_al', window='hann', detrend='linear'))
+                lambda _da: xrft.power_spectrum(_da, dim='x_al', real_dim='x_al', window='hann', detrend='linear', scaling='density'))
                 .mean('x_ac')
         ).compute()
 
         psd_err = (
             err.copy()
                 .pipe(
-                lambda _da: xrft.power_spectrum(_da, dim='x_al', real_dim='x_al', window='hann', detrend='linear'))
+                lambda _da: xrft.power_spectrum(_da, dim='x_al', real_dim='x_al', window='hann', detrend='linear', scaling='density'))
                 .mean('x_ac')
         ).compute()
         psd_score = 1 - psd_err / psd_x_t
@@ -383,15 +400,19 @@ for c in configs:
 
 swath_spat_res_glob_loc = {c:  get_swath_psd_score(trim_sw_ds.gt_loc, trim_sw_ds[f'{c}_glob'], trim_sw_ds.oi)[0].item() for c in configs}
 swath_spat_res_loc_loc = {c:  get_swath_psd_score(trim_sw_ds.gt_loc, trim_sw_ds[f'{c}_loc'], trim_sw_ds.oi)[0].item() for c in configs}
+swath_spat_res_obs_loc = {c:  get_swath_psd_score(trim_sw_ds.gt_loc, trim_sw_ds[f'{c}_obs'], trim_sw_ds.oi)[0].item() for c in configs}
 
 swath_grad_spat_res_glob_loc = {c:  get_swath_psd_score(trim_grad_sw_ds.gt_loc, trim_grad_sw_ds[f'{c}_glob'], trim_grad_sw_ds.oi)[0].item() for c in configs}
 swath_grad_spat_res_loc_loc = {c:  get_swath_psd_score(trim_grad_sw_ds.gt_loc, trim_grad_sw_ds[f'{c}_loc'], trim_grad_sw_ds.oi)[0].item() for c in configs}
+swath_grad_spat_res_obs_loc = {c:  get_swath_psd_score(trim_grad_sw_ds.gt_loc, trim_grad_sw_ds[f'{c}_obs'], trim_grad_sw_ds.oi)[0].item() for c in configs}
 
 swath_spat_res_glob_glob = {c:  get_swath_psd_score(trim_sw_ds.gt_glob, trim_sw_ds[f'{c}_glob'], trim_sw_ds.oi)[0].item() for c in configs}
 swath_spat_res_loc_glob = {c:  get_swath_psd_score(trim_sw_ds.gt_glob, trim_sw_ds[f'{c}_loc'], trim_sw_ds.oi)[0].item() for c in configs}
+swath_spat_res_obs_glob = {c:  get_swath_psd_score(trim_sw_ds.gt_glob, trim_sw_ds[f'{c}_obs'], trim_sw_ds.oi)[0].item() for c in configs}
 
 swath_grad_spat_res_glob_glob = {c:  get_swath_psd_score(trim_grad_sw_ds.gt_glob, trim_grad_sw_ds[f'{c}_glob'], trim_grad_sw_ds.oi)[0].item() for c in configs}
 swath_grad_spat_res_loc_glob = {c:  get_swath_psd_score(trim_grad_sw_ds.gt_glob, trim_grad_sw_ds[f'{c}_loc'], trim_grad_sw_ds.oi)[0].item() for c in configs}
+swath_grad_spat_res_obs_glob = {c:  get_swath_psd_score(trim_grad_sw_ds.gt_glob, trim_grad_sw_ds[f'{c}_obs'], trim_grad_sw_ds.oi)[0].item() for c in configs}
 
 # figs = {c:  get_swath_psd_score(trim_grad_sw_ds.gt_loc, trim_grad_sw_ds[f'{c}_glob'], trim_grad_sw_ds.oi, with_fig=True)[0].item() for c in configs}
 # fig, fig_no_glob, fig_no_loc = list(swath_spat_res_fig_glob.values())[:3]
@@ -400,16 +421,28 @@ swath_grad_spat_res_loc_glob = {c:  get_swath_psd_score(trim_grad_sw_ds.gt_glob,
 # %% Metrics 
 ssh_metrics_glob_loc = np.mean((swath_ds[[f'{cfg}_glob' for cfg in configs]] - swath_ds.gt_loc)**2)
 ssh_metrics_loc_loc = np.mean((swath_ds[[f'{cfg}_loc' for cfg in configs]] - swath_ds.gt_loc)**2)
+ssh_metrics_obs_loc = np.mean((swath_ds[[f'{cfg}_obs' for cfg in configs]] - swath_ds.gt_loc)**2)
 
 grad_metrics_glob_loc = np.mean((swath_grad_ds[[f'{cfg}_glob' for cfg in configs]] - swath_grad_ds.gt_loc)**2)
 grad_metrics_loc_loc = np.mean((swath_grad_ds[[f'{cfg}_loc' for cfg in configs]] - swath_grad_ds.gt_loc)**2)
+grad_metrics_obs_loc = np.mean((swath_grad_ds[[f'{cfg}_obs' for cfg in configs]] - swath_grad_ds.gt_loc)**2)
 
+
+# ssh_metrics_glob_loc2 = np.mean((swath_ds[[f'{cfg}_glob' for cfg in configs]] - swath_ds.gt_loc)**2)
+# ssh_metrics_loc_loc2 = np.mean((swath_ds[[f'{cfg}_loc' for cfg in configs]] - swath_ds.gt_loc)**2)
+# ssh_metrics_obs_loc2 = np.mean((swath_ds[[f'{cfg}_obs' for cfg in configs]] - swath_ds.gt_loc)**2)
+
+# grad_metrics_glob_loc2 = np.mean((swath_grad_ds[[f'{cfg}_glob' for cfg in configs]] - swath_grad_ds.gt_loc2)**2)
+# grad_metrics_loc_loc2 = np.mean((swath_grad_ds[[f'{cfg}_loc' for cfg in configs]] - swath_grad_ds.gt_loc2)**2)
+# grad_metrics_obs_loc2 = np.mean((swath_grad_ds[[f'{cfg}_obs' for cfg in configs]] - swath_grad_ds.gt_loc2)**2)
 
 ssh_metrics_glob_glob = np.mean((swath_ds[[f'{cfg}_glob' for cfg in configs]] - swath_ds.gt_glob)**2)
 ssh_metrics_loc_glob = np.mean((swath_ds[[f'{cfg}_loc' for cfg in configs]] - swath_ds.gt_glob)**2)
+ssh_metrics_obs_glob = np.mean((swath_ds[[f'{cfg}_obs' for cfg in configs]] - swath_ds.gt_glob)**2)
 
 grad_metrics_glob_glob = np.mean((swath_grad_ds[[f'{cfg}_glob' for cfg in configs]] - swath_grad_ds.gt_glob)**2)
 grad_metrics_loc_glob = np.mean((swath_grad_ds[[f'{cfg}_loc' for cfg in configs]] - swath_grad_ds.gt_glob)**2)
+grad_metrics_obs_glob = np.mean((swath_grad_ds[[f'{cfg}_obs' for cfg in configs]] - swath_grad_ds.gt_glob)**2)
 
 metrics_df = (
     pd.concat([
@@ -419,12 +452,22 @@ metrics_df = (
         for tgt, src, metric, ds in [
             ('loc', 'glob', 'mse', ssh_metrics_glob_loc),
             ('loc', 'loc', 'mse', ssh_metrics_loc_loc),
+            ('loc', 'obs', 'mse', ssh_metrics_obs_loc),
             ('loc', 'glob', 'g_mse', grad_metrics_glob_loc),
             ('loc', 'loc', 'g_mse', grad_metrics_loc_loc),
+            ('loc', 'obs', 'g_mse', grad_metrics_obs_loc),
+            # ('loc2', 'glob', 'mse', ssh_metrics_glob_loc),
+            # ('loc2', 'loc', 'mse', ssh_metrics_loc_loc2),
+            # ('loc2', 'obs', 'mse', ssh_metrics_obs_loc2),
+            # ('loc2', 'glob', 'g_mse', grad_metrics_glob_loc2),
+            # ('loc2', 'loc', 'g_mse', grad_metrics_loc_loc2),
+            # ('loc2', 'obs', 'g_mse', grad_metrics_obs_loc2),
             ('glob', 'glob', 'mse', ssh_metrics_glob_glob),
             ('glob', 'loc', 'mse', ssh_metrics_loc_glob),
+            ('glob', 'obs', 'mse', ssh_metrics_obs_glob),
             ('glob', 'glob', 'g_mse', grad_metrics_glob_glob),
             ('glob', 'loc', 'g_mse', grad_metrics_loc_glob),
+            ('glob', 'obs', 'g_mse', grad_metrics_obs_glob),
         ]] + [
             pd.DataFrame(
                 {k : [v] for k, v in d.items()}
@@ -432,16 +475,20 @@ metrics_df = (
         for tgt, src, metric, d in [
             ('loc', 'glob', 'res_spat', swath_spat_res_glob_loc),
             ('loc', 'loc', 'res_spat', swath_spat_res_loc_loc),
+            ('loc', 'obs', 'res_spat', swath_spat_res_obs_loc),
             ('loc', 'glob', 'res_spat_grad', swath_grad_spat_res_glob_loc),
             ('loc', 'loc', 'res_spat_grad', swath_grad_spat_res_loc_loc),
+            ('loc', 'obs', 'res_spat_grad', swath_grad_spat_res_obs_loc),
             ('glob', 'glob', 'res_spat', swath_spat_res_glob_glob),
             ('glob', 'loc', 'res_spat', swath_spat_res_loc_glob),
+            ('glob', 'obs', 'res_spat', swath_spat_res_obs_glob),
             ('glob', 'glob', 'res_spat_grad', swath_grad_spat_res_glob_glob),
             ('glob', 'loc', 'res_spat_grad', swath_grad_spat_res_loc_glob),
+            ('glob', 'obs', 'res_spat_grad', swath_grad_spat_res_obs_glob),
         ] 
     ]).reset_index()
         .rename({0: 'value', 'index': 'xp_long'}, axis=1)
-        .assign(noise =  lambda df: df.xp_long.map(lambda s: s.split('_')[1]))
+        .assign(noise =  lambda df: df.xp_long.map(lambda s: 'None' if 'swot' in s else 'roll' if 'roll' in s else 'all' if 'err' in s else 'obs'))
         .assign(loss = lambda df: df.xp_long.map(lambda s: 'no glob' if 'no_glob' in s else 'no loc' if 'no_loc' in s else 'all'))
 )
 
@@ -460,7 +507,6 @@ sns.catplot(
 # on the grid
 print(grid_metrics_df.loc[lambda df: df.loss == 'no loc'].to_markdown())
 
-import seaborn as sns
 sns.catplot(
     col='metric',
     y='value',
@@ -474,7 +520,6 @@ sns.catplot(
 """
 Light effect difficult to see if significative
 """
-
 # On the swath
 glob_glob_df = (
     metrics_df
@@ -484,7 +529,6 @@ glob_glob_df = (
 )
 
 print(glob_glob_df.to_markdown())
-
 
 sns.catplot(
     col='metric',
@@ -529,6 +573,7 @@ glob_glob_df = (
     .loc[lambda df:  df.tgt == 'glob' ]
     .loc[lambda df:  df.src == 'glob' ]
     .loc[lambda df:  df.loss != 'no glob' ]
+    .loc[lambda df:  df.xp_long.map(lambda s: 'high' not in s)]
 )
 
 print(glob_glob_df.to_markdown())
@@ -610,7 +655,7 @@ better gain for roll than all errs
 # On the swath
 glob_glob_df = (
     metrics_df
-    .loc[lambda df:  df.tgt == 'loc' ]
+    # .loc[lambda df:  df.tgt == 'loc' ]
     # .loc[lambda df:  df.src == 'glob' ]
     .loc[lambda df:  df.loss == 'all' ]
 )
@@ -660,3 +705,57 @@ sns.catplot(
 ssh_fig = get_swath_fig(swath_ds[list(glob_glob_df.loc[lambda df: df.metric=='mse'].xp_long) + ['gt_glob', 'gt_loc']].reindex({'x_ac': np.arange(-60, 62, 2)}))
 grad_fig = get_swath_fig(swath_grad_ds[list(glob_glob_df.loc[lambda df: df.metric=='mse'].xp_long)+ ['gt_glob', 'gt_loc']].reindex({'x_ac': np.arange(-60, 62, 2)}))
 
+
+# loss terms
+best_estim_df = (
+    metrics_df
+    .loc[lambda df: ~((df.loss == 'no glob') & (df.src == 'glob'))]
+    .loc[lambda df: ~((df.loss == 'no loc') & (df.src == 'loc'))]
+    .append(
+        metrics_df
+        .loc[lambda df: ((df.loss == 'no glob') & (df.src == 'loc'))]
+        .assign(src='glob')
+    )
+    .append(
+        metrics_df
+        .loc[lambda df: ((df.loss == 'no loc') & (df.src == 'glob'))]
+        .assign(src='loc')
+    )
+)
+
+glob_glob_df = (
+    best_estim_df
+    .assign(loss=lambda df: df.apply(lambda row: row.loss if 'obs'!=row['src']  else row['src'], axis=1))
+    .assign(src=lambda df: df.src.map(lambda s: 'glob' if s =='glob' else 'loc'))
+    .loc[lambda df:  df.tgt == 'loc' ]
+    .loc[lambda df:  df.src == 'loc' ]
+    # .loc[lambda df:  df.loss != 'no glob' ]
+    .loc[lambda df:  df.xp_long.map(lambda s: 'high' not in s)]
+)
+
+print(glob_glob_df.to_markdown())
+
+
+sns.catplot(
+    col='metric',
+    y='value',
+    data=glob_glob_df,
+    x='noise',
+    hue='loss',
+    kind='bar',
+    sharey='col',
+)
+
+
+grad_fig = get_swath_fig(swath_grad_ds[list(glob_glob_df.loc[lambda df: df.metric=='mse'].xp_long ) + ['gt_loc']].reindex({'x_ac': np.arange(-60, 62, 2)}))
+grad_fig
+
+
+grad_err_fig = get_swath_fig((swath_grad_ds[list(glob_glob_df.loc[lambda df: df.metric=='mse'].xp_long)+ ['xp.two.err_no_loc_obs']] - swath_grad_ds['gt_loc']).reindex({'x_ac': np.arange(-60, 62, 2)}))
+grad_err_fig
+
+
+ssh_err_fig = get_swath_fig((swath_ds[list(glob_glob_df.loc[lambda df: df.metric=='mse'].xp_long)+ ['xp.two.err_no_loc_obs']] - swath_ds['gt_loc']).reindex({'x_ac': np.arange(-60, 62, 2)}))
+ssh_err_fig
+
+swath_grad_ds
