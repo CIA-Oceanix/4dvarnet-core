@@ -79,6 +79,8 @@ params = {
     'alpha_mse_ssh'   : 10.,
     'alpha_mse_gssh'  : 1.,
 
+    'alpha_loc_mse_ssh'   : 200.,
+    'alpha_loc_mse_gssh'  : 20.,
     # data generation
     'sigNoise'        : 0.,## additive noise standard deviation
     'flagSWOTData'    : True, #False ## use SWOT data or not
