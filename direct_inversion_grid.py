@@ -7,7 +7,6 @@ model: Unet
 
 # %%
 
-from models import LitModel
 import pytorch_lightning as pl
 import numpy as np
 import torch
@@ -81,21 +80,6 @@ def get_vit(hparams):
             outputs = torch.cat([low_res, anom_glob, anom_swath], dim=1)
             return outputs, None, None, None 
     return Vit()
-
-class LitDirectInv(LitModel):
-
-    MODELS = {
-            'passthrough': get_passthrough,
-            'vit': get_vit,
-        }
-
-    def create_model(self):
-        return self.MODELS[self.hparams.model](self.hparams)
-
-
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=10**-3)
-
 if __name__ == '__main__':
     import main
     # import config_q.local
@@ -110,7 +94,6 @@ if __name__ == '__main__':
     # print('filtering')
     # self.ds = _ds.sel(**(params['dim_range'] or {}))
     runner = main.FourDVarNetRunner(config='q.local')
-    runner.lit_cls = LitDirectInv
     # runner.train(fast_dev_run=True)
     mod = runner.test()
     # mod = runner._get_model()

@@ -24,8 +24,12 @@ class XrDataset(Dataset):
         self.var = var
         _ds = xr.open_dataset(path, decode_times=not decode)
         if decode:
-            _ds.time.attrs["units"] = "seconds since 2012-10-01"
-            _ds['time'] = pd.to_datetime(_ds.time)
+            if str(_ds.time.dtype) == 'float64':
+
+                _ds.time.attrs["units"] = "seconds since 2012-10-01"
+                _ds = xr.decode_cf(_ds)
+            else:
+                _ds['time'] = pd.to_datetime(_ds.time)
         self.ds = _ds.sel(**(dim_range or {}))
         self.slice_win = slice_win
         self.strides = strides or {}

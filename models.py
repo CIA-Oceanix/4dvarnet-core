@@ -220,8 +220,26 @@ class ModelLR(torch.nn.Module):
         return self.pool(im)
 
 
+def get_4dvarnet(hparams):
+    return NN_4DVar.Solver_Grad_4DVarNN(
+                Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+                Model_H_with_noisy_Swot(hparams.shape_state[0], hparams.shape_obs[0], hparams=hparams),
+                NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+                    hparams.dim_grad_solver, hparams.dropout),
+                None, None, hparams.shape_state, hparams.n_grad)
+
+from direct_inversion_grid import get_passthrough, get_vit
 ############################################ Lightning Module #######################################################################
 class LitModel(pl.LightningModule):
+
+
+    MODELS = {
+            'passthrough': get_passthrough,
+            'vit': get_vit,
+            '4dvarnet': get_4dvarnet,
+        }
+
     def __init__(self, hparam=None, *args, **kwargs):
         super().__init__()
         hparam = {} if hparam is None else hparam
@@ -264,14 +282,8 @@ class LitModel(pl.LightningModule):
         self.automatic_optimization = self.hparams.automatic_optimization
 
     def create_model(self):
-
-        return NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r(self.hparams.shape_state[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
-                    self.hparams.nbBlocks, self.hparams.dropout_phi_r, self.hparams.stochastic),
-                Model_H_with_noisy_Swot(self.hparams.shape_state[0], self.hparams.shape_obs[0], hparams=self.hparams),
-                NN_4DVar.model_GradUpdateLSTM(self.hparams.shape_state, self.hparams.UsePriodicBoundary,
-                    self.hparams.dim_grad_solver, self.hparams.dropout),
-                None, None, self.hparams.shape_state, self.hparams.n_grad)
+        model = self.hparams.model if hasattr(self.hparams, 'model') else '4dvarnet'
+        return self.MODELS[model](self.hparams)
 
     def forward(self):
         return 1
@@ -600,8 +612,10 @@ class LitModel(pl.LightningModule):
                 loss += self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
 
             if (self.hparams.loss_loc if hasattr(self.hparams, 'loss_loc') else 1):
-                loss += self.hparams.alpha_loc_mse_ssh * loss_swath * 20
-                loss += self.hparams.alpha_loc_mse_gssh * loss_grad_swath * 20
+                alpha_mse = self.hparams.alpha_loc_mse_ssh if hasattr(self.hparams, 'alpha_loc_mse_ssh') else self.hparams.alpha_mse_ssh
+                alpha_gmse = self.hparams.alpha_loc_mse_gssh if hasattr(self.hparams, 'alpha_loc_mse_gssh') else self.hparams.alpha_mse_gssh
+                loss += alpha_mse * loss_swath * 20
+                loss += alpha_gmse * loss_grad_swath * 20
 
             if (self.hparams.loss_proj if hasattr(self.hparams, 'loss_proj') else 1):
                 loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
