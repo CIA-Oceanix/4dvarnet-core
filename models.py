@@ -289,13 +289,20 @@ class LitModel(pl.LightningModule):
         return 1
 
     def configure_optimizers(self):
+        if self.hparams.model == '4dvarnet':
+            optimizer = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                ], lr=0.)
 
-        optimizer = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
-            {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
-            {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
-            ], lr=0.)
-
-        return optimizer
+            return optimizer
+        else: 
+            opt = optim.Adam(self.parameters(), lr=1e-2)
+        return {
+            'optimizer': opt,
+            'lr_scheduler': optim.lr_scheduler.ReduceLROnPlateau(opt, verbose=True, patience=10,),
+            'monitor': 'val_loss'
+        }
 
     def on_epoch_start(self):
         # enfore acnd check some hyperparameters
