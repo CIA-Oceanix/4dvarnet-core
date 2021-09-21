@@ -449,21 +449,21 @@ class LitModel(pl.LightningModule):
         # compute nRMSE
         path_save2 = self.logger.log_dir + '/nRMSE.txt'
         tab_n_scores = nrmse_scores(self.x_gt, self.x_oi, self.x_rec, path_save2)
-        print('*** Display nRMSE scores ***')
+        print('*** Display nRMSE scores grid ***')
         print(tab_n_scores.to_markdown())
         path_save22 = self.logger.log_dir + '/MSE.txt'
         tab_scores = mse_scores(self.x_gt, self.x_oi, self.x_rec, path_save22)
-        print('*** Display MSE scores ***')
+        print('*** Display MSE scores grid ***')
         print(tab_scores.to_markdown())
 
         # compute nRMSE on swath
         path_save23 = self.logger.log_dir + '/nRMSE_swath.txt'
         tab_n_scores_swath = nrmse_scores(self.obs_gt, self.obs_inp, self.obs_pred, path_save23)
-        print('*** Display nRMSE scores ***')
+        print('*** Display nRMSE scores swath ***')
         print(tab_n_scores_swath.to_markdown())
         path_save24 = self.logger.log_dir + '/MSE_swath.txt'
         tab_scores_swath = mse_scores(self.obs_gt, self.obs_inp, self.obs_pred, path_save24)
-        print('*** Display MSE scores ***')
+        print('*** Display MSE scores swath ***')
         print(tab_scores_swath.to_markdown())
 
         # plot nRMSE
@@ -523,12 +523,13 @@ class LitModel(pl.LightningModule):
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
         target_obs_GT_wo_nan = target_obs_GT.where(~target_obs_GT.isnan(), torch.zeros_like(target_obs_GT))
         anomaly_global = torch.zeros_like(targets_OI)
+
         if self.hparams.anom_swath_init == 'zeros':
             anomaly_swath = torch.zeros_like(targets_OI)
         elif self.hparams.anom_swath_init == 'obs':
             anomaly_swath = (inputs_obs - targets_OI).detach()
+
         state = torch.cat((targets_OI, anomaly_global, anomaly_swath), dim=1)
-        # PENDING: create state with anomaly full and anomaly swath (pad with zeros)
 
         #state = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
         obs = torch.cat((targets_OI, inputs_obs), dim=1)
@@ -538,9 +539,7 @@ class LitModel(pl.LightningModule):
         g_targets_GT = self.gradient_img(targets_GT)
         g_targets_obs = self.gradient_img(target_obs_GT_wo_nan)
         g_targets_obs_mask = self.gradient_img(target_obs_GT)
-        # PENDING: Deal with nan instability
-        # _g_targets_obs = self.gradient_img(target_obs_GT)
-        # g_targets_obs = _g_targets_obs.where(~_g_targets_obs.isnan() & ~_g_targets_obs.isinf(), torch.zeros_like(_g_targets_obs))
+
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
             # with torch.set_grad_enabled(phase == 'train'):
@@ -683,7 +682,6 @@ class Model_H_with_SST_and_noisy_Swot(torch.nn.Module):
 
 class LitModelWithSST(LitModel):
     def __init__(self, hparam=None, *args, **kwargs):
-        print(hparam)
         super().__init__(hparam, *args, **kwargs)
         # main model
         self.model = NN_4DVar.Solver_Grad_4DVarNN(

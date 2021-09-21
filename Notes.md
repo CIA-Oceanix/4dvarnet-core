@@ -59,17 +59,9 @@ jupyter qtconsole --ssh=jz-node --existing=/home/q20febvr/jz_kernel.json --Conso
 ```
 
 
-# Current Xps:
-```
-612827-> swot ; test 613421
-lightning_logs/version_612827/checkpoints/modelSLAInterpGF-Exp3-epoch=22-val_loss=0.08.ckpt
-lightning_logs/version_612827/checkpoints/modelSLAInterpGF-Exp3-epoch=28-val_loss=0.08.ckpt
-lightning_logs/version_612827/checkpoints/modelSLAInterpGF-Exp3-epoch=31-val_loss=0.08.ckpt
-612828-> roll : test 613430
-lightning_logs/version_612828/checkpoints/modelSLAInterpGF-Exp3-epoch=20-val_loss=0.09.ckpt
-lightning_logs/version_612828/checkpoints/modelSLAInterpGF-Exp3-epoch=23-val_loss=0.09.ckpt
-lightning_logs/version_612828/checkpoints/modelSLAInterpGF-Exp3-epoch=56-val_loss=0.08.ckpt
-613264-> nad roll: test 613391
-lightning_logs/version_613264/checkpoints/modelSLAInterpGF-Exp3-epoch=00-val_loss=0.13.ckpt
+## ICASSP Results
 
-```
+- Direct inversion on swath
+- Direct inversion on Grid
+- Recompute GRadient with median filtering 
+- Recompute Spatial resolution with all the test set

@@ -294,8 +294,6 @@ def nrmse_scores(gt, oi, pred, resfile):
     for i in range(len(oi)):
         nrmse_oi.append(nrmse(gt[i], oi[i]))
         nrmse_pred.append(nrmse(gt[i], pred[i]))
-    print(nrmse_pred)
-    print(nrmse_oi)
     tab_scores = np.zeros((2, 3))
     tab_scores[0, 0] = np.nanmean(nrmse_oi)
     tab_scores[0, 1] = np.percentile(nrmse_oi, 5)

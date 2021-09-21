@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import pytorch_lightning as pl
 import xarray as xr
 from torch.utils.data import Dataset, ConcatDataset, DataLoader
@@ -21,10 +22,10 @@ class XrDataset(Dataset):
         super().__init__()
 
         self.var = var
-        _ds = xr.open_dataset(path)
+        _ds = xr.open_dataset(path, decode_times=not decode)
         if decode:
             _ds.time.attrs["units"] = "seconds since 2012-10-01"
-            _ds = xr.decode_cf(_ds)
+            _ds['time'] = pd.to_datetime(_ds.time)
         self.ds = _ds.sel(**(dim_range or {}))
         self.slice_win = slice_win
         self.strides = strides or {}
@@ -171,6 +172,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.oi_var = oi_var
         self.obs_mask_path = obs_mask_path
         self.obs_mask_var = obs_mask_var
+        self.obs_target_path = obs_target_path
+        self.obs_target_var = obs_target_var
         self.gt_path = gt_path
         self.gt_var = gt_var
         self.sst_path = sst_path
@@ -219,6 +222,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     oi_var=self.oi_var,
                     obs_mask_path=self.obs_mask_path,
                     obs_mask_var=self.obs_mask_var,
+                    obs_target_path=self.obs_target_path,
+                    obs_target_var=self.obs_target_var,
                     gt_path=self.gt_path,
                     gt_var=self.gt_var,
                     sst_path=self.sst_path,

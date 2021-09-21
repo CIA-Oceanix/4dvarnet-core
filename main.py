@@ -18,7 +18,6 @@ from lit_model_stochastic import LitModelStochastic
 # from new_dataloading import FourDVarNetDataModule
 import models
 import new_dataloading
-from old_dataloading import LegacyDataLoading
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 gradient_img = models.Gradient_img()
@@ -32,23 +31,28 @@ class FourDVarNetRunner:
         else:
             
             import importlib
+            print('loading config')
             config = importlib.import_module("config_" + str(config))
 
+        print('loading config 2')
         self.cfg = OmegaConf.create(config.params)
+        print(OmegaConf.to_yaml(self.cfg))
         shape_state = self.cfg.shape_state
         self.wLoss = [0] * self.cfg.dT
         self.wLoss[int(self.cfg.dT / 2)] = 1.
         dataloading = config.params['dataloading']
-        print(dataloading)
         
         dim_range = config.dim_range
         slice_win = config.slice_win
         strides = config.strides
         self.test_dates = config.test_dates
+        print(dataloading)
         if dataloading == "old":
+
+            from old_dataloading import LegacyDataLoading
             datamodule = LegacyDataLoading(self.cfg)
         else:
-
+            print('Instantiating datamodule')
             datamodule = new_dataloading.FourDVarNetDataModule(
                 slice_win=slice_win,
                 dim_range=dim_range,
@@ -139,8 +143,9 @@ class FourDVarNetRunner:
                                               mode='min')
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         num_gpus = torch.cuda.device_count()
+        print(num_gpus)
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
-        trainer = pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, auto_select_gpus=True,
+        trainer = pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, auto_select_gpus=num_gpus>0,
                              callbacks=[checkpoint_callback], **trainer_kwargs)
         trainer.fit(mod, self.dataloaders['train'], self.dataloaders['val'])
         return mod, trainer
@@ -164,8 +169,9 @@ class FourDVarNetRunner:
         num_gpus = torch.cuda.device_count()
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
         # trainer = _trainer or pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, **trainer_kwargs)
-        trainer = pl.Trainer(num_nodes=1, gpus=1, logger=logger, accelerator=None, **trainer_kwargs)
+        trainer = pl.Trainer(num_nodes=1, gpus=int(num_gpus >= 1), logger=logger, accelerator=None, **trainer_kwargs)
         trainer.test(mod, test_dataloaders=self.dataloaders[dataloader])
+        return mod
 
     def profile(self):
         """
