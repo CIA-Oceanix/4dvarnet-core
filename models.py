@@ -297,10 +297,10 @@ class LitModel(pl.LightningModule):
 
             return optimizer
         else: 
-            opt = optim.Adam(self.parameters(), lr=1e-2)
+            opt = optim.Adam(self.parameters(), lr=1e-4)
         return {
             'optimizer': opt,
-            'lr_scheduler': optim.lr_scheduler.ReduceLROnPlateau(opt, verbose=True, patience=10,),
+            'lr_scheduler': optim.lr_scheduler.ReduceLROnPlateau(opt, verbose=True, patience=50,),
             'monitor': 'val_loss'
         }
 
@@ -309,21 +309,22 @@ class LitModel(pl.LightningModule):
         self.model.n_grad = self.hparams.n_grad
 
     def on_train_epoch_start(self):
-        opt = self.optimizers()
-        if (self.current_epoch in self.hparams.iter_update) & (self.current_epoch > 0):
-            indx = self.hparams.iter_update.index(self.current_epoch)
-            print('... Update Iterations number/learning rate #%d: NGrad = %d -- lr = %f' % (
-                self.current_epoch, self.hparams.nb_grad_update[indx], self.hparams.lr_update[indx]))
+        if self.hparams.model == '4dvarnet':
+            opt = self.optimizers()
+            if (self.current_epoch in self.hparams.iter_update) & (self.current_epoch > 0):
+                indx = self.hparams.iter_update.index(self.current_epoch)
+                print('... Update Iterations number/learning rate #%d: NGrad = %d -- lr = %f' % (
+                    self.current_epoch, self.hparams.nb_grad_update[indx], self.hparams.lr_update[indx]))
 
-            self.hparams.n_grad = self.hparams.nb_grad_update[indx]
-            self.model.n_grad = self.hparams.n_grad
+                self.hparams.n_grad = self.hparams.nb_grad_update[indx]
+                self.model.n_grad = self.hparams.n_grad
 
-            mm = 0
-            lrCurrent = self.hparams.lr_update[indx]
-            lr = np.array([lrCurrent, lrCurrent, 0.5 * lrCurrent, 0.])
-            for pg in opt.param_groups:
-                pg['lr'] = lr[mm]  # * self.hparams.learning_rate
-                mm += 1
+                mm = 0
+                lrCurrent = self.hparams.lr_update[indx]
+                lr = np.array([lrCurrent, lrCurrent, 0.5 * lrCurrent, 0.])
+                for pg in opt.param_groups:
+                    pg['lr'] = lr[mm]  # * self.hparams.learning_rate
+                    mm += 1
 
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
 

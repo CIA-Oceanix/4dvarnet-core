@@ -6,14 +6,15 @@ from pathlib import Path
 import main
 
 xp_configs = [
-    ('current', 'q.xp_four.alpha_eq'),
-    ('current', 'q.xp_four.alpha_grad'),
-    ('current', 'q.xp_four.no_alpha_twenty'),
-    ('current', 'q.xp_four.swot_oi'),
-    # ('current', 'q.xp_three.err_high'),
-    ('current', 'q.xp_three.err_low'),
-    # ('current', 'q.xp_three.swot_high'),
-    ('current', 'q.xp_three.swot_low'),
+    ('current', 'q.xp_five.alpha_10_ssh'),
+    ('xp3_4', 'q.xp_four.alpha_eq'),
+    ('xp3_4', 'q.xp_four.alpha_grad'),
+    ('xp3_4', 'q.xp_four.no_alpha_twenty'),
+    ('xp3_4', 'q.xp_four.swot_oi'),
+    # ('xp3_4', 'q.xp_three.err_high'),
+    ('xp3_4', 'q.xp_three.err_low'),
+    # ('xp3_4', 'q.xp_three.swot_high'),
+    ('xp3_4', 'q.xp_three.swot_low'),
     # ('xp2_with_proj_coquille', 'q.xp_two.err'),
     # ('xp2_with_proj_coquille', 'q.xp_two.err_no_glob'),
     ('xp2_with_proj_coquille', 'q.xp_two.err_no_loc'),
@@ -166,11 +167,12 @@ filtered_grid_metric_df = (
         # .loc[lambda df: df.loss == 'all']
         # .loc[lambda df: df.noise == 'all']
         .loc[lambda df: df.xp_short.map(lambda s: s in [
+             # 'alpha_10_ssh',
             # 'alpha_eq',
             # 'alpha_grad',
-            'no_alpha_twenty',
+            # 'no_alpha_twenty',
             # 'swot_oi',
-            # 'err_low',
+            'err_low',
             'swot_low',
              'err_no_loc',
              'swot_no_loc',
