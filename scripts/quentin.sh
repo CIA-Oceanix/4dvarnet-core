@@ -36,3 +36,7 @@ function stash(){
 function train_cmds(){
 	fd . config_q/$1 | sed -n 's?/?\.?g;s/\.py//;s/config_//;p' | grep -v __in | xargs -I{} echo train {}
 }
+
+function test_cmds(){
+	fd . config_q/$1 | sed -n 's?/?\.?g;s/\.py//;s/config_//;p' | grep -v __in | xargs -I{} echo test {}
+}

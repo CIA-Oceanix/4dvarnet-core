@@ -9,9 +9,9 @@ xp_configs = [
     ('current', 'q.xp_five.alpha_10_ssh'),
     ('xp3_4', 'q.xp_four.alpha_eq'),
     ('xp3_4', 'q.xp_four.alpha_grad'),
-    ('xp3_4', 'q.xp_four.no_alpha_twenty'),
+    # ('xp3_4', 'q.xp_four.no_alpha_twenty'),
     ('xp3_4', 'q.xp_four.swot_oi'),
-    # ('xp3_4', 'q.xp_three.err_high'),
+    ('xp3_4', 'q.xp_three.err_high'),
     ('xp3_4', 'q.xp_three.err_low'),
     # ('xp3_4', 'q.xp_three.swot_high'),
     ('xp3_4', 'q.xp_three.swot_low'),
@@ -134,7 +134,9 @@ from metrics import get_psd_score
 mse = np.mean((metrics_ds[configs] - metrics_ds.gt)**2)
 mse_grad = np.mean((metrics_ds[[f'{c}_g' for c in configs]] - metrics_ds.gt_g)**2)
 spat_res = {c:  get_psd_score(metrics_ds.gt, metrics_ds[c], metrics_ds.oi)[0].item() for c in configs }
+spat_res_figs = {c:  get_psd_score(metrics_ds.gt, metrics_ds[c], metrics_ds.oi, with_fig=True)[0] for c in configs }
 spat_res_grad = {c:  get_psd_score(metrics_ds.gt_g, metrics_ds[f'{c}_g'], metrics_ds.oi_g)[0].item()for c in configs }
+spat_res_grad_figs = {c:  get_psd_score(metrics_ds.gt_g, metrics_ds[f'{c}_g'], metrics_ds.oi_g, with_fig=True)[0]for c in configs }
 
 
 # %% Plots
@@ -172,7 +174,8 @@ filtered_grid_metric_df = (
             # 'alpha_grad',
             # 'no_alpha_twenty',
             # 'swot_oi',
-            'err_low',
+            # 'err_low',
+            'err_high',
             'swot_low',
              'err_no_loc',
              'swot_no_loc',
@@ -204,6 +207,11 @@ sns.catplot(
     kind='bar',
     sharey='col',
 )
+# %% Visualize psd
+import matplotlib.pyplot as plt
+xps = filtered_grid_metric_df.loc[lambda df: df.metric=='mse'].xp_long.values
+spat_res_grad_figs[xps[3]]
+spat_res_figs[xps[3]]
 
 # %% swath scores
 

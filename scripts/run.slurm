@@ -24,6 +24,6 @@ conda activate 4dvarnet
 export PYTHONPATH=${WORK}/4dvarnet-core:${PYTHONPATH}
 
 
-srun python main.py --max_epochs=220 --config=$1 --progress_bar_refresh_rate=5 train
+srun python main.py --max_epochs=250 --config=$1 --progress_bar_refresh_rate=5 train
 
 

@@ -16,4 +16,5 @@ params['loss_low_res'] = 0
 params['alpha_loc_mse_ssh'] = 10.
 params['alpha_loc_mse_gssh']  = 10.
 params['drop_out_rate'] = 0.1
-params['drop_out_attn'] = 0.1
+params['drop_out_attn'] = 0.
+
