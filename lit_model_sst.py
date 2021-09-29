@@ -1,6 +1,5 @@
 from models import *
 from lit_model import LitModel
-from kornia.filters import gaussian_blur2d as blur
 
 class LitModelWithSST(LitModel):
 
@@ -71,40 +70,22 @@ class LitModelWithSST(LitModel):
         inputs_init = torch.cat((targets_OI, input_obs), dim=1)
         inputs_missing = torch.cat((targets_OI, input_obs), dim=1)
 
-        shapeData = input_obs.size()
-        id_obs = torch.where(inputs_Mask==False) 
-        input_obs_OI = targets_OI.clone()
-        input_obs_OI[id_obs] = 0.
-        input_obs_OI = input_obs_OI + .01* torch.randn([shapeData[0],shapeData[1],shapeData[2],shapeData[3]]).to(device)
-        inputs_init_OI = torch.cat((targets_OI, input_obs_OI), dim=1)
-        inputs_missing_OI = torch.cat((targets_OI, input_obs_OI), dim=1)
-
         # gradient norm field
         g_targets_GT = self.gradient_img(targets_GT)
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
             # with torch.set_grad_enabled(phase == 'train'):
             inputs_init = torch.autograd.Variable(inputs_init, requires_grad=True)
-            inputs_init_OI = torch.autograd.Variable(inputs_init_OI, requires_grad=True)
-            inputs_missing_OI = torch.autograd.Variable(inputs_missing_OI, requires_grad=True)
 
             outputs, hidden_new, cell_new, normgrad = self.model(inputs_init, [inputs_missing, sst_GT],
                                                                  [new_masks, mask_SST])
 
-            outputs_OI, hidden_new, cell_new, normgrad = self.model(inputs_init_OI, [inputs_missing_OI, sst_GT],
-                                                                 [new_masks, mask_SST])
-
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
-                outputs_OI = outputs_OI.detach()
 
             outputsSLRHR = outputs
             outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
             outputs = outputsSLR + outputs[:, self.hparams.dT:, :, :]
-
-            outputsSLRHR_OI = outputs_OI
-            outputsSLR_OI = outputs_OI[:, 0:self.hparams.dT, :, :]
-            outputs_OI = outputsSLR_OI + outputs_OI[:, self.hparams.dT:, :, :]
 
             # reconstruction losses
             g_outputs = self.gradient_img(outputs)
@@ -138,24 +119,7 @@ class LitModelWithSST(LitModel):
             new_tensor = torch.masked_select(outputs[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(targets_GT[:,iT,:,:],mask[:,iT,:,:])
             loss = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
 
-            # regul ideas
-            # 1) l2 regul weights
-            l2_alpha = 0.001
-            l2_norm = sum(p.pow(2.0).sum() for p in self.model.parameters())
-            l2_norm *= l2_alpha
-            # 2) l2 grad
-            l2_grad = torch.sum(self.gradient_img(outputs))
-            # 3) grad_Pred-grad_OI
-            loss_GOI = NN_4DVar.compute_WeightedLoss(self.gradient_img(targets_OI) - self.gradient_img(outputs),
-                                                     self.w_loss)
-            # 4) loss_Grad
-            mask = (blur(inputs_Mask.float(),(5,5),(1.5,1.5))>0.)
-            loss_Grad = NN_4DVar.compute_WeightedLoss(torch.masked_select(self.gradient_img(outputs)[:,iT,:198,:198],mask[:,iT,:198,:198]) - torch.masked_select(self.gradient_img(targets_OI)[:,iT,:198,:198],mask[:,iT,:198,:198]),torch.tensor(1.))       
-            # 5) false supervised (traces on OI)
-            loss_fOI = NN_4DVar.compute_WeightedLoss((outputs_OI - targets_OI), self.w_loss)
-            loss_Grad_fOI = NN_4DVar.compute_WeightedLoss((self.gradient_img(outputs_OI) - self.gradient_img(targets_OI)), self.w_loss)
-
-            loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR + self.hparams.alpha_proj * loss_AE + loss_fOI
+            loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR + self.hparams.alpha_proj * loss_AE
 
             # metrics
             mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_GT, self.w_loss)
