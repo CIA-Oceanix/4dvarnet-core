@@ -57,9 +57,11 @@ params = {
     'stochastic'      : False,
     'size_ensemble'   : 3,
 
-
     # animation maps 
     'animate'         : False,
+
+    # supervised/unsupervised loss
+    'supervised'      : True,
 
     # NN architectures and optimization parameters
     'batch_size'      : 2, #16#4#4#8#12#8#256#

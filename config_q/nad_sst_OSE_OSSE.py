@@ -21,3 +21,5 @@ params['files_cfg'].update(
             sst_var='sst',
     )
 )
+params['supervised'] = False
+
