@@ -1,4 +1,5 @@
 from models import *
+from lit_model import LitModel
 
 class LitModelStochastic(LitModel):
  
@@ -24,8 +25,15 @@ class LitModelStochastic(LitModel):
 
                 # grad initialization to zero
                 opt.zero_grad()
+ 
+        # loss is the minimal loss aong the members
+        min_ = torch.min(torch.stack(loss))
+        # maintain variance of the ensemble
+        print(out.size)
+        var = torch.var(out)
+        print(var)
 
-        return torch.min(torch.stack(loss))
+        return min_ + 1./var
 
     def validation_step(self, val_batch, batch_idx):
         loss, out, metrics = self.compute_loss(val_batch, phase='val')

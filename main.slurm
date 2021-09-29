@@ -1,14 +1,13 @@
 #!/bin/bash -l
 
-
-#SBATCH --nodes=1
 #SBATCH --account=yrf@gpu
-#SBATCH --gres=gpu:1
-#SBATCH --ntasks-per-node=1
-#SBATCH --time=04:00:00
+#SBATCH --nodes=1
+#SBATCH --gres=gpu:4                # nombre de GPU à réserver (un unique GPU ici)
+#SBATCH --ntasks-per-node=4         # nombre de coeurs à réserver (un quart du noeud)
 #SBATCH --cpus-per-task=10
+#SBATCH --time=01:00:00
 #SBATCH --hint=nomultithread
-#SBATCH -C v100-16g
+#SBATCH -C v100-32g
 #SBATCH --qos=qos_gpu-t3
 #SBATCH --output=log%j.out
 #SBATCH --error=log%j.err
@@ -26,5 +25,6 @@ export PYTHONPATH=${WORK}/4dvarnet-core:${PYTHONPATH}
 # run script from above
 # config files stored in config_q --> examples: --config=q.nad_swot
 
-srun python main.py --config=$1 --max_epochs=1 --progress_bar_refresh_rate=5 run
+# train the model
+srun python main.py --config=$1 --max_epochs=30 --progress_bar_refresh_rate=5 run
 

@@ -13,14 +13,15 @@ from omegaconf import OmegaConf
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 import solver as NN_4DVar
+from models import Gradient_img
+from lit_model import LitModel
+from lit_model_sst import LitModelWithSST
 from lit_model_stochastic import LitModelStochastic
-from models import Gradient_img, LitModel, LitModelWithSST
 from new_dataloading import FourDVarNetDataModule
 from old_dataloading import LegacyDataLoading
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 gradient_img = Gradient_img()
-
 
 class FourDVarNetRunner:
     def __init__(self, dataloading="old", config=None):
@@ -40,6 +41,7 @@ class FourDVarNetRunner:
         dim_range = config.dim_range
         slice_win = config.slice_win
         strides = config.strides
+        time_period = config.time_period
 
         if dataloading == "old":
             datamodule = LegacyDataLoading(self.cfg)
@@ -48,6 +50,9 @@ class FourDVarNetRunner:
                 slice_win=slice_win,
                 dim_range=dim_range,
                 strides=strides,
+                train_slices=config.time_period['train_slices'],
+                test_slices=config.time_period['test_slices'],
+                val_slices=config.time_period['val_slices'],
                 resize_factor=config.params['resize_factor'],
                 **config.params['files_cfg']
             )
@@ -56,7 +61,7 @@ class FourDVarNetRunner:
         self.dataloaders = {
             'train': datamodule.train_dataloader(),
             'val': datamodule.val_dataloader(),
-            'test': datamodule.val_dataloader(),
+            'test': datamodule.test_dataloader(),
         }
         if dataloading == "old":
             self.var_Tr = datamodule.var_Tr

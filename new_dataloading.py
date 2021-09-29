@@ -35,6 +35,7 @@ class XrDataset(Dataset):
             for dim in slice_win
         }
 
+
     def __del__(self):
         self.ds.close()
 
@@ -79,17 +80,19 @@ class FourDVarNetDataset(Dataset):
     ):
         super().__init__()
 
-        self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win, dim_range=dim_range, strides=strides, resize_factor=resize_factor)
-        self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win, dim_range=dim_range, strides=strides, decode=True, resize_factor=resize_factor)
-        self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win, dim_range=dim_range,
-                                     strides=strides, resize_factor=resize_factor)
+        self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win, 
+                               dim_range=dim_range, strides=strides, resize_factor=resize_factor)
+        self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win,
+                               dim_range=dim_range,strides=strides, decode=False, resize_factor=resize_factor)
+        self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win,
+                                     dim_range=dim_range,strides=strides, resize_factor=resize_factor)
 
         self.norm_stats = None
 
         if sst_var is not None:
             self.sst_ds = XrDataset(sst_path, sst_var, slice_win=slice_win,
                                     dim_range=dim_range, strides=strides,
-                                    decode=sst_var == 'sst', resize_factor=resize_factor)
+                                    decode=sst_var=='sst', resize_factor=resize_factor)
         else:
             self.sst_ds = None
         self.norm_stats_sst = None
@@ -134,10 +137,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             slice_win,
             dim_range=None,
             strides=None,
-            train_slices=(slice('2012-10-01', "2012-11-20"), slice('2013-02-07', "2013-09-30")),
-            # train_slices=(slice('2012-10-01', "2012-10-10"),),
-            test_slices=(slice('2013-01-03', "2013-01-27"),),
-            val_slices=(slice('2012-11-30', "2012-12-24"),),
+            train_slices= (slice('2012-10-01', "2012-11-20"), slice('2013-02-07', "2013-09-30")),
+            test_slices= (slice('2013-01-03', "2013-01-27"),),
+            val_slices= (slice('2012-11-30', "2012-12-24"),),
             oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc',
             oi_var='ssh_mod',
             obs_mask_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/data/dataset_nadir_0d_swot.nc',
@@ -157,7 +159,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.slice_win = slice_win
         self.strides = strides
         self.dl_kwargs = {
-            **{'batch_size': 4, 'num_workers': 2, 'pin_memory': True},
+            **{'batch_size': 2, 'num_workers': 2, 'pin_memory': True},
             **(dl_kwargs or {})
         }
 
