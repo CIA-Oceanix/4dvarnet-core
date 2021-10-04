@@ -25,6 +25,14 @@ class LitModel(pl.LightningModule):
         self.ds_size_lon = kwargs['ds_size_lon']
         self.ds_size_lat = kwargs['ds_size_lat']
 
+        self.time = kwargs['time'] 
+        self.dX = kwargs['dX']
+        self.dY = kwargs['dY']
+        self.swX = kwargs['swX']
+        self.swY = kwargs['swY']
+        self.lon_ext = (kwargs['coord_ext'])['lon_ext']
+        self.lat_ext = (kwargs['coord_ext'])['lat_ext']
+
         self.var_Val = kwargs['var_Val']
         self.var_Tr = kwargs['var_Tr']
         self.var_Tt = kwargs['var_Tt']
@@ -133,11 +141,10 @@ class LitModel(pl.LightningModule):
             self.log("test_mse", metrics['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
 
-        return {'gt'    : (targets_GT.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'obs'   : (inputs_obs.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'oi'    : (targets_OI.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'preds' : (out.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr}
-
+        return {'gt'    : (targets_GT.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'obs'   : (inputs_obs.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'oi'    : (targets_OI.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'preds' : (out.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def test_epoch_end(self, outputs):
 
@@ -161,8 +168,13 @@ class LitModel(pl.LightningModule):
             ),
             [gt, obs, oi, pred])
 
-        # temporary fix
-        time = np.arange(len(gt))
+        # keep only points of the original domain
+        iX = np.where( (self.lon_ext>=self.xmin) & (self.lon_ext<self.xmax) )[0]
+        iY = np.where( (self.lat_ext>=self.ymin) & (self.lat_ext<self.ymax) )[0]
+        gt = (gt[:,:,iY,:])[:,:,:,iX]
+        obs = (obs[:,:,iY,:])[:,:,:,iX]
+        oi = (oi[:,:,iY,:])[:,:,:,iX]        
+        pred = (pred[:,:,iY,:])[:,:,:,iX]
 
         self.x_gt = gt[:, int(self.hparams.dT / 2), :, :]
         self.x_obs = obs[:, int(self.hparams.dT / 2), :, :]
@@ -207,12 +219,12 @@ class LitModel(pl.LightningModule):
 
         # plot nRMSE
         path_save3 = self.logger.log_dir + '/nRMSE.png'
-        nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, time)
+        nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, time=self.time['time_test'])
         self.test_figs['nrmse'] = nrmse_fig
 
         # plot MSE
         path_save31 = self.logger.log_dir + '/MSE.png'
-        mse_fig = plot_mse(self.x_gt, self.x_oi, self.x_rec, path_save31, time)
+        mse_fig = plot_mse(self.x_gt, self.x_oi, self.x_rec, path_save31, time=self.time['time_test'])
         self.test_figs['mse'] = mse_fig
         self.logger.experiment.add_figure('Maps', fig_maps, global_step=self.current_epoch)
         self.logger.experiment.add_figure('NRMSE', nrmse_fig, global_step=self.current_epoch)
@@ -227,7 +239,8 @@ class LitModel(pl.LightningModule):
         # save NetCDF
         path_save1 = self.logger.log_dir + '/maps.nc'
         save_netcdf(saved_path1=path_save1, pred=pred,
-                    lon=self.lon, lat=self.lat, time=time)
+                    lon=self.lon, lat=self.lat, time=self.time['time_test'],
+                    time_units='days since 2017-10-01 00:00:00')
 
     def compute_loss(self, batch, phase):
 

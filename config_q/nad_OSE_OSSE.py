@@ -1,7 +1,11 @@
-from . import params, dim_range, time_period
+from . import params, dim_range, strides, time_period, def_time, time
 
 dim_range['lat'] = slice(33, 43)
 dim_range['lon'] = slice(-65, -55)
+
+# Specify the stride between two patches
+strides['X'] = 170
+strides['Y'] = 170
 
 time_period['train_slices'] = (slice("2012-10-01", "2013-09-01"),slice('2017-01-01', "2017-12-31"),)
 time_period['test_slices'] = (slice('2017-01-01', "2017-12-31"),)
@@ -20,5 +24,9 @@ params['files_cfg'].update(
     )
 )
 
-params['supervised'] = False
+new_time = def_time(params,time_period)
+time['time_train'] = new_time['time_train']
+time['time_val'] = new_time['time_val']
+time['time_test'] = new_time['time_test']
 
+params['supervised'] = False

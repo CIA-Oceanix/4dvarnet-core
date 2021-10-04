@@ -88,11 +88,18 @@ class FourDVarNetRunner:
             self.ds_size_time = datamodule.ds_size['time']
             self.ds_size_lon = datamodule.ds_size['lon']
             self.ds_size_lat = datamodule.ds_size['lat']
+            self.dX = int((slice_win['lon']-strides['lon'])/2)
+            self.dY = int((slice_win['lat']-strides['lat'])/2)
+            self.swX = slice_win['lon']
+            self.swY = slice_win['lat']
+            self.lon, self.lat = datamodule.coordXY()
 
         if config.params['stochastic'] == False:
             self.lit_cls = LitModelWithSST if dataloading == "with_sst" else LitModel
         else:
             self.lit_cls = LitModelStochastic
+
+        self.time = config.time
 
     def run(self, ckpt_path=None, dataloader="test", **trainer_kwargs):
         """
@@ -119,7 +126,12 @@ class FourDVarNetRunner:
                                                     min_lat=self.min_lat, max_lat=self.max_lat,
                                                     ds_size_time=self.ds_size_time,
                                                     ds_size_lon=self.ds_size_lon,
-                                                    ds_size_lat=self.ds_size_lat)
+                                                    ds_size_lat=self.ds_size_lat,
+                                                    time=self.time,
+                                                    dX = self.dX, dY = self.dY,
+                                                    swX = self.swX, swY = self.swY,
+                                                    coord_ext = {'lon_ext': self.lon, 'lat_ext': self.lat})
+
         else:
             mod = self.lit_cls(hparam=self.cfg, w_loss=self.wLoss,
                                mean_Tr=self.mean_Tr, mean_Tt=self.mean_Tt, mean_Val=self.mean_Val,
@@ -128,7 +140,11 @@ class FourDVarNetRunner:
                                min_lat=self.min_lat, max_lat=self.max_lat,
                                ds_size_time=self.ds_size_time,
                                ds_size_lon=self.ds_size_lon,
-                               ds_size_lat=self.ds_size_lat)
+                               ds_size_lat=self.ds_size_lat,
+                               time=self.time,
+                               dX = self.dX, dY = self.dY,
+                               swX = self.swX, swY = self.swY,
+                               coord_ext = {'lon_ext': self.lon, 'lat_ext': self.lat})
         return mod
 
     def train(self, ckpt_path=None, **trainer_kwargs):

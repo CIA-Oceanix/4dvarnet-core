@@ -1,3 +1,6 @@
+import xarray as xr
+from datetime import datetime, timedelta
+
 # Specify the dataset spatial bounds
 dim_range = {
     #'lat': slice(33, 43),
@@ -94,3 +97,34 @@ params = {
 
 }
 
+def def_time(params,time_period):
+
+    input = xr.open_dataset(params['files_cfg']['oi_path'])
+    time = [ t.astype('M8[ms]').astype('O') for t in input.time.values ]
+
+    itrain = [ i  for i in range(len(time)) \
+              if ( (time[i] >= datetime.strptime(time_period['train_slices'][0].start,'%Y-%m-%d')) & \
+                   (time[i] <= datetime.strptime(time_period['train_slices'][0].stop,'%Y-%m-%d')-timedelta(params['dT']-1) ) ) \
+          ]
+    time_train = [time[i] for i in itrain]
+
+    ival = [ i  for i in range(len(time)) \
+            if ( (time[i] >= datetime.strptime(time_period['val_slices'][0].start,'%Y-%m-%d')) & \
+                 (time[i] <= datetime.strptime(time_period['val_slices'][0].stop,'%Y-%m-%d')-timedelta(params['dT']-1)) ) \
+       ]
+    time_val = [time[i] for i in ival]
+
+    itest = [ i  for i in range(len(time)) \
+             if ( (time[i] >= datetime.strptime(time_period['test_slices'][0].start,'%Y-%m-%d')) & \
+                  (time[i] <= datetime.strptime(time_period['test_slices'][0].stop,'%Y-%m-%d')-timedelta(params['dT']-1)) ) \
+        ]
+    time_test = [time[i] for i in itest]
+
+    time = {
+        'time_train' : time_train,
+        'time_test' : time_test,
+        'time_val' : time_val,
+       }
+    return time
+
+time = def_time(params,time_period)

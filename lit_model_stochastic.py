@@ -120,7 +120,7 @@ class LitModelStochastic(LitModel):
         print(tab_scores)
         # plot nRMSE
         path_save3 = self.logger.log_dir+'/nRMSE.png'
-        nrmse_fig = plot_nrmse(self.x_gt,self.x_oi,self.x_rec,path_save3,time=time)
+        nrmse_fig = plot_nrmse(self.x_gt,self.x_oi,self.x_rec,path_save3,time=self.time['time_test'])
         self.logger.experiment.add_figure('NRMSE', nrmse_fig, global_step=self.current_epoch)
         # plot SNR
         path_save4 = self.logger.log_dir+'/SNR.png'
@@ -129,7 +129,7 @@ class LitModelStochastic(LitModel):
         # save NetCDF
         path_save1 = self.logger.log_dir+'/maps.nc'
         save_netcdf(saved_path1 = path_save1, pred = pred,
-            lon = self.lon,lat = self.lat, time=time)
+            lon = self.lon,lat = self.lat, time=self.time['time_test'])
 
 
     def compute_loss(self, batch, phase):

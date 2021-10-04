@@ -26,7 +26,7 @@ export PYTHONPATH=${WORK}/4dvarnet-core:${PYTHONPATH}
 # config files stored in config_q --> examples: --config=q.nad_swot
 
 # train the model
-#srun python main.py --config=$1 --max_epochs=20 --progress_bar_refresh_rate=5 run
+srun python main.py --config=$1 --max_epochs=1 --progress_bar_refresh_rate=5 run
 # test the model
-srun python main.py --config=$1 --ckpt_path=checkpoints/GF_OSE_OSSE.ckpt --progress_bar_refresh_rate=5 test
+#srun python main.py --config=$1 --ckpt_path=checkpoints/GF_OSE_OSSE.ckpt --progress_bar_refresh_rate=5 test
 
