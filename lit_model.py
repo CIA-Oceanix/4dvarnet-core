@@ -35,7 +35,7 @@ class LitModel(pl.LightningModule):
         # main model
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
             Phi_r(self.shapeData[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
-                  self.hparams.nbBlocks, self.hparams.dropout_phi_r, False),
+                  self.hparams.nbBlocks, self.hparams.dropout_phi_r, self.hparams.stochastic),
             Model_H(self.shapeData[0]),
             NN_4DVar.model_GradUpdateLSTM(self.shapeData, self.hparams.UsePriodicBoundary,
                                           self.hparams.dim_grad_solver, self.hparams.dropout, self.hparams.stochastic),
@@ -134,6 +134,7 @@ class LitModel(pl.LightningModule):
             self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
 
         return {'gt'    : (targets_GT.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'obs'   : (inputs_obs.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'oi'    : (targets_OI.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'preds' : (out.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr}
 
@@ -141,6 +142,7 @@ class LitModel(pl.LightningModule):
     def test_epoch_end(self, outputs):
 
         gt = torch.cat([chunk['gt'] for chunk in outputs]).numpy()
+        obs = torch.cat([chunk['obs'] for chunk in outputs]).numpy()
         oi = torch.cat([chunk['oi'] for chunk in outputs]).numpy()
         pred = torch.cat([chunk['preds'] for chunk in outputs]).numpy()
 
@@ -149,7 +151,7 @@ class LitModel(pl.LightningModule):
                    'lat': self.ds_size_lat,
                    }
 
-        gt, oi, pred = map(
+        gt, obs, oi, pred = map(
             lambda t: einops.rearrange(
                 t,
                 '(t_idx lat_idx lon_idx) win_time win_lat win_lon -> t_idx win_time (lat_idx win_lat) (lon_idx win_lon)',
@@ -157,27 +159,41 @@ class LitModel(pl.LightningModule):
                 lat_idx=ds_size['lat'],
                 lon_idx=ds_size['lon'],
             ),
-            [gt, oi, pred])
+            [gt, obs, oi, pred])
+
+        # temporary fix
+        time = np.arange(len(gt))
 
         self.x_gt = gt[:, int(self.hparams.dT / 2), :, :]
+        self.x_obs = obs[:, int(self.hparams.dT / 2), :, :]
         self.x_oi = oi[:, int(self.hparams.dT / 2), :, :]
         self.x_rec = pred[:, int(self.hparams.dT / 2), :, :]
 
         # display map
         path_save0 = self.logger.log_dir + '/maps.png'
         fig_maps = plot_maps(
-                self.x_gt[0],
+                  self.x_gt[0],
+                  self.x_obs[0],
                   self.x_oi[0],
                   self.x_rec[0],
                   self.lon, self.lat, path_save0)
+        path_save0 = self.logger.log_dir + '/maps_Grad.png'
+        fig_maps_grad = plot_maps(
+                  self.x_gt[0],
+                  self.x_obs[0],
+                  self.x_oi[0],
+                  self.x_rec[0],
+                  self.lon, self.lat, path_save0, grad=True)
         self.test_figs['maps'] = fig_maps
+        self.test_figs['maps_grad'] = fig_maps_grad
         # animate maps
         if self.hparams.animate == True:
             path_save0 = self.logger.log_dir + '/animation.mp4'
             animate_maps(self.x_gt,
+                         self.x_obs,
                          self.x_oi,
                          self.x_rec,
-                         self.lon, self.lat, path_save0)
+                         self.lon, self.lat, path_save0, grad=True)
         # compute nRMSE
         path_save2 = self.logger.log_dir + '/nRMSE.txt'
         tab_scores = nrmse_scores(gt, oi, pred, path_save2)
@@ -191,13 +207,12 @@ class LitModel(pl.LightningModule):
 
         # plot nRMSE
         path_save3 = self.logger.log_dir + '/nRMSE.png'
-        nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, index_test=np.arange(60, 60+self.ds_size_time))
+        nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, time)
         self.test_figs['nrmse'] = nrmse_fig
 
         # plot MSE
         path_save31 = self.logger.log_dir + '/MSE.png'
-        mse_fig = plot_mse(self.x_gt, self.x_oi, self.x_rec, path_save31,
-                               index_test=np.arange(60, 60 + self.ds_size_time))
+        mse_fig = plot_mse(self.x_gt, self.x_oi, self.x_rec, path_save31, time)
         self.test_figs['mse'] = mse_fig
         self.logger.experiment.add_figure('Maps', fig_maps, global_step=self.current_epoch)
         self.logger.experiment.add_figure('NRMSE', nrmse_fig, global_step=self.current_epoch)
@@ -210,9 +225,9 @@ class LitModel(pl.LightningModule):
 
         self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
         # save NetCDF
-        path_save1 = self.logger.log_dir + '/test.nc'
+        path_save1 = self.logger.log_dir + '/maps.nc'
         save_netcdf(saved_path1=path_save1, pred=pred,
-                    lon=self.lon, lat=self.lat, index_test=np.arange(60, 77))
+                    lon=self.lon, lat=self.lat, time=time)
 
     def compute_loss(self, batch, phase):
 
@@ -284,8 +299,8 @@ class LitModel(pl.LightningModule):
                 iT = int(self.hparams.dT / 2)
                 new_tensor = torch.masked_select(self.gradient_img(outputs)[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(self.gradient_img(targets_GT)[:,iT,:,:],mask[:,iT,:,:])
                 loss_Grad = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
-
-                loss = self.hparams.alpha_mse_ssh * loss + self.hparams.alpha_mse_gssh * loss_Grad + 0.5 * self.hparams.alpha_proj * loss_AE + self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
+                loss = self.hparams.alpha_mse_ssh * loss  + 0.5 * self.hparams.alpha_proj * loss_AE + self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
+                #loss = self.hparams.alpha_mse_ssh * loss + self.hparams.alpha_mse_gssh * loss_Grad + 0.5 * self.hparams.alpha_proj * loss_AE + self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
 
             # metrics
             mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_GT, self.w_loss)

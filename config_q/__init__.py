@@ -63,6 +63,9 @@ params = {
     # supervised/unsupervised loss
     'supervised'      : True,
 
+    # use grad in state spate
+    #'grad_in_state'   : False,
+
     # NN architectures and optimization parameters
     'batch_size'      : 2, #16#4#4#8#12#8#256#
     'DimAE'           : 25, #10#10#50

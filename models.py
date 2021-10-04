@@ -107,17 +107,10 @@ class Phi_r(torch.nn.Module):
     def __init__(self, shapeData, DimAE, dW, dW2, sS, nbBlocks, rateDr, stochastic=False):
         super(Phi_r, self).__init__()
         self.stochastic = stochastic
-        if self.stochastic==True:
-            self.encoder = Encoder(shapeData, shapeData, DimAE, dW, dW2, sS, nbBlocks, rateDr)
-        else:
-            self.encoder = Encoder(shapeData, shapeData, DimAE, dW, dW2, sS, nbBlocks, rateDr)
+        self.encoder = Encoder(shapeData, shapeData, DimAE, dW, dW2, sS, nbBlocks, rateDr)
         self.decoder = Decoder()
         self.correlate_noise = CorrelateNoise(shapeData, 10)
         self.regularize_variance = RegularizeVariance(shapeData, 10)
-        self.Nx = 200
-        self.Ny = 200
-        #A = DiffOperator_Isotropic(self.Nx, self.Ny, dx=1, dy=1, kappa=1./3)
-        #self.B = pow_diff_operator(A,2,sparse=True)
 
     def forward(self, x):
         white = True

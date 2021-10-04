@@ -57,13 +57,16 @@ class LitModelStochastic(LitModel):
                      on_step=False, on_epoch=True, prog_bar=True)
         self.log("test_mseG", np.nanmean([ metrics[i]['mseGrad'].detach().cpu()/metrics[i]['meanGrad'].detach().cpu()  for i in range(len(metrics)) ]),
                      on_step=False, on_epoch=True, prog_bar=True)
-        return {'gt' : targets_GT.detach().cpu(),
-                'oi' : targets_OI.detach().cpu(),
-                'preds' : out.detach().cpu()}
+
+        return {'gt'    : (targets_GT.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'obs'   : (inputs_obs.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'oi'    : (targets_OI.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'preds' : (out.detach().cpu()*np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def test_epoch_end(self, outputs):
 
         gt = torch.cat([chunk['gt'] for chunk in outputs]).numpy()
+        obs = torch.cat([chunk['obs'] for chunk in outputs]).numpy()
         oi = torch.cat([chunk['oi'] for chunk in outputs]).numpy()
         pred = torch.cat([chunk['preds'] for chunk in outputs]).numpy()
         ds_size = {'time': self.ds_size_time,
@@ -71,18 +74,16 @@ class LitModelStochastic(LitModel):
                    'lat': self.ds_size_lat,
                    }
 
-        gt = einops.rearrange(gt,
+        gt, obs, oi = map(
+            lambda t: einops.rearrange(
+                t,
                 '(t_idx lat_idx lon_idx) win_time win_lat win_lon -> t_idx win_time (lat_idx win_lat) (lon_idx win_lon)',
                 t_idx=ds_size['time'],
                 lat_idx=ds_size['lat'],
                 lon_idx=ds_size['lon'],
-                )
-        oi = einops.rearrange(oi,
-                '(t_idx lat_idx lon_idx) win_time win_lat win_lon -> t_idx win_time (lat_idx win_lat) (lon_idx win_lon)',
-                t_idx=ds_size['time'],
-                lat_idx=ds_size['lat'],
-                lon_idx=ds_size['lon'],
-                )
+            ),
+            [gt, obs, oi])
+
         pred = einops.rearrange(pred,
                 '(t_idx lat_idx lon_idx ens_idx) win_time win_lat win_lon win_ens -> t_idx win_time (lat_idx win_lat) (lon_idx win_lon) (ens_idx win_ens)',
                 ens_idx=1,
@@ -92,7 +93,11 @@ class LitModelStochastic(LitModel):
                 )
 
         self.x_gt = gt[:,int(self.hparams.dT/2),:,:]
+        self.x_obs = obs[:, int(self.hparams.dT / 2), :, :]
         self.x_oi = oi[:,int(self.hparams.dT/2),:,:]
+
+        # temporary fix
+        time = np.arange(len(gt))
 
         # display ensemble
         path_save0 = self.logger.log_dir+'/maps_ensemble.png'
@@ -104,6 +109,7 @@ class LitModelStochastic(LitModel):
         # display map
         path_save0 = self.logger.log_dir+'/maps.png'
         plot_maps(self.x_gt[0],
+                  self.x_obs[0],
                   self.x_oi[0],
                   self.x_rec[0],
                   self.lon,self.lat,path_save0)
@@ -114,16 +120,16 @@ class LitModelStochastic(LitModel):
         print(tab_scores)
         # plot nRMSE
         path_save3 = self.logger.log_dir+'/nRMSE.png'
-        nrmse_fig = plot_nrmse(self.x_gt,self.x_oi,self.x_rec,path_save3,index_test = np.arange(60, 81))
+        nrmse_fig = plot_nrmse(self.x_gt,self.x_oi,self.x_rec,path_save3,time=time)
         self.logger.experiment.add_figure('NRMSE', nrmse_fig, global_step=self.current_epoch)
         # plot SNR
         path_save4 = self.logger.log_dir+'/SNR.png'
         snr_fig = plot_snr(self.x_gt,self.x_oi,self.x_rec,path_save4)
         self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
         # save NetCDF
-        path_save1 = self.logger.log_dir+'/test.nc'
+        path_save1 = self.logger.log_dir+'/maps.nc'
         save_netcdf(saved_path1 = path_save1, pred = pred,
-            lon = self.lon,lat = self.lat, index_test = np.arange(60, 77))
+            lon = self.lon,lat = self.lat, time=time)
 
 
     def compute_loss(self, batch, phase):
