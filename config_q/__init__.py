@@ -103,20 +103,20 @@ def def_time(params,time_period):
     time = [ t.astype('M8[ms]').astype('O') for t in input.time.values ]
 
     itrain = [ i  for i in range(len(time)) \
-              if ( (time[i] >= datetime.strptime(time_period['train_slices'][0].start,'%Y-%m-%d')) & \
-                   (time[i] <= datetime.strptime(time_period['train_slices'][0].stop,'%Y-%m-%d')-timedelta(params['dT']-1) ) ) \
+              if ( (time[i] >= datetime.strptime(time_period['train_slices'][0].start,'%Y-%m-%d')+timedelta(params['dT']//2)) & \
+                   (time[i] <= datetime.strptime(time_period['train_slices'][0].stop,'%Y-%m-%d')-timedelta(params['dT']//2)) ) \
           ]
     time_train = [time[i] for i in itrain]
 
     ival = [ i  for i in range(len(time)) \
-            if ( (time[i] >= datetime.strptime(time_period['val_slices'][0].start,'%Y-%m-%d')) & \
-                 (time[i] <= datetime.strptime(time_period['val_slices'][0].stop,'%Y-%m-%d')-timedelta(params['dT']-1)) ) \
+            if ( (time[i] >= datetime.strptime(time_period['val_slices'][0].start,'%Y-%m-%d')+timedelta(params['dT']//2)) & \
+                 (time[i] <= datetime.strptime(time_period['val_slices'][0].stop,'%Y-%m-%d')-timedelta(params['dT']//2)) ) \
        ]
     time_val = [time[i] for i in ival]
 
     itest = [ i  for i in range(len(time)) \
-             if ( (time[i] >= datetime.strptime(time_period['test_slices'][0].start,'%Y-%m-%d')) & \
-                  (time[i] <= datetime.strptime(time_period['test_slices'][0].stop,'%Y-%m-%d')-timedelta(params['dT']-1)) ) \
+             if ( (time[i] >= datetime.strptime(time_period['test_slices'][0].start,'%Y-%m-%d')+timedelta(params['dT']//2)) & \
+                  (time[i] <= datetime.strptime(time_period['test_slices'][0].stop,'%Y-%m-%d')-timedelta(params['dT']//2)) ) \
         ]
     time_test = [time[i] for i in itest]
 
