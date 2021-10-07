@@ -1,83 +1,75 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Fri May  1 15:38:05 2020
 
-@author: rfablet
-"""
 
 import numpy as np
 import torch
 from torch import nn
-import torch.nn.functional as F
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-class CorrelateNoise(torch.nn.Module):
-    def __init__(self, shape_data, dim_cn):
-        super(CorrelateNoise, self).__init__()
-        self.conv1 = torch.nn.Conv2d(shape_data, dim_cn, (3, 3), padding=1, bias=False)
-        self.conv2 = torch.nn.Conv2d(dim_cn, 2 * dim_cn, (3, 3), padding=1, bias=False)
-        self.conv3 = torch.nn.Conv2d(2 * dim_cn, shape_data, (3, 3), padding=1, bias=False)
 
-    def forward(self, w):
-        w = self.conv1(F.relu(w)).to(device)
-        w = self.conv2(F.relu(w)).to(device)
-        w = self.conv3(w).to(device)
-        return w
 
-class RegularizeVariance(torch.nn.Module):
-    def __init__(self, shape_data, dim_rv):
-        super(RegularizeVariance, self).__init__()
-        self.conv1 = torch.nn.Conv2d(shape_data, dim_rv, (3, 3), padding=1, bias=False)
-        self.conv2 = torch.nn.Conv2d(dim_rv, 2 * dim_rv, (3, 3), padding=1, bias=False)
-        self.conv3 = torch.nn.Conv2d(2 * dim_rv, shape_data, (3, 3), padding=1, bias=False)
 
-    def forward(self, v):
-        v = self.conv1(F.relu(v)).to(device)
-        v = self.conv2(F.relu(v)).to(device)
-        v = self.conv3(v).to(device)
-        return v
-
+class ConstrainedConv2d(torch.nn.Conv2d):
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 kernel_size,
+                 stride=1,
+                 padding=0,
+                 dilation=1,
+                 groups=1,
+                 bias=True):
+        super(ConstrainedConv2d,
+              self).__init__(in_channels, out_channels, kernel_size, stride,
+                             padding, dilation, groups, bias)
+        with torch.no_grad():
+          self.weight[:,:,int(self.weight.size(2)/2)+1,int(self.weight.size(3)/2)+1] = 0.0
+    def forward(self, input):
+        return torch.nn.functional.conv2d(input, self.weight, self.bias, self.stride,
+                        self.padding, self.dilation, self.groups)
+                        
 class ConvLSTM2d(torch.nn.Module):
-    def __init__(self, input_size, hidden_size, kernel_size = 3, stochastic=False):
+    def __init__(self, input_size, hidden_size, kernel_size = 3, batch_size = 8, stoch_init = False, stoch_update = False):
         super(ConvLSTM2d, self).__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.kernel_size = kernel_size
         self.padding = int((kernel_size - 1) / 2)
         self.Gates = torch.nn.Conv2d(input_size + hidden_size, 4 * hidden_size, kernel_size = self.kernel_size, stride = 1, padding = self.padding)
-        self.stochastic = stochastic
-        #self.correlate_noise = CorrelateNoise(input_size, 10)
-        #self.regularize_variance = RegularizeVariance(input_size, 10)
-
+        self.stoch_init = stoch_init
+        self.stoch_update = stoch_update
+        self.sigma1_stoch_init = 1.
+        self.sigma2_stoch_init = 1.
+        self.sigma_stoch_update = 1.
+	
     def forward(self, input_, prev_state):
-
+        	
         # get batch and spatial sizes
         batch_size = input_.shape[0]
         spatial_size = input_.shape[2:]
-        if self.stochastic == True:
-            z = torch.randn(input_.shape).to(device)
-            z = self.correlate_noise(z)
-            z = (z-torch.mean(z))/torch.std(z)
-            #z = torch.mul(self.regularize_variance(z),self.correlate_noise(z))
-
+        
         # generate empty prev_state, if None is provided
         if prev_state is None:
             state_size = [batch_size, self.hidden_size] + list(spatial_size)
-            prev_state = (
+            if self.stoch_init:
+                prev_state = (
+                (torch.autograd.Variable(self.sigma1_stoch_init*torch.ones(state_size))*torch.randn(state_size) + torch.autograd.Variable(torch.zeros(state_size))).to(device),
+                (torch.autograd.Variable(self.sigma2_stoch_init*torch.ones(state_size))*torch.randn(state_size) + torch.autograd.Variable(torch.zeros(state_size))).to(device)
+            )
+            else:
+                prev_state = (
                 torch.autograd.Variable(torch.zeros(state_size)).to(device),
                 torch.autograd.Variable(torch.zeros(state_size)).to(device)
             )
+            
 
         # prev_state has two components
         prev_hidden, prev_cell = prev_state
 
         # data size is [batch, channel, height, width]
-        if self.stochastic == False:
-            stacked_inputs = torch.cat((input_, prev_hidden), 1)
-        else:
-            stacked_inputs = torch.cat((torch.add(input_,z), prev_hidden), 1)
-
+    
+        stacked_inputs = torch.cat((input_, prev_hidden), 1)
         gates = self.Gates(stacked_inputs)
 
         # chunk across channel dimension: split it to 4 samples at dimension 1
@@ -94,8 +86,12 @@ class ConvLSTM2d(torch.nn.Module):
         # compute current cell and hidden state
         cell = (remember_gate * prev_cell) + (in_gate * cell_gate)
         hidden = out_gate * torch.tanh(cell)
-
+        if self.stoch_update:
+            state_size = [batch_size, self.hidden_size] + list(spatial_size)
+            hidden = hidden + self.sigma_stoch_update*torch.randn(state_size, device = device)*hidden
         return hidden, cell
+        
+                                
 
 class ConvLSTM1d(torch.nn.Module):
     def __init__(self, input_size, hidden_size, kernel_size = 3):
@@ -216,18 +212,17 @@ def compute_WeightedL2Norm1D(x2,w):
     loss_ = loss_ / (torch.sum(~torch.isnan(x2)) / x2.shape[1] )
     
     return loss_
-
 # Gradient-based minimization using a LSTM using a (sub)gradient as inputs
 class model_GradUpdateLSTM(torch.nn.Module):
-    def __init__(self,ShapeData,periodicBnd=False,DimLSTM=0,rateDropout=0.,stochastic=False):
+    def __init__(self,ShapeData,periodicBnd=False,DimLSTM=0,rateDropout=0., stoch_init = False, stoch_update = False):
         super(model_GradUpdateLSTM, self).__init__()
 
         with torch.no_grad():
             self.shape     = ShapeData
             if DimLSTM == 0 :
-                self.dim_state  = 5*self.shape[0]
+                self.DimState  = 5*self.shape[0]
             else :
-                self.dim_state  = DimLSTM
+                self.DimState  = DimLSTM
             self.PeriodicBnd = periodicBnd
             if( (self.PeriodicBnd == True) & (len(self.shape) == 2) ):
                 print('No periodic boundary available for FxTime (eg, L63) tensors. Forced to False')
@@ -236,40 +231,40 @@ class model_GradUpdateLSTM(torch.nn.Module):
         self.convLayer     = self._make_ConvGrad()
         K = torch.Tensor([0.1]).view(1,1,1,1)
         self.convLayer.weight = torch.nn.Parameter(K)
-
+        
         self.dropout = torch.nn.Dropout(rateDropout)
-        self.stochastic=stochastic
-
+        self.stoch_init = stoch_init
+        self.stoch_update = stoch_update
         if len(self.shape) == 2: ## 1D Data
-            self.lstm = ConvLSTM1d(self.shape[0],self.dim_state,3)
+            self.lstm = ConvLSTM1d(self.shape[0],self.DimState,3)
         elif len(self.shape) == 3: ## 2D Data
-            self.lstm = ConvLSTM2d(self.shape[0],self.dim_state,3,stochastic=self.stochastic)
-
+            self.lstm = ConvLSTM2d(self.shape[0],self.DimState,3)
+        
     def _make_ConvGrad(self):
         layers = []
 
         if len(self.shape) == 2: ## 1D Data
-            layers.append(torch.nn.Conv1d(self.dim_state, self.shape[0], 1, padding=0,bias=False))
-        elif len(self.shape) == 3: ## 2D Data
-            layers.append(torch.nn.Conv2d(self.dim_state, self.shape[0], (1,1), padding=0,bias=False))
+            layers.append(torch.nn.Conv1d(self.DimState, self.shape[0], 1, padding=0,bias=False))
+        elif len(self.shape) == 3: ## 2D Data            
+            layers.append(torch.nn.Conv2d(self.DimState, self.shape[0], (1,1), padding=0,bias=False))
 
         return torch.nn.Sequential(*layers)
     def _make_LSTMGrad(self):
         layers = []
 
         if len(self.shape) == 2: ## 1D Data
-            layers.append(ConvLSTM1d(self.shape[0],self.dim_state,3))
-        elif len(self.shape) == 3: ## 2D Data
-            layers.append(ConvLSTM2d(self.shape[0],self.dim_state,3,stochastic=self.stochastic))
+            layers.append(ConvLSTM1d(self.shape[0],self.DimState,3))
+        elif len(self.shape) == 3: ## 2D Data            
+            layers.append(ConvLSTM2d(self.shape[0],self.DimState,3, self.stoch_init, self.stoch_update))
 
         return torch.nn.Sequential(*layers)
-
+ 
+    
     def forward(self,hidden,cell,grad,gradnorm=1.0):
-
         # compute gradient
         grad  = grad / gradnorm
         grad  = self.dropout( grad )
-
+          
         if self.PeriodicBnd == True :
             dB     = 7
             #
@@ -280,7 +275,7 @@ class model_GradUpdateLSTM(torch.nn.Module):
                 hidden_  = torch.cat((hidden[:,:,grad.size(2)-dB:,:],hidden,hidden[:,:,0:dB,:]),dim=2)
                 cell_    = torch.cat((cell[:,:,grad.size(2)-dB:,:],cell,cell[:,:,0:dB,:]),dim=2)
                 hidden_,cell_ = self.lstm(grad_,[hidden_,cell_])
-
+                
             hidden = hidden_[:,:,dB:grad.size(2)+dB,:]
             cell   = cell_[:,:,dB:grad.size(2)+dB,:]
         else:
@@ -297,27 +292,28 @@ class model_GradUpdateLSTM(torch.nn.Module):
 
 # New module for the definition/computation of the variational cost
 class Model_Var_Cost(nn.Module):
-    def __init__(self ,m_NormObs, m_NormPhi, ShapeData,dim_obs=1,dim_obs_channel=0,dim_state=0):
+    def __init__(self ,m_NormObs, m_NormPhi, ShapeData,DimObs=1,dimObsChannel=0,dimState=0):
         super(Model_Var_Cost, self).__init__()
-        self.dim_obs_channel = dim_obs_channel
-        self.dim_obs        = dim_obs
-        if dim_state > 0 :
-            self.dim_state      = dim_state
+        self.dimObsChannel = dimObsChannel
+        self.DimObs        = DimObs
+        if dimState > 0 :
+            self.DimState      = dimState
         else:
-            self.dim_state      = ShapeData[0]
+            self.DimState      = ShapeData[0]
             
         # parameters for variational cost
-        self.alphaObs    = torch.nn.Parameter(torch.Tensor(1. * np.ones((self.dim_obs,1))))
+        self.alphaObs    = torch.nn.Parameter(torch.Tensor(1. * np.ones((self.DimObs,1))))
         self.alphaReg    = torch.nn.Parameter(torch.Tensor([1.]))
-        if self.dim_obs_channel[0] == 0 :
-            self.WObs           = torch.nn.Parameter(torch.Tensor(np.ones((self.dim_obs,ShapeData[0]))))
-            self.dim_obs_channel  = ShapeData[0] * np.ones((self.dim_obs,))
+        if self.dimObsChannel[0] == 0 :
+            self.WObs           = torch.nn.Parameter(torch.Tensor(np.ones((self.DimObs,ShapeData[0]))))
+            self.dimObsChannel  = ShapeData[0] * np.ones((self.DimObs,))
+
         else:
-            self.WObs            = torch.nn.Parameter(torch.Tensor(np.ones((self.dim_obs,np.max(self.dim_obs_channel)))))
-        self.WReg    = torch.nn.Parameter(torch.Tensor(np.ones(self.dim_state,)))
-        self.epsObs = torch.nn.Parameter(0.1 * torch.Tensor(np.ones((self.dim_obs,))))
+            self.WObs            = torch.nn.Parameter(torch.Tensor(np.ones((self.DimObs,np.max(self.dimObsChannel)))))
+        self.WReg    = torch.nn.Parameter(torch.Tensor(np.ones(self.DimState,)))
+        self.epsObs = torch.nn.Parameter(0.1 * torch.Tensor(np.ones((self.DimObs,))))
         self.epsReg = torch.nn.Parameter(torch.Tensor([0.1]))
-        
+
         self.normObs   = m_NormObs
         self.normPrior = m_NormPhi
         
@@ -325,14 +321,41 @@ class Model_Var_Cost(nn.Module):
 
         loss = self.alphaReg**2 * self.normPrior(dx,self.WReg**2,self.epsReg)
                 
-        if self.dim_obs == 1 :
+        if self.DimObs == 1 :
             loss +=  self.alphaObs[0]**2 * self.normObs(dy,self.WObs[0,:]**2,self.epsObs[0])
         else:
-            for kk in range(0,self.dim_obs):
+            for kk in range(0,self.DimObs):
                 loss +=  self.alphaObs[kk]**2 * self.normObs(dy[kk],self.WObs[kk,0:dy[kk].size(1)]**2,self.epsObs[kk])
 
         return loss
 
+class CorrelateNoise(torch.nn.Module):
+    def __init__(self, shape_data, dim_cn):
+        super(CorrelateNoise, self).__init__()
+        self.conv1 = torch.nn.Conv2d(shape_data, dim_cn, (3, 3), padding=1, bias=False)
+        self.conv2 = torch.nn.Conv2d(dim_cn, 2 * dim_cn, (3, 3), padding=1, bias=False)
+        self.conv3 = torch.nn.Conv2d(2 * dim_cn, shape_data, (3, 3), padding=1, bias=False)
+
+    def forward(self, w):
+        w = self.conv1(F.relu(w)).to(device)
+        w = self.conv2(F.relu(w)).to(device)
+        w = self.conv3(w).to(device)
+        return w
+
+
+class RegularizeVariance(torch.nn.Module):
+    def __init__(self, shape_data, dim_rv):
+        super(RegularizeVariance, self).__init__()
+        self.conv1 = torch.nn.Conv2d(shape_data, dim_rv, (3, 3), padding=1, bias=False)
+        self.conv2 = torch.nn.Conv2d(dim_rv, 2 * dim_rv, (3, 3), padding=1, bias=False)
+        self.conv3 = torch.nn.Conv2d(2 * dim_rv, shape_data, (3, 3), padding=1, bias=False)
+
+    def forward(self, v):
+        v = self.conv1(F.relu(v)).to(device)
+        v = self.conv2(F.relu(v)).to(device)
+        v = self.conv3(v).to(device)
+        return v
+        
 # 4DVarNN Solver class using automatic differentiation for the computation of gradient of the variational cost
 # input modules: operator phi_r, gradient-based update model m_Grad
 # modules for the definition of the norm of the observation and prior terms given as input parameters 
@@ -350,10 +373,12 @@ class Solver_Grad_4DVarNN(nn.Module):
             
         self.model_H = mod_H
         self.model_Grad = m_Grad
-        self.model_VarCost = Model_Var_Cost(m_NormObs, m_NormPhi, ShapeData,mod_H.dim_obs,mod_H.dim_obs_channel)
-
+        self.model_VarCost = Model_Var_Cost(m_NormObs, m_NormPhi, ShapeData,mod_H.DimObs,mod_H.dimObsChannel)
+      
+        self.correlate_noise = CorrelateNoise(ShapeData[0], 10)
+        self.regularize_variance = RegularizeVariance(ShapeData[0], 10)
         self.stochastic = stochastic
-
+        
         with torch.no_grad():
             self.n_grad = int(n_iter_grad)
         
@@ -379,11 +404,19 @@ class Solver_Grad_4DVarNN(nn.Module):
     def solver_step(self, x_k, obs, mask, hidden, cell,normgrad = 0.):
         var_cost, var_cost_grad= self.var_cost(x_k, obs, mask)
         if normgrad == 0. :
-            normgrad_= torch.sqrt( torch.mean( var_cost_grad**2 + 0.))
+            normgrad_= torch.sqrt( torch.mean( var_cost_grad**2 ) )
         else:
             normgrad_= normgrad
+
         grad, hidden, cell = self.model_Grad(hidden, cell, var_cost_grad, normgrad_)
         grad *= 1./ self.n_grad
+        
+        if self.stochastic == True:
+            W = torch.randn(x_k.shape).to(device)
+            gW = torch.mul(self.regularize_variance(x_k),self.correlate_noise(W))
+            grad = grad + gW
+        
+         
         x_k_plus_1 = x_k - grad
         return x_k_plus_1, hidden, cell, normgrad_
 
