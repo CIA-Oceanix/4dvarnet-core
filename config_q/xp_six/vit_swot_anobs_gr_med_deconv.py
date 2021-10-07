@@ -4,13 +4,13 @@ import copy
 params = copy.deepcopy(params)
 
 params['model'] = 'vit'
-params['rec_mod_name'] = 'default'
+params['rec_mod_name'] = 'deconv'
 params['vit_mask'] = True
 params['drop_out_rate'] = 0.2
 params['drop_out_attn'] = 0.2
-params['out_c'] = 1000
-params['depth'] = 6
-params['num_heads'] = 10
+params['out_c'] = 800
+params['depth'] = 8
+params['num_heads'] = 20
 
 params['swot_anom_wrt'] = 'low_res'
 # params['swot_anom_wrt'] = 'high_res'
@@ -25,8 +25,8 @@ params.update({
     'alpha_proj'      : 0.,
     'alpha_sr'        : 0.,
     'alpha_lr'        : 0.,  
-    'alpha_mse_ssh'   : 10.,
-    'alpha_mse_gssh'  : 0.,
+    'alpha_mse_ssh'   : 7.,
+    'alpha_mse_gssh'  : 3.,
 
     'alpha_loc_mse_ssh'   : 0.,
     'alpha_loc_mse_gssh'  : 0.,

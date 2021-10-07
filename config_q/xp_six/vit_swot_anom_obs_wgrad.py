@@ -4,7 +4,6 @@ import copy
 params = copy.deepcopy(params)
 
 params['model'] = 'vit'
-params['rec_mod_name'] = 'default'
 params['vit_mask'] = True
 params['drop_out_rate'] = 0.2
 params['drop_out_attn'] = 0.2
@@ -26,7 +25,7 @@ params.update({
     'alpha_sr'        : 0.,
     'alpha_lr'        : 0.,  
     'alpha_mse_ssh'   : 10.,
-    'alpha_mse_gssh'  : 0.,
+    'alpha_mse_gssh'  : 10.,
 
     'alpha_loc_mse_ssh'   : 0.,
     'alpha_loc_mse_gssh'  : 0.,

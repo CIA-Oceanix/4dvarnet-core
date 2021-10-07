@@ -4,7 +4,6 @@ import copy
 params = copy.deepcopy(params)
 
 params['model'] = 'vit'
-params['rec_mod_name'] = 'default'
 params['vit_mask'] = True
 params['drop_out_rate'] = 0.2
 params['drop_out_attn'] = 0.2

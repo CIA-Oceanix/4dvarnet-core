@@ -229,6 +229,20 @@ def get_4dvarnet(hparams):
                     hparams.dim_grad_solver, hparams.dropout),
                 None, None, hparams.shape_state, hparams.n_grad)
 
+def get_phi(hparams):
+    class PhiPassThrough(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.phi = Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic)
+
+            self.phi_r = torch.nn.Identity()
+            self.n_grad = 0
+
+        def forward(self, state, obs, masks):
+            return self.phi(state), None, None, None
+
+    return PhiPassThrough()
 from direct_inversion_grid import get_passthrough, get_vit
 ############################################ Lightning Module #######################################################################
 class LitModel(pl.LightningModule):
@@ -238,6 +252,7 @@ class LitModel(pl.LightningModule):
             'passthrough': get_passthrough,
             'vit': get_vit,
             '4dvarnet': get_4dvarnet,
+            'phi': get_phi,
         }
 
     def __init__(self, hparam=None, *args, **kwargs):

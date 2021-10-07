@@ -83,6 +83,36 @@ def get_vit(hparams):
                     nn.ReLU(),
                     nn.Conv2d(4, 5, 1, padding=0),
                 )
+            elif rec_mod_name == "deconv":
+                self.rec_mod = nn.Sequential(
+                    Rearrange(
+                        'b (ix iy) e -> b e ix iy ',
+                        iy=self.n_patch,
+                        ix=self.n_patch,
+                    ),
+                    nn.Conv2d(1, 4, 3, padding=1),
+                    nn.ReLU(),
+                    nn.ConvTranspose2d(4, 4, self.patch_size, stride=self.patch_size),
+                    nn.Conv2d(4, 5, 1, padding=0),
+                )
+            elif rec_mod_name == "moreconv":
+                self.rec_mod = nn.Sequential(
+                    nn.Linear(out_c, self.patch_size **2),
+                    Rearrange(
+                        'b (ix iy) (h w) -> b () (ix h) (iy w)',
+                        iy=self.n_patch,
+                        ix=self.n_patch,
+                        h=self.hparams.W // self.n_patch,
+                        w=self.hparams.W // self.n_patch,
+                    ),
+                    nn.Conv2d(1, 8, 7, padding=3),
+                    nn.ReLU(),
+                    nn.Conv2d(8, 8, 3, padding=1),
+                    nn.ReLU(),
+                    nn.Conv2d(8, 8, 3, padding=1),
+                    nn.ReLU(),
+                    nn.Conv2d(8, 5, 1, padding=0),
+                )
             else:
                 raise Exception("wrong rec mod " + rec_mod_name)
             self.phi_r = nn.Identity()
@@ -101,8 +131,9 @@ def get_vit(hparams):
 
             reshaped_out_vit = self.rec_mod(out_vit[:, 1:, :])
 
-            anom_glob = reshaped_out_vit  / self.anom_scaling
-            anom_swath = reshaped_out_vit / self.anom_scaling
+            anom_obs = torch.where(obs_mask, sat_obs - oi, torch.zeros_like(sat_obs))  
+            anom_glob = (reshaped_out_vit + anom_obs)  / self.anom_scaling
+            anom_swath = (reshaped_out_vit  + anom_obs)/ self.anom_scaling
 
             outputs = torch.cat([low_res, anom_glob, anom_swath], dim=1)
             return outputs, None, None, None 
@@ -110,6 +141,11 @@ def get_vit(hparams):
 
 if __name__ == '__main__':
     import main
+    import importlib
+    importlib.reload(main)
+    import models
+    importlib.reload(models)
+    
     # import config_q.local
     # import xarray as xr
     # import pandas as pd
@@ -121,8 +157,8 @@ if __name__ == '__main__':
     #     _ds['time'] = pd.to_datetime(_ds.time)
     # print('filtering')
     # self.ds = _ds.sel(**(params['dim_range'] or {}))
-    runner = main.FourDVarNetRunner(config='q.local')
-    # runner.train(fast_dev_run=True)
+    runner = main.FourDVarNetRunner(config='q.xp_seven.direct_phi')
+    runner.train(fast_dev_run=True)
     mod = runner.test()
     # mod = runner._get_model()
     print('Hello World')
