@@ -225,9 +225,9 @@ class model_GradUpdateLSTM(torch.nn.Module):
         with torch.no_grad():
             self.shape     = ShapeData
             if DimLSTM == 0 :
-                self.DimState  = 5*self.shape[0]
+                self.dim_state  = 5*self.shape[0]
             else :
-                self.DimState  = DimLSTM
+                self.dim_state  = DimLSTM
             self.PeriodicBnd = periodicBnd
             if( (self.PeriodicBnd == True) & (len(self.shape) == 2) ):
                 print('No periodic boundary available for FxTime (eg, L63) tensors. Forced to False')
@@ -241,26 +241,26 @@ class model_GradUpdateLSTM(torch.nn.Module):
         self.stochastic=stochastic
 
         if len(self.shape) == 2: ## 1D Data
-            self.lstm = ConvLSTM1d(self.shape[0],self.DimState,3)
+            self.lstm = ConvLSTM1d(self.shape[0],self.dim_state,3)
         elif len(self.shape) == 3: ## 2D Data
-            self.lstm = ConvLSTM2d(self.shape[0],self.DimState,3,stochastic=self.stochastic)
+            self.lstm = ConvLSTM2d(self.shape[0],self.dim_state,3,stochastic=self.stochastic)
 
     def _make_ConvGrad(self):
         layers = []
 
         if len(self.shape) == 2: ## 1D Data
-            layers.append(torch.nn.Conv1d(self.DimState, self.shape[0], 1, padding=0,bias=False))
+            layers.append(torch.nn.Conv1d(self.dim_state, self.shape[0], 1, padding=0,bias=False))
         elif len(self.shape) == 3: ## 2D Data
-            layers.append(torch.nn.Conv2d(self.DimState, self.shape[0], (1,1), padding=0,bias=False))
+            layers.append(torch.nn.Conv2d(self.dim_state, self.shape[0], (1,1), padding=0,bias=False))
 
         return torch.nn.Sequential(*layers)
     def _make_LSTMGrad(self):
         layers = []
 
         if len(self.shape) == 2: ## 1D Data
-            layers.append(ConvLSTM1d(self.shape[0],self.DimState,3))
+            layers.append(ConvLSTM1d(self.shape[0],self.dim_state,3))
         elif len(self.shape) == 3: ## 2D Data
-            layers.append(ConvLSTM2d(self.shape[0],self.DimState,3,stochastic=self.stochastic))
+            layers.append(ConvLSTM2d(self.shape[0],self.dim_state,3,stochastic=self.stochastic))
 
         return torch.nn.Sequential(*layers)
 
@@ -297,25 +297,25 @@ class model_GradUpdateLSTM(torch.nn.Module):
 
 # New module for the definition/computation of the variational cost
 class Model_Var_Cost(nn.Module):
-    def __init__(self ,m_NormObs, m_NormPhi, ShapeData,DimObs=1,dimObsChannel=0,dimState=0):
+    def __init__(self ,m_NormObs, m_NormPhi, ShapeData,dim_obs=1,dim_obs_channel=0,dim_state=0):
         super(Model_Var_Cost, self).__init__()
-        self.dimObsChannel = dimObsChannel
-        self.DimObs        = DimObs
-        if dimState > 0 :
-            self.DimState      = dimState
+        self.dim_obs_channel = dim_obs_channel
+        self.dim_obs        = dim_obs
+        if dim_state > 0 :
+            self.dim_state      = dim_state
         else:
-            self.DimState      = ShapeData[0]
+            self.dim_state      = ShapeData[0]
             
         # parameters for variational cost
-        self.alphaObs    = torch.nn.Parameter(torch.Tensor(1. * np.ones((self.DimObs,1))))
+        self.alphaObs    = torch.nn.Parameter(torch.Tensor(1. * np.ones((self.dim_obs,1))))
         self.alphaReg    = torch.nn.Parameter(torch.Tensor([1.]))
-        if self.dimObsChannel[0] == 0 :
-            self.WObs           = torch.nn.Parameter(torch.Tensor(np.ones((self.DimObs,ShapeData[0]))))
-            self.dimObsChannel  = ShapeData[0] * np.ones((self.DimObs,))
+        if self.dim_obs_channel[0] == 0 :
+            self.WObs           = torch.nn.Parameter(torch.Tensor(np.ones((self.dim_obs,ShapeData[0]))))
+            self.dim_obs_channel  = ShapeData[0] * np.ones((self.dim_obs,))
         else:
-            self.WObs            = torch.nn.Parameter(torch.Tensor(np.ones((self.DimObs,np.max(self.dimObsChannel)))))
-        self.WReg    = torch.nn.Parameter(torch.Tensor(np.ones(self.DimState,)))
-        self.epsObs = torch.nn.Parameter(0.1 * torch.Tensor(np.ones((self.DimObs,))))
+            self.WObs            = torch.nn.Parameter(torch.Tensor(np.ones((self.dim_obs,np.max(self.dim_obs_channel)))))
+        self.WReg    = torch.nn.Parameter(torch.Tensor(np.ones(self.dim_state,)))
+        self.epsObs = torch.nn.Parameter(0.1 * torch.Tensor(np.ones((self.dim_obs,))))
         self.epsReg = torch.nn.Parameter(torch.Tensor([0.1]))
         
         self.normObs   = m_NormObs
@@ -325,10 +325,10 @@ class Model_Var_Cost(nn.Module):
 
         loss = self.alphaReg**2 * self.normPrior(dx,self.WReg**2,self.epsReg)
                 
-        if self.DimObs == 1 :
+        if self.dim_obs == 1 :
             loss +=  self.alphaObs[0]**2 * self.normObs(dy,self.WObs[0,:]**2,self.epsObs[0])
         else:
-            for kk in range(0,self.DimObs):
+            for kk in range(0,self.dim_obs):
                 loss +=  self.alphaObs[kk]**2 * self.normObs(dy[kk],self.WObs[kk,0:dy[kk].size(1)]**2,self.epsObs[kk])
 
         return loss
@@ -350,7 +350,7 @@ class Solver_Grad_4DVarNN(nn.Module):
             
         self.model_H = mod_H
         self.model_Grad = m_Grad
-        self.model_VarCost = Model_Var_Cost(m_NormObs, m_NormPhi, ShapeData,mod_H.DimObs,mod_H.dimObsChannel)
+        self.model_VarCost = Model_Var_Cost(m_NormObs, m_NormPhi, ShapeData,mod_H.dim_obs,mod_H.dim_obs_channel)
 
         self.stochastic = stochastic
 
