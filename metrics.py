@@ -56,13 +56,13 @@ def plot_snr(gt,oi,pred,resfile):
     return fig
 
 
-def plot_nrmse(gt, oi, pred, resfile, index_test):
+def plot_nrmse(gt, oi, pred, resfile, time):
     '''
     gt: 3d numpy array (Ground Truth)
     oi: 3d numpy array (OI)
     pred: 3d numpy array (4DVarNet-based predictions)
     resfile: string
-    index_test: 1d numpy array (ex: np.concatenate([np.arange(60, 80)]))
+    time: 1d array-like of time corresponding to the experiment
     '''
 
     # Compute daily nRMSE scores
@@ -81,10 +81,7 @@ def plot_nrmse(gt, oi, pred, resfile, index_test):
     # graphical options
     plt.ylabel('nRMSE')
     plt.xlabel('Time (days)')
-    lday = [datetime.datetime.strftime(datetime.datetime.strptime("2012-10-01", '%Y-%m-%d') \
-                                       + datetime.timedelta(days=np.float64(i)), "%Y-%m-%d") for i in index_test]
-    plt.xticks(range(0,len(index_test)),lday,
-           rotation=45, ha='right')
+    plt.xticks(range(0,len(gt)),time,rotation=45, ha='right')
     plt.margins(x=0)
     plt.grid(True,alpha=.3)
     plt.legend(loc='upper left',prop=dict(size='small'),frameon=False,bbox_to_anchor=(0,1.02,1,0.2),ncol=2,mode="expand")
@@ -93,13 +90,13 @@ def plot_nrmse(gt, oi, pred, resfile, index_test):
     plt.close()                                 # close the figure
     return  fig
 
-def plot_mse(gt, oi, pred, resfile, index_test):
+def plot_mse(gt, oi, pred, resfile, time):
     '''
     gt: 3d numpy array (Ground Truth)
     oi: 3d numpy array (OI)
     pred: 3d numpy array (4DVarNet-based predictions)
     resfile: string
-    index_test: 1d numpy array (ex: np.concatenate([np.arange(60, 80)]))
+    time: 1d array-like of time corresponding to the experiment
     '''
 
     # Compute daily nRMSE scores
@@ -128,10 +125,7 @@ def plot_mse(gt, oi, pred, resfile, index_test):
     # graphical options
     plt.ylabel('MSE')
     plt.xlabel('Time (days)')
-    lday = [datetime.datetime.strftime(datetime.datetime.strptime("2012-10-01", '%Y-%m-%d') \
-                                       + datetime.timedelta(days=np.float64(i)), "%Y-%m-%d") for i in index_test]
-    plt.xticks(range(0,len(index_test)),lday,
-           rotation=45, ha='right')
+    plt.xticks(range(0,len(gt)),time,rotation=45, ha='right')
     plt.margins(x=0)
     plt.grid(True,alpha=.3)
     plt.legend(loc='upper left',prop=dict(size='small'),frameon=False,bbox_to_anchor=(0,1.02,1,0.2),ncol=2,mode="expand")
@@ -140,22 +134,21 @@ def plot_mse(gt, oi, pred, resfile, index_test):
     plt.close()                                 # close the figure
     return  fig
 
-
-def plot(ax,i,j,lon,lat,data,title,extent=[-65,-55,30,40],cmap="coolwarm",gridded=True,vmin=-2,vmax=2,colorbar=True,orientation="horizontal"):
-    ax[i][j].set_extent(list(extent))
+def plot(ax,lon,lat,data,title,extent=[-65,-55,30,40],cmap="coolwarm",gridded=True,vmin=-2,vmax=2,colorbar=True,orientation="horizontal"):
+    ax.set_extent(list(extent))
     if gridded:
-        im=ax[i][j].pcolormesh(lon, lat, data, cmap=cmap,\
+        im=ax.pcolormesh(lon, lat, data, cmap=cmap,\
                           vmin=vmin, vmax=vmax,edgecolors='face', alpha=1, \
                           transform= ccrs.PlateCarree(central_longitude=0.0))
     else:
-        im=ax[i][j].scatter(lon, lat, c=data, cmap=cmap, s=1,\
+        im=ax.scatter(lon, lat, c=data, cmap=cmap, s=1,\
                        vmin=vmin, vmax=vmax,edgecolors='face', alpha=1, \
                        transform= ccrs.PlateCarree(central_longitude=0.0))
     im.set_clim(vmin,vmax)
     if colorbar==True:
-        clb = plt.colorbar(im, orientation=orientation, extend='both', pad=0.1, ax=ax[i][j])
-    ax[i][j].set_title(title, pad=40, fontsize = 15)
-    gl = ax[i][j].gridlines(alpha=0.5,draw_labels=True)
+        clb = plt.colorbar(im, orientation=orientation, extend='both', pad=0.1, ax=ax)
+    ax.set_title(title, pad=40, fontsize = 15)
+    gl = ax.gridlines(alpha=0.5,draw_labels=True)
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
     gl.xlabels_bottom = False
@@ -178,60 +171,100 @@ def gradient(img, order):
     else:
         return sobel_norm
 
-def plot_maps(gt,oi,pred,lon,lat,resfile):
+def plot_maps(gt,obs,oi,pred,lon,lat,resfile,grad=False):
 
-    vmax = np.nanmax(np.abs(gt))
-    vmin = -1.*vmax
-    grad_vmax = np.nanmax(np.abs(gradient(gt,2)))
-    grad_vmin = 0
+    if grad==False:
+        vmax = np.nanmax(np.abs(oi))
+        vmin = -1.*vmax
+    else:
+        vmax = np.nanmax(np.abs(gradient(oi,2)))
+        vmin = 0
+
     extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
 
+    id_nan = np.where(np.isnan(gt))
+    obs[id_nan] = np.nan
 
-    fig, ax = plt.subplots(3,2,figsize=(10,10),squeeze=False,
-                          subplot_kw=dict(projection=ccrs.PlateCarree(central_longitude=0.0)))
-    plot(ax,0,0,lon,lat,gt,'GT',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
-    plot(ax,0,1,lon,lat,gradient(gt,2),r"$\nabla_{GT}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax)
-    plot(ax,1,0,lon,lat,oi,'OI',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
-    plot(ax,1,1,lon,lat,gradient(oi,2),r"$\nabla_{OI}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax)
-    plot(ax,2,0,lon,lat,pred,'4DVarNet',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
-    plot(ax,2,1,lon,lat,gradient(pred,2),r"$\nabla_{4DVarNet}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax)
-    plt.savefig(resfile)       # save the figure
+    fig = plt.figure(figsize=(15,15))
+    ax1 = fig.add_subplot(221, projection=ccrs.PlateCarree(central_longitude=0.0))
+    ax2 = fig.add_subplot(222, projection=ccrs.PlateCarree(central_longitude=0.0))
+    ax3 = fig.add_subplot(223, projection=ccrs.PlateCarree(central_longitude=0.0))
+    ax4 = fig.add_subplot(224, projection=ccrs.PlateCarree(central_longitude=0.0))
+
+    if grad==False:
+        plot(ax1,lon,lat,gt,'GT',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
+        plot(ax2,lon,lat,obs,'OBS',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
+        plot(ax3,lon,lat,oi,'OI',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
+        plot(ax4,lon,lat,pred,'4DVarNet',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
+    else:
+        plot(ax1,lon,lat,gradient(gt,2),r"$\nabla_{GT}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
+        plot(ax2,lon,lat,gradient(obs,2),r"$\nabla_{OBS}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
+        plot(ax3,lon,lat,gradient(oi,2),r"$\nabla_{OI}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
+        plot(ax4,lon,lat,gradient(pred,2),r"$\nabla_{4DVarNet}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
+  
+    plt.savefig(resfile)    # save the figure
     fig = plt.gcf()
-    plt.close()                                 # close the figure
+    plt.close()             # close the figure
     return fig
 
 
-def animate_maps(gt,oi,pred,lon,lat,resfile,orthographic=True):
+def animate_maps(gt,obs,oi,pred,lon,lat,resfile,orthographic=True,dw=4,grad=False):
 
-    def animate(i, fig, ax):
-        plot(ax,0,0,lon,lat,gt[i],'GT',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax,colorbar=False)
-        plot(ax,0,1,lon,lat,gradient(gt[i],2),r"$\nabla_{GT}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax,colorbar=False)
-        plot(ax,1,0,lon,lat,oi[i],'OI',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax,colorbar=False)
-        plot(ax,1,1,lon,lat,gradient(oi[i],2),r"$\nabla_{OI}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax,colorbar=False)
-        plot(ax,2,0,lon,lat,pred[i],'4DVarNet',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax,colorbar=False)
-        plot(ax,2,1,lon,lat,gradient(pred[i],2),r"$\nabla_{4DVarNet}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax,colorbar=False)
-        return fig, ax
+    if dw>1:
+        # decrease the resolution
+        Nlon = len(lon)
+        Nlat = len(lat)
+        ilon = np.arange(0,Nlon,4)
+        ilat = np.arange(0,Nlat,4)
+        gt = (gt[:,ilat,:])[:,:,ilon]
+        obs = (obs[:,ilat,:])[:,:,ilon]
+        oi = (oi[:,ilat,:])[:,:,ilon]
+        pred = (pred[:,ilat,:])[:,:,ilon]
+        lon = lon[ilon]
+        lat = lat[ilat]
 
-    vmax = np.nanmax(np.abs(pred))
-    vmin = -1.*vmax
-    grad_vmax = np.nanmax(np.abs(gradient(pred,2)))
-    grad_vmin = 0
+    def animate(i):
+        print(i)
+        id_nan = np.where(np.isnan(gt[i]))
+        obs[i][id_nan] = np.nan
+        #oi[i][id_nan] = np.nan
+        #pred[i][id_nan] = np.nan
+
+        if grad==False:
+            plot(ax1,lon,lat,gt[i],'GT',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
+            plot(ax2,lon,lat,obs[i],'OBS',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
+            plot(ax3,lon,lat,oi[i],'OI',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
+            plot(ax4,lon,lat,pred[i],'4DVarNet',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
+        else:
+            plot(ax1,lon,lat,gradient(gt[i],2),r"$\nabla_{GT}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
+            plot(ax2,lon,lat,gradient(obs[i],2),r"$\nabla_{OBS}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
+            plot(ax3,lon,lat,gradient(oi[i],2),r"$\nabla_{OI}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
+            plot(ax4,lon,lat,gradient(pred[i],2),r"$\nabla_{4DVarNet}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
+
+    if grad==False:
+        vmax = np.nanmax(np.abs(oi))
+        vmin = -1.*vmax
+    else:
+        vmax = np.nanmax(np.abs(gradient(oi,2)))
+        vmin = 0
+
     extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
 
+    fig = plt.figure(figsize=(15,15))
     if orthographic==False:
-        fig, ax = plt.subplots(3,2,figsize=(15,10),\
-              subplot_kw=dict(projection=ccrs.PlateCarree(central_longitude=0.0)))
+        ax1 = fig.add_subplot(221, projection=ccrs.PlateCarree(central_longitude=0.0))
+        ax2 = fig.add_subplot(222, projection=ccrs.PlateCarree(central_longitude=0.0))
+        ax3 = fig.add_subplot(223, projection=ccrs.PlateCarree(central_longitude=0.0))
+        ax4 = fig.add_subplot(224, projection=ccrs.PlateCarree(central_longitude=0.0))
     else:
-        fig, ax = plt.subplots(3,2,figsize=(15,10),\
-              subplot_kw=dict(projection=ccrs.Orthographic(-30, 45)))
-        for i in range(3):
-            for j in range(2):
-                ax[i][j].set_global()
-                #ax[i][j].add_feature(cfeature.LAND, zorder=0, edgecolor='black')
-                ax[i][j].gridlines()        
+        ax1 = fig.add_subplot(221, projection=ccrs.Orthographic(-30, 45))
+        ax2 = fig.add_subplot(222, projection=ccrs.Orthographic(-30, 45))
+        ax3 = fig.add_subplot(223, projection=ccrs.Orthographic(-30, 45))
+        ax4 = fig.add_subplot(224, projection=ccrs.Orthographic(-30, 45))
     plt.subplots_adjust(hspace=0.5)
-    ani = animation.FuncAnimation(fig, animate, frames=np.arange(1,len(gt)), fargs=(fig,ax,), interval=1000, repeat=False)
-    writer = animation.FFMpegWriter(fps=1, bitrate=5000)
+    ani = animation.FuncAnimation(fig, animate, frames=len(gt), interval=200, repeat=False)
+    writergif = animation.PillowWriter(fps=3) 
+    writer = animation.FFMpegWriter(fps=3)
     ani.save(resfile, writer = writer)
     plt.close()
 
@@ -252,21 +285,19 @@ def plot_ensemble(pred,lon,lat,resfile):
     plt.savefig(resfile)       # save the figure
     plt.close()                # close the figure
 
-def save_netcdf(saved_path1, pred, lon, lat, index_test):
+def save_netcdf(saved_path1, pred, lon, lat, time,
+                time_units='days since 2012-10-01 00:00:00'):
     '''
     saved_path1: string 
     pred: 3d numpy array (4DVarNet-based predictions)
     lon: 1d numpy array 
     lat: 1d numpy array
-    index_test: 1d numpy array (ex: np.concatenate([np.arange(60, 80)]))
+    time: 1d array-like of time corresponding to the experiment
     '''
 
     mesh_lat, mesh_lon = np.meshgrid(lat, lon)
     mesh_lat = mesh_lat.T
     mesh_lon = mesh_lon.T
-
-    time = [datetime.datetime.strftime(datetime.datetime.strptime("2012-10-01", '%Y-%m-%d') \
-                                       + datetime.timedelta(days=np.float64(i)), "%Y-%m-%d") for i in index_test]
 
     dt = pred.shape[1]
     xrdata = xr.Dataset( \
@@ -274,8 +305,8 @@ def save_netcdf(saved_path1, pred, lon, lat, index_test):
                    'latitude': (('lat', 'lon'), mesh_lat), \
                    'Time': (('time'), time), \
                    'ssh': (('time', 'lat', 'lon'), pred[:, int(dt / 2), :, :])}, \
-        coords={'lon': lon, 'lat': lat, 'time': index_test})
-    xrdata.time.attrs['units'] = 'days since 2012-10-01 00:00:00'
+        coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred))})
+    xrdata.time.attrs['units'] = time_units
     xrdata.to_netcdf(path=saved_path1, mode='w')
 
 

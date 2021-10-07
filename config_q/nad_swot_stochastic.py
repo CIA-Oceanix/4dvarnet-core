@@ -8,4 +8,5 @@ params['files_cfg'].update(
 )
 
 params['stochastic'] = True
+params['size_ensemble'] = 3
 

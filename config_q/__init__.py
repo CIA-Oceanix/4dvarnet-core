@@ -1,8 +1,12 @@
+import xarray as xr
+from datetime import datetime, timedelta
+
 # Specify the dataset spatial bounds
 dim_range = {
-    'lat': slice(33, 43),
-    'lon': slice(-65, -55),
-
+    #'lat': slice(33, 43),
+    #'lon': slice(-65, -55),
+    'lat': slice(27, 57),
+    'lon': slice(-77, 3),
 }
 # Specify the batch patch size
 slice_win = {
@@ -17,6 +21,11 @@ strides = {
     'lon': 200,
 }
 
+time_period = {
+    'train_slices' : (slice('2012-10-01', "2012-11-20"), slice('2013-02-07', "2013-09-30")),
+    'test_slices' : (slice('2013-01-03', "2013-01-27"),),
+    'val_slices' : (slice('2012-11-30', "2012-12-24"),),
+}
 
 params = {
     'files_cfg' : dict(
@@ -51,14 +60,19 @@ params = {
     'stochastic'      : False,
     'size_ensemble'   : 3,
 
-
     # animation maps 
     'animate'         : False,
 
+    # supervised/unsupervised loss
+    'supervised'      : True,
+
+    # use grad in state spate
+    #'grad_in_state'   : False,
+
     # NN architectures and optimization parameters
     'batch_size'      : 2, #16#4#4#8#12#8#256#
-    'DimAE'           : 50, #10#10#50
-    'dim_grad_solver' : 150,
+    'DimAE'           : 25, #10#10#50
+    'dim_grad_solver' : 70,
     'dropout'         : 0.25,
     'dropout_phi_r'   : 0.,
 
@@ -83,3 +97,34 @@ params = {
 
 }
 
+def def_time(params,time_period):
+
+    input = xr.open_dataset(params['files_cfg']['oi_path'])
+    time = [ t.astype('M8[ms]').astype('O') for t in input.time.values ]
+
+    itrain = [ i  for i in range(len(time)) \
+              if ( (time[i] >= datetime.strptime(time_period['train_slices'][0].start,'%Y-%m-%d')+timedelta(params['dT']//2)) & \
+                   (time[i] <= datetime.strptime(time_period['train_slices'][0].stop,'%Y-%m-%d')-timedelta(params['dT']//2)) ) \
+          ]
+    time_train = [time[i] for i in itrain]
+
+    ival = [ i  for i in range(len(time)) \
+            if ( (time[i] >= datetime.strptime(time_period['val_slices'][0].start,'%Y-%m-%d')+timedelta(params['dT']//2)) & \
+                 (time[i] <= datetime.strptime(time_period['val_slices'][0].stop,'%Y-%m-%d')-timedelta(params['dT']//2)) ) \
+       ]
+    time_val = [time[i] for i in ival]
+
+    itest = [ i  for i in range(len(time)) \
+             if ( (time[i] >= datetime.strptime(time_period['test_slices'][0].start,'%Y-%m-%d')+timedelta(params['dT']//2)) & \
+                  (time[i] <= datetime.strptime(time_period['test_slices'][0].stop,'%Y-%m-%d')-timedelta(params['dT']//2)) ) \
+        ]
+    time_test = [time[i] for i in itest]
+
+    time = {
+        'time_train' : time_train,
+        'time_test' : time_test,
+        'time_val' : time_val,
+       }
+    return time
+
+time = def_time(params,time_period)

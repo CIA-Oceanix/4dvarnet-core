@@ -3,6 +3,15 @@ import pytorch_lightning as pl
 import xarray as xr
 from torch.utils.data import Dataset, ConcatDataset, DataLoader
 
+def find_pad(sl, st, N):
+    k = np.floor(N/st)
+    if N>((k*st) + (sl-st)):
+        pad = (k+1)*st + (sl-st) - N
+    elif N<((k*st) + (sl-st)):
+        pad = (k*st) + (sl-st) - N
+    else:
+        pad = 0
+    return int(pad/2), int(pad-int(pad/2))
 
 class XrDataset(Dataset):
     """
@@ -21,19 +30,63 @@ class XrDataset(Dataset):
         super().__init__()
 
         self.var = var
+        self.res = 0.05
         _ds = xr.open_dataset(path)
         if decode:
             _ds.time.attrs["units"] = "seconds since 2012-10-01"
             _ds = xr.decode_cf(_ds)
-        self.ds = _ds.sel(**(dim_range or {}))
+        # reshape
         if resize_factor!=1:
-            self.ds = self.ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
+            _ds = _ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
+            self.res = self.res*resize_factor
+        # dimensions 
+        self.ds = _ds.sel(**(dim_range or {}))
+        self.Nt = self.ds.time.shape[0]
+        self.Nx = self.ds.lon.shape[0]
+        self.Ny = self.ds.lat.shape[0]
+        # I) first padding x and y
+        pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
+        pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
+        # get additional data for patch center based reconstruction
+        dX = [pad_ *self.res for pad_ in pad_x]
+        dY = [pad_ *self.res for pad_ in pad_y]
+        dim_range_ = {
+          'lon': slice(dim_range['lon'].start-dX[0], dim_range['lon'].stop+dX[1]),
+          'lat': slice(dim_range['lat'].start-dY[0], dim_range['lat'].stop+dY[1]),
+          'time': dim_range['time']
+        }
+        self.ds = _ds.sel(**(dim_range_ or {}))
+        self.Nt = self.ds.time.shape[0]
+        self.Nx = self.ds.lon.shape[0]
+        self.Ny = self.ds.lat.shape[0]
+        # II) second padding x and y
+        pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
+        pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
+        # pad the dataset
+        dX = [pad_ *self.res for pad_ in pad_x]
+        dY = [pad_ *self.res for pad_ in pad_y]
+        pad_ = {'lon':(pad_x[0],pad_x[1]),
+                'lat':(pad_y[0],pad_y[1])}
+        self.ds = self.ds.pad(pad_,
+                              mode='reflect')
+        self.Nx += np.sum(pad_x)
+        self.Ny += np.sum(pad_y)
+        # III) get lon-lat for the final reconstruction
+        dX = ((slice_win['lon']-strides['lon'])/2)*self.res
+        dY = ((slice_win['lat']-strides['lat'])/2)*self.res
+        dim_range_ = {
+          'lon': slice(dim_range_['lon'].start+dX, dim_range_['lon'].stop-dX),
+          'lat': slice(dim_range_['lat'].start+dY, dim_range_['lat'].stop-dY),
+        }
+        self.lon = np.arange(dim_range_['lon'].start, dim_range_['lon'].stop, self.res)
+        self.lat = np.arange(dim_range_['lat'].start, dim_range_['lat'].stop, self.res)
         self.slice_win = slice_win
         self.strides = strides or {}
         self.ds_size = {
             dim: max((self.ds.dims[dim] - slice_win[dim]) // self.strides.get(dim, 1) + 1, 0)
             for dim in slice_win
         }
+
 
     def __del__(self):
         self.ds.close()
@@ -79,17 +132,19 @@ class FourDVarNetDataset(Dataset):
     ):
         super().__init__()
 
-        self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win, dim_range=dim_range, strides=strides, resize_factor=resize_factor)
-        self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win, dim_range=dim_range, strides=strides, decode=True, resize_factor=resize_factor)
-        self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win, dim_range=dim_range,
-                                     strides=strides, resize_factor=resize_factor)
+        self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win, 
+                               dim_range=dim_range, strides=strides, resize_factor=resize_factor)
+        self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win,
+                               dim_range=dim_range,strides=strides, decode=False, resize_factor=resize_factor)
+        self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win,
+                                     dim_range=dim_range,strides=strides, resize_factor=resize_factor)
 
         self.norm_stats = None
 
         if sst_var is not None:
             self.sst_ds = XrDataset(sst_path, sst_var, slice_win=slice_win,
                                     dim_range=dim_range, strides=strides,
-                                    decode=sst_var == 'sst', resize_factor=resize_factor)
+                                    decode=sst_var=='sst', resize_factor=resize_factor)
         else:
             self.sst_ds = None
         self.norm_stats_sst = None
@@ -100,6 +155,9 @@ class FourDVarNetDataset(Dataset):
 
     def __len__(self):
         return min(len(self.oi_ds), len(self.gt_ds), len(self.obs_mask_ds))
+
+    def coordXY(self):
+        return self.gt_ds.lon, self.gt_ds.lat
 
     def __getitem__(self, item):
         mean, std = self.norm_stats
@@ -134,10 +192,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             slice_win,
             dim_range=None,
             strides=None,
-            train_slices=(slice('2012-10-01', "2012-11-20"), slice('2013-02-07', "2013-09-30")),
-            # train_slices=(slice('2012-10-01', "2012-10-10"),),
-            test_slices=(slice('2013-01-03', "2013-01-27"),),
-            val_slices=(slice('2012-11-30', "2012-12-24"),),
+            train_slices= (slice('2012-10-01', "2012-11-20"), slice('2013-02-07', "2013-09-30")),
+            test_slices= (slice('2013-01-03', "2013-01-27"),),
+            val_slices= (slice('2012-11-30', "2012-12-24"),),
             oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc',
             oi_var='ssh_mod',
             obs_mask_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/data/dataset_nadir_0d_swot.nc',
@@ -157,7 +214,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.slice_win = slice_win
         self.strides = strides
         self.dl_kwargs = {
-            **{'batch_size': 4, 'num_workers': 2, 'pin_memory': True},
+            **{'batch_size': 2, 'num_workers': 2, 'pin_memory': True},
             **(dl_kwargs or {})
         }
 
@@ -200,6 +257,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         min_lat = round(np.min(np.concatenate([_ds.gt_ds.ds['lat'].values for _ds in ds.datasets])), 2)
         max_lat = round(np.max(np.concatenate([_ds.gt_ds.ds['lat'].values for _ds in ds.datasets])), 2)
         return min_lon, max_lon, min_lat, max_lat
+
+    def coordXY(self):
+        return self.test_ds.datasets[0].coordXY()
 
     def get_domain_split(self):
         return self.test_ds.datasets[0].gt_ds.ds_size

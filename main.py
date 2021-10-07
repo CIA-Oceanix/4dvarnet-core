@@ -13,14 +13,15 @@ from omegaconf import OmegaConf
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 import solver as NN_4DVar
+from models import Gradient_img
+from lit_model import LitModel
+from lit_model_sst import LitModelWithSST
 from lit_model_stochastic import LitModelStochastic
-from models import Gradient_img, LitModel, LitModelWithSST
 from new_dataloading import FourDVarNetDataModule
 from old_dataloading import LegacyDataLoading
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 gradient_img = Gradient_img()
-
 
 class FourDVarNetRunner:
     def __init__(self, dataloading="old", config=None):
@@ -40,6 +41,7 @@ class FourDVarNetRunner:
         dim_range = config.dim_range
         slice_win = config.slice_win
         strides = config.strides
+        time_period = config.time_period
 
         if dataloading == "old":
             datamodule = LegacyDataLoading(self.cfg)
@@ -48,6 +50,9 @@ class FourDVarNetRunner:
                 slice_win=slice_win,
                 dim_range=dim_range,
                 strides=strides,
+                train_slices=config.time_period['train_slices'],
+                test_slices=config.time_period['test_slices'],
+                val_slices=config.time_period['val_slices'],
                 resize_factor=config.params['resize_factor'],
                 **config.params['files_cfg']
             )
@@ -56,7 +61,7 @@ class FourDVarNetRunner:
         self.dataloaders = {
             'train': datamodule.train_dataloader(),
             'val': datamodule.val_dataloader(),
-            'test': datamodule.val_dataloader(),
+            'test': datamodule.test_dataloader(),
         }
         if dataloading == "old":
             self.var_Tr = datamodule.var_Tr
@@ -83,11 +88,18 @@ class FourDVarNetRunner:
             self.ds_size_time = datamodule.ds_size['time']
             self.ds_size_lon = datamodule.ds_size['lon']
             self.ds_size_lat = datamodule.ds_size['lat']
+            self.dX = int((slice_win['lon']-strides['lon'])/2)
+            self.dY = int((slice_win['lat']-strides['lat'])/2)
+            self.swX = slice_win['lon']
+            self.swY = slice_win['lat']
+            self.lon, self.lat = datamodule.coordXY()
 
         if config.params['stochastic'] == False:
             self.lit_cls = LitModelWithSST if dataloading == "with_sst" else LitModel
         else:
             self.lit_cls = LitModelStochastic
+
+        self.time = config.time
 
     def run(self, ckpt_path=None, dataloader="test", **trainer_kwargs):
         """
@@ -114,7 +126,12 @@ class FourDVarNetRunner:
                                                     min_lat=self.min_lat, max_lat=self.max_lat,
                                                     ds_size_time=self.ds_size_time,
                                                     ds_size_lon=self.ds_size_lon,
-                                                    ds_size_lat=self.ds_size_lat)
+                                                    ds_size_lat=self.ds_size_lat,
+                                                    time=self.time,
+                                                    dX = self.dX, dY = self.dY,
+                                                    swX = self.swX, swY = self.swY,
+                                                    coord_ext = {'lon_ext': self.lon, 'lat_ext': self.lat})
+
         else:
             mod = self.lit_cls(hparam=self.cfg, w_loss=self.wLoss,
                                mean_Tr=self.mean_Tr, mean_Tt=self.mean_Tt, mean_Val=self.mean_Val,
@@ -123,7 +140,11 @@ class FourDVarNetRunner:
                                min_lat=self.min_lat, max_lat=self.max_lat,
                                ds_size_time=self.ds_size_time,
                                ds_size_lon=self.ds_size_lon,
-                               ds_size_lat=self.ds_size_lat)
+                               ds_size_lat=self.ds_size_lat,
+                               time=self.time,
+                               dX = self.dX, dY = self.dY,
+                               swX = self.swX, swY = self.swY,
+                               coord_ext = {'lon_ext': self.lon, 'lat_ext': self.lat})
         return mod
 
     def train(self, ckpt_path=None, **trainer_kwargs):
