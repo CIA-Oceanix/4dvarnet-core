@@ -5,7 +5,6 @@ dT = 5
 dim_range = {
     'lat': slice(33, 43),
     'lon': slice(-65, -55),
-
 }
 
 # Specify the batch patch size

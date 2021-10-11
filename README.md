@@ -23,21 +23,37 @@ mamba env update -f environment.yaml
 ### Download the data
 The data is available at
 ```
-# obs
-https://s3.eu-central-1.wasabisys.com/melody/NATL/data/gridded_data_swot_wocorr/dataset_nadir_0d_swot.nc
-https://s3.eu-central-1.wasabisys.com/melody/NATL/data/gridded_data_swot_wocorr/dataset_nadir_0d.nc
-https://s3.eu-central-1.wasabisys.com/melody/NATL/data/gridded_data_swot_wocorr/dataset_swot.nc
 
 #oi
 https://s3.eu-central-1.wasabisys.com/melody/NATL/oi/ssh_NATL60_4nadir.nc
 https://s3.eu-central-1.wasabisys.com/melody/NATL/oi/ssh_NATL60_swot_4nadir.nc
-https://s3.eu-central-1.wasabisys.com/melody/NATL/oi/ssh_NATL60_swot.nc
 
 #ref
 https://s3.eu-central-1.wasabisys.com/melody/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc
-https://s3.eu-central-1.wasabisys.com/melody/NATL/ref/NATL60-CJM165_NATL_sst_y2013.1y.nc
+
+# obs and noise 
+https://s3.eu-central-1.wasabisys.com/melody/quentin_cloud/icassp_data/cal_data_karin_noise_only.nc
+https://s3.eu-central-1.wasabisys.com/melody/quentin_cloud/icassp_data/full_cal_obs.nc
+
+# raw sensor data
+https://s3.eu-central-1.wasabisys.com/melody/quentin_cloud/icassp_data/sensor_zarr.tar
+
 ```
 
+
+### ICASSP2022 experiments:
+
+#### Training commands:
+
+```
+python main.py --max_epochs=250 --config=q.xp_icassp.direct_phi --progress_bar_refresh_rate=5 train
+python main.py --max_epochs=250 --config=q.xp_icassp.direct_vit --progress_bar_refresh_rate=5 train
+python main.py --max_epochs=250 --config=q.xp_icassp.fourdvarnet_calmap --progress_bar_refresh_rate=5 train
+python main.py --max_epochs=250 --config=q.xp_icassp.fourdvarnet_calmapgrad --progress_bar_refresh_rate=5 train
+python main.py --max_epochs=250 --config=q.xp_icassp.fourdvarnet_map --progress_bar_refresh_rate=5 train
+```
+
+#### Results generation
 
 ### Run
 ```
@@ -97,3 +113,4 @@ data to be ensured and,  more generally, to use and operate it in the
 same conditions as regards security.
 The fact that you are presently reading this means that you have had
 knowledge of the CeCILL-C license and that you accept its terms.
+

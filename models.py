@@ -283,6 +283,8 @@ class LitModel(pl.LightningModule):
         self.mean_Tt = self.hparams.mean_Tt
 
         # main model
+
+        self.model_name = self.hparams.model if hasattr(self.hparams, 'model') else '4dvarnet'
         self.model = self.create_model()
         self.model_LR = ModelLR()
         self.gradient_img = Gradient_img()
@@ -297,14 +299,14 @@ class LitModel(pl.LightningModule):
         self.automatic_optimization = self.hparams.automatic_optimization
 
     def create_model(self):
-        model = self.hparams.model if hasattr(self.hparams, 'model') else '4dvarnet'
-        return self.MODELS[model](self.hparams)
+        return self.MODELS[self.model_name](self.hparams)
 
     def forward(self):
         return 1
 
     def configure_optimizers(self):
-        if self.hparams.model == '4dvarnet':
+        
+        if self.model_name == '4dvarnet':
             optimizer = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
@@ -324,7 +326,7 @@ class LitModel(pl.LightningModule):
         self.model.n_grad = self.hparams.n_grad
 
     def on_train_epoch_start(self):
-        if self.hparams.model == '4dvarnet':
+        if self.model_name == '4dvarnet':
             opt = self.optimizers()
             if (self.current_epoch in self.hparams.iter_update) & (self.current_epoch > 0):
                 indx = self.hparams.iter_update.index(self.current_epoch)
