@@ -20,8 +20,6 @@ from lit_model_stochastic import LitModelStochastic
 from new_dataloading import FourDVarNetDataModule
 from old_dataloading import LegacyDataLoading
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-gradient_img = Gradient_img()
 
 class FourDVarNetRunner:
     def __init__(self, dataloading="old", config=None):
@@ -32,9 +30,6 @@ class FourDVarNetRunner:
             config = __import__("config_" + str(config))
 
         self.cfg = OmegaConf.create(config.params)
-        w_ = np.zeros(self.cfg.dT)
-        w_[int(self.cfg.dT / 2)] = 1.
-        self.wLoss = torch.Tensor(w_)
 
         dataloading = config.params['dataloading']
 
@@ -75,24 +70,7 @@ class FourDVarNetRunner:
             self.ds_size_lon = 1
             self.ds_size_lat = 1
         else:
-            self.mean_Tr = datamodule.norm_stats[0]
-            self.mean_Tt = datamodule.norm_stats[0]
-            self.mean_Val = datamodule.norm_stats[0]
-            self.var_Tr = datamodule.norm_stats[1] ** 2
-            self.var_Tt = datamodule.norm_stats[1] ** 2
-            self.var_Val = datamodule.norm_stats[1] ** 2
-            self.min_lon = dim_range['lon'].start
-            self.max_lon = dim_range['lon'].stop
-            self.min_lat = dim_range['lat'].start
-            self.max_lat = dim_range['lat'].stop
-            self.ds_size_time = datamodule.ds_size['time']
-            self.ds_size_lon = datamodule.ds_size['lon']
-            self.ds_size_lat = datamodule.ds_size['lat']
-            self.dX = int((slice_win['lon']-strides['lon'])/2)
-            self.dY = int((slice_win['lat']-strides['lat'])/2)
-            self.swX = slice_win['lon']
-            self.swY = slice_win['lat']
-            self.lon, self.lat = datamodule.coordXY()
+            self.setup()
 
         if config.params['stochastic'] == False:
             self.lit_cls = LitModelWithSST if dataloading == "with_sst" else LitModel
@@ -100,6 +78,29 @@ class FourDVarNetRunner:
             self.lit_cls = LitModelStochastic
 
         self.time = config.time
+
+    def setup(self, datamodule):
+        self.mean_Tr = datamodule.norm_stats[0]
+        self.mean_Tt = datamodule.norm_stats[0]
+        self.mean_Val = datamodule.norm_stats[0]
+        self.var_Tr = datamodule.norm_stats[1] ** 2
+        self.var_Tt = datamodule.norm_stats[1] ** 2
+        self.var_Val = datamodule.norm_stats[1] ** 2
+        self.min_lon = datamodule.dim_range['lon'].start
+        self.max_lon = datamodule.dim_range['lon'].stop
+        self.min_lat = datamodule.dim_range['lat'].start
+        self.max_lat = datamodule.dim_range['lat'].stop
+        self.ds_size_time = datamodule.ds_size['time']
+        self.ds_size_lon = datamodule.ds_size['lon']
+        self.ds_size_lat = datamodule.ds_size['lat']
+        self.dX = int((datamodule.slice_win['lon']-datamodule.strides['lon'])/2)
+        self.dY = int((datamodule.slice_win['lat']-datamodule.strides['lat'])/2)
+        self.swX = datamodule.slice_win['lon']
+        self.swY = datamodule.slice_win['lat']
+        self.lon, self.lat = datamodule.coordXY()
+        w_ = np.zeros(self.cfg.dT)
+        w_[int(self.cfg.dT / 2)] = 1.
+        self.wLoss = torch.Tensor(w_)
 
     def run(self, ckpt_path=None, dataloader="test", **trainer_kwargs):
         """
@@ -164,8 +165,12 @@ class FourDVarNetRunner:
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         num_gpus = torch.cuda.device_count()
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
-        trainer = pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, auto_select_gpus=True,
+        trainer = pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, auto_select_gpus=(num_gpus * num_nodes) > 0,
                              callbacks=[checkpoint_callback], **trainer_kwargs)
+        # print(mod)
+        print(type(mod.hparams))
+        # print(num_gpus)
+        # print(num_nodes)
         trainer.fit(mod, self.dataloaders['train'], self.dataloaders['val'])
         return mod, trainer
 
