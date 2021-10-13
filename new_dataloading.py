@@ -92,7 +92,6 @@ class XrDataset(Dataset):
             for dim in slice_win
         }
 
-
     def __del__(self):
         self.ds.close()
 

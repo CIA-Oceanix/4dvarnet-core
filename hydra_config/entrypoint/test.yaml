@@ -1,0 +1,4 @@
+entrypoint:
+  _target_: main.FourDVarNetRunner.test
+  ckpt_path: ???
+

@@ -1,0 +1,5 @@
+entrypoint:
+  _target_: main.FourDVarNetRunner.train
+  max_epochs: 200
+  progress_bar_refresh_rate: 5
+
