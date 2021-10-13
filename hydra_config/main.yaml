@@ -1,16 +1,3 @@
-# todo:
-# instantiate datamodule with params
-# add dimrange etc....
-#
-#slice_win=slice_win,
-#dim_range=dim_range,
-#strides=strides,
-#train_slices=config.time_period['train_slices'],
-#test_slices=config.time_period['test_slices'],
-#val_slices=config.time_period['val_slices'],
-#resize_factor=config.params['resize_factor'],
-#**config.params['files_cfg']
-#
 params:
   ckpt_name: 'modelCalSLAInterpGF-Exp3-{epoch:02d}-{val_loss:.2f}'
 lit_mod_cls: calibration.lit_cal_model.LitCalModel
@@ -24,13 +11,6 @@ datamodule:
     lat: 200
     lon: 200
     time: 1
-  dim_range:
-    lat:
-      _target_: builtins.slice
-      _args_: [33., 43.]
-    lon:
-      _target_: builtins.slice
-      _args_: [-65., -55.]
   train_slices: 
     - _target_: builtins.slice
       _args_: ['2012-10-01', '2012-11-20']
@@ -51,11 +31,17 @@ datamodule:
   gt_path: ${params.files_cfg.gt_path}
   gt_var: ${params.files_cfg.gt_var}
 entrypoint:
-  _target_: main.FourDVarNetRunner.test
+  _target_: main.FourDVarNetRunner.train
+  max_epochs: 200
+  progress_bar_refresh_rate: 5
 
+hydra:
+  run:
+    dir: .
 
 defaults:
-  - legacy: fourdvarnet_map
+  - legacy: fourdvarnet_calmap
+  - domain@datamodule.dim_range: natl
   - _self_
 
 

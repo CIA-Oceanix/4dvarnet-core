@@ -17,3 +17,6 @@ checkpoints
 __pycache__
 tmp
 outputs
+.hydra
+dashboard
+hydra_main.log

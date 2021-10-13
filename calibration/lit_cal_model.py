@@ -408,7 +408,13 @@ class LitCalModel(pl.LightningModule):
             return (
                     None,
                     torch.zeros_like(targets_GT),
-                    dict([('mse', 0.), ('mseGrad', 0.),('mseSwath', 0.), ('mseGradSwath', 0.), ('meanGrad', 1.), ('mseOI', 0.),
+                    torch.zeros_like(targets_obs_GT),
+                    dict([('mse', 0.),
+                        ('mseGrad', 0.),
+                        ('mseSwath', 0.),
+                        ('mseGradSwath', 0.),
+                        ('meanGrad', 1.),
+                        ('mseOI', 0.),
                         ('mseGOI', 0.)])
                     )
         new_masks = torch.cat((torch.ones_like(inputs_Mask), inputs_Mask), dim=1)
