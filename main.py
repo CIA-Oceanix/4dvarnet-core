@@ -189,7 +189,6 @@ class FourDVarNetRunner:
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
         # trainer = _trainer or pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, **trainer_kwargs)
         trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs)
-        print(mod)
         trainer.test(mod, test_dataloaders=self.dataloaders[dataloader])
 
     def profile(self):

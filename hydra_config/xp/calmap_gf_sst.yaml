@@ -1,0 +1,14 @@
+# @package _global_
+params:
+  model: 4dvarnet_sst
+  sst: true
+datamodule:
+  sst_path: ${file_paths.natl_sst}
+  sst_var: sst
+
+defaults:
+  - /legacy: fourdvarnet_calmap
+  - /domain@datamodule.dim_range: gf
+  - /training: calmap
+  - _self_
+

@@ -16,6 +16,19 @@ function train(){
 	echo $JOBID
 }
 
+function hydra_train(){
+	JOBID=$(sbatch --parsable scripts/hydra_train.slurm $1)
+	link "train/$1" $JOBID
+	echo $JOBID
+}
+
+function hydra_test(){
+	JOBID=$(sbatch --parsable scripts/hydra_test.slurm $1)
+	link "test/$1" $JOBID
+	echo $JOBID
+}
+
+
 # launch test on the latest checkpoint of {config_name} using scripts/test.slurm and create or replace the symlink in dashboard/current/test/{config_name}
 function test(){
 	JOBID=$(sbatch --parsable scripts/test.slurm $1)

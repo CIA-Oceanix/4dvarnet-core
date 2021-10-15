@@ -48,6 +48,7 @@ class XrDataset(Dataset):
         self.Nt = self.ds.time.shape[0]
         self.Nx = self.ds.lon.shape[0]
         self.Ny = self.ds.lat.shape[0]
+
         # I) first padding x and y
         pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
         pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
@@ -55,8 +56,8 @@ class XrDataset(Dataset):
         dX = [pad_ *self.res for pad_ in pad_x]
         dY = [pad_ *self.res for pad_ in pad_y]
         dim_range_ = {
-          'lon': slice(dim_range['lon'].start-dX[0], dim_range['lon'].stop+dX[1]),
-          'lat': slice(dim_range['lat'].start-dY[0], dim_range['lat'].stop+dY[1]),
+          'lon': slice(self.ds.lon.min().item()-dX[0], self.ds.lon.max().item()+dX[1]),
+          'lat': slice(self.ds.lat.min().item()-dY[0], self.ds.lat.max().item()+dY[1]),
           'time': dim_range['time']
         }
         self.ds = _ds.sel(**(dim_range_ or {}))
@@ -90,7 +91,6 @@ class XrDataset(Dataset):
             dim: max((self.ds.dims[dim] - slice_win[dim]) // self.strides.get(dim, 1) + 1, 0)
             for dim in slice_win
         }
-
 
     def __del__(self):
         self.ds.close()

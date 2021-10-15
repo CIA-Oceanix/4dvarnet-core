@@ -46,11 +46,82 @@ class Model_H_with_noisy_Swot(torch.nn.Module):
 
         return dyout_glob + dyout_swath
 
+class Model_H_SST_with_noisy_Swot(torch.nn.Module):
+    """
+    state: [oi, anom_glob, anom_swath ]
+    obs: [[oi, obs], sst]
+    mask: [[ones, obs_mask], ones]
+    """
+    
+    # def __init__(self, shape_data, dim=5):
+    #     super(Model_HwithSST, self).__init__()
+
+    #     self.dim_obs = 2
+    #     self.dim_obs_channel = np.array([shape_data, dim])
+    #     self.conv11 = torch.nn.Conv2d(shape_data, self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
+    #     self.conv21 = torch.nn.Conv2d(int(shape_data / 2), self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
+    #     self.conv_m = torch.nn.Conv2d(int(shape_data / 2), self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
+    #     self.sigmoid = torch.nn.Sigmoid()  # torch.nn.Softmax(dim=1)
+
+    # def forward(self, x, y, mask):
+    #     dyout = (x - y[0]) * mask[0]
+
+    #     y1 = y[1] * mask[1]
+    #     dyout1 = self.conv11(x) - self.conv21(y1)
+    #     dyout1 = dyout1 * self.sigmoid(self.conv_m(mask[1]))
+
+    #     return [dyout, dyout1]
+
+    def __init__(self, shape_state, shape_obs, hparams=None):
+        super().__init__()
+        self.hparams = hparams
+        self.dim_obs = 2
+        sst_ch = hparams.dT
+        self.dim_obs_channel = np.array([shape_state, sst_ch])
+
+        self.conv11 = torch.nn.Conv2d(shape_state, hparams.dT, (3, 3), padding=1, bias=False)
+        self.conv21 = torch.nn.Conv2d(sst_ch, hparams.dT, (3, 3), padding=1, bias=False)
+        self.conv_m = torch.nn.Conv2d(sst_ch, self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
+        self.sigmoid = torch.nn.Sigmoid()  # torch.nn.Softmax(dim=1)
+
+    def forward(self, x, y, mask):
+        y_ssh, y_sst = y
+        mask_ssh, mask_sst = mask
+        output_low_res,  output_anom_glob, output_anom_swath = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
+        output_global = output_low_res + output_anom_glob
+
+        if self.hparams.swot_anom_wrt == 'low_res':
+            output_swath = output_low_res + output_anom_swath
+        elif self.hparams.swot_anom_wrt == 'high_res':
+            output_swath = output_global + output_anom_swath
+        
+
+        yhat_glob = torch.cat((output_low_res, output_global), dim=1)
+        yhat_swath = torch.cat((output_low_res, output_swath), dim=1)
+        dyout_glob = (yhat_glob - y_ssh) * mask_ssh
+        dyout_swath = (yhat_swath - y_ssh) * mask_ssh
+
+        dyout = dyout_glob + dyout_swath
+        dyout1 = self.conv11(x) - self.conv21(y_sst)
+        dyout1 = dyout1 * self.sigmoid(self.conv_m(mask_sst))
+
+        return [dyout, dyout1]
+
+
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                     hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
                 Model_H_with_noisy_Swot(hparams.shape_state[0], hparams.shape_obs[0], hparams=hparams),
+                NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+                    hparams.dim_grad_solver, hparams.dropout),
+                None, None, hparams.shape_state, hparams.n_grad)
+
+def get_4dvarnet_sst(hparams):
+    return NN_4DVar.Solver_Grad_4DVarNN(
+                Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+                Model_H_SST_with_noisy_Swot(hparams.shape_state[0], hparams.shape_obs[0], hparams=hparams),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
                 None, None, hparams.shape_state, hparams.n_grad)
@@ -78,6 +149,7 @@ class LitCalModel(pl.LightningModule):
             'passthrough': get_passthrough,
             'vit': get_vit,
             '4dvarnet': get_4dvarnet,
+            '4dvarnet_sst': get_4dvarnet_sst,
             'phi': get_phi,
         }
 
@@ -92,13 +164,12 @@ class LitCalModel(pl.LightningModule):
         self.var_Tt = self.hparams.var_Tt
 
         # create longitudes & latitudes coordinates
-        self.test_lon = np.arange(self.hparams.min_lon, self.hparams.max_lon, 0.05)
-        self.test_lat = np.arange(self.hparams.min_lat, self.hparams.max_lat, 0.05)
-        self.test_dates = self.hparams.test_dates[self.hparams.dT // 2: -(self.hparams.dT // 2)]
-        # print(len(self.test_dates), len(self.hparams.test_dates), self.hparams.dT)
-        self.ds_size_time = self.hparams.ds_size_time
-        self.ds_size_lon = self.hparams.ds_size_lon
-        self.ds_size_lat = self.hparams.ds_size_lat
+        self.test_coords = None
+        self.test_ds_patch_size = None
+        self.test_lon = None
+        self.test_lat = None
+        self.test_dates = None
+
 
         self.var_Val = self.hparams.var_Val
         self.var_Tr = self.hparams.var_Tr
@@ -110,6 +181,7 @@ class LitCalModel(pl.LightningModule):
         # main model
 
         self.model_name = self.hparams.model if hasattr(self.hparams, 'model') else '4dvarnet'
+        self.use_sst = self.hparams.model if hasattr(self.hparams, 'sst') else False
         self.model = self.create_model()
         self.model_LR = ModelLR()
         self.gradient_img = Gradient_img()
@@ -135,7 +207,17 @@ class LitCalModel(pl.LightningModule):
             optimizer = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
-                ], lr=0.)
+                ]
+                , lr=0.)
+
+            return optimizer
+        elif self.model_name == '4dvarnet_sst':
+
+            optimizer = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                                {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                                {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
+                                {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                                ], lr=0.)
 
             return optimizer
         else: 
@@ -209,9 +291,19 @@ class LitCalModel(pl.LightningModule):
         self.log("val_mseG_swath", metrics['mseGradSwath'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
         return loss.detach()
 
+    def on_test_epoch_start(self):
+        self.test_coords = self.trainer.test_dataloaders[0].dataset.datasets[0].gt_ds.ds.coords
+        self.test_ds_patch_size = self.trainer.test_dataloaders[0].dataset.datasets[0].gt_ds.ds_size
+        self.test_lat = self.test_coords['lat'].data
+        self.test_lon = self.test_coords['lon'].data
+        self.test_dates = self.test_coords['time'].isel(time=slice(self.hparams.dT // 2, - self.hparams.dT // 2 + 1)).data
+
     def test_step(self, test_batch, batch_idx):
 
-        targets_OI, inputs_Mask, inputs_obs, targets_GT, obs_target_item = test_batch
+        if not self.use_sst:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, obs_target_item = test_batch
+        else:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, obs_target_item = test_batch
         loss, out, out_pred, metrics = self.compute_loss(test_batch, phase='test')
         if loss is not None:
             self.log('test_loss', loss)
@@ -219,43 +311,41 @@ class LitCalModel(pl.LightningModule):
             self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
             self.log("test_mse_swath", metrics['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
             self.log("test_mseG_swath", metrics['mseGradSwath'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
-        return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'oi'    : (targets_OI.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'target_obs'    : (obs_target_item.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'inp_obs'    : (inputs_obs.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'obs_pred'    : (out_pred.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'preds' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
+        return {'gt'    : (targets_GT.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'oi'    : (targets_OI.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'target_obs'    : (obs_target_item.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'inp_obs'    : (inputs_obs.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'obs_pred'    : (out_pred.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'preds' : (out.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def test_epoch_end(self, outputs):
 
-        gt = torch.cat([chunk['gt'] for chunk in outputs]).numpy()
-        oi = torch.cat([chunk['oi'] for chunk in outputs]).numpy()
-        pred = torch.cat([chunk['preds'] for chunk in outputs]).numpy()
-        target_obs = torch.cat([chunk['target_obs'] for chunk in outputs]).numpy()
-        inputs_obs = torch.cat([chunk['inp_obs'] for chunk in outputs]).numpy()
-        obs_pred = torch.cat([chunk['obs_pred'] for chunk in outputs]).numpy()
+        self.outputs = outputs
+        gt = np.concatenate([chunk['gt'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
+        oi = np.concatenate([chunk['oi'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
+        pred = np.concatenate([chunk['preds'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
+        target_obs = np.concatenate([chunk['target_obs'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
+        inputs_obs = np.concatenate([chunk['inp_obs'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
+        obs_pred = np.concatenate([chunk['obs_pred'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
 
-        ds_size = {'time': self.ds_size_time,
-                'lon': self.ds_size_lon,
-                'lat': self.ds_size_lat,
-                }
+        ds_size = self.test_ds_patch_size
 
         gt, oi, pred, inputs_obs, target_obs, obs_pred = map(
                 lambda t: einops.rearrange(
                     t,
-                    '(t_idx lat_idx lon_idx) win_time win_lat win_lon -> t_idx win_time (lat_idx win_lat) (lon_idx win_lon)',
+                    '(lat_idx lon_idx t_idx )  win_lat win_lon -> t_idx  (lat_idx win_lat) (lon_idx win_lon)',
                     t_idx=int(ds_size['time']),
                     lat_idx=int(ds_size['lat']),
                     lon_idx=int(ds_size['lon']),
                     ),
                 [gt, oi, pred, inputs_obs, target_obs, obs_pred])
 
-        self.x_gt = gt[:, int(self.hparams.dT / 2), :, :]
-        self.x_oi = oi[:, int(self.hparams.dT / 2), :, :]
-        self.x_rec = pred[:, int(self.hparams.dT / 2), :, :]
-        self.obs_gt = target_obs[:, int(self.hparams.dT / 2), :, :]
-        self.obs_inp = np.where(~np.isnan(self.obs_gt), inputs_obs[:, int(self.hparams.dT / 2), :, :], np.full_like(self.obs_gt, float('nan')))
-        self.obs_pred = np.where(~np.isnan(self.obs_gt), obs_pred[:, int(self.hparams.dT / 2), :, :], np.full_like(self.obs_gt, float('nan')))
+        self.x_gt = gt
+        self.x_oi = oi
+        self.x_rec = pred
+        self.obs_gt = target_obs
+        self.obs_inp = np.where(~np.isnan(self.obs_gt), inputs_obs, np.full_like(self.obs_gt, float('nan')))
+        self.obs_pred = np.where(~np.isnan(self.obs_gt), obs_pred, np.full_like(self.obs_gt, float('nan')))
 
         self.test_xr_ds = xr.Dataset(
                 {
@@ -269,10 +359,10 @@ class LitCalModel(pl.LightningModule):
 
                     },
                 {
-                    'time': (('time',), self.test_dates),
-                    'lat': (('lat',), self.test_lat),
-                    'lon': (('lon',), self.test_lon),
-                    },
+                    'time': self.test_coords['time'].isel(time=slice(self.hparams.dT // 2, - self.hparams.dT // 2 + 1)),
+                    'lat': self.test_coords['lat'],
+                    'lon': self.test_coords['lon'],
+                    }
                 )
 
         Path(self.logger.log_dir).mkdir(exist_ok=True)
@@ -401,17 +491,26 @@ class LitCalModel(pl.LightningModule):
                 )
 
     def compute_loss(self, batch, phase):
-        targets_OI, inputs_Mask, inputs_obs, targets_GT, target_obs_GT = batch
+        if not self.use_sst:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, target_obs_GT = batch
+        else:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, target_obs_GT = batch
+
         #targets_OI, inputs_Mask, targets_GT = batch
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:
             return (
                     None,
                     torch.zeros_like(targets_GT),
-                    dict([('mse', 0.), ('mseGrad', 0.),('mseSwath', 0.), ('mseGradSwath', 0.), ('meanGrad', 1.), ('mseOI', 0.),
+                    torch.zeros_like(target_obs_GT),
+                    dict([('mse', 0.),
+                        ('mseGrad', 0.),
+                        ('mseSwath', 0.),
+                        ('mseGradSwath', 0.),
+                        ('meanGrad', 1.),
+                        ('mseOI', 0.),
                         ('mseGOI', 0.)])
                     )
-        new_masks = torch.cat((torch.ones_like(inputs_Mask), inputs_Mask), dim=1)
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
         target_obs_GT_wo_nan = target_obs_GT.where(~target_obs_GT.isnan(), torch.zeros_like(target_obs_GT))
         anomaly_global = torch.zeros_like(targets_OI)
@@ -424,7 +523,18 @@ class LitCalModel(pl.LightningModule):
         state = torch.cat((targets_OI, anomaly_global, anomaly_swath), dim=1)
 
         #state = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
-        obs = torch.cat((targets_OI, inputs_obs), dim=1)
+        if not self.use_sst:
+            new_masks = torch.cat((torch.ones_like(inputs_Mask), inputs_Mask), dim=1)
+            obs = torch.cat((targets_OI, inputs_obs), dim=1)
+        else:
+            new_masks = [
+                    torch.cat((torch.ones_like(inputs_Mask), inputs_Mask), dim=1),
+                    torch.ones_like(sst_gt)
+            ]
+            obs = [
+                    torch.cat((targets_OI, inputs_obs), dim=1),
+                    sst_gt
+            ]
         # PENDING: Add state with zeros
 
         # gradient norm field
