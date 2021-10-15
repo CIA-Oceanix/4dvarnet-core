@@ -33,8 +33,12 @@ class XrDataset(Dataset):
         self.res = 0.05
         _ds = xr.open_dataset(path)
         if decode:
-            _ds.time.attrs["units"] = "seconds since 2012-10-01"
-            _ds = xr.decode_cf(_ds)
+            if str(_ds.time.dtype) == 'float64':
+
+                _ds.time.attrs["units"] = "seconds since 2012-10-01"
+                _ds = xr.decode_cf(_ds)
+            else:
+                _ds['time'] = pd.to_datetime(_ds.time)
         # reshape
         if resize_factor!=1:
             _ds = _ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
@@ -131,11 +135,10 @@ class FourDVarNetDataset(Dataset):
             resize_factor=1,
     ):
         super().__init__()
-
         self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win, 
                                dim_range=dim_range, strides=strides, resize_factor=resize_factor)
         self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win,
-                               dim_range=dim_range,strides=strides, decode=False, resize_factor=resize_factor)
+                               dim_range=dim_range,strides=strides, decode=True, resize_factor=resize_factor)
         self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win,
                                      dim_range=dim_range,strides=strides, resize_factor=resize_factor)
 

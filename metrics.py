@@ -1,4 +1,5 @@
 import datetime
+import einops
 import numpy as np
 import xarray as xr
 import matplotlib
@@ -17,6 +18,7 @@ from cartopy.io import shapereader
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 import cv2
 import matplotlib.animation as animation
+import xrft
 
 from spectral import *
 
@@ -388,3 +390,72 @@ def compute_metrics(x_test, x_rec):
     ng = np.mean((gx_rec) ** 2)
 
     return {'mse': mse, 'mseGrad': gmse, 'meanGrad': ng}
+
+
+def get_psd_score(x_t, x, ref, with_fig=False):
+    def psd_score(da: xr.DataArray) -> xr.DataArray:
+        err = x_t - da
+        psd_x_t = (
+            x_t.copy()
+                .pipe(
+                lambda _da: xrft.isotropic_power_spectrum(_da, dim=['lat', 'lon'], window='hann', detrend='linear'))
+                .mean(['time'])
+        ).compute()
+
+        psd_err = (
+            err.copy()
+                .pipe(
+                lambda _da: xrft.isotropic_power_spectrum(_da, dim=['lat', 'lon'], window='hann', detrend='linear'))
+                .mean(['time'])
+        ).compute()
+
+        psd_score = 1 - psd_err / psd_x_t
+        return psd_score
+
+    ref_score = psd_score(ref)
+    model_score = psd_score(x)
+
+    ref_score = ref_score.where(model_score > 0, drop=True).compute()
+    model_score = model_score.where(model_score > 0, drop=True).compute()
+
+    psd_plot_data: xr.DataArray = xr.DataArray(
+        einops.rearrange([model_score.data, ref_score.data], 'var wl -> var wl'),
+        name='PSD score',
+        dims=('var', 'wl'),
+        coords={
+            'wl': ('wl', 20 * 5 * 1 / model_score.freq_r, {'long_name': 'Wavelength', 'units': 'km'}),
+            'var': ('var', ['model', 'OI'], {}),
+        },
+    )
+
+    spatial_resolution_model = (
+        xr.DataArray(
+            psd_plot_data.wl,
+            dims=['psd'],
+            coords={'psd': psd_plot_data.sel(var='model').data}
+        ).interp(psd=0.5)
+    )
+
+    spatial_resolution_ref = (
+        xr.DataArray(
+            psd_plot_data.wl,
+            dims=['psd'],
+            coords={'psd': psd_plot_data.sel(var='OI').data}
+        ).interp(psd=0.5)
+    )
+
+    if not with_fig:
+        return spatial_resolution_model, spatial_resolution_ref
+
+    fig, ax = plt.subplots()
+    psd_plot_data.plot.line(x='wl', ax=ax)
+
+    # Plot vertical line there
+    for i, (sr, var) in enumerate([(spatial_resolution_ref, 'OI'), (spatial_resolution_model, 'model')]):
+        plt.axvline(sr, ymin=0, color='0.5', ls=':')
+        plt.annotate(f"resolution {var}: {float(sr):.2f} km", (sr * 1.1, 0.1 * i))
+        plt.axhline(0.5, xmin=0, color='k', ls='--')
+        plt.ylim([0, 1])
+
+    plt.close()
+    return fig, spatial_resolution_model, spatial_resolution_ref

@@ -14,3 +14,6 @@ models_wSPDE.py
 merge_ose_osse*
 main_wSPDE.slurm
 checkpoints
+__pycache__
+tmp
+outputs
