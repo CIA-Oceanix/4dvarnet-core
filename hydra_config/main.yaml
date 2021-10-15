@@ -1,11 +1,11 @@
-
 hydra:
   run:
     dir: .
 
 defaults:
-  - xp: calmap_natl
-  - entrypoint: train
+  - file_paths: jz
+  - xp: ???
+  - entrypoint: ???
   - _self_
 
 

@@ -24,7 +24,7 @@ conda activate 4dvarnet
 export PYTHONPATH=${WORK}/4dvarnet-core:${PYTHONPATH}
 
 
-srun python hydra_main.py
+srun python hydra_main.py xp=$1 entrypoint=train
 
 
 

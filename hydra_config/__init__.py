@@ -9,6 +9,7 @@ LEGACY_CONFIGS = {
     'fourdvarnet_calmapgrad':  'config_q.xp_icassp.fourdvarnet_calmapgrad',
     'fourdvarnet_map':  'config_q.xp_icassp.fourdvarnet_map',
 }
+
 cs = ConfigStore.instance()
 for name, cfg in LEGACY_CONFIGS.items():
     config = importlib.import_module(str(cfg))
