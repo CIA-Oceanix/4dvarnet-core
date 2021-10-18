@@ -32,6 +32,7 @@ class XrDataset(Dataset):
         self.var = var
         self.res = 0.05
         _ds = xr.open_dataset(path)
+        cache=False
         if decode:
             if str(_ds.time.dtype) == 'float64':
 
@@ -43,12 +44,11 @@ class XrDataset(Dataset):
         if resize_factor!=1:
             _ds = _ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
             self.res = self.res*resize_factor
-        # dimensions 
+        # dimensions
         self.ds = _ds.sel(**(dim_range or {}))
         self.Nt = self.ds.time.shape[0]
         self.Nx = self.ds.lon.shape[0]
         self.Ny = self.ds.lat.shape[0]
-
         # I) first padding x and y
         pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
         pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
@@ -135,14 +135,15 @@ class FourDVarNetDataset(Dataset):
             resize_factor=1,
     ):
         super().__init__()
-        self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win, 
+
+        self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win,
                                dim_range=dim_range, strides=strides, resize_factor=resize_factor)
         self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win,
                                dim_range=dim_range,strides=strides, decode=True, resize_factor=resize_factor)
         self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win,
                                      dim_range=dim_range,strides=strides, resize_factor=resize_factor)
 
-        self.norm_stats = None
+        self.norm_stats = (0, 1)
 
         if sst_var is not None:
             self.sst_ds = XrDataset(sst_path, sst_var, slice_win=slice_win,
@@ -238,8 +239,18 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.norm_stats_sst = None
 
     def compute_norm_stats(self, ds):
-        mean = float(xr.concat([_ds.gt_ds.ds[_ds.gt_ds.var] for _ds in ds.datasets], dim='time').mean())
-        std = float(xr.concat([_ds.gt_ds.ds[_ds.gt_ds.var] for _ds in ds.datasets], dim='time').std())
+        sum = 0
+        count = 0
+        for item in ds:
+            gt = item[3]
+            sum += np.nansum(gt)
+            count += np.sum(~np.isnan(gt))
+        mean = sum / count
+        sum = 0
+        for item in ds:
+            gt = item[3]
+            sum += np.nansum((gt - mean)**2)
+        std = (sum / count)**0.5
 
         if self.sst_var == None:
             return mean, std
@@ -315,7 +326,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
 
 if __name__ == '__main__':
     """
-    Test run for single batch loading and trainer.fit 
+    Test run for single batch loading and trainer.fit
     """
 
     # Specify the dataset spatial bounds
