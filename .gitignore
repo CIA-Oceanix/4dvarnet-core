@@ -20,3 +20,5 @@ outputs
 .hydra
 dashboard
 hydra_main.log
+multirun
+scratch.py
