@@ -214,7 +214,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.slice_win = slice_win
         self.strides = strides
         self.dl_kwargs = {
-            **{'batch_size': 1, 'num_workers': 2, 'pin_memory': True},
+            **{'batch_size': 2, 'num_workers': 2, 'pin_memory': True},
             **(dl_kwargs or {})
         }
 
@@ -235,8 +235,6 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.norm_stats_sst = None
 
     def compute_norm_stats(self, ds):
-        #  mean = float(xr.concat([_ds.gt_ds.ds[_ds.gt_ds.var] for _ds in ds.datasets], dim='time').mean())
-        #  std = float(xr.concat([_ds.gt_ds.ds[_ds.gt_ds.var] for _ds in ds.datasets], dim='time').std())
         sum = 0
         count = 0
         for item in ds:
