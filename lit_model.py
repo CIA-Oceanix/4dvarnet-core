@@ -14,10 +14,10 @@ class LitModel(pl.LightningModule):
         self.xmax = kwargs['max_lon']
         self.ymin = kwargs['min_lat']
         self.ymax = kwargs['max_lat']
-        self.Nx = 200
-        self.Ny = 200
-        #self.Nx = int(((self.xmax-self.xmin)/.05)/self.hparams.resize_factor)
-        #self.Ny = int(((self.ymax-self.ymin)/.05)/self.hparams.resize_factor)
+        #self.Nx = 200
+        #self.Ny = 200
+        self.Nx = int(((self.xmax-self.xmin)/.05)/self.hparams.resize_factor)
+        self.Ny = int(((self.ymax-self.ymin)/.05)/self.hparams.resize_factor)
         self.lon = np.linspace(self.xmin, self.xmax, self.Nx)
         self.lat = np.linspace(self.ymin, self.ymax, self.Ny)
         self.shapeData = [self.hparams.dT*2,self.Ny,self.Nx]
@@ -240,7 +240,7 @@ class LitModel(pl.LightningModule):
         path_save1 = self.logger.log_dir + '/maps.nc'
         save_netcdf(saved_path1=path_save1, pred=pred,
                     lon=self.lon, lat=self.lat, time=self.time['time_test'],
-                    time_units='days since 2017-10-01 00:00:00')
+                    time_units='days since 2017-01-01 00:00:00')
 
     def compute_loss(self, batch, phase):
 

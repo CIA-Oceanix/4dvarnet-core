@@ -211,7 +211,7 @@ def plot_maps(gt,obs,oi,pred,lon,lat,resfile,grad=False):
     return fig
 
 
-def animate_maps(gt,obs,oi,pred,lon,lat,resfile,orthographic=True,dw=4,grad=False):
+def animate_maps(gt,obs,oi,pred,lon,lat,resfile,orthographic=True,moving=True,dw=4,grad=False):
 
     if dw>1:
         # decrease the resolution
@@ -226,6 +226,22 @@ def animate_maps(gt,obs,oi,pred,lon,lat,resfile,orthographic=True,dw=4,grad=Fals
         lon = lon[ilon]
         lat = lat[ilat]
 
+    if grad==False:
+        vmax = np.nanmax(np.abs(oi))
+        vmin = -1.*vmax
+    else:
+        vmax = np.nanmax(np.abs(gradient(oi,2)))
+        vmin = 0
+
+    extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
+
+    if orthographic==False:
+        crs_proj = ccrs.PlateCarree(central_longitude=0.0)
+    else:
+        crs_proj = ccrs.Orthographic(-30, 45)
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15,15), subplot_kw={'projection': crs_proj})
+    plt.tight_layout()
+
     def animate(i):
         print(i)
         id_nan = np.where(np.isnan(gt[i]))
@@ -233,6 +249,20 @@ def animate_maps(gt,obs,oi,pred,lon,lat,resfile,orthographic=True,dw=4,grad=Fals
         #oi[i][id_nan] = np.nan
         #pred[i][id_nan] = np.nan
 
+        ax1.cla()
+        ax2.cla()
+        ax3.cla()
+        ax4.cla()
+        if orthographic==True:
+            if moving==True:
+                fig.delaxes(ax1)
+                fig.delaxes(ax2)
+                fig.delaxes(ax3)
+                fig.delaxes(ax4)
+                ax1 = fig.add_subplot(221, projection=ccrs.Orthographic(-30, 45+.25*i))
+                ax2 = fig.add_subplot(222, projection=ccrs.Orthographic(-30, 45+.25*i))
+                ax3 = fig.add_subplot(223, projection=ccrs.Orthographic(-30, 45+.25*i))
+                ax4 = fig.add_subplot(224, projection=ccrs.Orthographic(-30, 45+.25*i))
         if grad==False:
             plot(ax1,lon,lat,gt[i],'GT',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
             plot(ax2,lon,lat,obs[i],'OBS',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
@@ -244,27 +274,6 @@ def animate_maps(gt,obs,oi,pred,lon,lat,resfile,orthographic=True,dw=4,grad=Fals
             plot(ax3,lon,lat,gradient(oi[i],2),r"$\nabla_{OI}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
             plot(ax4,lon,lat,gradient(pred[i],2),r"$\nabla_{4DVarNet}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
 
-    if grad==False:
-        vmax = np.nanmax(np.abs(oi))
-        vmin = -1.*vmax
-    else:
-        vmax = np.nanmax(np.abs(gradient(oi,2)))
-        vmin = 0
-
-    extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
-
-    fig = plt.figure(figsize=(15,15))
-    if orthographic==False:
-        ax1 = fig.add_subplot(221, projection=ccrs.PlateCarree(central_longitude=0.0))
-        ax2 = fig.add_subplot(222, projection=ccrs.PlateCarree(central_longitude=0.0))
-        ax3 = fig.add_subplot(223, projection=ccrs.PlateCarree(central_longitude=0.0))
-        ax4 = fig.add_subplot(224, projection=ccrs.PlateCarree(central_longitude=0.0))
-    else:
-        ax1 = fig.add_subplot(221, projection=ccrs.Orthographic(-30, 45))
-        ax2 = fig.add_subplot(222, projection=ccrs.Orthographic(-30, 45))
-        ax3 = fig.add_subplot(223, projection=ccrs.Orthographic(-30, 45))
-        ax4 = fig.add_subplot(224, projection=ccrs.Orthographic(-30, 45))
-    plt.subplots_adjust(hspace=0.5)
     ani = animation.FuncAnimation(fig, animate, frames=len(gt), interval=200, repeat=False)
     writergif = animation.PillowWriter(fps=3) 
     writer = animation.FFMpegWriter(fps=3)

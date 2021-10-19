@@ -153,7 +153,8 @@ class FourDVarNetDataset(Dataset):
         if sst_var is not None:
             self.sst_ds = XrDataset(sst_path, sst_var, slice_win=slice_win,
                                     dim_range=dim_range, strides=strides,
-                                    decode=sst_var=='sst', resize_factor=resize_factor)
+                                    #decode=sst_var=='sst',
+                                    decode=False, resize_factor=resize_factor)
         else:
             self.sst_ds = None
         self.norm_stats_sst = (0, 1)
