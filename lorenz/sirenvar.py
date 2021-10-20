@@ -95,21 +95,24 @@ def sirenvar_cost2D(sirens, obs):
         """
         dyn_cost = dy 
 
-def sirenvar_cost1d(sirens, obs, alpha_obs=1., alpha_prior=1., eps=10**-6):
+def sirenvar_cost1d(sirens, obs, alpha_obs=1., alpha_prior=1., eps=10**-6, device='cpu'):
     shape = einops.parse_shape(obs, 'b t d')
     cost = 0.
     for siren, item_obs in zip(sirens, torch.split(obs, split_size_or_sections=1,dim=0)):
         b, t, d = (~item_obs.isnan()).nonzero(as_tuple=True)
-        _fwd_idx = torch.arange(shape['t'], dtype=obs.dtype, device='cuda')[None,:, None]
+        _fwd_idx = torch.arange(shape['t'], dtype=obs.dtype, device=device)[None,:, None] 
         fwd_idx = (_fwd_idx - _fwd_idx.mean()) / _fwd_idx.std()
+        fwd_idx = _fwd_idx
         out = siren(fwd_idx)
         obs_cost = torch.mean((out[b, t, d] - item_obs[b, t, d] + eps)**2)
         cost += alpha_obs * obs_cost
         if alpha_prior > 0.:
             prior_idx = fwd_idx
-            _dout = torch.autograd.functional.jacobian(siren, prior_idx, create_graph=True)
-            dout = _dout[0, torch.arange(shape['t']), :, 0, torch.arange(shape['t']),0][None, ...]
-            dyn_cost = torch.mean((dout - lorenz96(torch.arange(2), out))**2)
+            out_ad, dout_ad = torch.autograd.functional.jvp(siren, prior_idx, v=torch.ones_like(prior_idx), create_graph=True, strict=True)
+            # dout_di = out_ad.diff(dim=1) / 0.05
+            dout_eq = lorenz96(torch.arange(2), out)
+            # dyn_cost = torch.mean((dout_ad[0, :-1, ...] - dout_di + eps)**2)
+            dyn_cost = torch.mean((dout_ad - dout_eq + eps)**2)
             cost +=  alpha_prior * dyn_cost
     return cost 
 
@@ -128,7 +131,7 @@ if __name__ == '__main__':
 
     # model = SirenNet(dim_in=2, dim_out=1)
     def model_factory(init=None):
-        model = SirenNet(dim_in=1, dim_hidden=256, num_layers=12, dim_out=40)
+        model = SirenNet(dim_in=1, dim_hidden=128, num_layers=12, dim_out=40)
         if init is None: 
             return model
         
@@ -136,42 +139,65 @@ if __name__ == '__main__':
         model.load_state_dict(model_params) 
         return model
 
-    # foo = lorenz96(torch.arange(2), item_obs)
-    # TODO: init a siren
-    # Clone it as many time as batch size (use batch size of one) 
-    # TODO invert using item as obs and alpha prior as 0 (direct fitting)
-    # TODO invert using default values
-
     model_init = model_factory()
     model = model_factory(init=model_init)
-    device = 'cuda'
+    device = 'cpu'
     sirens = nn.ModuleList([model]).to(device)
     current_obs = item.to(device)
-    opt = torch.optim.SGD(sirens.parameters(), lr=0.001)
-    for it in range(10000):
-        lr = 0.1 + 1 / (it // 3 + 1)
-        var_cost = sirenvar_cost1d(sirens, current_obs, alpha_prior=0.)
-        print(var_cost.item())
+    opt = torch.optim.SGD(sirens.parameters(), lr=0.01)
+    for it in range(100):
+        opt.zero_grad()
+        # alpha_prior = it / 5000
+        alpha_prior = 0.
+        alpha_obs = 1. 
+        var_cost = sirenvar_cost1d(sirens, current_obs, alpha_prior=alpha_prior, alpha_obs=alpha_obs)
+        print(it, 'var_cost', var_cost.item())
+        # print('mse', '')
         var_cost.backward(inputs=list(sirens.parameters()))
         opt.step()
-        opt.zero_grad()
         # break
 
-    _fwd_idx = torch.arange(shape['t'], dtype=current_obs.dtype, device='cuda')[None,:, None]
+
+    shape = einops.parse_shape(obs, 'b t d')
+    _fwd_idx = torch.arange(shape['t'], dtype=current_obs.dtype, device=device)[None,:, None]
     fwd_idx = (_fwd_idx - _fwd_idx.mean()) / _fwd_idx.std()
     out = sirens[0](fwd_idx)
     import matplotlib.pyplot as plt
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10,7))
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10,7))
     ax1.imshow(out[0].cpu().detach().numpy().T)
     ax2.imshow(item[0].cpu().detach().numpy().T)
-    shape = einops.parse_shape(obs, 'b t d')
+    ax3.imshow((out[0] - item[0]).cpu().detach().numpy().T)
+
     cost = 0.
     for siren, item_obs in zip(sirens, torch.split(current_obs, split_size_or_sections=1,dim=0)):
         break
+    # with torch.no_grad():
     prior_idx = fwd_idx
-    _dout = torch.autograd.functional.jacobian(siren, prior_idx, create_graph=True)
-    _dout = torch.autograd.functional.vjp(siren, prior_idx, create_graph=True)
-    _dout = torch.autograd.functional.jvp(siren, prior_idx, create_graph=True)
+    # jac = torch.autograd.functional.jacobian(siren, prior_idx, create_graph=True)
+    out_ad, dout_ad = torch.autograd.functional.jvp(siren, prior_idx, v=torch.ones_like(prior_idx) , create_graph=True)
+    dout_eq = lorenz96(torch.arange(2), out_ad)
+    dout_di = out_ad.diff(dim=1) / 0.05
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10,10))
+    img = ax1.imshow(dout_eq[0].detach().cpu().numpy().T)
+    plt.colorbar(img, ax=ax1)
+    img = ax2.imshow(dout_ad[0].detach().cpu().numpy().T)
+    plt.colorbar(img, ax=ax2)
+    img = ax3.imshow(dout_di[0].detach().cpu().numpy().T)
+    plt.colorbar(img, ax=ax3)
+
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10,10))
+    img1 = ax1.imshow(dout_ad[0].detach().cpu().numpy().T)
+    plt.colorbar(img1, ax=ax1)
+    img = ax2.imshow((dout_ad + dout_eq)[0].detach().cpu().numpy().T)
+    plt.colorbar(img, ax=ax2)
+    img = ax3.imshow((dout_di - dout_eq[:, 1:,:])[0].detach().cpu().numpy().T)
+    plt.colorbar(img, ax=ax3)
+
+    dout_eq.shape
+    dyn_cost = torch.mean((dout_ad[0, :-1, :] / dout_eq[0, 1:, :])**2)
+    (dout_ad[0, 1:, 0] / dout_eq[0, :-1, 0]).mean()
+    plt.plot(sqjac[1].detach().cpu().numpy())
+    plt.plot(lorenz96(torch.arange(2), out)[0, 100:102, :].detach().cpu().numpy().T)
     dout = _dout[0, torch.arange(shape['t']), :, 0, torch.arange(shape['t']),0][None, ...]
     dyn_cost = torch.mean((dout - lorenz96(torch.arange(2), out))**2)
         b, t, d = (~item_obs.isnan()).nonzero(as_tuple=True)
