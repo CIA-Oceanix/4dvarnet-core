@@ -2,18 +2,20 @@ from logging import warn
 import torch
 import warnings
 import numpy as np
+import numpy.random
 import pandas as pd
 import pytorch_lightning as pl
 from torch.utils.data import Dataset, ConcatDataset, DataLoader
 import torch.nn as nn
 import matplotlib.pyplot as plt
+import functools
 import einops
 from omegaconf import OmegaConf
 from lorenz.lorenz import lorenz96, get_lorenz96_torch
 
 config = OmegaConf.create(
     dict(
-        data=dict(dim=40, npoint=10000, split=[500, 250, 250]),
+        data=dict(dim=40, split=[.50, .25, .25], npoint=4000, subsample=4, noise_sigma=1.4),
         slice_cfg=dict(stride=25, time_window=200),
         dataloading=dict(
             train=dict(batch_size=1, shuffle=True),
@@ -60,6 +62,20 @@ class MaskerDataset(Dataset):
         mask[idxs] = 0
         return item, mask
 
+class ReducerDataset(Dataset):
+    def __init__(self, fn, *dses):
+        super().__init__()
+        self.fn = fn
+        self.dses =  dses
+        assert len(dses) > 0, 'provide at least one dataset to reduce'
+        assert all(len(_ds) == len(dses[0]) for _ds in self.dses), 'All ds must have the same length'
+
+    def __len__(self):
+        return len(self.dses[0])
+
+    def __getitem__(self, item):
+        return self.fn(ds[item] for ds in self.dses)
+
 class LorenzDM(pl.LightningDataModule):
     def __init__(self, cfg=config):
 
@@ -71,12 +87,23 @@ class LorenzDM(pl.LightningDataModule):
 
     def setup(self):
         # values, times = get_lorenz96_sim()
-        values, times = get_lorenz96_torch()
-        values, times = values.numpy(), times.numpy()
-        train_data, val_data, test_data, _ = np.split(values, np.cumsum(self.cfg.data.split))
-        self.train_ds = MaskerDataset(SlicerDataset(train_data, **self.cfg.slice_cfg))
-        self.val_ds = MaskerDataset(SlicerDataset(val_data, **self.cfg.slice_cfg))
-        self.test_ds = MaskerDataset(SlicerDataset(test_data, **self.cfg.slice_cfg))
+        values, times = get_lorenz96_torch(d=self.cfg.data.dim, n=self.cfg.data.npoint)
+        values, times = values[::self.cfg.data.subsample, ...].numpy(), times[::self.cfg.data.subsample, ...].numpy()
+        noise = np.random.randn(*values.shape).astype(np.float32) * self.cfg.data.noise_sigma
+        train_data, val_data, test_data, _ = np.split(values, np.floor(np.cumsum(self.cfg.data.split) * len(times)).astype(np.int))
+        train_times, val_times, test_times, _ = np.split(times, np.floor(np.cumsum(self.cfg.data.split) * len(times)).astype(np.int))
+        train_noise, val_noise, test_noise, _ = np.split(noise, np.floor(np.cumsum(self.cfg.data.split) * len(times)).astype(np.int))
+
+        self.train_ds, self.val_ds, self.test_ds = map(
+            lambda data: ReducerDataset(
+                lambda l: functools.reduce(lambda x, y: (*x, y), l),
+                MaskerDataset(SlicerDataset(data[0], **self.cfg.slice_cfg)),
+                SlicerDataset(data[1], **self.cfg.slice_cfg),
+                SlicerDataset(data[2], **self.cfg.slice_cfg),
+            ),
+            [(train_data, train_noise, train_times), (val_data, val_noise, val_times), (test_data, test_noise, test_times)]
+        )
+            
 
     def train_dataloader(self):
         return DataLoader(self.train_ds, **self.cfg.dataloading.train)
@@ -91,52 +118,18 @@ class LorenzDM(pl.LightningDataModule):
 
 if __name__ == '__main__':
 
-    # torch_sim, t = get_lorenz96_torch(d=40, n=1000) 
-    # torch_sim.shape
-    # plt.imshow(torch_sim[-100:, :].numpy())
-
-    # np_sim, t = get_lorenz96_sim() 
-    # np_sim.shape
-    # plt.imshow(np_sim[:100, :])
-    # x0 = torch.from_numpy(np_sim[0])
-    # plt.imshow(odeint(lorenz96, x0, torch.arange(0.05, 5.00001, 0.05), method='scipy_solver', options=dict(solver='RK45')).numpy())
-
     dm = LorenzDM()
     dm.setup()
     dl = dm.train_dataloader()
     batch = next(iter(dl))
-    item, mask = batch
+    item, mask, noise, times = batch
     type(item)
+    print(times.shape)
     print(item.dtype)
     print(mask.dtype)
-    obs = torch.where(mask.bool(), item, torch.full_like(item, np.nan))
-    rec_state = odeint(lorenz96, item[:, 0, :], torch.arange(200) * 0.05)
-    rec_state.shape
-    print(weak_fourdvar_cost(item, obs))
-    print(fourdvar_cost(item, obs))
+    obs = torch.where(mask.bool(), item + noise, torch.full_like(item, np.nan))
 
-    lr = 0.1 # 0.01
-    state_hat = torch.zeros_like(obs)
-    state_hat.requires_grad_(True)
-    for it in range(1000):
-        lr = 0.1 + 1 / (it // 3 + 1)
-        var_cost = weak_fourdvar_cost(state_hat, obs)
-        print(var_cost.item())
-        grad = torch.autograd.grad((var_cost,), (state_hat,))[0]
-        state_hat = state_hat - lr * grad
-        state_hat.detach_().requires_grad_(True)
-
-    plt.imshow(state_hat[0, ...].detach().numpy())
+    plt.imshow(obs[0, ...].detach().numpy())
     plt.imshow(item[0, ...].detach().numpy())
-    plt.imshow((state_hat - item)[0, ...].detach().numpy())
-    # var_cost =  
-    # first_item = item[0, ...]
-    # first_mask = mask[0, ...]
-    # first_mask.sum()
-    # first_mask.numel()
-    # plt.imshow(first_item)
-    # obs = np.where(first_mask, first_item, np.nan)
-    # plt.imshow(obs)
-    
-    # print(item.shape)
+    plt.imshow(mask[0, ...].detach().numpy())
     

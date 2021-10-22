@@ -6,7 +6,7 @@ def lorenz96(t, X, forcing=8):
     adv = torch.roll(X, 1, dims=-1) * (torch.roll(X, -1, dims=-1) - torch.roll(X, 2, dims=-1))
     return adv - X + forcing
 
-def get_lorenz96_torch(d=40, n=10**3, dt=0.05, forcing=8., warmup=5., eps=1e-6):
+def get_lorenz96_torch(d=40, n=10**4, dt=0.05, forcing=8., warmup=5., eps=1e-6):
     # warmup to get to attractor space
     _x0 = torch.full((d,), forcing)
     _x0[d//2] +=  0.01
