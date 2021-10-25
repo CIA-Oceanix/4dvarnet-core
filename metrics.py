@@ -203,7 +203,7 @@ def plot_maps(gt,obs,oi,pred,lon,lat,resfile,grad=False):
         plot(ax2,lon,lat,gradient(obs,2),r"$\nabla_{OBS}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
         plot(ax3,lon,lat,gradient(oi,2),r"$\nabla_{OI}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
         plot(ax4,lon,lat,gradient(pred,2),r"$\nabla_{4DVarNet}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
-  
+
     plt.savefig(resfile)    # save the figure
     fig = plt.gcf()
     plt.close()             # close the figure
@@ -265,7 +265,7 @@ def animate_maps(gt,obs,oi,pred,lon,lat,resfile,orthographic=True,dw=4,grad=Fals
         ax4 = fig.add_subplot(224, projection=ccrs.Orthographic(-30, 45))
     plt.subplots_adjust(hspace=0.5)
     ani = animation.FuncAnimation(fig, animate, frames=len(gt), interval=200, repeat=False)
-    writergif = animation.PillowWriter(fps=3) 
+    writergif = animation.PillowWriter(fps=3)
     writer = animation.FFMpegWriter(fps=3)
     ani.save(resfile, writer = writer)
     plt.close()
@@ -290,9 +290,9 @@ def plot_ensemble(pred,lon,lat,resfile):
 def save_netcdf(saved_path1, pred, lon, lat, time,
                 time_units='days since 2012-10-01 00:00:00'):
     '''
-    saved_path1: string 
+    saved_path1: string
     pred: 3d numpy array (4DVarNet-based predictions)
-    lon: 1d numpy array 
+    lon: 1d numpy array
     lat: 1d numpy array
     time: 1d array-like of time corresponding to the experiment
     '''

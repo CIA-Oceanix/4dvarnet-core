@@ -70,7 +70,7 @@ class FourDVarNetRunner:
             self.ds_size_lon = 1
             self.ds_size_lat = 1
         else:
-            self.setup()
+            self.setup(datamodule)
 
         if config.params['stochastic'] == False:
             self.lit_cls = LitModelWithSST if dataloading == "with_sst" else LitModel

@@ -52,7 +52,7 @@ class Model_H_SST_with_noisy_Swot(torch.nn.Module):
     obs: [[oi, obs], sst]
     mask: [[ones, obs_mask], ones]
     """
-    
+
     # def __init__(self, shape_data, dim=5):
     #     super(Model_HwithSST, self).__init__()
 
@@ -94,7 +94,7 @@ class Model_H_SST_with_noisy_Swot(torch.nn.Module):
             output_swath = output_low_res + output_anom_swath
         elif self.hparams.swot_anom_wrt == 'high_res':
             output_swath = output_global + output_anom_swath
-        
+
 
         yhat_glob = torch.cat((output_low_res, output_global), dim=1)
         yhat_swath = torch.cat((output_low_res, output_swath), dim=1)
@@ -202,7 +202,7 @@ class LitCalModel(pl.LightningModule):
         return 1
 
     def configure_optimizers(self):
-        
+
         if self.model_name == '4dvarnet':
             optimizer = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
@@ -220,7 +220,7 @@ class LitCalModel(pl.LightningModule):
                                 ], lr=0.)
 
             return optimizer
-        else: 
+        else:
             opt = optim.Adam(self.parameters(), lr=1e-4)
         return {
             'optimizer': opt,
@@ -252,11 +252,11 @@ class LitCalModel(pl.LightningModule):
 
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
 
-        # compute loss and metrics    
+        # compute loss and metrics
         loss, out, _, metrics = self.compute_loss(train_batch, phase='train')
         if loss is None:
             return loss
-        # log step metric        
+        # log step metric
         # self.log('train_mse', mse)
         # self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True)
         self.log("loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
@@ -296,7 +296,7 @@ class LitCalModel(pl.LightningModule):
         self.test_ds_patch_size = self.trainer.test_dataloaders[0].dataset.datasets[0].gt_ds.ds_size
         self.test_lat = self.test_coords['lat'].data
         self.test_lon = self.test_coords['lon'].data
-        self.test_dates = self.test_coords['time'].isel(time=slice(self.hparams.dT // 2, - self.hparams.dT // 2 + 1)).data
+        self.test_dates = self.test_coords['time'].isel(time=slice(self.hparams.dT // 5, - self.hparams.dT // 5 + 1)).data
 
     def test_step(self, test_batch, batch_idx):
 
@@ -321,12 +321,12 @@ class LitCalModel(pl.LightningModule):
     def test_epoch_end(self, outputs):
 
         self.outputs = outputs
-        gt = np.concatenate([chunk['gt'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
-        oi = np.concatenate([chunk['oi'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
-        pred = np.concatenate([chunk['preds'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
-        target_obs = np.concatenate([chunk['target_obs'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
-        inputs_obs = np.concatenate([chunk['inp_obs'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
-        obs_pred = np.concatenate([chunk['obs_pred'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
+        gt = np.concatenate([chunk['gt'][:, int(self.hparams.dT / 5), :, :] for chunk in outputs])
+        oi = np.concatenate([chunk['oi'][:, int(self.hparams.dT / 5), :, :] for chunk in outputs])
+        pred = np.concatenate([chunk['preds'][:, int(self.hparams.dT / 5), :, :] for chunk in outputs])
+        target_obs = np.concatenate([chunk['target_obs'][:, int(self.hparams.dT / 5), :, :] for chunk in outputs])
+        inputs_obs = np.concatenate([chunk['inp_obs'][:, int(self.hparams.dT / 5), :, :] for chunk in outputs])
+        obs_pred = np.concatenate([chunk['obs_pred'][:, int(self.hparams.dT / 5), :, :] for chunk in outputs])
 
         ds_size = self.test_ds_patch_size
 
@@ -359,7 +359,7 @@ class LitCalModel(pl.LightningModule):
 
                     },
                 {
-                    'time': self.test_coords['time'].isel(time=slice(self.hparams.dT // 2, - self.hparams.dT // 2 + 1)),
+                    'time': self.test_coords['time'].isel(time=slice(self.hparams.dT // 5, - self.hparams.dT // 5 + 1)),
                     'lat': self.test_coords['lat'],
                     'lon': self.test_coords['lon'],
                     }
@@ -448,7 +448,7 @@ class LitCalModel(pl.LightningModule):
         mse_swath_df = mse_fn('obs_pred', 'obs_inp', 'obs_gt')
         nrmse_df.to_csv(self.logger.log_dir + '/nRMSE_swath.txt')
         mse_df.to_csv(self.logger.log_dir + '/MSE_swath.txt')
-        
+
         print(
             pd.concat(
                 [
@@ -469,7 +469,7 @@ class LitCalModel(pl.LightningModule):
         self.test_figs['snr'] = snr_fig
 
         self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
-        
+
         fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt, self.test_xr_ds.pred, self.test_xr_ds.oi, with_fig=True)
         self.test_figs['res'] = fig
         self.logger.experiment.add_figure('Spat. Resol', fig, global_step=self.current_epoch)
@@ -568,7 +568,7 @@ class LitCalModel(pl.LightningModule):
             g_output_swath = self.gradient_img(output_swath)
             # PENDING: add loss term computed on obs (outputs swath - obs_target)
 
-            _err_swath =(output_swath - target_obs_GT_wo_nan)**2 
+            _err_swath =(output_swath - target_obs_GT_wo_nan)**2
             err_swath = torch.where(target_obs_GT.isnan() | target_obs_GT.isinf(), torch.zeros_like(_err_swath), _err_swath)
             _err_g_swath =(g_output_swath - g_targets_obs)**2
             err_g_swath = torch.where(g_targets_obs_mask.isnan() | g_targets_obs_mask.isinf(), torch.zeros_like(_err_g_swath), _err_g_swath)

@@ -1,1 +1,1 @@
-rm -rf *out *err
+rm -rf *out *err *.pbs.*

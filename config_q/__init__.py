@@ -5,8 +5,10 @@ from datetime import datetime, timedelta
 dim_range = {
     #'lat': slice(33, 43),
     #'lon': slice(-65, -55),
-    'lat': slice(27, 57),
-    'lon': slice(-77, 3),
+    #  'lat': slice(27, 57),
+    #  'lon': slice(-77, 3),
+    'lat': slice(27, 65),
+    'lon': slice(-79,7),
 }
 # Specify the batch patch size
 slice_win = {
@@ -29,16 +31,16 @@ time_period = {
 
 params = {
     'files_cfg' : dict(
-                oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_4nadir.nc',
+                oi_path='/home3/datawork/hgeorgen/ssh_NATL60_4nadir.nc',
                 oi_var='ssh_mod',
-                obs_mask_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d_swot.nc',
+                obs_mask_path='/home3/datawork/hgeorgen/dataset_nadir_0d_swot.nc',
                 obs_mask_var='ssh_mod',
-                gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
+                gt_path='/home3/datawork/hgeorgen/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
                 gt_var='ssh',
         ),
     'dataloading': 'new',
-    'data_dir'        : '/gpfsscratch/rech/nlu/commun/large',
-    'dir_save'        : '/gpfsscratch/rech/nlu/commun/large/results_maxime',
+    'data_dir'        : '/home3/scratch/hgeorgen/commun/large',
+    'dir_save'        : '/home3/scratch/hgeorgen/commun/large/results',
 
     'iter_update'     : [0, 20, 40, 60, 100, 150, 800],  # [0,2,4,6,9,15]
     'nb_grad_update'  : [5, 5, 10, 10, 15, 15, 20, 20, 20],  # [0,0,1,2,3,3]#[0,2,2,4,5,5]#
@@ -54,13 +56,13 @@ params = {
     'dW2'             : 1,
     'sS'              : 4,  # int(4/dx),
     'nbBlocks'        : 1,
-    'Nbpatches'       : 1, #10#10#25 ## number of patches extracted from each time-step 
+    'Nbpatches'       : 1, #10#10#25 ## number of patches extracted from each time-step
 
     # stochastic version
     'stochastic'      : False,
     'size_ensemble'   : 3,
 
-    # animation maps 
+    # animation maps
     'animate'         : False,
 
     # supervised/unsupervised loss
@@ -85,7 +87,7 @@ params = {
     # data generation
     'sigNoise'        : 0.,## additive noise standard deviation
     'flagSWOTData'    : True, #False ## use SWOT data or not
-    'Nbpatches'       : 1, #10#10#25 ## number of patches extracted from each time-step 
+    'Nbpatches'       : 1, #10#10#25 ## number of patches extracted from each time-step
     'rnd1'            : 0, ## random seed for patch extraction (space sam)
     'rnd2'            : 100, ## random seed for patch extraction
     'dwscale'         : 1,
