@@ -22,3 +22,7 @@ dashboard
 hydra_main.log
 multirun
 scratch.py
+.hydra
+.submitit
+multirun.yaml
+icassp_code

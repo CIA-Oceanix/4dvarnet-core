@@ -1,6 +1,8 @@
 # @package _global_
 params:
   ckpt_name: 'modelCalSLAInterpGF-Exp3-{epoch:02d}-{val_loss:.2f}'
+  norm_obs: 'l1'
+  norm_prior: 'l1'
 lit_mod_cls: calibration.lit_cal_model.LitCalModel
 datamodule:
   _target_: calibration.dataset.FourDVarNetCalDataModule

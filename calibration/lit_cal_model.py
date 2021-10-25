@@ -53,24 +53,6 @@ class Model_H_SST_with_noisy_Swot(torch.nn.Module):
     mask: [[ones, obs_mask], ones]
     """
     
-    # def __init__(self, shape_data, dim=5):
-    #     super(Model_HwithSST, self).__init__()
-
-    #     self.dim_obs = 2
-    #     self.dim_obs_channel = np.array([shape_data, dim])
-    #     self.conv11 = torch.nn.Conv2d(shape_data, self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
-    #     self.conv21 = torch.nn.Conv2d(int(shape_data / 2), self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
-    #     self.conv_m = torch.nn.Conv2d(int(shape_data / 2), self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
-    #     self.sigmoid = torch.nn.Sigmoid()  # torch.nn.Softmax(dim=1)
-
-    # def forward(self, x, y, mask):
-    #     dyout = (x - y[0]) * mask[0]
-
-    #     y1 = y[1] * mask[1]
-    #     dyout1 = self.conv11(x) - self.conv21(y1)
-    #     dyout1 = dyout1 * self.sigmoid(self.conv_m(mask[1]))
-
-    #     return [dyout, dyout1]
 
     def __init__(self, shape_state, shape_obs, hparams=None):
         super().__init__()
@@ -115,7 +97,7 @@ def get_4dvarnet(hparams):
                 Model_H_with_noisy_Swot(hparams.shape_state[0], hparams.shape_obs[0], hparams=hparams),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
-                None, None, hparams.shape_state, hparams.n_grad)
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad)
 
 def get_4dvarnet_sst(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
@@ -124,7 +106,7 @@ def get_4dvarnet_sst(hparams):
                 Model_H_SST_with_noisy_Swot(hparams.shape_state[0], hparams.shape_obs[0], hparams=hparams),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
-                None, None, hparams.shape_state, hparams.n_grad)
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad)
 
 def get_phi(hparams):
     class PhiPassThrough(torch.nn.Module):
@@ -157,7 +139,7 @@ class LitCalModel(pl.LightningModule):
         super().__init__()
         hparam = {} if hparam is None else hparam
         hparams = hparam if isinstance(hparam, dict) else OmegaConf.to_container(hparam, resolve=True)
-        self.save_hyperparameters({**hparams})
+        self.save_hyperparameters({**hparams, **kwargs})
         # TOTEST: set those parameters only if provided
         self.var_Val = self.hparams.var_Val
         self.var_Tr = self.hparams.var_Tr
@@ -229,7 +211,6 @@ class LitCalModel(pl.LightningModule):
         }
 
     def on_epoch_start(self):
-        # enfore acnd check some hyperparameters
         self.model.n_grad = self.hparams.n_grad
 
     def on_train_epoch_start(self):
@@ -242,7 +223,7 @@ class LitCalModel(pl.LightningModule):
 
                 self.hparams.n_grad = self.hparams.nb_grad_update[indx]
                 self.model.n_grad = self.hparams.n_grad
-
+                print("ngrad iter", self.model.n_grad)
                 mm = 0
                 lrCurrent = self.hparams.lr_update[indx]
                 lr = np.array([lrCurrent, lrCurrent, 0.5 * lrCurrent, 0.])
@@ -259,11 +240,11 @@ class LitCalModel(pl.LightningModule):
         # log step metric        
         # self.log('train_mse', mse)
         # self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True)
-        self.log("loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log("tr_mse", metrics['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("tr_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
-        self.log("tr_mse_swath", metrics['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("tr_mseG_swath", metrics['mseGradSwath'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+        self.log("loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, rank_zero_only=True)
+        self.log("tr_mse", metrics['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
+        self.log("tr_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
+        self.log("tr_mse_swath", metrics['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
+        self.log("tr_mseG_swath", metrics['mseGradSwath'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
 
         # initial grad value
         if self.hparams.automatic_optimization == False:
@@ -284,11 +265,11 @@ class LitCalModel(pl.LightningModule):
         loss, out, _, metrics = self.compute_loss(val_batch, phase='val')
         if loss is None:
             return loss
-        self.log('val_loss', loss)
-        self.log("val_mse", metrics['mse'] / self.var_Val, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("val_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
-        self.log("val_mse_swath", metrics['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("val_mseG_swath", metrics['mseGradSwath'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+        self.log('val_loss', loss, rank_zero_only=True)
+        self.log("val_mse", metrics['mse'] / self.var_Val, on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
+        self.log("val_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
+        self.log("val_mse_swath", metrics['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
+        self.log("val_mseG_swath", metrics['mseGradSwath'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
         return loss.detach()
 
     def on_test_epoch_start(self):
@@ -306,11 +287,11 @@ class LitCalModel(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, obs_target_item = test_batch
         loss, out, out_pred, metrics = self.compute_loss(test_batch, phase='test')
         if loss is not None:
-            self.log('test_loss', loss)
-            self.log("test_mse", metrics['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
-            self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
-            self.log("test_mse_swath", metrics['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
-            self.log("test_mseG_swath", metrics['mseGradSwath'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+            self.log('test_loss', loss, rank_zero_only=True)
+            self.log("test_mse", metrics['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
+            self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
+            self.log("test_mse_swath", metrics['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
+            self.log("test_mseG_swath", metrics['mseGradSwath'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
         return {'gt'    : (targets_GT.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'oi'    : (targets_OI.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'target_obs'    : (obs_target_item.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
@@ -546,7 +527,6 @@ class LitCalModel(pl.LightningModule):
         with torch.set_grad_enabled(True):
             # with torch.set_grad_enabled(phase == 'train'):
             state = torch.autograd.Variable(state, requires_grad=True)
-
             outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks)
 
             if (phase == 'val') or (phase == 'test'):
@@ -611,8 +591,6 @@ class LitCalModel(pl.LightningModule):
                 loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
             if (self.hparams.loss_low_res if hasattr(self.hparams, 'loss_low_res') else 1):
                 loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
-            # PENDING: Add loss term
-
             # metrics
             mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_GT, self.w_loss)
             mse = loss_All.detach()

@@ -1,6 +1,9 @@
 hydra:
   run:
+    dir: dashboard/${oc.select:xp_name,.}
+  sweep:
     dir: .
+    subdir: dashboard/${oc.select:xp_name,.}
 
 defaults:
   - file_paths: jz

@@ -1,8 +1,9 @@
 # @package _global_
-xp_name: calmap_gf
+xp_name: calmapgrad_gf
 defaults:
-  - /legacy: fourdvarnet_calmap
+  - /legacy: fourdvarnet_calmapgrad
   - /domain@datamodule.dim_range: gf
   - /training: calmap
   - _self_
+
 

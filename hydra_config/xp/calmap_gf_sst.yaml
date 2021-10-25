@@ -1,4 +1,5 @@
 # @package _global_
+xp_name: calmap_gf_sst
 params:
   model: 4dvarnet_sst
   sst: true

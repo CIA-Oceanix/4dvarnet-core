@@ -1,4 +1,9 @@
 import xrft
+import models
+import torch
+from collections import OrderedDict
+import hydra
+from hydra.utils import instantiate, get_class
 import einops
 import matplotlib.pyplot as plt
 import importlib
@@ -7,39 +12,80 @@ import pytorch_lightning as pl
 import pandas as pd
 from pathlib import Path
 import main
+import hydra_main
+import hydra_config
 import new_dataloading
+importlib.reload(main)
+importlib.reload(models)
+importlib.reload(hydra_main)
 
 xp_configs = [
-    ('icassp', 'q.xp_icassp.direct_phi'),
-    ('icassp', 'q.xp_icassp.direct_vit'),
-    ('icassp', 'q.xp_icassp.fourdvarnet_calmap'),
-    ('icassp', 'q.xp_icassp.fourdvarnet_calmapgrad'),
-    ('icassp', 'q.xp_icassp.fourdvarnet_map'),
+    ('calmap_icassp', 'calmap_gf', 'dashboard/icassp/train/q.xp_icassp.fourdvarnet_calmap'),
+    ('calmap_gf', 'calmap_gf', 'dashboard/current/train/calmap_gf'),
+    ('calmap_sst', 'calmap_gf_sst', 'dashboard/current/train/calmap_gf_sst'),
+    # ('calmap_sst_gf', 'q.xp_icassp.direct_vit'),
+    # ('icassp', 'q.xp_icassp.fourdvarnet_calmap'),
+    # ('icassp', 'q.xp_icassp.fourdvarnet_calmapgrad'),
+    # ('icassp', 'q.xp_icassp.fourdvarnet_map'),
 ]
-default_xp = 'q.xp_icassp.fourdvarnet_calmap'
+default_xp = 'calmap_icassp'
 
-xps, configs = zip(*xp_configs)
-xps, configs = list(xps), list(configs)
+labels, xps, configs = zip(*xp_configs)
+labels, xps, configs = list(labels), list(xps), list(configs)
 
-def get_most_recent_ckpt(config_pkg, xp='no_roll'):
-    ckpt_fold = Path(f'dashboard/{xp}/train/{config_pkg}/checkpoints')
+def get_most_recent_ckpt(training_folder):
+    ckpt_fold = Path(f'{training_folder}/checkpoints')
     checkpoints = ckpt_fold.glob('*')
     return max(checkpoints, key=lambda x: x.stat().st_ctime)
 
+def create_new_ckpt(xp_configs):
+
+    for label, xp, training_folder in xp_configs:
+        print(label, xp, training_folder)
+        ckpt_path = str(get_most_recent_ckpt(training_folder))
+            
+        with hydra.initialize_config_dir(str(Path('hydra_config').absolute())):
+            cfg = hydra.compose(config_name='main', overrides=
+                [
+                    f'xp={xp}',
+                    'entrypoint=test',
+                    'entrypoint.ckpt_path=null'
+                ]
+            )
+        lit_mod_cls = get_class(cfg.lit_mod_cls)
+        runner = hydra_main.FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls)
+        mod = runner._get_model()
+        ckpt = torch.load(ckpt_path)
+        ckpt['state_dict'] = OrderedDict([(k, v) for k, v in zip(mod.state_dict().keys(), ckpt['state_dict'].values())])
+        torch.save(ckpt, Path(ckpt_path).parent /'last_up.ckpt')
+
+# create_new_ckpt(xp_configs)
+
 def get_tested_models(xp_configs):
     mods = {}
-    for xp, config_pkg in xp_configs:
-        ckpt_path = get_most_recent_ckpt(
-                config_pkg=config_pkg,
-                xp=xp,
+    for label, xp, training_folder in xp_configs:
+        print(label, xp, training_folder)
+        ckpt_path = str(get_most_recent_ckpt(training_folder))
+            
+        with hydra.initialize_config_dir(str(Path('hydra_config').absolute())):
+            cfg = hydra.compose(config_name='main', overrides=
+                [
+                    f'xp={xp}',
+                    'entrypoint=test',
+                    'entrypoint.ckpt_path=null'
+                ]
             )
-        runner = main.FourDVarNetRunner(config=config_pkg)
+        # break
+        dm = instantiate(cfg.datamodule)
+        dm.setup()
+        lit_mod_cls = get_class(cfg.lit_mod_cls)
+        runner = hydra_main.FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls)
+        # runner = hydra_main.FourDVarNetRunner(config=config_pkg)
         mod = runner._get_model(ckpt_path=ckpt_path)
         dataloaders = runner.dataloaders
         trainer = pl.Trainer(gpus=1)
         trainer.test(mod, test_dataloaders=dataloaders['test'])
-        mods[config_pkg] = mod.cpu()
-
+        mods[label] = mod.cpu()
     return mods
 
 
@@ -126,10 +172,10 @@ def get_grid_fig(to_plot_ds):
 
     return hv.render(hv_layout, backend='matplotlib')
 
-# cur_ds = to_plot_ds
-# fig_grid_preview = get_grid_fig(cur_ds)
-# cur_ds = to_plot_ds
-# fig_grad = get_grid_fig(cur_ds)
+cur_ds = to_plot_ds
+fig_grid_preview = get_grid_fig(cur_ds)
+cur_ds = to_plot_ds
+fig_grad = get_grid_fig(cur_ds)
 
 # cur_ds = xr.Dataset(obs_das).assign(noise=lambda ds: ds.obs -ds.gt).isel(time=t_idx)
 # fig_obs_preview = get_grid_fig(cur_ds)

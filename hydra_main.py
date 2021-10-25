@@ -1,11 +1,13 @@
 import hydra
 from hydra.utils import get_class, instantiate, call
 from main import FourDVarNetRunner
+from omegaconf import OmegaConf
 import hydra_config
 
 class FourDVarNetHydraRunner(FourDVarNetRunner):
     def __init__(self, params, dm, lit_mod_cls):
         self.cfg = params
+        print(OmegaConf.to_yaml(self.cfg))
         self.filename_chkpt = self.cfg.ckpt_name
         self.dm = dm 
         self.lit_cls = lit_mod_cls
@@ -15,7 +17,6 @@ class FourDVarNetHydraRunner(FourDVarNetRunner):
             'val': dm.val_dataloader(),
             'test': dm.test_dataloader(),
         }
-        print(self.dataloaders['train'])
         self.time = self.cfg.test_dates
         self.setup(dm)
 

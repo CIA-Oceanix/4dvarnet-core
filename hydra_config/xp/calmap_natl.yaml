@@ -1,5 +1,5 @@
 #@package _global_
-
+xp_name: calmap_natl
 defaults:
   - /legacy: fourdvarnet_calmap
   - /domain@datamodule.dim_range: natl

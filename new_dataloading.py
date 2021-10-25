@@ -2,6 +2,7 @@ import numpy as np
 import pytorch_lightning as pl
 import xarray as xr
 from torch.utils.data import Dataset, ConcatDataset, DataLoader
+import pandas as pd
 
 def find_pad(sl, st, N):
     k = np.floor(N/st)
@@ -28,11 +29,9 @@ class XrDataset(Dataset):
         :param decode: Whether to decode the time dim xarray (useful for gt dataset)
         """
         super().__init__()
-
         self.var = var
         self.res = 0.05
-        _ds = xr.open_dataset(path)
-        cache=False
+        _ds = xr.open_dataset(path, cache=False)
         if decode:
             if str(_ds.time.dtype) == 'float64':
 
@@ -101,6 +100,11 @@ class XrDataset(Dataset):
             size *= v
         return size
 
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
+        
+
     def __getitem__(self, item):
         sl = {
             dim: slice(self.strides.get(dim, 1) * idx,
@@ -151,7 +155,7 @@ class FourDVarNetDataset(Dataset):
                                     decode=sst_var=='sst', resize_factor=resize_factor)
         else:
             self.sst_ds = None
-        self.norm_stats_sst = None
+        self.norm_stats_sst = (0, 1)
 
     def set_norm_stats(self, stats, stats_sst=None):
         self.norm_stats = stats
@@ -161,7 +165,8 @@ class FourDVarNetDataset(Dataset):
         return min(len(self.oi_ds), len(self.gt_ds), len(self.obs_mask_ds))
 
     def coordXY(self):
-        return self.gt_ds.lon, self.gt_ds.lat
+        # return self.gt_ds.lon, self.gt_ds.lat
+        return self.gt_ds.ds.lon.data, self.gt_ds.ds.lat.data
 
     def __getitem__(self, item):
         mean, std = self.norm_stats
@@ -175,7 +180,8 @@ class FourDVarNetDataset(Dataset):
         _gt_item = (self.gt_ds[item] - mean) / std
         oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
         # obs_mask_item = self.obs_mask_ds[item].astype(bool) & ~np.isnan(oi_item) & ~np.isnan(_gt_item)
-        _obs_item = self.obs_mask_ds[item]
+
+        _obs_item = (self.obs_mask_ds[item] - mean) / std
         obs_mask_item = ~np.isnan(_obs_item)
         obs_item = np.where(~np.isnan(_obs_item), _obs_item, np.zeros_like(_obs_item))
 
@@ -241,14 +247,12 @@ class FourDVarNetDataModule(pl.LightningDataModule):
     def compute_norm_stats(self, ds):
         sum = 0
         count = 0
-        for item in ds:
-            gt = item[3]
+        for gt in [_it for _ds in ds.datasets for _it in _ds.gt_ds]:
             sum += np.nansum(gt)
             count += np.sum(~np.isnan(gt))
         mean = sum / count
         sum = 0
-        for item in ds:
-            gt = item[3]
+        for gt in [_it for _ds in ds.datasets for _it in _ds.gt_ds]:
             sum += np.nansum((gt - mean)**2)
         std = (sum / count)**0.5
 
