@@ -296,7 +296,7 @@ class LitCalModel(pl.LightningModule):
         self.test_ds_patch_size = self.trainer.test_dataloaders[0].dataset.datasets[0].gt_ds.ds_size
         self.test_lat = self.test_coords['lat'].data
         self.test_lon = self.test_coords['lon'].data
-        self.test_dates = self.test_coords['time'].isel(time=slice(self.hparams.dT // 5, - self.hparams.dT // 5 + 1)).data
+        self.test_dates = self.test_coords['time'].isel(time=slice(self.hparams.dT // 2, - self.hparams.dT // 2 + 1)).data
 
     def test_step(self, test_batch, batch_idx):
 
@@ -321,12 +321,12 @@ class LitCalModel(pl.LightningModule):
     def test_epoch_end(self, outputs):
 
         self.outputs = outputs
-        gt = np.concatenate([chunk['gt'][:, int(self.hparams.dT / 5), :, :] for chunk in outputs])
-        oi = np.concatenate([chunk['oi'][:, int(self.hparams.dT / 5), :, :] for chunk in outputs])
-        pred = np.concatenate([chunk['preds'][:, int(self.hparams.dT / 5), :, :] for chunk in outputs])
-        target_obs = np.concatenate([chunk['target_obs'][:, int(self.hparams.dT / 5), :, :] for chunk in outputs])
-        inputs_obs = np.concatenate([chunk['inp_obs'][:, int(self.hparams.dT / 5), :, :] for chunk in outputs])
-        obs_pred = np.concatenate([chunk['obs_pred'][:, int(self.hparams.dT / 5), :, :] for chunk in outputs])
+        gt = np.concatenate([chunk['gt'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
+        oi = np.concatenate([chunk['oi'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
+        pred = np.concatenate([chunk['preds'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
+        target_obs = np.concatenate([chunk['target_obs'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
+        inputs_obs = np.concatenate([chunk['inp_obs'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
+        obs_pred = np.concatenate([chunk['obs_pred'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
 
         ds_size = self.test_ds_patch_size
 
@@ -359,7 +359,7 @@ class LitCalModel(pl.LightningModule):
 
                     },
                 {
-                    'time': self.test_coords['time'].isel(time=slice(self.hparams.dT // 5, - self.hparams.dT // 5 + 1)),
+                    'time': self.test_coords['time'].isel(time=slice(self.hparams.dT // 2, - self.hparams.dT // 2 + 1)),
                     'lat': self.test_coords['lat'],
                     'lon': self.test_coords['lon'],
                     }
