@@ -6,7 +6,7 @@ import matplotlib
 matplotlib.use('Agg') # Must be before importing matplotlib.pyplot or pylab!
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from matplotlib import cm
+from matplotlib import cm, colors
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 import pandas as pd
 import shapely
@@ -22,7 +22,7 @@ import xrft
 
 from spectral import *
 
-def plot_snr(gt,oi,pred,resfile):
+def plot_snr(gt, oi, pred, resfile):
     '''
     gt: 3d numpy array (Ground Truth)
     oi: 3d numpy array (OI)
@@ -136,20 +136,20 @@ def plot_mse(gt, oi, pred, resfile, time):
     plt.close()                                 # close the figure
     return  fig
 
-def plot(ax,lon,lat,data,title,extent=[-65,-55,30,40],cmap="coolwarm",gridded=True,vmin=-2,vmax=2,colorbar=True,orientation="horizontal"):
+def plot(ax, lon, lat, data, title, cmap, norm, extent=[-65, -55, 30, 40],  gridded=True, colorbar=True, orientation="horizontal"):
     ax.set_extent(list(extent))
     if gridded:
-        im=ax.pcolormesh(lon, lat, data, cmap=cmap,\
-                          vmin=vmin, vmax=vmax,edgecolors='face', alpha=1, \
-                          transform= ccrs.PlateCarree(central_longitude=0.0))
+        im = ax.pcolormesh(lon, lat, data, cmap=cmap, \
+                          norm=norm, edgecolor='face',  alpha=1, \
+                          transform=ccrs.PlateCarree(central_longitude=0.0))
     else:
-        im=ax.scatter(lon, lat, c=data, cmap=cmap, s=1,\
-                       vmin=vmin, vmax=vmax,edgecolors='face', alpha=1, \
-                       transform= ccrs.PlateCarree(central_longitude=0.0))
-    im.set_clim(vmin,vmax)
+        im = ax.scatter(lon, lat, c=data, cmap=cmap, s=1, \
+                       norm=norm, edgecolor='face', alpha=1, \
+                       transform=ccrs.PlateCarree(central_longitude=0.0))
+    #  im.set_clim(vmin,vmax)
     if colorbar==True:
         clb = plt.colorbar(im, orientation=orientation, extend='both', pad=0.1, ax=ax)
-    ax.set_title(title, pad=40, fontsize = 15)
+    ax.set_title(title, pad=10, fontsize = 15)
     gl = ax.gridlines(alpha=0.5,draw_labels=True)
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
@@ -173,44 +173,52 @@ def gradient(img, order):
     else:
         return sobel_norm
 
-def plot_maps(gt,obs,oi,pred,lon,lat,resfile,grad=False):
+def plot_maps(gt, obs, oi, pred, lon, lat, resfile, grad=False):
 
-    if grad==False:
+    if grad:
+        vmax = np.nanmax(np.abs(gradient(oi, 2)))
+        vmin = 0
+    else:
         vmax = np.nanmax(np.abs(oi))
         vmin = -1.*vmax
-    else:
-        vmax = np.nanmax(np.abs(gradient(oi,2)))
-        vmin = 0
 
-    extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
+    extent = [np.min(lon), np.max(lon), np.min(lat), np.max(lat)]
 
     id_nan = np.where(np.isnan(gt))
     obs[id_nan] = np.nan
 
-    fig = plt.figure(figsize=(15,15))
+    fig = plt.figure(figsize=(15,9))
+
     ax1 = fig.add_subplot(221, projection=ccrs.PlateCarree(central_longitude=0.0))
     ax2 = fig.add_subplot(222, projection=ccrs.PlateCarree(central_longitude=0.0))
     ax3 = fig.add_subplot(223, projection=ccrs.PlateCarree(central_longitude=0.0))
     ax4 = fig.add_subplot(224, projection=ccrs.PlateCarree(central_longitude=0.0))
-
-    if grad==False:
-        plot(ax1,lon,lat,gt,'GT',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
-        plot(ax2,lon,lat,obs,'OBS',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
-        plot(ax3,lon,lat,oi,'OI',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
-        plot(ax4,lon,lat,pred,'4DVarNet',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
+    if grad:
+        cm = plt.cm.viridis
+        norm = colors.PowerNorm(gamma=0.7)
+        plot(ax1, lon, lat, gradient(gt, 2), r"$\nabla_{GT}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+        plot(ax2, lon, lat, gradient(obs, 2), r"$\nabla_{OBS}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+        plot(ax3, lon, lat, gradient(oi, 2), r"$\nabla_{OI}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+        plot(ax4, lon, lat, gradient(pred, 2), r"$\nabla_{4DVarNet}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
     else:
-        plot(ax1,lon,lat,gradient(gt,2),r"$\nabla_{GT}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
-        plot(ax2,lon,lat,gradient(obs,2),r"$\nabla_{OBS}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
-        plot(ax3,lon,lat,gradient(oi,2),r"$\nabla_{OI}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
-        plot(ax4,lon,lat,gradient(pred,2),r"$\nabla_{4DVarNet}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
+        cm = plt.cm.coolwarm
+        norm = colors.Normalize(vmin=vmin, vmax=vmax)
+        plot(ax1, lon, lat, gt, 'GT', extent=extent, cmap=cm, norm=norm, colorbar=False)
+        plot(ax2, lon, lat, obs, 'OBS', extent=extent, cmap=cm, norm=norm, colorbar=False)
+        plot(ax3, lon, lat, oi, 'OI', extent=extent, cmap=cm, norm=norm, colorbar=False)
+        plot(ax4, lon, lat, pred, '4DVarNet', extent=extent, cmap=cm, norm=norm, colorbar=False)
 
+    cbar_ax = fig.add_axes([0.1, 0.05, 0.8, 0.01])
+    sm = plt.cm.ScalarMappable(cmap=cm, norm=norm) #plt.Normalize(vmin=vmin, vmax=vmax))
+    sm._A = []
+    cbar = fig.colorbar(sm, cax=cbar_ax, orientation='horizontal', pad=3.0)
     plt.savefig(resfile)    # save the figure
     fig = plt.gcf()
     plt.close()             # close the figure
     return fig
 
 
-def animate_maps(gt,obs,oi,pred,lon,lat,resfile,orthographic=True,dw=4,grad=False):
+def animate_maps(gt, obs, oi, pred, lon, lat, resfile, orthographic=True, dw=4, grad=False):
 
     if dw>1:
         # decrease the resolution
@@ -233,21 +241,21 @@ def animate_maps(gt,obs,oi,pred,lon,lat,resfile,orthographic=True,dw=4,grad=Fals
         #pred[i][id_nan] = np.nan
 
         if grad==False:
-            plot(ax1,lon,lat,gt[i],'GT',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
-            plot(ax2,lon,lat,obs[i],'OBS',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
-            plot(ax3,lon,lat,oi[i],'OI',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
-            plot(ax4,lon,lat,pred[i],'4DVarNet',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
+            plot(ax1, lon, lat, gt[i], 'GT', extent=extent, cmap="coolwarm", vmin=vmin, vmax=vmax)
+            plot(ax2, lon, lat, obs[i], 'OBS', extent=extent, cmap="coolwarm", vmin=vmin, vmax=vmax)
+            plot(ax3, lon, lat, oi[i], 'OI', extent=extent, cmap="coolwarm", vmin=vmin, vmax=vmax)
+            plot(ax4, lon, lat, pred[i], '4DVarNet', extent=extent, cmap="coolwarm", vmin=vmin, vmax=vmax)
         else:
-            plot(ax1,lon,lat,gradient(gt[i],2),r"$\nabla_{GT}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
-            plot(ax2,lon,lat,gradient(obs[i],2),r"$\nabla_{OBS}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
-            plot(ax3,lon,lat,gradient(oi[i],2),r"$\nabla_{OI}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
-            plot(ax4,lon,lat,gradient(pred[i],2),r"$\nabla_{4DVarNet}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
+            plot(ax1, lon, lat, gradient(gt[i], 2), r"$\nabla_{GT}$", extent=extent, cmap="viridis", vmin=vmin, vmax=vmax)
+            plot(ax2, lon, lat, gradient(obs[i], 2), r"$\nabla_{OBS}$", extent=extent, cmap="viridis", vmin=vmin, vmax=vmax)
+            plot(ax3, lon, lat, gradient(oi[i], 2), r"$\nabla_{OI}$", extent=extent, cmap="viridis", vmin=vmin, vmax=vmax)
+            plot(ax4, lon, lat, gradient(pred[i], 2), r"$\nabla_{4DVarNet}$", extent=extent, cmap="viridis", vmin=vmin, vmax=vmax)
 
     if grad==False:
         vmax = np.nanmax(np.abs(oi))
         vmin = -1.*vmax
     else:
-        vmax = np.nanmax(np.abs(gradient(oi,2)))
+        vmax = np.nanmax(np.abs(gradient(oi, 2)))
         vmin = 0
 
     extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
@@ -306,7 +314,7 @@ def save_netcdf(saved_path1, pred, lon, lat, time,
         data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
                    'latitude': (('lat', 'lon'), mesh_lat), \
                    'Time': (('time'), time), \
-                   'ssh': (('time', 'lat', 'lon'), pred[:, int(dt / 2), :, :])}, \
+                   'ssh': (('time', 'lat', 'lon'), pred[:, :, :])}, \
         coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred))})
     xrdata.time.attrs['units'] = time_units
     xrdata.to_netcdf(path=saved_path1, mode='w')

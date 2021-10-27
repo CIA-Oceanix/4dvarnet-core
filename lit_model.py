@@ -14,10 +14,10 @@ class LitModel(pl.LightningModule):
         self.xmax = kwargs['max_lon']
         self.ymin = kwargs['min_lat']
         self.ymax = kwargs['max_lat']
-        self.Nx = 200
-        self.Ny = 200
-        #self.Nx = int(((self.xmax-self.xmin)/.05)/self.hparams.resize_factor)
-        #self.Ny = int(((self.ymax-self.ymin)/.05)/self.hparams.resize_factor)
+        #  self.Nx = 200
+        #  self.Ny = 200
+        self.Nx = int(((self.xmax-self.xmin)/.05)/self.hparams.resize_factor)
+        self.Ny = int(((self.ymax-self.ymin)/.05)/self.hparams.resize_factor)
         self.lon = np.linspace(self.xmin, self.xmax, self.Nx)
         self.lat = np.linspace(self.ymin, self.ymax, self.Ny)
         self.shapeData = [self.hparams.dT*2,self.Ny,self.Nx]
@@ -158,9 +158,7 @@ class LitModel(pl.LightningModule):
         pred = np.concatenate([chunk['preds'][:, self.hparams.dT // 2, :, :] for chunk in outputs])
         obs = np.concatenate([chunk['obs'][:, self.hparams.dT // 2, :, :] for chunk in outputs])
 
-        print("\n")
-        print(gt.shape)
-        print("\n")
+        del outputs
 
         ds_size = {'time': self.ds_size_time,
                    'lon': self.ds_size_lon,
@@ -177,35 +175,24 @@ class LitModel(pl.LightningModule):
             ),
             [gt, obs, oi, pred])
 
-        print("\n")
-        print(gt.shape)
-        print("\n")
-
         # keep only points of the original domain
         iX = np.where( (self.lon_ext>=self.xmin) & (self.lon_ext<self.xmax) )[0]
         iY = np.where( (self.lat_ext>=self.ymin) & (self.lat_ext<self.ymax) )[0]
-        gt = (gt[:,iY,:])[:,:,iX]
-        obs = (obs[:,iY,:])[:,:,iX]
-        oi = (oi[:,iY,:])[:,:,iX]
-        pred = (pred[:,iY,:])[:,:,iX]
+        gt = (gt[:, iY, :])[:, :, iX]
+        obs = (obs[:, iY, :])[:, :, iX]
+        oi = (oi[:, iY, :])[:, :, iX]
+        pred = (pred[:, iY, :])[:, :, iX]
 
-        print("\n")
-        print(gt.shape)
-        print("\n")
+        del iX, iY
 
         self.x_gt = gt
         self.x_obs = obs
         self.x_oi = oi
         self.x_rec = pred
 
+        del gt, obs, oi, pred
+
         # display map
-        path_save0 = self.logger.log_dir + '/maps.png'
-        fig_maps = plot_maps(
-                  self.x_gt[0],
-                  self.x_obs[0],
-                  self.x_oi[0],
-                  self.x_rec[0],
-                  self.lon, self.lat, path_save0)
         path_save0 = self.logger.log_dir + '/maps_Grad.png'
         fig_maps_grad = plot_maps(
                   self.x_gt[0],
@@ -213,8 +200,8 @@ class LitModel(pl.LightningModule):
                   self.x_oi[0],
                   self.x_rec[0],
                   self.lon, self.lat, path_save0, grad=True)
-        self.test_figs['maps'] = fig_maps
         self.test_figs['maps_grad'] = fig_maps_grad
+        del fig_maps_grad
         # animate maps
         if self.hparams.animate == True:
             path_save0 = self.logger.log_dir + '/animation.mp4'
@@ -225,14 +212,16 @@ class LitModel(pl.LightningModule):
                          self.lon, self.lat, path_save0, grad=True)
         # compute nRMSE
         path_save2 = self.logger.log_dir + '/nRMSE.txt'
-        tab_scores = nrmse_scores(gt, oi, pred, path_save2)
+        tab_scores = nrmse_scores(self.x_gt, self.x_oi, self.x_rec, path_save2)
         print('*** Display nRMSE scores ***')
         print(tab_scores)
+        del tab_scores
 
         path_save21 = self.logger.log_dir + '/MSE.txt'
-        tab_scores = mse_scores(gt, oi, pred, path_save21)
+        tab_scores = mse_scores(self.x_gt, self.x_oi, self.x_rec, path_save21)
         print('*** Display MSE scores ***')
         print(tab_scores)
+        del tab_scores
 
         # plot nRMSE
         path_save3 = self.logger.log_dir + '/nRMSE.png'
@@ -243,9 +232,9 @@ class LitModel(pl.LightningModule):
         path_save31 = self.logger.log_dir + '/MSE.png'
         mse_fig = plot_mse(self.x_gt, self.x_oi, self.x_rec, path_save31, time=self.time['time_test'])
         self.test_figs['mse'] = mse_fig
-        self.logger.experiment.add_figure('Maps', fig_maps, global_step=self.current_epoch)
         self.logger.experiment.add_figure('NRMSE', nrmse_fig, global_step=self.current_epoch)
         self.logger.experiment.add_figure('MSE', mse_fig, global_step=self.current_epoch)
+        del nrmse_fig, mse_fig
 
         # plot SNR
         path_save4 = self.logger.log_dir + '/SNR.png'
@@ -253,11 +242,24 @@ class LitModel(pl.LightningModule):
         self.test_figs['snr'] = snr_fig
 
         self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
+        del snr_fig
+
         # save NetCDF
         path_save1 = self.logger.log_dir + '/maps.nc'
-        save_netcdf(saved_path1=path_save1, pred=pred,
+        save_netcdf(saved_path1=path_save1, pred=self.x_rec,
                     lon=self.lon, lat=self.lat, time=self.time['time_test'],
                     time_units='days since 2017-10-01 00:00:00')
+
+        path_save0 = self.logger.log_dir + '/maps.png'
+        fig_maps = plot_maps(
+                  self.x_gt[0],
+                  self.x_obs[0],
+                  self.x_oi[0],
+                  self.x_rec[0],
+                  self.lon, self.lat, path_save0)
+        self.test_figs['maps'] = fig_maps
+        self.logger.experiment.add_figure('Maps', fig_maps, global_step=self.current_epoch)
+        del fig_maps
 
     def compute_loss(self, batch, phase):
 

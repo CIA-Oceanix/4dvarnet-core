@@ -39,8 +39,8 @@ params = {
                 gt_var='ssh',
         ),
     'dataloading': 'new',
-    'data_dir'        : '/home3/scratch/hgeorgen/commun/large',
-    'dir_save'        : '/home3/scratch/hgeorgen/commun/large/results',
+    'data_dir'        : '/home3/scratch/hgeorgen/commun/',
+    'dir_save'        : '/home3/scratch/hgeorgen/commun/results',
 
     'iter_update'     : [0, 20, 40, 60, 100, 150, 800],  # [0,2,4,6,9,15]
     'nb_grad_update'  : [5, 5, 10, 10, 15, 15, 20, 20, 20],  # [0,0,1,2,3,3]#[0,2,2,4,5,5]#
