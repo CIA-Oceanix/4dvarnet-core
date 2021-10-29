@@ -195,7 +195,7 @@ def plot_maps(gt, obs, oi, pred, lon, lat, resfile, grad=False):
     ax4 = fig.add_subplot(224, projection=ccrs.PlateCarree(central_longitude=0.0))
     if grad:
         cm = plt.cm.viridis
-        norm = colors.PowerNorm(gamma=0.7)
+        norm = colors.PowerNorm(gamma=0.7, vmin=vmin, vmax=vmax)
         plot(ax1, lon, lat, gradient(gt, 2), r"$\nabla_{GT}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
         plot(ax2, lon, lat, gradient(obs, 2), r"$\nabla_{OBS}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
         plot(ax3, lon, lat, gradient(oi, 2), r"$\nabla_{OI}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
