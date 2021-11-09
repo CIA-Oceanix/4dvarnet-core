@@ -25,9 +25,8 @@ config = OmegaConf.create(
     )
 )
 
-
 class SlicerDataset(Dataset):
-    def __init__(self, data, time_window, stride):
+    def __init__(self, data, time_window, stride, noise_sigma=0.):
         super().__init__()
         self.data =  data
         print(self.data.shape)
@@ -35,7 +34,9 @@ class SlicerDataset(Dataset):
         self.stride = stride
         self.time_window = time_window
         if (self.n_times - self.time_window + 1) - len(self) > 0:
-            warnings.warn(f" unused timesteps  ( strides: {stride} time_window: {time_window} shape: {self.data.shape} len ds: {len(self)}")
+            warnings.warn(
+                f" unused timesteps  ( strides: {stride} time_window: {time_window} shape: {self.data.shape} len ds: {len(self)}"
+            )
            
     def __len__(self):
         return (self.n_times - self.time_window + 1) // self.stride
@@ -44,6 +45,9 @@ class SlicerDataset(Dataset):
         return self.data[item * self.stride: item * self.stride + self.time_window]
 
 class MaskerDataset(Dataset):
+    """
+    Create a random mask from a slicer dataset
+    """
     def __init__(self, sl_ds, missing_rate=0.75):
         super().__init__()
         self.sl_ds = sl_ds
@@ -101,7 +105,11 @@ class LorenzDM(pl.LightningDataModule):
                 SlicerDataset(data[1], **self.cfg.slice_cfg),
                 SlicerDataset(data[2], **self.cfg.slice_cfg),
             ),
-            [(train_data, train_noise, train_times), (val_data, val_noise, val_times), (test_data, test_noise, test_times)]
+            [
+                (train_data, train_noise, train_times),
+                (val_data, val_noise, val_times),
+                (test_data, test_noise, test_times)
+            ]
         )
             
 
