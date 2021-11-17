@@ -1,12 +1,11 @@
 # @package _global_
 params:
-  ckpt_name: 'modelCalSLAInterpGF-Exp3-{epoch:02d}-{val_loss:.2f}'
-  norm_obs: 'l1'
-  norm_prior: 'l1'
-  n_fourdvar_iter: 1
-lit_mod_cls: calibration.lit_cal_model.LitCalModel
+  ckpt_name: 'modelSLAInterpGF-Exp3-{epoch:02d}-{val_loss:.2f}'
+  norm_obs: 'l2'
+  norm_prior: 'l2'
+lit_mod_cls: lit_model.LitModel
 datamodule:
-  _target_: calibration.dataset.FourDVarNetCalDataModule
+  _target_: new_dataloading.FourDVarNetDataModule
   slice_win:
     lat: 200
     lon: 200
@@ -28,8 +27,6 @@ datamodule:
       _args_: ['2012-11-30', '2012-12-24']
   oi_path: ${params.files_cfg.oi_path}
   oi_var: ${params.files_cfg.oi_var}
-  obs_target_path: ${params.files_cfg.obs_target_path}
-  obs_target_var: ${params.files_cfg.obs_target_var}
   obs_mask_path: ${params.files_cfg.obs_mask_path}
   obs_mask_var: ${params.files_cfg.obs_mask_var}
   gt_path: ${params.files_cfg.gt_path}
@@ -37,4 +34,5 @@ datamodule:
   dl_kwargs:
     batch_size: 2
     num_workers: 2
+
 

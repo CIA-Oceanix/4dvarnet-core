@@ -1,3 +1,4 @@
+print(f"Using current {__name__}")
 import datetime
 import einops
 import numpy as np

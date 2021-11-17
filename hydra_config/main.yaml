@@ -5,10 +5,12 @@ hydra:
     dir: .
     subdir: dashboard/${oc.select:xp_name,.}
 
+seed: 0
+
 defaults:
   - file_paths: jz
-  - xp: ???
   - entrypoint: ???
+  - xp: ???
   - _self_
 
 

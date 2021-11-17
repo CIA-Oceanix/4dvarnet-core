@@ -16,6 +16,12 @@ function train(){
 	echo $JOBID
 }
 
+function icassp_train(){
+	JOBID=$(sbatch --parsable scripts/icassp.slurm $1)
+	link "train/$1" $JOBID
+	echo $JOBID
+}
+
 function hydra_train(){
 	JOBID=$(sbatch --parsable scripts/hydra_train.slurm $1)
 	link "train/$1" $JOBID

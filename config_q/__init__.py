@@ -1,4 +1,5 @@
 import xarray as xr
+import pandas as pd
 from datetime import datetime, timedelta
 
 # Specify the dataset spatial bounds
@@ -21,6 +22,7 @@ strides = {
     'lon': 200,
 }
 
+test_dates = [str(dt.date()) for dt in pd.date_range('2013-01-03', "2013-01-27")]
 time_period = {
     'train_slices' : (slice('2012-10-01', "2012-11-20"), slice('2013-02-07', "2013-09-30")),
     'test_slices' : (slice('2013-01-03', "2013-01-27"),),
@@ -36,6 +38,7 @@ params = {
                 gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
                 gt_var='ssh',
         ),
+    'test_dates': test_dates,
     'dataloading': 'new',
     'data_dir'        : '/gpfsscratch/rech/nlu/commun/large',
     'dir_save'        : '/gpfsscratch/rech/nlu/commun/large/results_maxime',
@@ -127,4 +130,4 @@ def def_time(params,time_period):
        }
     return time
 
-time = def_time(params,time_period)
+time = def_time(params, time_period)

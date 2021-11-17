@@ -1,3 +1,4 @@
+print(f"Using current {__name__}")
 from models import *
 
 class LitModel(pl.LightningModule):
@@ -103,10 +104,10 @@ class LitModel(pl.LightningModule):
         # log step metric        
         # self.log('train_mse', mse)
         # self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
-        self.log("loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        self.log("tr_mse", metrics['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
+        self.log("loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=False)
+        self.log("tr_mse", metrics['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True, sync_dist=False)
         self.log("tr_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True,
-                 sync_dist=True)
+                 sync_dist=False)
 
         # initial grad value
         if self.hparams.automatic_optimization == False:

@@ -135,10 +135,20 @@ class LitCalModel(pl.LightningModule):
             'phi': get_phi,
         }
 
-    def __init__(self, hparam=None, *args, **kwargs):
+    def __init__(self, hparam=None,
+                               min_lon=None, max_lon=None,
+                               min_lat=None, max_lat=None,
+                               ds_size_time=None,
+                               ds_size_lon=None,
+                               ds_size_lat=None,
+                               time=None,
+                               dX = None, dY = None,
+                               swX = None, swY = None,
+                               coord_ext = None, *args, **kwargs):
         super().__init__()
         hparam = {} if hparam is None else hparam
         hparams = hparam if isinstance(hparam, dict) else OmegaConf.to_container(hparam, resolve=True)
+
         self.save_hyperparameters({**hparams, **kwargs})
         # TOTEST: set those parameters only if provided
         self.var_Val = self.hparams.var_Val
@@ -180,8 +190,16 @@ class LitCalModel(pl.LightningModule):
     def create_model(self):
         return self.MODELS[self.model_name](self.hparams)
 
-    def forward(self):
-        return 1
+    def forward(self, batch, phase='test'):
+        losses = []
+        metrics = []
+        state_init = None
+        for _ in range(self.hparams.n_fourdvar_iter):
+            _loss, outs, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
+            state_init = outs.detach()
+            losses.append(_loss)
+            metrics.append(_metrics)
+        return losses, outs, metrics
 
     def configure_optimizers(self):
         
@@ -214,7 +232,7 @@ class LitCalModel(pl.LightningModule):
         self.model.n_grad = self.hparams.n_grad
 
     def on_train_epoch_start(self):
-        if self.model_name == '4dvarnet':
+        if self.model_name in ('4dvarnet', '4dvarnet_sst'):
             opt = self.optimizers()
             if (self.current_epoch in self.hparams.iter_update) & (self.current_epoch > 0):
                 indx = self.hparams.iter_update.index(self.current_epoch)
@@ -234,42 +252,33 @@ class LitCalModel(pl.LightningModule):
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
 
         # compute loss and metrics    
-        loss, out, _, metrics = self.compute_loss(train_batch, phase='train')
-        if loss is None:
-            return loss
+        losses, outs, metrics = self(train_batch, phase='train')
+        if losses[-1] is None:
+            print("None loss")
+            return None
+        loss = torch.stack(losses).mean()
         # log step metric        
         # self.log('train_mse', mse)
         # self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True)
-        self.log("loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, rank_zero_only=True)
-        self.log("tr_mse", metrics['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
-        self.log("tr_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
-        self.log("tr_mse_swath", metrics['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
-        self.log("tr_mseG_swath", metrics['mseGradSwath'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
+        self.log("tr_loss", loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log("tr_mse", metrics[-1]['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_mseG", metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_mse_swath", metrics[-1]['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_mseG_swath", metrics[-1]['mseGradSwath'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
 
-        # initial grad value
-        if self.hparams.automatic_optimization == False:
-            opt = self.optimizers()
-            # backward
-            self.manual_backward(loss)
-
-            if (batch_idx + 1) % self.hparams.k_batch == 0:
-                # optimisation step
-                opt.step()
-
-                # grad initialization to zero
-                opt.zero_grad()
 
         return loss
 
     def validation_step(self, val_batch, batch_idx):
-        loss, out, _, metrics = self.compute_loss(val_batch, phase='val')
+        losses, _, metrics = self(val_batch, phase='val')
+        loss = torch.stack(losses).mean()
         if loss is None:
             return loss
-        self.log('val_loss', loss, rank_zero_only=True)
-        self.log("val_mse", metrics['mse'] / self.var_Val, on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
-        self.log("val_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
-        self.log("val_mse_swath", metrics['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
-        self.log("val_mseG_swath", metrics['mseGradSwath'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
+        self.log('val_loss', loss)
+        self.log("val_mse", metrics[-1]['mse'] / self.var_Val, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val_mseG", metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val_mse_swath", metrics[-1]['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val_mseG_swath", metrics[-1]['mseGradSwath'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
         return loss.detach()
 
     def on_test_epoch_start(self):
@@ -285,13 +294,14 @@ class LitCalModel(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT, obs_target_item = test_batch
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, obs_target_item = test_batch
-        loss, out, out_pred, metrics = self.compute_loss(test_batch, phase='test')
+        loss, outs, metrics = self(test_batch, phase='test')
+        _, out, out_pred = self.get_outputs(test_batch, outs[-1])
         if loss is not None:
-            self.log('test_loss', loss, rank_zero_only=True)
-            self.log("test_mse", metrics['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
-            self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
-            self.log("test_mse_swath", metrics['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
-            self.log("test_mseG_swath", metrics['mseGradSwath'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True, rank_zero_only=True)
+            self.log('test_loss', loss)
+            self.log("test_mse", metrics[-1]['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
+            self.log("test_mseG", metrics[-1]['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+            self.log("test_mse_swath", metrics[-1]['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
+            self.log("test_mseG_swath", metrics[-1]['mseGradSwath'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
         return {'gt'    : (targets_GT.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'oi'    : (targets_OI.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'target_obs'    : (obs_target_item.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
@@ -468,10 +478,44 @@ class LitCalModel(pl.LightningModule):
                     'spatial_res': float(spatial_res_model),
                     'spatial_res_imp': float(spatial_res_model / spatial_res_oi),
                     **mdf.to_dict(), },
-
                 )
 
-    def compute_loss(self, batch, phase):
+    def get_init_state(self, batch, state):
+        if state is not None:
+            return state
+
+        if not self.use_sst:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, target_obs_GT = batch
+        else:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, target_obs_GT = batch
+
+        anomaly_global = torch.zeros_like(targets_OI)
+
+        if self.hparams.anom_swath_init == 'zeros':
+            anomaly_swath = torch.zeros_like(targets_OI)
+        elif self.hparams.anom_swath_init == 'obs':
+            anomaly_swath = (inputs_obs - targets_OI).detach()
+
+        return torch.cat((targets_OI, anomaly_global, anomaly_swath), dim=1)
+
+    def get_outputs(self, batch, state_out):
+
+        if not self.use_sst:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, target_obs_GT = batch
+        else:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, target_obs_GT = batch
+        output_low_res,  output_anom_glob, output_anom_swath = torch.split(state_out, split_size_or_sections=targets_OI.size(1), dim=1)
+        output_global = output_low_res + output_anom_glob
+
+        if self.hparams.swot_anom_wrt == 'low_res':
+            output_swath = output_low_res + output_anom_swath
+        elif self.hparams.swot_anom_wrt == 'high_res':
+            output_swath = output_global + output_anom_swath
+
+        return output_low_res, output_global, output_swath
+
+    def compute_loss(self, batch, phase, state_init=None):
+
         if not self.use_sst:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, target_obs_GT = batch
         else:
@@ -494,14 +538,8 @@ class LitCalModel(pl.LightningModule):
                     )
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
         target_obs_GT_wo_nan = target_obs_GT.where(~target_obs_GT.isnan(), torch.zeros_like(target_obs_GT))
-        anomaly_global = torch.zeros_like(targets_OI)
 
-        if self.hparams.anom_swath_init == 'zeros':
-            anomaly_swath = torch.zeros_like(targets_OI)
-        elif self.hparams.anom_swath_init == 'obs':
-            anomaly_swath = (inputs_obs - targets_OI).detach()
-
-        state = torch.cat((targets_OI, anomaly_global, anomaly_swath), dim=1)
+        state = self.get_init_state(batch, state_init)
 
         #state = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
         if not self.use_sst:
@@ -533,16 +571,13 @@ class LitCalModel(pl.LightningModule):
                 outputs = outputs.detach()
 
             # PENDING: reconstruct outputs, outputs LowRes and outputSwath MegaRes
-            output_low_res,  output_anom_glob, output_anom_swath = torch.split(outputs, split_size_or_sections=targets_OI.size(1), dim=1)
-            output_global = output_low_res + output_anom_glob
 
             if self.hparams.swot_anom_wrt == 'low_res':
-                output_swath = output_low_res + output_anom_swath
                 gt_anom_swath = targets_OI
             elif self.hparams.swot_anom_wrt == 'high_res':
-                output_swath = output_global + output_anom_swath
                 gt_anom_swath = targets_GT
 
+            output_low_res, output_global, output_swath = self.get_outputs(batch, outputs)
             # reconstruction losses
             g_output_global = self.gradient_img(output_global)
             g_output_swath = self.gradient_img(output_swath)
@@ -607,4 +642,4 @@ class LitCalModel(pl.LightningModule):
                 ('mseGOI', loss_GOI.detach())])
             # PENDING: Add new loss term to metrics
 
-        return loss, output_global, output_swath, metrics
+        return loss, outputs, metrics

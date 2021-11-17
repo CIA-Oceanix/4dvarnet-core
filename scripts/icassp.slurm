@@ -5,7 +5,7 @@
 #SBATCH --account=yrf@gpu
 #SBATCH --gres=gpu:4
 #SBATCH --ntasks-per-node=4
-#SBATCH --time=01:30:00
+#SBATCH --time=04:00:00
 #SBATCH --cpus-per-task=10
 #SBATCH --hint=nomultithread
 #SBATCH -C v100-32g
@@ -24,7 +24,7 @@ conda activate 4dvarnet
 export PYTHONPATH=${WORK}/4dvarnet-core:${PYTHONPATH}
 
 
-srun python hydra_main.py xp=$1 entrypoint=train
+srun python -m icassp_code_bis.main --max_epochs=250 --config=$1 --progress_bar_refresh_rate=5 train
 
 
 

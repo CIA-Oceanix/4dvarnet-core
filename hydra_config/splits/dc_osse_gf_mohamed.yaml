@@ -1,0 +1,10 @@
+train_slices: 
+  - _target_: builtins.slice
+    _args_: ['2013-02-04', '2013-09-30']
+test_slices: 
+  - _target_: builtins.slice
+    _args_: ['2012-10-20', '2012-12-04']
+val_slices: 
+  - _target_: builtins.slice
+    _args_: ['2012-10-20', '2012-12-04']
+
