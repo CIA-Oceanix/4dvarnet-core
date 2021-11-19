@@ -10,7 +10,7 @@ class FourDVarNetHydraRunner(FourDVarNetRunner):
     def __init__(self, params, dm, lit_mod_cls):
         self.cfg = params
         self.filename_chkpt = self.cfg.ckpt_name
-        self.dm = dm 
+        self.dm = dm
         self.lit_cls = lit_mod_cls
         dm.setup()
         self.dataloaders = {
@@ -18,7 +18,11 @@ class FourDVarNetHydraRunner(FourDVarNetRunner):
             'val': dm.val_dataloader(),
             'test': dm.test_dataloader(),
         }
-        self.time =  {'time_test' : self.cfg.test_dates,}
+
+        test_dates = [str(dt.date()) for dt in \
+            pd.date_range(dm.test_slices[0].start, dm.test_slices[0].stop)]
+        self.time = {'time_test' : test_dates}
+
         self.setup(dm)
 
 
