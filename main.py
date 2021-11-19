@@ -12,25 +12,24 @@ import torch
 from omegaconf import OmegaConf
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-import solver as NN_4DVar
-from models import Gradient_img
-from lit_model import LitModel
-from lit_model_sst import LitModelWithSST
-from lit_model_stochastic import LitModelStochastic
-from new_dataloading import FourDVarNetDataModule
-from old_dataloading import LegacyDataLoading
-
 
 class FourDVarNetRunner:
     def __init__(self, dataloading="old", config=None):
+        from lit_model import LitModel
+        from lit_model_sst import LitModelWithSST
+        from lit_model_stochastic import LitModelStochastic
+        from new_dataloading import FourDVarNetDataModule
+        from old_dataloading import LegacyDataLoading
         self.filename_chkpt = 'modelSLAInterpGF-Exp3-{epoch:02d}-{val_loss:.2f}'
         if config is None:
             import config
         else:
-            config = __import__("config_" + str(config))
+            import importlib
+            print('loading config')
+            config = importlib.import_module("config_" + str(config))
 
         self.cfg = OmegaConf.create(config.params)
-
+        print(OmegaConf.to_yaml(self.cfg))
         dataloading = config.params['dataloading']
 
         dim_range = config.dim_range
@@ -70,7 +69,7 @@ class FourDVarNetRunner:
             self.ds_size_lon = 1
             self.ds_size_lat = 1
         else:
-            self.setup()
+            self.setup(datamodule=datamodule)
 
         if config.params['stochastic'] == False:
             self.lit_cls = LitModelWithSST if dataloading == "with_sst" else LitModel
@@ -118,9 +117,9 @@ class FourDVarNetRunner:
         :param ckpt_path: (Optional) Checkpoint path to load
         :return: lightning module
         """
-
+        print('get_model: ', ckpt_path)
         if ckpt_path:
-            mod = self.lit_cls.load_from_checkpoint(ckpt_path, w_loss=self.wLoss,
+            mod = self.lit_cls.load_from_checkpoint(ckpt_path, w_loss=self.wLoss, strict=False,
                                                     mean_Tr=self.mean_Tr, mean_Tt=self.mean_Tt, mean_Val=self.mean_Val,
                                                     var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val,
                                                     min_lon=self.min_lon, max_lon=self.max_lon,
@@ -131,7 +130,8 @@ class FourDVarNetRunner:
                                                     time=self.time,
                                                     dX = self.dX, dY = self.dY,
                                                     swX = self.swX, swY = self.swY,
-                                                    coord_ext = {'lon_ext': self.lon, 'lat_ext': self.lat})
+                                                    coord_ext = {'lon_ext': self.lon, 'lat_ext': self.lat}
+                                                    )
 
         else:
             mod = self.lit_cls(hparam=self.cfg, w_loss=self.wLoss,
@@ -145,7 +145,8 @@ class FourDVarNetRunner:
                                time=self.time,
                                dX = self.dX, dY = self.dY,
                                swX = self.swX, swY = self.swY,
-                               coord_ext = {'lon_ext': self.lon, 'lat_ext': self.lat})
+                               coord_ext = {'lon_ext': self.lon, 'lat_ext': self.lat}
+                               )
         return mod
 
     def train(self, ckpt_path=None, **trainer_kwargs):
@@ -162,15 +163,13 @@ class FourDVarNetRunner:
                                               filename=self.filename_chkpt,
                                               save_top_k=3,
                                               mode='min')
+        from pytorch_lightning.callbacks import LearningRateMonitor
+        lr_monitor = LearningRateMonitor(logging_interval='step')
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         num_gpus = torch.cuda.device_count()
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
         trainer = pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, auto_select_gpus=(num_gpus * num_nodes) > 0,
-                             callbacks=[checkpoint_callback], **trainer_kwargs)
-        # print(mod)
-        print(type(mod.hparams))
-        # print(num_gpus)
-        # print(num_nodes)
+                             callbacks=[checkpoint_callback, lr_monitor], **trainer_kwargs)
         trainer.fit(mod, self.dataloaders['train'], self.dataloaders['val'])
         return mod, trainer
 
@@ -184,10 +183,6 @@ class FourDVarNetRunner:
 
         mod = _mod or self._get_model(ckpt_path=ckpt_path)
 
-        num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
-        num_gpus = torch.cuda.device_count()
-        accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
-        # trainer = _trainer or pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, **trainer_kwargs)
         trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs)
         trainer.test(mod, test_dataloaders=self.dataloaders[dataloader])
 

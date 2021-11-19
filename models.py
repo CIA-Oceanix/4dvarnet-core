@@ -105,7 +105,7 @@ class RegularizeVariance(torch.nn.Module):
 
 class Phi_r(torch.nn.Module):
     def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic=False):
-        super(Phi_r, self).__init__()
+        super().__init__()
         self.stochastic = stochastic
         self.encoder = Encoder(shape_data, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
         self.decoder = Decoder()
@@ -158,6 +158,7 @@ class Model_HwithSST(torch.nn.Module):
 
         return [dyout, dyout1]
 
+
 class Gradient_img(torch.nn.Module):
     def __init__(self):
         super(Gradient_img, self).__init__()
@@ -172,9 +173,8 @@ class Gradient_img(torch.nn.Module):
         self.conv_gy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0),
                                                 requires_grad=False)
 
-
-        #self.eps=10**-6
-        self.eps=0.
+        self.eps=10**-3
+        # self.eps=0.
 
     def forward(self, im):
 

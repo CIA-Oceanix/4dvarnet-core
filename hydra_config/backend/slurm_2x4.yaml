@@ -1,0 +1,18 @@
+# @package _global_
+hydra:
+  launcher:
+    cpus_per_task: 10
+    constraint: v100-32g
+    nodes: 2
+    additional_parameters:
+      account: yrf@gpu
+      ntasks_per_node: 4
+      gres: gpu:4
+      time: 04:00:00
+      hint: nomultithread
+      qos: qos_gpu-t3
+
+
+defaults:
+  - override /hydra/launcher: submitit_slurm
+  - _self_

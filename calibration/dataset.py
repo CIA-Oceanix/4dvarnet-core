@@ -1,5 +1,6 @@
 from new_dataloading import FourDVarNetDataset, FourDVarNetDataModule, XrDataset
 from torch.utils.data import ConcatDataset
+import numpy as np
 
 class FourDVarNetCalDataset(FourDVarNetDataset):
     def __init__(
@@ -19,6 +20,7 @@ class FourDVarNetCalDataset(FourDVarNetDataset):
         mean, std = self.norm_stats
         obs_target_item = (self.obs_target_ds[item] - mean) / std
         return tuple([*super().__getitem__(item), obs_target_item])
+
 
 class FourDVarNetCalDataModule(FourDVarNetDataModule):
     def __init__(self, 

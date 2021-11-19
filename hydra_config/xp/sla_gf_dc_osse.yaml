@@ -1,0 +1,11 @@
+# @package _global_
+xp_name: sla_gf_dc
+defaults:
+  - /legacy: nad_swot
+  - /domain@datamodule.dim_range: gf
+  - /training: baseline
+  - /splits@datamodule: dc_osse_gf_mohamed
+  - _self_
+
+
+

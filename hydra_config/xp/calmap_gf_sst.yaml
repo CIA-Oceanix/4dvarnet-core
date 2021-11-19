@@ -1,4 +1,5 @@
 # @package _global_
+xp_name: calmap_gf_sst
 params:
   model: 4dvarnet_sst
   sst: true
@@ -7,7 +8,7 @@ datamodule:
   sst_var: sst
 
 defaults:
-  - /legacy: fourdvarnet_calmap
+  - /params: fourdvarnet_calmap
   - /domain@datamodule.dim_range: gf
   - /training: calmap
   - _self_
