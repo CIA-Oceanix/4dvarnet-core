@@ -1,4 +1,3 @@
-print(f"Using current {__name__}")
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -146,7 +145,7 @@ class ConvLSTM1d(torch.nn.Module):
         return hidden, cell
 
 def compute_WeightedLoss(x2,w):
-    # PENDING: fix normalizing factor ( Sum w = 1 != w~ bool index)
+    #  fix normalizing factor ( Sum w = 1 != w~ bool index)
     x2_msk = (x2 * w[None, :, None, None])[:, w>0, ...]
     x2_num = ~x2_msk.isnan() & ~x2_msk.isinf()
     if x2_num.sum() == 0:
@@ -358,7 +357,7 @@ class Solver_Grad_4DVarNN(nn.Module):
         self.phi_r         = phi_r
         
         if m_NormObs == None:
-            m_NormObs =  Model_WeightedL1Norm()
+            m_NormObs =  Model_WeightedL2Norm()
         else:
             m_NormObs = self.NORMS[m_NormObs]()
         if m_NormPhi == None:    

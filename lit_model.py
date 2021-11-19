@@ -1,4 +1,3 @@
-print(f"Using current {__name__}")
 from models import *
 
 class LitModel(pl.LightningModule):

@@ -10,7 +10,7 @@ params:
   n_grad: 5
   n_fourdvar_iter: 2 
 defaults:
-  - /legacy: fourdvarnet_calmap
+  - /params: fourdvarnet_calmap
   - /domain@datamodule.dim_range: gf
   - /training: calmap
   - _self_
