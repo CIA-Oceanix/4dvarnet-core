@@ -21,6 +21,7 @@ dependencies:
   - numpy_groupies=0.9.13
   - pip:
     - pytorch-lightning==1.4.9
+    - seaborn
     - omegaconf
     - einops
     - hydra-submitit-launcher

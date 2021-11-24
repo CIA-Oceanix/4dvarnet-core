@@ -1,0 +1,21 @@
+# @package _global_
+xp_name: calmap_sst_gf_casc34
+datamodule:
+  sst_path: ${file_paths.natl_sst}
+  sst_var: sst
+  dl_kwargs:
+    batch_size: 2
+params:
+  model: 4dvarnet_sst
+  sst: true
+  iter_update: [0, 10, 20, 30, 40, 150, 800]
+  nb_grad_update: [5, 5, 5, 5, 5, 5, 5, 5]
+  lr_update: [0.001, 0.001, 0.001, 0.001, 1.0e-04, 1.0e-04, 1.0e-06, 1.0e-07]
+  n_grad: 4
+  n_fourdvar_iter: 3 
+defaults:
+  - /legacy: fourdvarnet_calmap
+  - /domain@datamodule.dim_range: gf
+  - /training: calmap
+  - _self_
+

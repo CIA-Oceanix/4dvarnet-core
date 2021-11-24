@@ -200,7 +200,7 @@ class Gradient_img(torch.nn.Module):
 
 class ModelLR(torch.nn.Module):
     def __init__(self):
-        super(ModelLR, self).__init__()
+        super().__init__()
 
         self.pool = torch.nn.AvgPool2d((16, 16))
 

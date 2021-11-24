@@ -89,7 +89,28 @@ class Model_H_SST_with_noisy_Swot(torch.nn.Module):
 
         return [dyout, dyout1]
 
+# Aurélie Albert referente données soft 
+# Johanna CNN multi modal avec attention prediction chlorophile
+# Batimetrie: profondeur de l'ocean important pour les courants
 
+# Artefacts sst
+# TODO: ref donnée journalière vs snapshot
+# TODO: utiliser la sst uniquement pour la fauchée
+# TODO: etat augmenté
+# TODO: Check 2 termes d'observation SST 
+# TODO: apprendre post traitement 
+
+
+# Artefacts NATL
+
+# TODO: test prediction tout le domaine
+# TODO: test prediction sur plus gradn domaine 
+# TODO: Plusieurs cartes  
+
+# Artefacts calib natl
+
+# TODO: chekc plusieurs journées
+# TODO: demander à Clément dans le design des chaine de cross calib est-ce qu'ils ont refléchit à soustraire le dac  ou bien regarde -t il que en ocean ouvert
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
@@ -144,7 +165,8 @@ class LitCalModel(pl.LightningModule):
                                time=None,
                                dX = None, dY = None,
                                swX = None, swY = None,
-                               coord_ext = None, *args, **kwargs):
+                               coord_ext = None,
+                               *args, **kwargs):
         super().__init__()
         hparam = {} if hparam is None else hparam
         hparams = hparam if isinstance(hparam, dict) else OmegaConf.to_container(hparam, resolve=True)
@@ -294,12 +316,13 @@ class LitCalModel(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT, obs_target_item = test_batch
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, obs_target_item = test_batch
-        loss, outs, metrics = self(test_batch, phase='test')
-        _, out, out_pred = self.get_outputs(test_batch, outs[-1])
+        losses, outs, metrics = self(test_batch, phase='test')
+        _, out, out_pred = self.get_outputs(test_batch, outs)
+        loss = losses[-1]
         if loss is not None:
             self.log('test_loss', loss)
             self.log("test_mse", metrics[-1]['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
-            self.log("test_mseG", metrics[-1]['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+            self.log("test_mseG", metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
             self.log("test_mse_swath", metrics[-1]['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
             self.log("test_mseG_swath", metrics[-1]['mseGradSwath'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
         return {'gt'    : (targets_GT.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
@@ -504,6 +527,8 @@ class LitCalModel(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT, target_obs_GT = batch
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, target_obs_GT = batch
+        # print(state_out.shape)
+        # print(targets_OI.shape)
         output_low_res,  output_anom_glob, output_anom_swath = torch.split(state_out, split_size_or_sections=targets_OI.size(1), dim=1)
         output_global = output_low_res + output_anom_glob
 
