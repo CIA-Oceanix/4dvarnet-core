@@ -23,7 +23,7 @@ with hydra.initialize_config_dir(str(Path('hydra_config').absolute())):
         ]
     )
 lit_cls = get_class(cfg.lit_mod_cls)
-mod: calibration.LitCalModel = lit_cls.load_from_checkpoint(cfg.entrypoint.ckpt_path)
+mod: calibration.lit_cal_model.LitCalModel = lit_cls.load_from_checkpoint(cfg.entrypoint.ckpt_path)
 dm_cfg = cfg.datamodule
 print(OmegaConf.to_yaml(dm_cfg))
 dm = instantiate(dm_cfg)

@@ -111,6 +111,7 @@ class Model_H_SST_with_noisy_Swot(torch.nn.Module):
 
 # TODO: chekc plusieurs journées
 # TODO: demander à Clément dans le design des chaine de cross calib est-ce qu'ils ont refléchit à soustraire le dac  ou bien regarde -t il que en ocean ouvert
+
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
@@ -282,6 +283,7 @@ class LitCalModel(pl.LightningModule):
         # log step metric        
         # self.log('train_mse', mse)
         # self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True)
+        self.log("tr_n_nobs", train_batch[1].sum().item(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log("tr_loss", loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log("tr_mse", metrics[-1]['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
         self.log("tr_mseG", metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
