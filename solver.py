@@ -154,6 +154,15 @@ def compute_WeightedLoss(x2,w):
     loss2 = F.mse_loss(x2_msk[x2_num], torch.zeros_like(x2_msk[x2_num]))
     return loss2
 
+def compute_spatio_temp_weighted_loss(x2, w):
+    # print(x2.shape)
+    x2_w = (x2 * w[None, ...])
+    x2_num = ~x2_w.isnan() & ~x2_w.isinf()
+    if x2_num.sum() == 0:
+        return torch.scalar_tensor(0., device=x2_num.device)
+    loss = F.mse_loss(x2_w[x2_num], torch.zeros_like(x2_w[x2_num]))
+    return loss
+
 # Modules for the definition of the norms for
 # the observation and prior model
 class Model_WeightedL2Norm(torch.nn.Module):

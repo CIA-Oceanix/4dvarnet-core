@@ -1,4 +1,5 @@
 import einops
+import kornia
 from hydra.utils import instantiate
 import pandas as pd
 from functools import reduce
@@ -213,10 +214,10 @@ class LitCalModel(pl.LightningModule):
         self.use_sst = self.hparams.model if hasattr(self.hparams, 'sst') else False
         self.model = self.create_model()
         self.model_LR = ModelLR()
-        self.gradient_img = Gradient_img()
+        self.gradient_img = kornia.filters.sobel
         # loss weghing wrt time
 
-        self.w_loss = torch.nn.Parameter(torch.Tensor(self.hparams.w_loss), requires_grad=False)  # duplicate for automatic upload to gpu
+        self.w_loss = torch.nn.Parameter(torch.Tensor(self.patch_weight), requires_grad=False)  # duplicate for automatic upload to gpu
         self.x_gt = None  # variable to store Ground Truth
         self.x_oi = None  # variable to store OI
         self.x_rec = None  # variable to store output of test method
@@ -676,15 +677,15 @@ class LitCalModel(pl.LightningModule):
             _err_g_swath =(g_output_swath - g_targets_obs)**2
             err_g_swath = torch.where(g_targets_obs_mask.isnan() | g_targets_obs_mask.isinf(), torch.zeros_like(_err_g_swath), _err_g_swath)
 
-            loss_swath = NN_4DVar.compute_WeightedLoss(err_swath, self.w_loss)
+            loss_swath = NN_4DVar.compute_spatio_temp_weighted_loss(err_swath, self.w_loss)
             # print(f"{loss_swath=}")
-            loss_grad_swath = NN_4DVar.compute_WeightedLoss(err_g_swath, self.w_loss)
+            loss_grad_swath = NN_4DVar.compute_spatio_temp_weighted_loss(err_g_swath, self.w_loss)
             # print(f"{loss_grad_swath=}")
 
-            loss_All = NN_4DVar.compute_WeightedLoss((output_global - targets_GT), self.w_loss)
-            loss_GAll = NN_4DVar.compute_WeightedLoss(g_output_global - g_targets_GT, self.w_loss)
-            loss_OI = NN_4DVar.compute_WeightedLoss(targets_GT - targets_OI, self.w_loss)
-            loss_GOI = NN_4DVar.compute_WeightedLoss(self.gradient_img(targets_OI) - g_targets_GT, self.w_loss)
+            loss_All = NN_4DVar.compute_spatio_temp_weighted_loss((output_global - targets_GT), self.w_loss)
+            loss_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_output_global - g_targets_GT, self.w_loss)
+            loss_OI = NN_4DVar.compute_spatio_temp_weighted_loss(targets_GT - targets_OI, self.w_loss)
+            loss_GOI = NN_4DVar.compute_spatio_temp_weighted_loss(self.gradient_img(targets_OI) - g_targets_GT, self.w_loss)
 
             # projection losses
             loss_AE = torch.mean((self.model.phi_r(outputs) - outputs) ** 2)
@@ -695,9 +696,9 @@ class LitCalModel(pl.LightningModule):
             loss_AE_GT = torch.mean((self.model.phi_r(yGT) - yGT) ** 2)
 
             # low-resolution loss
-            loss_SR = NN_4DVar.compute_WeightedLoss(output_low_res - targets_OI, self.w_loss)
+            loss_SR = NN_4DVar.compute_spatio_temp_weighted_loss(output_low_res - targets_OI, self.w_loss)
             targets_GTLR = self.model_LR(targets_OI)
-            loss_LR = NN_4DVar.compute_WeightedLoss(self.model_LR(output_global) - targets_GTLR, self.w_loss)
+            loss_LR = NN_4DVar.compute_spatio_temp_weighted_loss(self.model_LR(output_global) - targets_GTLR, self.model_LR(self.w_loss))
 
             # total loss
             loss = 0
@@ -715,7 +716,7 @@ class LitCalModel(pl.LightningModule):
             if (self.hparams.loss_low_res if hasattr(self.hparams, 'loss_low_res') else 1):
                 loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
             # metrics
-            mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_GT, self.w_loss)
+            mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
             mse = loss_All.detach()
             mseGrad = loss_GAll.detach()
             mseSwath = loss_swath.detach()

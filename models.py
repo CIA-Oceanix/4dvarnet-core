@@ -164,12 +164,12 @@ class Gradient_img(torch.nn.Module):
         super(Gradient_img, self).__init__()
 
         a = np.array([[1., 0., -1.], [2., 0., -2.], [1., 0., -1.]])
-        self.conv_gx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+        self.conv_gx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1, bias=False)
         self.conv_gx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0),
                                                 requires_grad=False)
 
         b = np.array([[1., 2., 1.], [0., 0., 0.], [-1., -2., -1.]])
-        self.conv_gy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+        self.conv_gy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1, bias=False)
         self.conv_gy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0),
                                                 requires_grad=False)
 
