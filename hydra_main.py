@@ -21,7 +21,7 @@ class FourDVarNetHydraRunner(FourDVarNetRunner):
         }
 
         test_dates = [str(dt.date()) for dt in \
-            pd.date_range(dm.test_slices[0].start, dm.test_slices[0].stop)]
+            pd.date_range(dm.test_slices[0].start, dm.test_slices[0].stop)][self.cfg.dT // 2: -self.cfg.dT // 2 +1]
         self.time = {'time_test' : test_dates}
 
         self.setup(dm)

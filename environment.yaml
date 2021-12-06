@@ -22,6 +22,7 @@ dependencies:
   - pip:
     - pytorch-lightning==1.4.9
     - seaborn
+    - sparse
     - omegaconf
     - einops
     - hydra-submitit-launcher

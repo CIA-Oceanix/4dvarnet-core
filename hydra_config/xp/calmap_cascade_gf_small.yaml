@@ -1,18 +1,17 @@
 # @package _global_
-xp_name: calmap_cascade_gf2411
+xp_name: calmap_cascade_gf_small_rand_mask
 datamodule:
   dl_kwargs:
-    batch_size: 4
-entrypoint:
-  accumulate_grad_batches: 2
+    batch_size: 2
 params:
   iter_update: [0, 2, 10, 20, 30, 40, 150, 800]
-  nb_grad_update: [4, 4, 4, 4, 4, 4, 4, 4]
+  nb_grad_update: [5, 5, 5, 5, 5, 5, 5, 5]
   lr_update: [0.005, 0.001, 0.001, 0.0001, 1.0e-04, 1.0e-04, 1.0e-06, 1.0e-07]
-  n_grad: 4
-  n_fourdvar_iter: 2 
+  n_grad: 5
+  n_fourdvar_iter: 3 
   dimAE: 20
   dim_grad_solver: 30
+  rand_mask: True
 defaults:
   - /params: fourdvarnet_calmap
   - /domain@datamodule.dim_range: gf

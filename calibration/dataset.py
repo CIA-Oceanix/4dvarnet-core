@@ -17,6 +17,9 @@ class FourDVarNetCalDataset(FourDVarNetDataset):
 
     def __getitem__(self, item):
         
+        if self.return_coords:
+            return super().__getitem__(item)
+
         mean, std = self.norm_stats
         obs_target_item = (self.obs_target_ds[item] - mean) / std
         return tuple([*super().__getitem__(item), obs_target_item])

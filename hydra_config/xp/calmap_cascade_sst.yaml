@@ -13,8 +13,15 @@ params:
   lr_update: [0.001, 0.001, 0.001, 0.001, 1.0e-04, 1.0e-04, 1.0e-06, 1.0e-07]
   n_grad: 4
   n_fourdvar_iter: 3 
+  alpha_proj: 0.5
+  alpha_sr: 0.5
+  alpha_lr: 0.5
+  alpha_mse_ssh: 1.0
+  alpha_mse_gssh: 5.0
+  alpha_loc_mse_ssh: 5.
+  alpha_loc_mse_gssh: 5.
 defaults:
-  - /legacy: fourdvarnet_calmap
+  - /params: fourdvarnet_calmap
   - /domain@datamodule.dim_range: gf
   - /training: calmap
   - _self_

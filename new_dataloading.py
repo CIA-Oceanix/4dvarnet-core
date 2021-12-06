@@ -1,19 +1,10 @@
-print(f"Using current {__name__}")
 import numpy as np
 import pytorch_lightning as pl
 import xarray as xr
 from torch.utils.data import Dataset, ConcatDataset, DataLoader
 import pandas as pd
+import contextlib
 
-def find_pad(sl, st, N):
-    k = np.floor(N/st)
-    if N>((k*st) + (sl-st)):
-        pad = (k+1)*st + (sl-st) - N
-    elif N<((k*st) + (sl-st)):
-        pad = (k*st) + (sl-st) - N
-    else:
-        pad = 0
-    return int(pad/2), int(pad-int(pad/2))
 
 class XrDataset(Dataset):
     """
@@ -30,6 +21,7 @@ class XrDataset(Dataset):
         :param decode: Whether to decode the time dim xarray (useful for gt dataset)
         """
         super().__init__()
+        self.return_coords = False
         self.var = var
         self.res = 0.05
         _ds = xr.open_dataset(path, cache=False)
@@ -41,50 +33,8 @@ class XrDataset(Dataset):
             else:
                 _ds['time'] = pd.to_datetime(_ds.time)
         # reshape
-        if resize_factor!=1:
-            _ds = _ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
-            self.res = self.res*resize_factor
         # dimensions
         self.ds = _ds.sel(**(dim_range or {}))
-        self.Nt = self.ds.time.shape[0]
-        self.Nx = self.ds.lon.shape[0]
-        self.Ny = self.ds.lat.shape[0]
-        # I) first padding x and y
-        pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
-        pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
-        # get additional data for patch center based reconstruction
-        dX = [pad_ *self.res for pad_ in pad_x]
-        dY = [pad_ *self.res for pad_ in pad_y]
-        dim_range_ = {
-          'lon': slice(self.ds.lon.min().item()-dX[0], self.ds.lon.max().item()+dX[1]),
-          'lat': slice(self.ds.lat.min().item()-dY[0], self.ds.lat.max().item()+dY[1]),
-          'time': dim_range['time']
-        }
-        self.ds = _ds.sel(**(dim_range_ or {}))
-        self.Nt = self.ds.time.shape[0]
-        self.Nx = self.ds.lon.shape[0]
-        self.Ny = self.ds.lat.shape[0]
-        # II) second padding x and y
-        pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
-        pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
-        # pad the dataset
-        dX = [pad_ *self.res for pad_ in pad_x]
-        dY = [pad_ *self.res for pad_ in pad_y]
-        pad_ = {'lon':(pad_x[0],pad_x[1]),
-                'lat':(pad_y[0],pad_y[1])}
-        self.ds = self.ds.pad(pad_,
-                              mode='reflect')
-        self.Nx += np.sum(pad_x)
-        self.Ny += np.sum(pad_y)
-        # III) get lon-lat for the final reconstruction
-        dX = ((slice_win['lon']-strides['lon'])/2)*self.res
-        dY = ((slice_win['lat']-strides['lat'])/2)*self.res
-        dim_range_ = {
-          'lon': slice(dim_range_['lon'].start+dX, dim_range_['lon'].stop-dX),
-          'lat': slice(dim_range_['lat'].start+dY, dim_range_['lat'].stop-dY),
-        }
-        self.lon = np.arange(dim_range_['lon'].start, dim_range_['lon'].stop, self.res)
-        self.lat = np.arange(dim_range_['lat'].start, dim_range_['lat'].stop, self.res)
         self.slice_win = slice_win
         self.strides = strides or {}
         self.ds_size = {
@@ -105,6 +55,13 @@ class XrDataset(Dataset):
         for i in range(len(self)):
             yield self[i]
         
+    @contextlib.contextmanager
+    def get_coords(self):
+        try:
+            self.return_coords = True
+            yield
+        finally:
+            self.return_coords = False
 
     def __getitem__(self, item):
         sl = {
@@ -113,6 +70,8 @@ class XrDataset(Dataset):
             for dim, idx in zip(self.ds_size.keys(),
                                 np.unravel_index(item, tuple(self.ds_size.values())))
         }
+        if self.return_coords:
+            return self.ds.isel(**sl).coords
         return self.ds.isel(**sl)[self.var].data.astype(np.float32)
 
 
@@ -141,6 +100,7 @@ class FourDVarNetDataset(Dataset):
     ):
         super().__init__()
 
+        self.return_coords = False
         self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win,
                                dim_range=dim_range, strides=strides, resize_factor=resize_factor)
         self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win,
@@ -169,7 +129,19 @@ class FourDVarNetDataset(Dataset):
         # return self.gt_ds.lon, self.gt_ds.lat
         return self.gt_ds.ds.lon.data, self.gt_ds.ds.lat.data
 
+    @contextlib.contextmanager
+    def get_coords(self):
+        try:
+            self.return_coords = True
+            yield
+        finally:
+            self.return_coords = False
+
     def __getitem__(self, item):
+        if self.return_coords:
+            with self.gt_ds.get_coords():
+                return self.gt_ds[item]
+
         mean, std = self.norm_stats
         _oi_item = self.oi_ds[item]
         _oi_item = (np.where(

@@ -219,12 +219,12 @@ class LitModel(pl.LightningModule):
 
         # plot nRMSE
         path_save3 = self.logger.log_dir + '/nRMSE.png'
-        nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, time=self.time['time_test'])
+        nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, time=self.time['time_test'][self.hparams.dT // 2: -self.hparams.dT // 2 +1])
         self.test_figs['nrmse'] = nrmse_fig
 
         # plot MSE
         path_save31 = self.logger.log_dir + '/MSE.png'
-        mse_fig = plot_mse(self.x_gt, self.x_oi, self.x_rec, path_save31, time=self.time['time_test'])
+        mse_fig = plot_mse(self.x_gt, self.x_oi, self.x_rec, path_save31, time=self.time['time_test'][self.hparams.dT // 2: -self.hparams.dT // 2 +1])
         self.test_figs['mse'] = mse_fig
         self.logger.experiment.add_figure('Maps', fig_maps, global_step=self.current_epoch)
         self.logger.experiment.add_figure('NRMSE', nrmse_fig, global_step=self.current_epoch)
@@ -239,7 +239,7 @@ class LitModel(pl.LightningModule):
         # save NetCDF
         path_save1 = self.logger.log_dir + '/maps.nc'
         save_netcdf(saved_path1=path_save1, pred=pred,
-                    lon=self.lon, lat=self.lat, time=self.time['time_test'],
+                    lon=self.lon, lat=self.lat, time=self.time['time_test'][self.hparams.dT // 2: -self.hparams.dT // 2 +1],
                     time_units='days since 2017-10-01 00:00:00')
 
     def compute_loss(self, batch, phase):

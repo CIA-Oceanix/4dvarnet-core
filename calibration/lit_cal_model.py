@@ -1,7 +1,10 @@
 import einops
+from hydra.utils import instantiate
 import pandas as pd
+from functools import reduce
 import xarray as xr
 from pathlib import Path
+from hydra.utils import call
 import numpy as np
 import pytorch_lightning as pl
 import torch
@@ -144,6 +147,16 @@ def get_phi(hparams):
             return self.phi(state), None, None, None
 
     return PhiPassThrough()
+
+
+def get_constant_crop(patch_size, crop, dim_order=['time', 'lat', 'lon']):
+        patch_weight = np.zeros([patch_size[d] for d in dim_order], dtype='float32')
+        patch_weight[tuple(slice(crop[d],-crop[d]) for d in dim_order)] = 1.
+        return patch_weight
+
+# msk = get_constant_crop({'lat':200, 'lon':200, 'time':5}, crop={'lat':20, 'lon':20, 'time':2})
+# print(msk.shape)
+# plt.imshow(msk[2, ...])
 ############################################ Lightning Module #######################################################################
 
 class LitCalModel(pl.LightningModule):
@@ -185,6 +198,7 @@ class LitCalModel(pl.LightningModule):
         self.test_lat = None
         self.test_dates = None
 
+        self.patch_weight = call(self.hparams.patch_weight)
 
         self.var_Val = self.hparams.var_Val
         self.var_Tr = self.hparams.var_Tr
@@ -208,7 +222,7 @@ class LitCalModel(pl.LightningModule):
         self.x_rec = None  # variable to store output of test method
         self.test_figs = {}
 
-        self.automatic_optimization = self.hparams.automatic_optimization
+        self.automatic_optimization = False
 
     def create_model(self):
         return self.MODELS[self.model_name](self.hparams)
@@ -274,18 +288,42 @@ class LitCalModel(pl.LightningModule):
 
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
 
+        opt = self.optimizers()
         # compute loss and metrics    
+        if self.hparams.get('rand_mask'):
+            rand = torch.rand_like(train_batch[0])
+            mask_95 = rand > 0.95
+            mask_gt = lambda t, m: t.where(m, torch.zeros_like(t))
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, *rest = train_batch
+            # loss_95, outs_95, metrics_95 = self.compute_loss(
+            #     (targets_OI, mask_95, mask_gt(targets_GT, mask_95), targets_GT, *rest), phase='train'
+            # )
+            loss_95_obs, outs_95_obs, metrics_95_obs = self.compute_loss(
+                (targets_OI, inputs_Mask.logical_or(mask_95), inputs_obs.where(inputs_Mask, mask_gt(targets_GT, mask_95)), targets_GT, *rest),
+                phase='train'
+            )
+            opt.zero_grad()
+            self.manual_backward((loss_95_obs) / 2)
+            opt.step()
+
         losses, outs, metrics = self(train_batch, phase='train')
         if losses[-1] is None:
             print("None loss")
             return None
         loss = torch.stack(losses).mean()
+
+        opt.zero_grad()
+        self.manual_backward(loss)
+        opt.step()
         # log step metric        
         # self.log('train_mse', mse)
         # self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True)
+        self.log("tr_min_nobs", train_batch[1].sum(dim=[1,2,3]).min().item(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log("tr_n_nobs", train_batch[1].sum().item(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log("tr_loss", loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log("tr_mse", metrics[-1]['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
+        if self.hparams.get('rand_mask'):
+            self.log("tr_mse_95", metrics_95_obs['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
         self.log("tr_mseG", metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
         self.log("tr_mse_swath", metrics[-1]['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
         self.log("tr_mseG_swath", metrics[-1]['mseGradSwath'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
@@ -311,7 +349,12 @@ class LitCalModel(pl.LightningModule):
         self.test_lat = self.test_coords['lat'].data
         self.test_lon = self.test_coords['lon'].data
         self.test_dates = self.test_coords['time'].isel(time=slice(self.hparams.dT // 2, - self.hparams.dT // 2 + 1)).data
-
+        test_ds = self.trainer.test_dataloaders[0].dataset.datasets[0]
+        with test_ds.get_coords():
+            self.test_patch_coords = [
+               test_ds[i]
+               for i in range(len(test_ds))
+            ]
     def test_step(self, test_batch, batch_idx):
 
         if not self.use_sst:
@@ -337,53 +380,71 @@ class LitCalModel(pl.LightningModule):
     def test_epoch_end(self, outputs):
 
         self.outputs = outputs
-        gt = np.concatenate([chunk['gt'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
-        oi = np.concatenate([chunk['oi'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
-        pred = np.concatenate([chunk['preds'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
-        target_obs = np.concatenate([chunk['target_obs'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
-        inputs_obs = np.concatenate([chunk['inp_obs'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
-        obs_pred = np.concatenate([chunk['obs_pred'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
+        def iter_item(outputs):
+            for chunk in outputs:
+                n = chunk['gt'].shape[0]
+                for i in range(n):
+                    yield (
+                            chunk['gt'][i],
+                            chunk['oi'][i],
+                            chunk['preds'][i],
+                            chunk['target_obs'][i],
+                            chunk['obs_pred'][i],
+                            chunk['inp_obs'][i],
+                    )
+            
+        dses =[ 
+                xr.Dataset( {
+                    'gt': (('time', 'lat', 'lon'), x_gt),
+                    'oi': (('time', 'lat', 'lon'), x_oi),
+                    'pred': (('time', 'lat', 'lon'), x_rec),
+                    'obs_gt': (('time', 'lat', 'lon'), obs_gt),
+                    'obs_pred': (('time', 'lat', 'lon'), obs_pred),
+                    'obs_inp': (('time', 'lat', 'lon'), obs_inp),
+                }, coords=coords)
+            for  (x_gt, x_oi, x_rec, obs_gt, obs_pred, obs_inp), coords
+            in zip(iter_item(outputs), self.test_patch_coords)
+        ]
+        import time
+        t0 = time.time()
+        fin_ds = xr.merge([xr.zeros_like(ds[['time','lat', 'lon']]) for ds in dses])
+        print(time.time() - t0)
+        fin_ds = fin_ds.assign(
+            {'weight': (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
+        )
+        for v in dses[0]:
+            fin_ds = fin_ds.assign(
+                {v: (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
+            )
 
-        ds_size = self.test_ds_patch_size
 
-        gt, oi, pred, inputs_obs, target_obs, obs_pred = map(
-                lambda t: einops.rearrange(
-                    t,
-                    '(lat_idx lon_idx t_idx )  win_lat win_lon -> t_idx  (lat_idx win_lat) (lon_idx win_lon)',
-                    t_idx=int(ds_size['time']),
-                    lat_idx=int(ds_size['lat']),
-                    lon_idx=int(ds_size['lon']),
-                    ),
-                [gt, oi, pred, inputs_obs, target_obs, obs_pred])
+        for ds in dses:
+            ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
+            xr_weight = xr.DataArray(self.patch_weight, ds.coords, dims=ds.gt.dims) 
+            _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
+            fin_ds = fin_ds + _ds 
 
-        self.x_gt = gt
-        self.x_oi = oi
-        self.x_rec = pred
-        self.obs_gt = target_obs
-        self.obs_inp = np.where(~np.isnan(self.obs_gt), inputs_obs, np.full_like(self.obs_gt, float('nan')))
-        self.obs_pred = np.where(~np.isnan(self.obs_gt), obs_pred, np.full_like(self.obs_gt, float('nan')))
 
-        self.test_xr_ds = xr.Dataset(
-                {
+        self.test_xr_ds = (
+            (fin_ds.drop('weight') / fin_ds.weight)
+            .sel(instantiate(self.hparams.test_domain))
+            .sel(time=instantiate(self.hparams.test_period))
+        ).transpose('time', 'lat', 'lon')
 
-                    'gt': (('time', 'lat', 'lon'), self.x_gt),
-                    'oi': (('time', 'lat', 'lon'), self.x_oi),
-                    'pred': (('time', 'lat', 'lon'), self.x_rec),
-                    'obs_gt': (('time', 'lat', 'lon'), self.obs_gt),
-                    'obs_pred': (('time', 'lat', 'lon'), self.obs_pred),
-                    'obs_inp': (('time', 'lat', 'lon'), self.obs_inp),
-
-                    },
-                {
-                    'time': self.test_coords['time'].isel(time=slice(self.hparams.dT // 2, - self.hparams.dT // 2 + 1)),
-                    'lat': self.test_coords['lat'],
-                    'lon': self.test_coords['lon'],
-                    }
-                )
+        self.x_gt = self.test_xr_ds.gt.data
+        self.obs_inp = self.test_xr_ds.obs_inp.data
+        self.obs_gt = self.test_xr_ds.obs_gt.data
+        self.obs_pred = self.test_xr_ds.obs_pred.data
+        self.x_oi = self.test_xr_ds.oi.data
+        self.x_rec = self.test_xr_ds.pred.data
+        
+        self.test_coords = self.test_xr_ds.coords
+        self.test_lat = self.test_coords['lat'].data
+        self.test_lon = self.test_coords['lon'].data
+        self.test_dates = self.test_coords['time'].data
 
         Path(self.logger.log_dir).mkdir(exist_ok=True)
         # display map
-
         path_save0 = self.logger.log_dir + '/maps.png'
         t_idx = 3
         fig_maps = plot_maps(

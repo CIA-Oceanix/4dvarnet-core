@@ -1,8 +1,10 @@
 # @package _global_
-xp_name: calmap_cascade_gf
+xp_name: calmap_cascade_gf_swa
 datamodule:
   dl_kwargs:
     batch_size: 2
+callbacks:
+  - _target_: pytorch_lightning.callbacks.StochasticWeightAveraging
 params:
   iter_update: [0, 2, 10, 30, 50, 100, 150, 800]
   nb_grad_update: [5, 5, 5, 5, 5, 5, 5, 5]
@@ -16,4 +18,5 @@ defaults:
   - /domain@datamodule.dim_range: gf
   - /training: calmap
   - _self_
+
 

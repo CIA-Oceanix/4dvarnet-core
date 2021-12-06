@@ -1,5 +1,5 @@
 # @package _global_
-xp_name: calmap_cascade_gf
+xp_name: calmap_cascade_gf_rm
 datamodule:
   dl_kwargs:
     batch_size: 2
@@ -9,11 +9,12 @@ params:
   lr_update: [0.001, 0.001, 0.001, 0.001, 1.0e-03, 1.0e-04, 1.0e-06, 1.0e-07]
   n_grad: 5
   n_fourdvar_iter: 3 
-  rand_mask: false
+  rand_mask: true
 
 defaults:
   - /params: fourdvarnet_calmap
   - /domain@datamodule.dim_range: gf
   - /training: calmap
   - _self_
+
 

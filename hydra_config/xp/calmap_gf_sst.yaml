@@ -3,6 +3,13 @@ xp_name: calmap_gf_sst
 params:
   model: 4dvarnet_sst
   sst: true
+  alpha_proj: 0.5
+  alpha_sr: 0.5
+  alpha_lr: 0.5
+  alpha_mse_ssh: 1.0
+  alpha_mse_gssh: 5.0
+  alpha_loc_mse_ssh: 5.
+  alpha_loc_mse_gssh: 5.
 datamodule:
   sst_path: ${file_paths.natl_sst}
   sst_var: sst
