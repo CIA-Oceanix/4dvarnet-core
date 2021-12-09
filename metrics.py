@@ -399,14 +399,14 @@ def get_psd_score(x_t, x, ref, with_fig=False):
         psd_x_t = (
             x_t.copy()
                 .pipe(
-                lambda _da: xrft.isotropic_power_spectrum(_da, dim=['lat', 'lon'], window='hann', detrend='linear'))
+                lambda _da: xrft.isotropic_power_spectrum(_da, dim=['lat', 'lon'], window='hann', detrend='linear', scaling='density'))
                 .mean(['time'])
         ).compute()
 
         psd_err = (
             err.copy()
                 .pipe(
-                lambda _da: xrft.isotropic_power_spectrum(_da, dim=['lat', 'lon'], window='hann', detrend='linear'))
+                lambda _da: xrft.isotropic_power_spectrum(_da, dim=['lat', 'lon'], window='hann', detrend='linear', scaling='density'))
                 .mean(['time'])
         ).compute()
 
@@ -428,27 +428,38 @@ def get_psd_score(x_t, x, ref, with_fig=False):
             'var': ('var', ['model', 'OI'], {}),
         },
     )
+   
+    try:
+        spatial_resolution_model = (
+            xr.DataArray(
+                psd_plot_data.wl,
+                dims=['psd'],
+                coords={'psd': psd_plot_data.sel(var='model').data}
+            ).interp(psd=0.5)
+        ).data
+    except KeyError as e:
+        spatial_resolution_model = -1
 
-    spatial_resolution_model = (
-        xr.DataArray(
-            psd_plot_data.wl,
-            dims=['psd'],
-            coords={'psd': psd_plot_data.sel(var='model').data}
-        ).interp(psd=0.5)
-    )
 
-    spatial_resolution_ref = (
-        xr.DataArray(
-            psd_plot_data.wl,
-            dims=['psd'],
-            coords={'psd': psd_plot_data.sel(var='OI').data}
-        ).interp(psd=0.5)
-    )
+    try:
+        spatial_resolution_ref = (
+            xr.DataArray(
+                psd_plot_data.wl,
+                dims=['psd'],
+                coords={'psd': psd_plot_data.sel(var='OI').data}
+            ).interp(psd=0.5)
+        ).data
+    except KeyError as e:
+        spatial_resolution_ref = -1
 
     if not with_fig:
         return spatial_resolution_model, spatial_resolution_ref
 
     fig, ax = plt.subplots()
+    if spatial_resolution_model == -1:
+        plt.close()
+        return fig, spatial_resolution_model, spatial_resolution_ref
+
     psd_plot_data.plot.line(x='wl', ax=ax)
 
     # Plot vertical line there

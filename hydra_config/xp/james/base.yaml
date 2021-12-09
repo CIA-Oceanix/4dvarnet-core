@@ -2,19 +2,22 @@
 xp_name: ???
 
 patch_size:
-  lat: 200
-  lon: 200
+  lat: 240
+  lon: 240
   time: 5
 strides:
-  lat: 20
-  lon: 20
+  lat: 240
+  lon: 240
   time: 1
 datamodule:
   dl_kwargs:
-    batch_size: 4
+    batch_size: 2
+    num_workers: 8
   slice_win: ${patch_size}
   strides: ${strides}
 params:
+  ckpt_name: best.ckpt
+  weight_decay: 0.0002
   patch_weight:
     _target_: calibration.lit_cal_model.get_constant_crop
     patch_size: ${patch_size}
@@ -28,7 +31,7 @@ params:
     _args_: ['2013-01-05', '2013-01-25']
   iter_update: [0, 2, 10, 30, 50, 100, 150, 800]
   nb_grad_update: [5, 5, 5, 5, 5, 5, 5, 5]
-  lr_update: [0.001, 0.001, 0.001, 0.001, 1.0e-03, 1.0e-03, 1.0e-03, 1.0e-07]
+  lr_update: [0.001, 0.001, 0.001, 0.001, 1.0e-03, 1.0e-03, 1.0e-03, 1.0e-3]
   n_grad: 5
   n_fourdvar_iter: 3 
   rand_mask: false
@@ -39,6 +42,6 @@ defaults:
   - /domain@params.test_domain: gf
   - /training: calmap
   - _self_
-
+  - /xp/james/mod1@_global_
 
 

@@ -246,7 +246,7 @@ class LitCalModel(pl.LightningModule):
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                 ]
-                , lr=0.)
+                , lr=0., weight_decay=self.hparams.weight_decay)
 
             return optimizer
         elif self.model_name == '4dvarnet_sst':
@@ -255,7 +255,7 @@ class LitCalModel(pl.LightningModule):
                                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
                                 {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
-                                ], lr=0.)
+                                ], lr=0., weight_decay=self.hparams.weight_decay)
 
             return optimizer
         else: 
@@ -344,33 +344,21 @@ class LitCalModel(pl.LightningModule):
         self.log("val_mseG_swath", metrics[-1]['mseGradSwath'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
         return loss.detach()
 
-    def on_test_epoch_start(self):
-        self.test_coords = self.trainer.test_dataloaders[0].dataset.datasets[0].gt_ds.ds.coords
-        self.test_ds_patch_size = self.trainer.test_dataloaders[0].dataset.datasets[0].gt_ds.ds_size
-        self.test_lat = self.test_coords['lat'].data
-        self.test_lon = self.test_coords['lon'].data
-        self.test_dates = self.test_coords['time'].isel(time=slice(self.hparams.dT // 2, - self.hparams.dT // 2 + 1)).data
-        test_ds = self.trainer.test_dataloaders[0].dataset.datasets[0]
-        with test_ds.get_coords():
-            self.test_patch_coords = [
-               test_ds[i]
-               for i in range(len(test_ds))
-            ]
-    def test_step(self, test_batch, batch_idx):
 
+    def diag_step(self, batch, batch_idx, log_pref='test'):
         if not self.use_sst:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, obs_target_item = test_batch
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, obs_target_item = batch
         else:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, obs_target_item = test_batch
-        losses, outs, metrics = self(test_batch, phase='test')
-        _, out, out_pred = self.get_outputs(test_batch, outs)
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, obs_target_item = batch
+        losses, outs, metrics = self(batch, phase='test')
+        _, out, out_pred = self.get_outputs(batch, outs)
         loss = losses[-1]
         if loss is not None:
-            self.log('test_loss', loss)
-            self.log("test_mse", metrics[-1]['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
-            self.log("test_mseG", metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
-            self.log("test_mse_swath", metrics[-1]['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
-            self.log("test_mseG_swath", metrics[-1]['mseGradSwath'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{log_pref}_loss', loss)
+            self.log(f'{log_pref}_mse', metrics[-1]["mse"] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{log_pref}_mse_swath', metrics[-1]['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{log_pref}_mseG_swath', metrics[-1]['mseGradSwath'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
         return {'gt'    : (targets_GT.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'oi'    : (targets_OI.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'target_obs'    : (obs_target_item.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
@@ -378,7 +366,33 @@ class LitCalModel(pl.LightningModule):
                 'obs_pred'    : (out_pred.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'preds' : (out.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
+    def test_step(self, test_batch, batch_idx):
+        return self.diag_step(test_batch, batch_idx, log_pref='test')
+
     def test_epoch_end(self, outputs):
+        return self.diag_epoch_end(outputs, log_pref='test')
+
+    def validation_step(self, batch, batch_idx):
+        return self.diag_step(batch, batch_idx, log_pref='val')
+
+    def validation_epoch_end(self, outputs):
+        if (self.current_epoch + 1) % self.hparams.val_diag_freq == 0:
+            return self.diag_epoch_end(outputs, log_pref='val')
+
+    def diag_epoch_end(self, outputs, log_pref='test'):
+        print(len(outputs))
+        if log_pref == 'test':
+            diag_ds = self.trainer.test_dataloaders[0].dataset.datasets[0]
+        elif log_pref == 'val':
+            diag_ds = self.trainer.val_dataloaders[0].dataset.datasets[0]
+        else:
+            raise Exception('unknown phase')
+        print(diag_ds)
+        with diag_ds.get_coords():
+            self.test_patch_coords = [
+               diag_ds[i]
+               for i in range(len(diag_ds))
+            ]
 
         self.outputs = outputs
         def iter_item(outputs):
@@ -409,7 +423,6 @@ class LitCalModel(pl.LightningModule):
         import time
         t0 = time.time()
         fin_ds = xr.merge([xr.zeros_like(ds[['time','lat', 'lon']]) for ds in dses])
-        print(time.time() - t0)
         fin_ds = fin_ds.assign(
             {'weight': (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
         )
@@ -426,12 +439,13 @@ class LitCalModel(pl.LightningModule):
             fin_ds = fin_ds + _ds 
 
 
+        print(time.time() - t0)
         self.test_xr_ds = (
             (fin_ds.drop('weight') / fin_ds.weight)
             .sel(instantiate(self.hparams.test_domain))
-            .sel(time=instantiate(self.hparams.test_period))
+            .pipe(lambda ds: ds.sel(time=~(np.isnan(ds.gt).all('lat').all('lon'))))
         ).transpose('time', 'lat', 'lon')
-
+        
         self.x_gt = self.test_xr_ds.gt.data
         self.obs_inp = self.test_xr_ds.obs_inp.data
         self.obs_gt = self.test_xr_ds.obs_gt.data
@@ -463,8 +477,8 @@ class LitCalModel(pl.LightningModule):
                   self.test_lon, self.test_lat, path_save01, grad=True)
         self.test_figs['maps'] = fig_maps
         self.test_figs['maps_grad'] = fig_maps_grad
-        self.logger.experiment.add_figure('Maps', fig_maps, global_step=self.current_epoch)
-        self.logger.experiment.add_figure('Maps Grad', fig_maps_grad, global_step=self.current_epoch)
+        self.logger.experiment.add_figure(f'{log_pref} Maps', fig_maps, global_step=self.current_epoch)
+        self.logger.experiment.add_figure(f'{log_pref} Maps Grad', fig_maps_grad, global_step=self.current_epoch)
 
         path_save02 = self.logger.log_dir + '/maps_obs.png'
         fig_maps = plot_maps(
@@ -474,7 +488,7 @@ class LitCalModel(pl.LightningModule):
                 self.obs_pred[t_idx],
                 self.test_lon, self.test_lat, path_save02, grad=True)
         self.test_figs['maps_obs'] = fig_maps
-        self.logger.experiment.add_figure('Maps Obs', fig_maps, global_step=self.current_epoch)
+        self.logger.experiment.add_figure(f'{log_pref} Maps Obs', fig_maps, global_step=self.current_epoch)
 
         # animate maps
         if self.hparams.animate == True:
@@ -540,30 +554,30 @@ class LitCalModel(pl.LightningModule):
         path_save3 = self.logger.log_dir + '/nRMSE.png'
         nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, time=self.test_dates)
         self.test_figs['nrmse'] = nrmse_fig
-        self.logger.experiment.add_figure('NRMSE', nrmse_fig, global_step=self.current_epoch)
+        self.logger.experiment.add_figure(f'{log_pref} NRMSE', nrmse_fig, global_step=self.current_epoch)
         # plot SNR
         path_save4 = self.logger.log_dir + '/SNR.png'
         snr_fig = plot_snr(self.x_gt, self.x_oi, self.x_rec, path_save4)
         self.test_figs['snr'] = snr_fig
 
-        self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
+        self.logger.experiment.add_figure(f'{log_pref} SNR', snr_fig, global_step=self.current_epoch)
         
         fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt, self.test_xr_ds.pred, self.test_xr_ds.oi, with_fig=True)
         self.test_figs['res'] = fig
-        self.logger.experiment.add_figure('Spat. Resol', fig, global_step=self.current_epoch)
+        self.logger.experiment.add_figure(f'{log_pref} Spat. Resol', fig, global_step=self.current_epoch)
         # PENDING: Compute metrics on swath
         mdf = pd.concat([
-            nrmse_df.rename(columns=lambda c: f'{c}_glob').loc['pred'].T,
-            mse_df.rename(columns=lambda c: f'{c}_glob').loc['pred'].T,
-            nrmse_swath_df.rename(columns=lambda c: f'{c}_swath').loc['obs_pred'].T,
-            mse_swath_df.rename(columns=lambda c: f'{c}_swath').loc['obs_pred'].T,
+            nrmse_df.rename(columns=lambda c: f'{log_pref}_{c}_glob').loc['pred'].T,
+            mse_df.rename(columns=lambda c: f'{log_pref}_{c}_glob').loc['pred'].T,
+            nrmse_swath_df.rename(columns=lambda c: f'{log_pref}_{c}_swath').loc['obs_pred'].T,
+            mse_swath_df.rename(columns=lambda c: f'{log_pref}_{c}_swath').loc['obs_pred'].T,
         ])
         print(mdf.to_frame().to_markdown())
         self.logger.log_hyperparams(
                 {**self.hparams},
                 {
-                    'spatial_res': float(spatial_res_model),
-                    'spatial_res_imp': float(spatial_res_model / spatial_res_oi),
+                    f'{log_pref}_spatial_res': float(spatial_res_model),
+                    f'{log_pref}_spatial_res_imp': float(spatial_res_model / spatial_res_oi),
                     **mdf.to_dict(), },
                 )
 
