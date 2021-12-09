@@ -7,7 +7,7 @@ dependencies:
   - python=3.9
   - pip=21.1
   - fire=0.4
-  - cudatoolkit=10.2
+  - cudatoolkit=11.3
   - pytorch=1.10
   - torchvision=0.9.1
   - xarray=0.17
