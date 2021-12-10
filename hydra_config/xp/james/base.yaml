@@ -17,7 +17,8 @@ datamodule:
   strides: ${strides}
 params:
   ckpt_name: best.ckpt
-  weight_decay: 0.0002
+  val_diag_freq: 2
+  weight_decay: 0.0003
   patch_weight:
     _target_: calibration.lit_cal_model.get_constant_crop
     patch_size: ${patch_size}
@@ -42,6 +43,6 @@ defaults:
   - /domain@params.test_domain: gf
   - /training: calmap
   - _self_
-  - /xp/james/mod1@_global_
+  # - /xp/james/mod1@_global_
 
 

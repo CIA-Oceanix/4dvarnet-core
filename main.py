@@ -28,6 +28,7 @@ class FourDVarNetRunner:
             print('loading config')
             config = importlib.import_module("config_" + str(config))
         self.callbacks = []
+        self.logger = True
         self.cfg = OmegaConf.create(config.params)
         print(OmegaConf.to_yaml(self.cfg))
         dataloading = config.params['dataloading']
@@ -168,7 +169,7 @@ class FourDVarNetRunner:
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         num_gpus = torch.cuda.device_count()
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
-        trainer = pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, auto_select_gpus=(num_gpus * num_nodes) > 0,
+        trainer = pl.Trainer(logger=self.logger, num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, auto_select_gpus=(num_gpus * num_nodes) > 0,
                              callbacks=[checkpoint_callback, lr_monitor] + self.callbacks, **trainer_kwargs)
         trainer.fit(mod, self.dataloaders['train'], self.dataloaders['val'])
         return mod, trainer

@@ -7,10 +7,11 @@ import hydra_config
 from pytorch_lightning import seed_everything
 
 class FourDVarNetHydraRunner(FourDVarNetRunner):
-    def __init__(self, params, dm, lit_mod_cls, callbacks=None):
+    def __init__(self, params, dm, lit_mod_cls, callbacks=None, logger=None):
         self.cfg = params
         self.filename_chkpt = self.cfg.ckpt_name
         self.callbacks = callbacks
+        self.logger = logger
         self.dm = dm
         self.lit_cls = lit_mod_cls
         dm.setup()
@@ -36,8 +37,13 @@ def main(cfg):
         callbacks = [instantiate(cb_cfg) for cb_cfg in cfg.callbacks]
     else:
         callbacks=[]
+
+    if cfg.get('logger') is not None:
+        logger = instantiate(cfg.logger)
+    else:
+        logger=True
     lit_mod_cls = get_class(cfg.lit_mod_cls)
-    runner = FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls, callbacks=callbacks)
+    runner = FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls, callbacks=callbacks, logger=logger)
     call(cfg.entrypoint, self=runner)
 
 
