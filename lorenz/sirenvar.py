@@ -79,28 +79,31 @@ class SirenNet(nn.Module):
         return self.last_layer(x)
 
 
-def sirenvar_cost1d(sirens, obs, alpha_obs=1., alpha_prior=1., eps=10**-6):
+def sirenvar_cost1d(sirens, obs, times, dt_prior=0.2, alpha_obs=1., alpha_prior=1., eps=10**-6):
     shape = einops.parse_shape(obs, 'b t d')
     cost = 0.
+    outs = []
     for siren, item_obs in zip(sirens, torch.split(obs, split_size_or_sections=1,dim=0)):
         b, t, d = (~item_obs.isnan()).nonzero(as_tuple=True)
-        _fwd_idx = torch.arange(shape['t'], dtype=obs.dtype, device='cuda')[None,:, None]
-        fwd_idx = (_fwd_idx - _fwd_idx.mean()) * 0.05
+        fwd_idx = (times - times.mean()) / times.std()
         # fwd_idx = (_fwd_idx - _fwd_idx.mean()) / _fwd_idx.std()
         out = siren(fwd_idx)
-        obs_cost = torch.mean((out[b, t, d] - item_obs[b, t, d] + eps)**2)
+        obs_cost = torch.sum((out[b, t, d] - item_obs[b, t, d] + eps)**2)
         cost += alpha_obs * obs_cost
         if alpha_prior > 0.:
+            # prior_idx = torch.arange(fwd_idx.min(), fwd_idx.max() + dt_prior, dt_prior, device=obs.device)[None, :, None]
             prior_idx = fwd_idx
             out_ad, dout_ad = torch.autograd.functional.jvp(siren, prior_idx, v=torch.ones_like(prior_idx), create_graph=True, strict=True)
             # dout_di = out_ad.diff(dim=1) / 0.05
-            dout_eq = lorenz96(None, out_ad.where(item_obs.isnan(), item_obs))
+            dout_eq = lorenz96(None, out_ad)
             # dyn_cost = torch.mean(((dout_eq[0, 1:, :1] + dout_eq[0, :-1, :1]) / 2 - dout_di[0, :, :1])**2)
             # dyn_cost = torch.mean(((dout_ad[0, 1:, :1] + dout_ad[0, :-1, :1]) / 2 - dout_di[0, :, :1])**2)
             # dyn_cost = torch.mean((dout_ad[0, :-1, ...] - dout_di + eps)**2)
-            dyn_cost = torch.mean(torch.sqrt((dout_ad - dout_eq + eps)**2))
+            # dyn_cost = torch.mean(torch.sqrt((dout_ad - dout_eq + eps)[:, 50:-50,:]**2))
+            dyn_cost = torch.mean(torch.sqrt((dout_ad - dout_eq+ eps)**2 ))
             cost +=  alpha_prior * dyn_cost
-    return cost 
+        outs.append(out)
+    return cost, torch.cat(outs, dim=0) 
 
 if __name__ == '__main__':
     from lorenz.dataloading_lorenz import LorenzDM
@@ -110,10 +113,10 @@ if __name__ == '__main__':
     dm.setup()
     dl = dm.train_dataloader()
     batch = next(iter(dl))
-    item, mask = batch
+    item, mask, noise, times = batch
     obs = torch.where(mask.bool(), item, torch.full_like(item, np.nan))
-
-    lr = 0.1 # 0.01
+    noisy_obs = torch.where(mask.bool(), item + noise, torch.full_like(item, np.nan))
+    times.shape
 
     # model = SirenNet(dim_in=2, dim_out=1)
     def model_factory(init=None):
@@ -127,36 +130,37 @@ if __name__ == '__main__':
 
 
     model_init = model_factory()
-    model = model_factory(init=model_init)
     device = 'cuda'
-    sirens = nn.ModuleList([model]).to(device)
-    current_obs = item.to(device)
-    opt = torch.optim.SGD(sirens.parameters(), lr=0.001)
-    for it in range(5000):
-        lr = 0.1 + 1 / (it // 3 + 1)
-        var_cost = sirenvar_cost1d(sirens, current_obs, alpha_prior=0.1)
-        print(it, var_cost.item())
+    current_obs = obs[:1].to(device)
+    # current_obs = (noise + item)[:1].to(device)
+    # current_obs = (item)[:1].to(device)
+    t = times[..., None].to(device)
+    tgt = item[:1].to(device)
+    sirens = nn.ModuleList([model_factory(init=model_init) for _ in range(current_obs.shape[0])]).to(device)
+    opt = torch.optim.SGD(sirens.parameters(), lr=1e-3)
+    for it in range(10000):
+        var_cost, out = sirenvar_cost1d(sirens, current_obs, t, dt_prior=0.05, alpha_obs=10.0, alpha_prior=1.0)
+        print(it, var_cost.item(),  ((out - tgt)**2).mean().item())
         var_cost.backward(inputs=list(sirens.parameters()))
         opt.step()
         opt.zero_grad()
         # break
 
-    shape = einops.parse_shape(obs, 'b t d')
-    _fwd_idx = torch.arange(shape['t'], dtype=obs.dtype, device='cuda')[None,:, None]
-    fwd_idx = (_fwd_idx - _fwd_idx.mean()) * 0.05
-    out = sirens[0](fwd_idx)
     import matplotlib.pyplot as plt
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10,10))
     img = ax1.imshow(out[0].cpu().detach().numpy().T)
     plt.colorbar(img, ax=ax1)
-    img = ax2.imshow(item[0].cpu().detach().numpy().T)
+    img = ax2.imshow(tgt[0].cpu().detach().numpy().T)
     plt.colorbar(img, ax=ax2)
-    img = ax3.imshow((out[0].cpu().detach() - item[0]).numpy().T)
+    img = ax3.imshow((out[0] - tgt[0]).cpu().detach().numpy().T)
     plt.colorbar(img, ax=ax3)
 
 
     for siren, item_obs in zip(sirens, torch.split(current_obs, split_size_or_sections=1,dim=0)):
         break
+
+    fig, ax = plt.subplots()
+    ax.imshow(current_obs[0].detach().cpu().numpy().T)
 
     prior_idx = fwd_idx
     eps=1e-6
