@@ -16,14 +16,14 @@ class FourDVarNetCalDataset(FourDVarNetDataset):
                                      strides=kwargs['strides'])
 
     def __getitem__(self, item):
-        
+
         mean, std = self.norm_stats
         obs_target_item = (self.obs_target_ds[item] - mean) / std
         return tuple([*super().__getitem__(item), obs_target_item])
 
 
 class FourDVarNetCalDataModule(FourDVarNetDataModule):
-    def __init__(self, 
+    def __init__(self,
             *args,
         obs_target_path='/gpfsscratch/rech/nlu/commun/large/dataset_nadir_0d_swot.nc',
         obs_target_var='ssh_mod',

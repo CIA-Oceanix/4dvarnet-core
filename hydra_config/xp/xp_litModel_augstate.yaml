@@ -1,0 +1,25 @@
+# @package _global_
+xp_name: xp_litModel_augstate
+datamodule:
+  dl_kwargs:
+    batch_size: 2
+params:
+  iter_update: [0, 10, 20, 30, 40, 150, 800]
+  shapeData:
+  - 15
+  - 200
+  - 200
+  augment_state: true
+file_paths:
+  natl_ssh: '/gpfsscratch/rech/yrf/uor23la/gt_gf_3.nc'
+  noisy_swot: '/gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d_swot.nc'
+entrypoint:
+  max_epochs: 50
+lit_mod_cls: lit_model_augstate.LitModelAugState
+defaults:
+  - /params: fourdvarnet_baseline
+  - /domain@datamodule.dim_range: gf
+  - /training: baseline
+  - /splits@datamodule: dc_osse_gf_mohamed
+  - _self_
+

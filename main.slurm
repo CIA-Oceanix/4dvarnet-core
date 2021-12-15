@@ -5,7 +5,7 @@
 #SBATCH --gres=gpu:4                # nombre de GPU à réserver (un unique GPU ici)
 #SBATCH --ntasks-per-node=4         # nombre de coeurs à réserver (un quart du noeud)
 #SBATCH --cpus-per-task=10
-#SBATCH --time=00:10:00
+#SBATCH --time=10:00:00
 #SBATCH --hint=nomultithread
 #SBATCH -C v100-32g
 #SBATCH --qos=qos_gpu-t3
@@ -18,7 +18,7 @@
 module purge
 
 # chargement des modules
-eval "$(conda shell.bash hook)"
+eval "$($SCRATCH/miniconda/condabin/conda shell.bash hook)"
 conda activate 4dvarnet
 export PYTHONPATH=${WORK}/4dvarnet-core:${PYTHONPATH}
 
@@ -26,7 +26,7 @@ export PYTHONPATH=${WORK}/4dvarnet-core:${PYTHONPATH}
 # config files stored in config_q --> examples: --config=q.nad_swot
 
 # train the model
-srun python main.py --config=$1 --max_epochs=20 --progress_bar_refresh_rate=5 run
+srun python main.py --config=q --max_epochs=50 --progress_bar_refresh_rate=5 train
+# srun python main.py --config=$1 --max_epochs=20 --progress_bar_refresh_rate=5 run
 # test the model
 #srun python main.py --config=$1 --ckpt_path=checkpoints/GF_OSE_OSSE.ckpt --progress_bar_refresh_rate=5 test
-

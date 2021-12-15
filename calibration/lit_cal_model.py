@@ -27,8 +27,6 @@ class Model_H_with_noisy_Swot(torch.nn.Module):
         self.dim_obs = 1
         self.dim_obs_channel = np.array([shape_obs])
 
-
-
     def forward(self, x, y, mask):
         output_low_res,  output_anom_glob, output_anom_swath = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
         output_global = output_low_res + output_anom_glob
@@ -37,7 +35,6 @@ class Model_H_with_noisy_Swot(torch.nn.Module):
             output_swath = output_low_res + output_anom_swath
         elif self.hparams.swot_anom_wrt == 'high_res':
             output_swath = output_global + output_anom_swath
-
 
         yhat_glob = torch.cat((output_low_res, output_global), dim=1)
         yhat_swath = torch.cat((output_low_res, output_swath), dim=1)
@@ -52,7 +49,7 @@ class Model_H_SST_with_noisy_Swot(torch.nn.Module):
     obs: [[oi, obs], sst]
     mask: [[ones, obs_mask], ones]
     """
-    
+
 
     def __init__(self, shape_state, shape_obs, hparams=None):
         super().__init__()
@@ -76,7 +73,7 @@ class Model_H_SST_with_noisy_Swot(torch.nn.Module):
             output_swath = output_low_res + output_anom_swath
         elif self.hparams.swot_anom_wrt == 'high_res':
             output_swath = output_global + output_anom_swath
-        
+
 
         yhat_glob = torch.cat((output_low_res, output_global), dim=1)
         yhat_swath = torch.cat((output_low_res, output_swath), dim=1)
@@ -202,7 +199,7 @@ class LitCalModel(pl.LightningModule):
         return losses, outs, metrics
 
     def configure_optimizers(self):
-        
+
         if self.model_name == '4dvarnet':
             optimizer = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
@@ -220,7 +217,7 @@ class LitCalModel(pl.LightningModule):
                                 ], lr=0.)
 
             return optimizer
-        else: 
+        else:
             opt = optim.Adam(self.parameters(), lr=1e-4)
         return {
             'optimizer': opt,
@@ -251,13 +248,13 @@ class LitCalModel(pl.LightningModule):
 
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
 
-        # compute loss and metrics    
+        # compute loss and metrics
         losses, outs, metrics = self(train_batch, phase='train')
         if losses[-1] is None:
             print("None loss")
             return None
         loss = torch.stack(losses).mean()
-        # log step metric        
+        # log step metric
         # self.log('train_mse', mse)
         # self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True)
         self.log("tr_loss", loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
@@ -265,7 +262,6 @@ class LitCalModel(pl.LightningModule):
         self.log("tr_mseG", metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
         self.log("tr_mse_swath", metrics[-1]['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
         self.log("tr_mseG_swath", metrics[-1]['mseGradSwath'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
-
 
         return loss
 
@@ -295,13 +291,14 @@ class LitCalModel(pl.LightningModule):
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, obs_target_item = test_batch
         loss, outs, metrics = self(test_batch, phase='test')
-        _, out, out_pred = self.get_outputs(test_batch, outs[-1])
-        if loss is not None:
-            self.log('test_loss', loss)
-            self.log("test_mse", metrics[-1]['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
-            self.log("test_mseG", metrics[-1]['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
-            self.log("test_mse_swath", metrics[-1]['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
-            self.log("test_mseG_swath", metrics[-1]['mseGradSwath'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+        _, out, out_pred = self.get_outputs(test_batch, outs)
+        # _, out, out_pred = self.get_outputs(test_batch, outs[-1])
+        #  if loss is not None:
+            #  self.log('test_loss', loss)
+            #  self.log("test_mse", metrics[-1]['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
+            #  self.log("test_mseG", metrics[-1]['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+            #  self.log("test_mse_swath", metrics[-1]['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
+            #  self.log("test_mseG_swath", metrics[-1]['mseGradSwath'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
         return {'gt'    : (targets_GT.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'oi'    : (targets_OI.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'target_obs'    : (obs_target_item.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
@@ -439,7 +436,7 @@ class LitCalModel(pl.LightningModule):
         mse_swath_df = mse_fn('obs_pred', 'obs_inp', 'obs_gt')
         nrmse_df.to_csv(self.logger.log_dir + '/nRMSE_swath.txt')
         mse_df.to_csv(self.logger.log_dir + '/MSE_swath.txt')
-        
+
         print(
             pd.concat(
                 [
@@ -460,7 +457,7 @@ class LitCalModel(pl.LightningModule):
         self.test_figs['snr'] = snr_fig
 
         self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
-        
+
         fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt, self.test_xr_ds.pred, self.test_xr_ds.oi, with_fig=True)
         self.test_figs['res'] = fig
         self.logger.experiment.add_figure('Spat. Resol', fig, global_step=self.current_epoch)
@@ -583,7 +580,7 @@ class LitCalModel(pl.LightningModule):
             g_output_swath = self.gradient_img(output_swath)
             # PENDING: add loss term computed on obs (outputs swath - obs_target)
 
-            _err_swath =(output_swath - target_obs_GT_wo_nan)**2 
+            _err_swath =(output_swath - target_obs_GT_wo_nan)**2
             err_swath = torch.where(target_obs_GT.isnan() | target_obs_GT.isinf(), torch.zeros_like(_err_swath), _err_swath)
             _err_g_swath =(g_output_swath - g_targets_obs)**2
             err_g_swath = torch.where(g_targets_obs_mask.isnan() | g_targets_obs_mask.isinf(), torch.zeros_like(_err_g_swath), _err_g_swath)

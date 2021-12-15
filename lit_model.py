@@ -25,7 +25,7 @@ class LitModel(pl.LightningModule):
         self.ds_size_lon = kwargs['ds_size_lon']
         self.ds_size_lat = kwargs['ds_size_lat']
 
-        self.time = kwargs['time'] 
+        self.time = kwargs['time']
         self.dX = kwargs['dX']
         self.dY = kwargs['dY']
         self.swX = kwargs['swX']
@@ -96,11 +96,11 @@ class LitModel(pl.LightningModule):
 
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
 
-        # compute loss and metrics    
+        # compute loss and metrics
         loss, out, metrics = self.compute_loss(train_batch, phase='train')
         if loss is None:
             return loss
-        # log step metric        
+        # log step metric
         # self.log('train_mse', mse)
         # self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
         self.log("loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=False)
@@ -173,7 +173,7 @@ class LitModel(pl.LightningModule):
         iY = np.where( (self.lat_ext>=self.ymin) & (self.lat_ext<self.ymax) )[0]
         gt = (gt[:,:,iY,:])[:,:,:,iX]
         obs = (obs[:,:,iY,:])[:,:,:,iX]
-        oi = (oi[:,:,iY,:])[:,:,:,iX]        
+        oi = (oi[:,:,iY,:])[:,:,:,iX]
         pred = (pred[:,:,iY,:])[:,:,:,iX]
 
         self.x_gt = gt[:, int(self.hparams.dT / 2), :, :]
@@ -250,8 +250,11 @@ class LitModel(pl.LightningModule):
             return (
                 None,
                 torch.zeros_like(targets_GT),
-                dict([('mse', 0.), ('mseGrad', 0.), ('meanGrad', 1.), ('mseOI', 0.),
-                      ('mseGOI', 0.)])
+                dict([('mse', 0.),
+                    ('mseGrad', 0.),
+                    ('meanGrad', 1.),
+                    ('mseOI', 0.),
+                    ('mseGOI', 0.)])
             )
         new_masks = torch.cat((1. + 0. * inputs_Mask, inputs_Mask), dim=1)
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
@@ -299,7 +302,7 @@ class LitModel(pl.LightningModule):
                 loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
                 loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
                 loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
- 
+
             # unsupervised loss
             else:
                 # MSE
@@ -319,8 +322,11 @@ class LitModel(pl.LightningModule):
             mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_GT, self.w_loss)
             mse = loss_All.detach()
             mseGrad = loss_GAll.detach()
-            metrics = dict([('mse', mse), ('mseGrad', mseGrad), ('meanGrad', mean_GAll), ('mseOI', loss_OI.detach()),
-                            ('mseGOI', loss_GOI.detach())])
+            metrics = dict([('mse', mse),
+                ('mseGrad', mseGrad),
+                ('meanGrad', mean_GAll),
+                ('mseOI', loss_OI.detach()),
+                ('mseGOI', loss_GOI.detach())])
 
         return loss, outputs, metrics
 

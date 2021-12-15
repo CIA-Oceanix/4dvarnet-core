@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 dim_range = {
     #'lat': slice(33, 43),
     #'lon': slice(-65, -55),
-    'lat': slice(27, 57),
-    'lon': slice(-77, 3),
+    'lat': slice(27, 65),
+    'lon': slice(-79, 7),
 }
 # Specify the batch patch size
 slice_win = {
@@ -22,11 +22,11 @@ strides = {
     'lon': 200,
 }
 
-test_dates = [str(dt.date()) for dt in pd.date_range('2013-01-03', "2013-01-27")]
+test_dates = [str(dt.date()) for dt in pd.date_range('2012-10-20', "2012-12-04")]
 time_period = {
-    'train_slices' : (slice('2012-10-01', "2012-11-20"), slice('2013-02-07', "2013-09-30")),
-    'test_slices' : (slice('2013-01-03', "2013-01-27"),),
-    'val_slices' : (slice('2012-11-30', "2012-12-24"),),
+    'train_slices' : (slice('2013-01-01', "2013-09-30"),),
+    'test_slices' : (slice('2012-10-20', "2012-12-04"),),
+    'val_slices' : (slice('2012-10-01', "2012-10-20"),),
 }
 
 params = {
@@ -57,14 +57,14 @@ params = {
     'dW2'             : 1,
     'sS'              : 4,  # int(4/dx),
     'nbBlocks'        : 1,
-    'Nbpatches'       : 1, #10#10#25 ## number of patches extracted from each time-step 
+    'Nbpatches'       : 1, #10#10#25 ## number of patches extracted from each time-step
 
     # stochastic version
     'stochastic'      : False,
     'size_ensemble'   : 3,
 
-    # animation maps 
-    'animate'         : False,
+    # animation maps
+    'animate'         : True, # False,
 
     # supervised/unsupervised loss
     'supervised'      : True,
@@ -88,14 +88,14 @@ params = {
     # data generation
     'sigNoise'        : 0.,## additive noise standard deviation
     'flagSWOTData'    : True, #False ## use SWOT data or not
-    'Nbpatches'       : 1, #10#10#25 ## number of patches extracted from each time-step 
+    'Nbpatches'       : 1, #10#10#25 ## number of patches extracted from each time-step
     'rnd1'            : 0, ## random seed for patch extraction (space sam)
     'rnd2'            : 100, ## random seed for patch extraction
     'dwscale'         : 1,
 
     'UsePriodicBoundary' : False,  # use a periodic boundary for all conv operators in the gradient model (see torch_4DVarNN_dinAE)
     'InterpFlag'         : False, # True :> force reconstructed field to observed data after each gradient-based update
-    'flagSWOTData'       : True,
+    'flagSWOTData'       : False, # True,
     'automatic_optimization' : True,
 
 }
