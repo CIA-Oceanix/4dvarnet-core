@@ -14,6 +14,7 @@ import torch.optim as optim
 from omegaconf import OmegaConf
 from scipy import stats
 import solver as NN_4DVar
+import metrics
 from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
 from models import Phi_r, ModelLR, Gradient_img
 
@@ -160,7 +161,13 @@ def get_phi(hparams):
 
 def get_constant_crop(patch_size, crop, dim_order=['time', 'lat', 'lon']):
         patch_weight = np.zeros([patch_size[d] for d in dim_order], dtype='float32')
-        patch_weight[tuple(slice(crop[d],-crop[d]) for d in dim_order)] = 1.
+        print(patch_size, crop)
+        mask = tuple(
+                slice(crop[d], -crop[d]) if crop.get(d, 0)>0 else slice(None, None)
+                for d in dim_order
+        )
+        patch_weight[mask] = 1.
+        print(patch_weight.sum())
         return patch_weight
 
 # msk = get_constant_crop({'lat':200, 'lon':200, 'time':5}, crop={'lat':20, 'lon':20, 'time':2})
@@ -368,8 +375,8 @@ class LitCalModel(pl.LightningModule):
     def test_step(self, test_batch, batch_idx):
         return self.diag_step(test_batch, batch_idx, log_pref='test')
 
-    def test_step_end(self, step_outputs):
-        return self.diag_step_end(step_outputs, log_pref='test')
+    def test_epoch_end(self, step_outputs):
+        return self.diag_epoch_end(step_outputs, log_pref='test')
 
     def validation_step(self, batch, batch_idx):
         return self.diag_step(batch, batch_idx, log_pref='val')
@@ -392,7 +399,6 @@ class LitCalModel(pl.LightningModule):
                diag_ds[i]
                for i in range(len(diag_ds))
             ]
-
         self.outputs = outputs
         def iter_item(outputs):
             for chunk in outputs:
@@ -430,13 +436,12 @@ class LitCalModel(pl.LightningModule):
                 {v: (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
             )
 
-
         for ds in dses:
             ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
             xr_weight = xr.DataArray(self.patch_weight, ds.coords, dims=ds.gt.dims) 
             _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
             fin_ds = fin_ds + _ds 
-
+        
 
         self.test_xr_ds = (
             (fin_ds.drop('weight') / fin_ds.weight)
@@ -459,7 +464,7 @@ class LitCalModel(pl.LightningModule):
         Path(self.logger.log_dir).mkdir(exist_ok=True)
         # display map
         path_save0 = self.logger.log_dir + '/maps.png'
-        t_idx = 3
+        t_idx = 0
         fig_maps = plot_maps(
                   self.x_gt[t_idx],
                 self.obs_inp[t_idx],
@@ -555,6 +560,8 @@ class LitCalModel(pl.LightningModule):
         self.test_figs['res'] = fig
         self.logger.experiment.add_figure(f'{log_pref} Spat. Resol', fig, global_step=self.current_epoch)
         # PENDING: Compute metrics on swath
+        _, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
+        _, _, mu, sig = metrics.rmse_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
         mdf = pd.concat([
             nrmse_df.rename(columns=lambda c: f'{log_pref}_{c}_glob').loc['pred'].T,
             mse_df.rename(columns=lambda c: f'{log_pref}_{c}_glob').loc['pred'].T,
@@ -564,6 +571,10 @@ class LitCalModel(pl.LightningModule):
         md = {
             f'{log_pref}_spatial_res': float(spatial_res_model),
             f'{log_pref}_spatial_res_imp': float(spatial_res_model / spatial_res_oi),
+            f'{log_pref}_lambda_x': lamb_x,
+            f'{log_pref}_lambda_t': lamb_t,
+            f'{log_pref}_mu': mu,
+            f'{log_pref}_sigma': sigma,
             **mdf.to_dict(), 
         }
         self.latest_metrics.update(md)

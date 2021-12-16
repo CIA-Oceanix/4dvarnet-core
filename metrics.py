@@ -1,4 +1,4 @@
-print(f"Using current {__name__}")
+import logging
 import datetime
 import einops
 import numpy as np
@@ -471,3 +471,75 @@ def get_psd_score(x_t, x, ref, with_fig=False):
 
     plt.close()
     return fig, spatial_resolution_model, spatial_resolution_ref
+
+
+def rmse_based_scores(da_rec, da_ref):
+    # boost swot rmse score 
+    logging.info('     Compute RMSE-based scores...')
+    
+    # RMSE(t) based score
+    rmse_t = 1.0 - (((da_rec - da_ref)**2).mean(dim=('lon', 'lat')))**0.5/(((da_ref)**2).mean(dim=('lon', 'lat')))**0.5
+    # RMSE(x, y) based score
+    # rmse_xy = 1.0 - (((da_rec - da_ref)**2).mean(dim=('time')))**0.5/(((da_ref)**2).mean(dim=('time')))**0.5
+    rmse_xy = (((da_rec - da_ref)**2).mean(dim=('time')))**0.5
+    
+    rmse_t = rmse_t.rename('rmse_t')
+    rmse_xy = rmse_xy.rename('rmse_xy')
+
+    # Temporal stability of the error
+    reconstruction_error_stability_metric = rmse_t.std().values
+
+    # Show leaderboard SSH-RMSE metric (spatially and time averaged normalized RMSE)
+    leaderboard_rmse = 1.0 - (((da_rec - da_ref) ** 2).mean()) ** 0.5 / (
+        ((da_ref) ** 2).mean()) ** 0.5
+
+    logging.info('          => Leaderboard SSH RMSE score = %s', np.round(leaderboard_rmse.values, 2))
+    logging.info('          Error variability = %s (temporal stability of the mapping error)', np.round(reconstruction_error_stability_metric, 2))
+    
+    return rmse_t, rmse_xy, np.round(leaderboard_rmse.values, 2), np.round(reconstruction_error_stability_metric, 2)
+
+
+def psd_based_scores(da_rec, da_ref):
+    # boost-swot-psd-score 
+    logging.info('     Compute PSD-based scores...')
+    
+    # Compute error = SSH_reconstruction - SSH_true
+    err = (da_rec - da_ref)
+    err = err.chunk({"lat":1, 'time': err['time'].size, 'lon': err['lon'].size})
+    # make time vector in days units 
+    err['time'] = (err.time - err.time[0]) / np.timedelta64(1, 'D')
+    
+    # Rechunk SSH_true
+    signal = da_ref.chunk({"lat":1, 'time': da_ref['time'].size, 'lon': da_ref['lon'].size})
+    # make time vector in days units
+    signal['time'] = (signal.time - signal.time[0]) / np.timedelta64(1, 'D')
+
+    # Compute PSD_err and PSD_signal
+    psd_err = xrft.power_spectrum(err, dim=['time', 'lon'], detrend='constant', window=True).compute()
+    psd_signal = xrft.power_spectrum(signal, dim=['time', 'lon'], detrend='constant', window=True).compute()
+    
+    # Averaged over latitude
+    mean_psd_signal = psd_signal.mean(dim='lat').where((psd_signal.freq_lon > 0.) & (psd_signal.freq_time > 0), drop=True)
+    mean_psd_err = psd_err.mean(dim='lat').where((psd_err.freq_lon > 0.) & (psd_err.freq_time > 0), drop=True)
+    
+    # return PSD-based score
+    psd_based_score = (1.0 - mean_psd_err/mean_psd_signal)
+
+    # Find the key metrics: shortest temporal & spatial scales resolved based on the 0.5 contour criterion of the PSD_score
+
+    
+
+    level = [0.5]
+    cs = plt.contour(1./psd_based_score.freq_lon.values,1./psd_based_score.freq_time.values, psd_based_score, level)
+    x05, y05 = cs.collections[0].get_paths()[0].vertices.T
+    plt.close()
+    
+    shortest_spatial_wavelength_resolved = np.min(x05)
+    shortest_temporal_wavelength_resolved = np.min(y05)
+
+    logging.info('          => Leaderboard Spectral score = %s (degree lon)',
+                 np.round(shortest_spatial_wavelength_resolved, 2))
+    logging.info('          => shortest temporal wavelength resolved = %s (days)',
+                 np.round(shortest_temporal_wavelength_resolved, 2))
+
+    return (1.0 - mean_psd_err/mean_psd_signal), np.round(shortest_spatial_wavelength_resolved, 2), np.round(shortest_temporal_wavelength_resolved, 2)

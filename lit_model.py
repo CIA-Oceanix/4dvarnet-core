@@ -1,4 +1,5 @@
 from models import *
+import kornia
 
 class LitModel(pl.LightningModule):
     def __init__(self, hparam, *args, **kwargs):
@@ -50,7 +51,8 @@ class LitModel(pl.LightningModule):
             None, None, self.shapeData, self.hparams.n_grad, self.hparams.stochastic)
 
         self.model_LR = ModelLR()
-        self.gradient_img = Gradient_img()
+        # self.gradient_img = Gradient_img()
+        self.gradient_img = kornia.filters.sobel
         # loss weghing wrt time
 
         self.w_loss = torch.nn.Parameter(kwargs['w_loss'], requires_grad=False)  # duplicate for automatic upload to gpu

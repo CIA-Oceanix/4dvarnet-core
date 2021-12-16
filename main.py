@@ -186,6 +186,7 @@ class FourDVarNetRunner:
 
         trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs)
         trainer.test(mod, test_dataloaders=self.dataloaders[dataloader])
+        return mod
 
     def profile(self):
         """

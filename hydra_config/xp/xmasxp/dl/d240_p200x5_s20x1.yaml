@@ -1,0 +1,14 @@
+# @package _global_
+
+params:
+  patch_weight:
+    _target_: calibration.lit_cal_model.get_constant_crop
+    patch_size: ${patch_size}
+    crop: 
+      lat: 20
+      lon: 20
+      time: 2
+
+defaults:
+  - /domain@datamodule.dim_range: gf_x
+  - /domain@params.test_domain: gf

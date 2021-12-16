@@ -42,6 +42,7 @@ class Encoder(torch.nn.Module):
         # self.conv1HR  = torch.nn.Conv2d(dim_inp,self.dim_ae,(2*dw+1,2*dw+1),padding=dw,bias=False)
         # self.conv1LR  = torch.nn.Conv2d(dim_inp,self.dim_ae,(2*dw+1,2*dw+1),padding=dw,bias=False)
         self.pool1 = torch.nn.AvgPool2d(ss)
+        print(dim_inp, dim_out, dim_ae, dw, dw2, ss, nb_blocks, rateDropout)
         self.conv_tr = torch.nn.ConvTranspose2d(dim_out, dim_out, (ss, ss), stride=(ss, ss), bias=False)
 
         # self.nn_tlr    = self.__make_ResNet(self.dim_ae,self.nb_blocks,rateDropout)
@@ -106,6 +107,7 @@ class RegularizeVariance(torch.nn.Module):
 class Phi_r(torch.nn.Module):
     def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic=False):
         super().__init__()
+        print(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic)
         self.stochastic = stochastic
         self.encoder = Encoder(shape_data, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
         self.decoder = Decoder()
