@@ -74,6 +74,9 @@ class LitModelAugState(pl.LightningModule):
         self.var_Val = self.hparams.var_Val
         self.var_Tr = self.hparams.var_Tr
         self.var_Tt = self.hparams.var_Tt
+        self.mean_Val = self.hparams.mean_Val
+        self.mean_Tr = self.hparams.mean_Tr
+        self.mean_Tt = self.hparams.mean_Tt
 
         # create longitudes & latitudes coordinates
         self.test_coords = None
@@ -82,23 +85,14 @@ class LitModelAugState(pl.LightningModule):
         self.test_lat = None
         self.test_dates = None
 
-
-        self.var_Val = self.hparams.var_Val
-        self.var_Tr = self.hparams.var_Tr
-        self.var_Tt = self.hparams.var_Tt
-        self.mean_Val = self.hparams.mean_Val
-        self.mean_Tr = self.hparams.mean_Tr
-        self.mean_Tt = self.hparams.mean_Tt
-
         # main model
-
         self.model_name = self.hparams.model if hasattr(self.hparams, 'model') else '4dvarnet'
         self.use_sst = self.hparams.model if hasattr(self.hparams, 'sst') else False
         self.model = self.create_model()
         self.model_LR = ModelLR()
         self.gradient_img = Gradient_img()
-        # loss weghing wrt time
 
+        # loss weghing wrt time
         self.w_loss = torch.nn.Parameter(torch.Tensor(self.hparams.w_loss), requires_grad=False)  # duplicate for automatic upload to gpu
         self.x_gt = None  # variable to store Ground Truth
         self.x_oi = None  # variable to store OI
@@ -159,7 +153,6 @@ class LitModelAugState(pl.LightningModule):
                 lr = np.array([lrCurrent, lrCurrent, 0.5 * lrCurrent, 0.])
                 for pg in opt.param_groups:
                     pg['lr'] = lr[mm]  # * self.hparams.learning_rate
-
                     mm += 1
 
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
@@ -323,7 +316,6 @@ class LitModelAugState(pl.LightningModule):
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
 
-        #targets_OI, inputs_Mask, targets_GT = batch
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:
             return (
