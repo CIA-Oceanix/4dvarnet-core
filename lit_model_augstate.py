@@ -63,12 +63,18 @@ class LitModelAugState(pl.LightningModule):
         # self.save_hyperparameters({**hparams, **kwargs})
         self.save_hyperparameters(hparams)
         # TOTEST: set those parameters only if provided
-        self.var_Val = self.hparams.var_Val
-        self.var_Tr = self.hparams.var_Tr
-        self.var_Tt = self.hparams.var_Tt
-        self.mean_Val = self.hparams.mean_Val
-        self.mean_Tr = self.hparams.mean_Tr
-        self.mean_Tt = self.hparams.mean_Tt
+        self.var_Val = kwargs['var_Val']
+        self.var_Tr = kwargs['var_Tr']
+        self.var_Tt = kwargs['var_Tt']
+        self.mean_Val = kwargs['mean_Val']
+        self.mean_Tr = kwargs['mean_Tr']
+        self.mean_Tt = kwargs['mean_Tt']
+        # self.var_Val = self.hparams.var_Val
+        # self.var_Tr = self.hparams.var_Tr
+        # self.var_Tt = self.hparams.var_Tt
+        # self.mean_Val = self.hparams.mean_Val
+        # self.mean_Tr = self.hparams.mean_Tr
+        # self.mean_Tt = self.hparams.mean_Tt
 
         self.dX = kwargs['dX']
         self.dY = kwargs['dY']
@@ -83,8 +89,10 @@ class LitModelAugState(pl.LightningModule):
         self.test_dates = None
 
         # main model
-        self.model_name = self.hparams.model if hasattr(self.hparams, 'model') else '4dvarnet'
-        self.use_sst = self.hparams.model if hasattr(self.hparams, 'sst') else False
+        # self.model_name = self.hparams.model if hasattr(self.hparams, 'model') else '4dvarnet'
+        self.model_name = '4dvarnet'
+        # self.use_sst = self.hparams.model if hasattr(self.hparams, 'sst') else False
+        self.use_sst = False
         self.model = self.create_model()
         self.model_LR = ModelLR()
         self.gradient_img = Gradient_img()
