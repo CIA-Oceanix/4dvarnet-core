@@ -85,11 +85,6 @@ class LitModelAugState(pl.LightningModule):
         self.test_lat = None
         self.test_dates = None
 
-        self.dX = kwargs['dX']
-        self.dY = kwargs['dY']
-        self.swX = kwargs['swX']
-        self.swY = kwargs['swY']
-
         # main model
         self.model_name = self.hparams.model if hasattr(self.hparams, 'model') else '4dvarnet'
         self.use_sst = self.hparams.model if hasattr(self.hparams, 'sst') else False
@@ -204,26 +199,18 @@ class LitModelAugState(pl.LightningModule):
             self.log('test_loss', loss)
             self.log("test_mse", metrics['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
-        return {'gt'    : (targets_GT.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'obs'   : (inputs_obs.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'oi'    : (targets_OI.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'preds' : (out.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr}
-        # return {'gt'    : (targets_GT.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                # 'oi'    : (targets_OI.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                # 'inp_obs'    : (inputs_obs.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                # 'preds' : (out.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr}
+        return {'gt'    : (targets_GT.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'oi'    : (targets_OI.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'inp_obs'    : (inputs_obs.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'preds' : (out.detach().cpu().numpy() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def test_epoch_end(self, outputs):
 
         self.outputs = outputs
-        gt = torch.cat([chunk['gt'] for chunk in outputs]).numpy()
-        obs = torch.cat([chunk['obs'] for chunk in outputs]).numpy()
-        oi = torch.cat([chunk['oi'] for chunk in outputs]).numpy()
-        pred = torch.cat([chunk['preds'] for chunk in outputs]).numpy()
-        # gt = np.concatenate([chunk['gt'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
-        # obs = np.concatenate([chunk['inp_obs'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
-        # oi = np.concatenate([chunk['oi'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
-        # pred = np.concatenate([chunk['preds'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
+        gt = np.concatenate([chunk['gt'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
+        obs = np.concatenate([chunk['inp_obs'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
+        oi = np.concatenate([chunk['oi'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
+        pred = np.concatenate([chunk['preds'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs])
 
         ds_size = self.test_ds_patch_size
 
@@ -237,23 +224,10 @@ class LitModelAugState(pl.LightningModule):
                     ),
                 [gt, obs, oi, pred])
 
-        # keep only points of the original domain
-        iX = np.where( (self.lon_ext>=self.xmin) & (self.lon_ext<self.xmax) )[0]
-        iY = np.where( (self.lat_ext>=self.ymin) & (self.lat_ext<self.ymax) )[0]
-        gt = (gt[:,:,iY,:])[:,:,:,iX]
-        obs = (obs[:,:,iY,:])[:,:,:,iX]
-        oi = (oi[:,:,iY,:])[:,:,:,iX]
-        pred = (pred[:,:,iY,:])[:,:,:,iX]
-
-        self.x_gt = gt[:, int(self.hparams.dT / 2), :, :]
-        self.x_obs = obs[:, int(self.hparams.dT / 2), :, :]
-        self.x_oi = oi[:, int(self.hparams.dT / 2), :, :]
-        self.x_rec = pred[:, int(self.hparams.dT / 2), :, :]
-
-        # self.x_gt = gt
-        # self.x_obs = obs
-        # self.x_oi = oi
-        # self.x_rec = pred
+        self.x_gt = gt
+        self.x_obs = obs
+        self.x_oi = oi
+        self.x_rec = pred
 
         self.test_xr_ds = xr.Dataset(
                 {
