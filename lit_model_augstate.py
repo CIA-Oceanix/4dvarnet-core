@@ -228,15 +228,25 @@ class LitModelAugState(pl.LightningModule):
 
         ds_size = self.test_ds_patch_size
 
-        gt, oi, pred, obs = map(
-                lambda t: einops.rearrange(
-                    t,
-                    '(lat_idx lon_idx t_idx )  win_lat win_lon -> t_idx  (lat_idx win_lat) (lon_idx win_lon)',
-                    t_idx=int(ds_size['time']),
-                    lat_idx=int(ds_size['lat']),
-                    lon_idx=int(ds_size['lon']),
-                    ),
-                [gt, obs, oi, pred])
+        gt, obs, oi, pred = map(
+            lambda t: einops.rearrange(
+                t,
+                '(t_idx lat_idx lon_idx) win_time win_lat win_lon -> t_idx win_time (lat_idx win_lat) (lon_idx win_lon)',
+                t_idx=ds_size['time'],
+                lat_idx=ds_size['lat'],
+                lon_idx=ds_size['lon'],
+            ),
+            [gt, obs, oi, pred])
+
+        # gt, oi, pred, obs = map(
+                # lambda t: einops.rearrange(
+                    # t,
+                    # '(lat_idx lon_idx t_idx )  win_lat win_lon -> t_idx  (lat_idx win_lat) (lon_idx win_lon)',
+                    # t_idx=int(ds_size['time']),
+                    # lat_idx=int(ds_size['lat']),
+                    # lon_idx=int(ds_size['lon']),
+                    # ),
+                # [gt, obs, oi, pred])
 
         # keep only points of the original domain
         iX = np.where( (self.lon_ext>=self.xmin) & (self.lon_ext<self.xmax) )[0]
