@@ -76,6 +76,23 @@ class LitModelAugState(pl.LightningModule):
         # self.mean_Tr = self.hparams.mean_Tr
         # self.mean_Tt = self.hparams.mean_Tt
 
+        self.xmin = kwargs['min_lon']
+        self.xmax = kwargs['max_lon']
+        self.ymin = kwargs['min_lat']
+        self.ymax = kwargs['max_lat']
+        self.Nx = 200
+        self.Ny = 200
+        #self.Nx = int(((self.xmax-self.xmin)/.05)/self.hparams.resize_factor)
+        #self.Ny = int(((self.ymax-self.ymin)/.05)/self.hparams.resize_factor)
+        self.lon = np.linspace(self.xmin, self.xmax, self.Nx)
+        self.lat = np.linspace(self.ymin, self.ymax, self.Ny)
+        self.shapeData = [self.hparams.dT*2,self.Ny,self.Nx]
+        self.ds_size_time = kwargs['ds_size_time']
+        self.ds_size_lon = kwargs['ds_size_lon']
+        self.ds_size_lat = kwargs['ds_size_lat']
+
+        self.time = kwargs['time']
+
         self.dX = kwargs['dX']
         self.dY = kwargs['dY']
         self.swX = kwargs['swX']
