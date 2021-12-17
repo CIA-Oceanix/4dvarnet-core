@@ -93,7 +93,6 @@ class FourDVarNetRunner:
         self.ds_size_lon = datamodule.ds_size['lon']
         self.ds_size_lat = datamodule.ds_size['lat']
         self.dX = int((datamodule.slice_win['lon']-datamodule.strides['lon'])/2)
-        print("\n dX : ", self.dX, "\n")
         self.dY = int((datamodule.slice_win['lat']-datamodule.strides['lat'])/2)
         self.swX = datamodule.slice_win['lon']
         self.swY = datamodule.slice_win['lat']
