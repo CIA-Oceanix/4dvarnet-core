@@ -79,6 +79,7 @@ class FourDVarNetRunner:
         self.time = config.time
 
     def setup(self, datamodule):
+        print("\n test \n")
         self.mean_Tr = datamodule.norm_stats[0]
         self.mean_Tt = datamodule.norm_stats[0]
         self.mean_Val = datamodule.norm_stats[0]
