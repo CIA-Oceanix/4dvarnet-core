@@ -84,7 +84,7 @@ class SirenState(nn.Module):
         super().__init__()
         self.state_init = nn.Parameter(torch.rand(hparams.shape_state))
 
-        self.fwd_fn = SirenNet(dim_in=hparams.shape_state[0], dim_hidden=64, dim_out=hparams.shape_data[0], num_layers=2)
+        self.fwd_fn = SirenNet(dim_in=hparams.shape_state[0], dim_hidden=32, dim_out=hparams.shape_data[0], num_layers=2)
 
     def forward(self, state):
         x = einops.rearrange(state, 'bs t lat lon -> bs lat lon t')
@@ -99,15 +99,18 @@ class ImplicitSolver_Grad_4DVarNN(solver.Solver_Grad_4DVarNN):
         self.state_mod = state_mod
 
     def var_cost(self, x, yobs, mask):
-        s = x
-        x = self.state_mod(s)
-        dy = self.model_H(x,yobs,mask)
-        dx = x - self.phi_r(x)
+        x = self.state_mod(x)
+        return super().var_cost(x, yobs, mask)
+        # s = x
+        # x = self.state_mod(s)
+        # dy = self.model_H(x,yobs,mask)
+        # dx = x - self.phi_r(x)
+        # # dx = s - self.phi_r(s)
         
-        loss = self.model_VarCost( dx , dy )
+        # loss = self.model_VarCost( dx , dy )
         
-        var_cost_grad = torch.autograd.grad(loss, s, create_graph=True)[0]
-        return loss, var_cost_grad
+        # var_cost_grad = torch.autograd.grad(loss, s, create_graph=True)[0]
+        # return loss, var_cost_grad
 
 def get_4dvarsiren_sst(hparams):
     return ImplicitSolver_Grad_4DVarNN(
@@ -134,8 +137,11 @@ class ImpLitCalMod(calibration.lit_cal_model.LitCalModel):
         return super().get_outputs(batch, self.model.state_mod(state_out))
 
     def loss_ae(self, state_out):
+        return 0.
         x_out = self.model.state_mod(state_out)
+        # x_out = state_out
         return torch.mean((self.model.phi_r(x_out) - x_out) ** 2)
+
     def configure_optimizers(self):
         
 

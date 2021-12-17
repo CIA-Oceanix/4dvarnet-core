@@ -4,7 +4,7 @@ lit_mod_cls: calibration.implicit_solver.ImpLitCalMod
 params:
   model: 4dsiren_sst
   shape_state:
-    - 20
+    - 15
     - 240
     - 240
 
