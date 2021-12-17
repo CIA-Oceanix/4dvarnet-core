@@ -79,7 +79,6 @@ class FourDVarNetRunner:
         self.time = config.time
 
     def setup(self, datamodule):
-        print("\n test \n")
         self.mean_Tr = datamodule.norm_stats[0]
         self.mean_Tt = datamodule.norm_stats[0]
         self.mean_Val = datamodule.norm_stats[0]
@@ -94,6 +93,7 @@ class FourDVarNetRunner:
         self.ds_size_lon = datamodule.ds_size['lon']
         self.ds_size_lat = datamodule.ds_size['lat']
         self.dX = int((datamodule.slice_win['lon']-datamodule.strides['lon'])/2)
+        print("\n dX : ", self.dX, "\n")
         self.dY = int((datamodule.slice_win['lat']-datamodule.strides['lat'])/2)
         self.swX = datamodule.slice_win['lon']
         self.swY = datamodule.slice_win['lat']
