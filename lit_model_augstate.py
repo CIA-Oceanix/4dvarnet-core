@@ -15,21 +15,21 @@ from models import Phi_r, Model_H, Model_HwithSST, ModelLR, Gradient_img
 
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r(hparams.shapeData[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
-                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
-                Model_H(hparams.shapeData[0]),
-                NN_4DVar.model_GradUpdateLSTM(hparams.shapeData, hparams.UsePriodicBoundary,
+            Phi_r(hparams.shapeData[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                  hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+            Model_H(hparams.shapeData[0]),
+            NN_4DVar.model_GradUpdateLSTM(hparams.shapeData, hparams.UsePriodicBoundary,
                                           hparams.dim_grad_solver, hparams.dropout, hparams.stochastic),
-                None, None, hparams.shapeData, hparams.n_grad, hparams.stochastic)
+            None, None, hparams.shapeData, hparams.n_grad, hparams.stochastic)
 
 def get_4dvarnet_sst(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r(hparams.shapeData[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
-                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
-                Model_HwithSST(hparams.shapeData[0], hparams.shapeData[0]),
-                NN_4DVar.model_GradUpdateLSTM(hparams.shapeData, hparams.UsePriodicBoundary,
-                    hparams.dim_grad_solver, hparams.dropout),
-                hparams.norm_obs, hparams.norm_prior, hparams.shapeData, hparams.n_grad)
+            Phi_r(hparams.shapeData[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+            Model_HwithSST(hparams.shapeData[0], hparams.shapeData[0]),
+            NN_4DVar.model_GradUpdateLSTM(hparams.shapeData, hparams.UsePriodicBoundary,
+                hparams.dim_grad_solver, hparams.dropout),
+            hparams.norm_obs, hparams.norm_prior, hparams.shapeData, hparams.n_grad)
 
 def get_phi(hparams):
     class PhiPassThrough(torch.nn.Module):
@@ -128,11 +128,12 @@ class LitModelAugState(pl.LightningModule):
             return optimizer
         else:
             opt = optim.Adam(self.parameters(), lr=1e-4)
-        return {
-            'optimizer': opt,
-            'lr_scheduler': optim.lr_scheduler.ReduceLROnPlateau(opt, verbose=True, patience=50,),
-            'monitor': 'val_loss'
-        }
+        # return {
+            # 'optimizer': opt,
+            # 'lr_scheduler': optim.lr_scheduler.ReduceLROnPlateau(opt, verbose=True, patience=50,),
+            # 'monitor': 'val_loss'
+        # }
+        return optimizer
 
     def on_epoch_start(self):
         self.model.n_grad = self.hparams.n_grad
