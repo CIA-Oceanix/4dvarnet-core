@@ -60,7 +60,8 @@ class LitModelAugState(pl.LightningModule):
         hparam = {} if hparam is None else hparam
         hparams = hparam if isinstance(hparam, dict) else OmegaConf.to_container(hparam, resolve=True)
 
-        self.save_hyperparameters({**hparams, **kwargs})
+        # self.save_hyperparameters({**hparams, **kwargs})
+        self.save_hyperparameters(hparams)
         # TOTEST: set those parameters only if provided
         self.var_Val = self.hparams.var_Val
         self.var_Tr = self.hparams.var_Tr
