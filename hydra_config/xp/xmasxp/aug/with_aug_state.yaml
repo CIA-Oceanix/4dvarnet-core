@@ -6,3 +6,8 @@ params:
     - 20
     - ${datamodule.slice_win.lon}
     - ${datamodule.slice_win.lat}
+  shape_data:
+    - 20
+    - ${datamodule.slice_win.lon}
+    - ${datamodule.slice_win.lat}
+

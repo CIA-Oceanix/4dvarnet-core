@@ -1,11 +1,6 @@
 # @package _global_
 
-xp_name: xp_boost_swot_ref_l2
-
-params:
-  norm_obs: 'l2'
-  norm_prior: 'l2'
-
+xp_name: xp_boost_swot_cascade
 defaults:
   - xmasxp/base_xp
   - /splits/dc_boost_swot@datamodule
@@ -14,6 +9,7 @@ defaults:
   - xmasxp/ds/clean_swot_oi_w_swot
   - xmasxp/sst/with_sst
   - xmasxp/loss/map
-  - xmasxp/train_strat/dec_lr_ngrad5_15_nocas
+  - xmasxp/train_strat/dec_lr_ngrad_5_3cas
   - _self_ 
+
 

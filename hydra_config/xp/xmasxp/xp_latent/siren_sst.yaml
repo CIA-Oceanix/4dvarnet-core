@@ -1,19 +1,23 @@
 # @package _global_
-
-xp_name: xp_boost_swot_ref_l2
-
+xp_name: siren_state
+lit_mod_cls: calibration.implicit_solver.ImpLitCalMod
 params:
-  norm_obs: 'l2'
-  norm_prior: 'l2'
+  model: 4dsiren_sst
+  shape_state:
+    - 20
+    - 240
+    - 240
+
 
 defaults:
   - xmasxp/base_xp
   - /splits/dc_boost_swot@datamodule
   - xmasxp/aug/without_aug_state
-  - xmasxp/dl/d200_p200x5_s200x1
+  - xmasxp/dl/d240_p240x5_s240x1
   - xmasxp/ds/clean_swot_oi_w_swot
   - xmasxp/sst/with_sst
   - xmasxp/loss/map
   - xmasxp/train_strat/dec_lr_ngrad5_15_nocas
   - _self_ 
+
 

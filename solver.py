@@ -276,7 +276,6 @@ class model_GradUpdateLSTM(torch.nn.Module):
         return torch.nn.Sequential(*layers)
 
     def forward(self,hidden,cell,grad,gradnorm=1.0):
-
         # compute gradient
         grad  = grad / gradnorm
         grad  = self.dropout( grad )
@@ -361,10 +360,10 @@ class Solver_Grad_4DVarNN(nn.Module):
             'l1': Model_WeightedL1Norm,
             'l2': Model_WeightedL2Norm,
     }
-    def __init__(self ,phi_r,mod_H, m_Grad, m_NormObs, m_NormPhi, ShapeData,n_iter_grad, stochastic=False):
+    def __init__(self ,phi_r,mod_H, m_Grad, m_NormObs, m_NormPhi, ShapeData,n_iter_grad, stochastic=False, state_mod=None):
         super(Solver_Grad_4DVarNN, self).__init__()
         self.phi_r         = phi_r
-        
+
         if m_NormObs == None:
             m_NormObs =  Model_WeightedL2Norm()
         else:
@@ -421,3 +420,8 @@ class Solver_Grad_4DVarNN(nn.Module):
         
         var_cost_grad = torch.autograd.grad(loss, x, create_graph=True)[0]
         return loss, var_cost_grad
+
+
+
+     
+

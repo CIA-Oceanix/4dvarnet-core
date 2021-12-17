@@ -1,9 +1,18 @@
 # @package _global_
 
+datamodule:
+  slice_win: 
+    lat: 240
+    lon: 240
+    time: 5
+  strides: 
+    lat: 20
+    lon: 20
+    time: 1
 params:
   patch_weight:
     _target_: calibration.lit_cal_model.get_constant_crop
-    patch_size: ${patch_size}
+    patch_size: ${datamodule.slice_win}
     crop: 
       lat: 20
       lon: 20

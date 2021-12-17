@@ -1,4 +1,6 @@
 # @package _global_
+
+xp_name: ???
 params:
   files_cfg:
     oi_path: ??? # ds
@@ -80,12 +82,3 @@ logger:
   default_hp_metric: False
 
 
-defaults:
-  - /splits/dc_boost_swot@datamodule
-  - xmasxp/aug/without_aug_state
-  - xmasxp/dl/d200_p200x5_s200x1
-  - xmasxp/ds/clean_swot_oi_w_swot
-  - xmasxp/sst/with_sst
-  - xmasxp/loss/map
-  - xmasxp/train_strat/dec_lr_ngrad5_15_nocas
-  - _self_ 

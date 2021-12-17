@@ -1,4 +1,5 @@
 import logging
+from matplotlib.ticker import ScalarFormatter
 import datetime
 import einops
 import numpy as np
@@ -188,7 +189,7 @@ def plot_maps(gt,obs,oi,pred,lon,lat,resfile,grad=False):
     id_nan = np.where(np.isnan(gt))
     obs[id_nan] = np.nan
 
-    fig = plt.figure(figsize=(15,15))
+    fig = plt.figure(figsize=(7, 7))
     ax1 = fig.add_subplot(221, projection=ccrs.PlateCarree(central_longitude=0.0))
     ax2 = fig.add_subplot(222, projection=ccrs.PlateCarree(central_longitude=0.0))
     ax3 = fig.add_subplot(223, projection=ccrs.PlateCarree(central_longitude=0.0))
@@ -253,7 +254,7 @@ def animate_maps(gt,obs,oi,pred,lon,lat,resfile,orthographic=True,dw=4,grad=Fals
 
     extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
 
-    fig = plt.figure(figsize=(15,15))
+    fig = plt.figure(figsize=(7, 7))
     if orthographic==False:
         ax1 = fig.add_subplot(221, projection=ccrs.PlateCarree(central_longitude=0.0))
         ax2 = fig.add_subplot(222, projection=ccrs.PlateCarree(central_longitude=0.0))
@@ -541,5 +542,50 @@ def psd_based_scores(da_rec, da_ref):
                  np.round(shortest_spatial_wavelength_resolved, 2))
     logging.info('          => shortest temporal wavelength resolved = %s (days)',
                  np.round(shortest_temporal_wavelength_resolved, 2))
+    psd_da = (1.0 - mean_psd_err/mean_psd_signal) 
+    psd_da.name = 'psd_score'
+    return psd_da.to_dataset(), np.round(shortest_spatial_wavelength_resolved, 2), np.round(shortest_temporal_wavelength_resolved, 2)
 
-    return (1.0 - mean_psd_err/mean_psd_signal), np.round(shortest_spatial_wavelength_resolved, 2), np.round(shortest_temporal_wavelength_resolved, 2)
+
+def plot_psd_score(ds):
+    fig, ax = plt.subplots() 
+    #ax.invert_yaxis()
+    #ax.invert_xaxis()
+    c1 = plt.contourf(1./(ds['freq_lon']), 1./ds['freq_time'], ds['psd_score'],
+                      levels=np.arange(0,1.1, 0.1), cmap='RdYlGn', extend='both')
+    cbar = plt.colorbar(pad=0.01)
+    plt.xlabel('spatial wavelenght (degree_lon)', fontweight='bold', fontsize=20)
+    plt.ylabel('temporal wavelenght (days)', fontweight='bold', fontsize=20)
+    #plt.xscale('log')
+    #plt.yscale('log')
+    plt.grid(linestyle='--', lw=1, color='w')
+    plt.xticks(fontsize=18)
+    plt.yticks(fontsize=18)
+    plt.title('PSD-based score', fontweight='bold', fontsize=20)
+    for axis in [ax.xaxis, ax.yaxis]:
+        axis.set_major_formatter(ScalarFormatter())
+    c2 = plt.contour(1./(ds['freq_lon']), 1./ds['freq_time'], ds['psd_score'], levels=[0.5], linewidths=2, colors='k')
+    cbar.add_lines(c2)
+
+    bbox_props = dict(boxstyle="round,pad=0.5", fc="w", ec="k", lw=2)
+    ax.annotate('Resolved scales',
+            xy=(1.15, 0.8),
+            xycoords='axes fraction',
+            xytext=(1.15, 0.55),
+            bbox=bbox_props,
+            arrowprops=
+                dict(facecolor='black', shrink=0.05),
+                horizontalalignment='left',
+                verticalalignment='center')
+
+    ax.annotate('UN-resolved scales',
+            xy=(1.15, 0.2),
+            xycoords='axes fraction',
+            xytext=(1.15, 0.45),
+            bbox=bbox_props,
+            arrowprops=
+                dict(facecolor='black', shrink=0.05),
+                horizontalalignment='left',
+                verticalalignment='center')
+    plt.close()
+    return fig
