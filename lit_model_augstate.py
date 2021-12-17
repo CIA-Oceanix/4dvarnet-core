@@ -80,6 +80,8 @@ class LitModelAugState(pl.LightningModule):
         self.dY = kwargs['dY']
         self.swX = kwargs['swX']
         self.swY = kwargs['swY']
+        self.lon_ext = (kwargs['coord_ext'])['lon_ext']
+        self.lat_ext = (kwargs['coord_ext'])['lat_ext']
 
         # create longitudes & latitudes coordinates
         self.test_coords = None
