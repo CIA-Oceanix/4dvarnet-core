@@ -10,7 +10,7 @@ import torch.optim as optim
 from omegaconf import OmegaConf
 from scipy import stats
 import solver as NN_4DVar
-from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
+from metrics import nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps
 from models import Phi_r, Model_H, Model_HwithSST, ModelLR, Gradient_img
 
 def get_4dvarnet(hparams):
@@ -19,7 +19,8 @@ def get_4dvarnet(hparams):
                   hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
             Model_H(hparams.shapeData[0]),
             NN_4DVar.model_GradUpdateLSTM(hparams.shapeData, hparams.UsePriodicBoundary,
-                                          hparams.dim_grad_solver, hparams.dropout, hparams.stochastic),
+                                          hparams.dim_grad_solver, hparams.dropout,
+                                          hparams.stochastic),
             None, None, hparams.shapeData, hparams.n_grad, hparams.stochastic)
 
 def get_4dvarnet_sst(hparams):
@@ -35,8 +36,9 @@ def get_phi(hparams):
     class PhiPassThrough(torch.nn.Module):
         def __init__(self):
             super().__init__()
-            self.phi = Phi_r(hparams.shapeData[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
-                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic)
+            self.phi = Phi_r(hparams.shapeData[0], hparams.DimAE, hparams.dW,
+                            hparams.dW2, hparams.sS, hparams.nbBlocks,
+                            hparams.dropout_phi_r, hparams.stochastic)
 
             self.phi_r = torch.nn.Identity()
             self.n_grad = 0
@@ -136,23 +138,22 @@ class LitModelAugState(pl.LightningModule):
 
         if self.model_name == '4dvarnet':
             optimizer = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
-                {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
-                {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
-                ]
-                , lr=0.)
+                                    {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                                    {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                                    ], lr=0.)
 
             return optimizer
         elif self.model_name == '4dvarnet_sst':
 
             optimizer = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
-                                {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
-                                {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
-                                {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
-                                ], lr=0.)
+                                    {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                                    {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
+                                    {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                                    ], lr=0.)
 
             return optimizer
-        else:
-            opt = optim.Adam(self.parameters(), lr=1e-4)
+        # else:
+            # opt = optim.Adam(self.parameters(), lr=1e-4)
         # return {
             # 'optimizer': opt,
             # 'lr_scheduler': optim.lr_scheduler.ReduceLROnPlateau(opt, verbose=True, patience=50,),
@@ -169,7 +170,8 @@ class LitModelAugState(pl.LightningModule):
             if (self.current_epoch in self.hparams.iter_update) & (self.current_epoch > 0):
                 indx = self.hparams.iter_update.index(self.current_epoch)
                 print('... Update Iterations number/learning rate #%d: NGrad = %d -- lr = %f' % (
-                    self.current_epoch, self.hparams.nb_grad_update[indx], self.hparams.lr_update[indx]))
+                    self.current_epoch, self.hparams.nb_grad_update[indx],
+                    self.hparams.lr_update[indx]))
 
                 self.hparams.n_grad = self.hparams.nb_grad_update[indx]
                 self.model.n_grad = self.hparams.n_grad
@@ -183,7 +185,7 @@ class LitModelAugState(pl.LightningModule):
 
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
         # compute loss and metrics
-        loss, out, metrics = self.compute_loss(train_batch, phase='train')
+        loss, _, metrics = self.compute_loss(train_batch, phase='train')
         # losses, outs, metrics = self(train_batch, phase='train')
         if loss is None:
             print("None loss")
