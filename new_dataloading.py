@@ -6,7 +6,7 @@ from torch.utils.data import Dataset, ConcatDataset, DataLoader
 import pandas as pd
 
 
-def parse_fraction_to_float(frac):
+def parse_resolution_to_float(frac):
     """ Matches a string consting of an integer followed by either a divisor
     ("/" and an integer) or some spaces and a simple fraction (two integers
     separated by "/").
@@ -16,7 +16,7 @@ def parse_fraction_to_float(frac):
     Returns:
         float: resolution as float
     Example:
-        for x in ['3', '1/12', '1/20', '1 2/3']: print(repr(parse_fraction_to_float(x)))
+        for x in ['3', '1/12', '1/20', '1 2/3']: print(repr(parse_resolution_to_float(x)))
         >
         3.0
         0.0833333333333333
@@ -280,7 +280,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.sst_var = sst_var
 
         self.resize_factor = resize_factor
-        self.resolution  = parse_fraction_to_float(resolution)
+        self.resolution  = parse_resolution_to_float(resolution)
 
         self.train_slices, self.test_slices, self.val_slices = train_slices, test_slices, val_slices
         self.train_ds, self.val_ds, self.test_ds = None, None, None
