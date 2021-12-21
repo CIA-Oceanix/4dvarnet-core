@@ -137,21 +137,22 @@ class FourDVarNetDataset(Dataset):
             gt_var='ssh',
             sst_path=None,
             sst_var=None,
+            resolution=1/20,
             resize_factor=1,
     ):
         super().__init__()
 
-        self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win,
+        self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win, resolution=resolution,
                                dim_range=dim_range, strides=strides, resize_factor=resize_factor)
-        self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win,
+        self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win, resolution=resolution,
                                dim_range=dim_range,strides=strides, decode=True, resize_factor=resize_factor)
-        self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win,
+        self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win, resolution=resolution,
                                      dim_range=dim_range,strides=strides, resize_factor=resize_factor)
 
         self.norm_stats = (0, 1)
 
         if sst_var is not None:
-            self.sst_ds = XrDataset(sst_path, sst_var, slice_win=slice_win,
+            self.sst_ds = XrDataset(sst_path, sst_var, slice_win=slice_win, resolution=resolution,
                                     dim_range=dim_range, strides=strides,
                                     decode=sst_var=='sst', resize_factor=resize_factor)
         else:
@@ -216,6 +217,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             sst_path=None,
             sst_var=None,
             resize_factor=1,
+            resolution="1/20",
             dl_kwargs=None,
     ):
         super().__init__()
@@ -239,6 +241,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.sst_var = sst_var
 
         self.resize_factor = resize_factor
+        self.resolution  = parse_fraction_to_float(resolution)
 
         self.train_slices, self.test_slices, self.val_slices = train_slices, test_slices, val_slices
         self.train_ds, self.val_ds, self.test_ds = None, None, None
@@ -298,6 +301,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     gt_var=self.gt_var,
                     sst_path=self.sst_path,
                     sst_var=self.sst_var,
+                    resolution=self.resolution,
                     resize_factor=self.resize_factor,
                 ) for sl in slices]
             )
