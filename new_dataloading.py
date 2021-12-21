@@ -7,20 +7,27 @@ import pandas as pd
 
 
 def parse_fraction_to_float(frac):
-    """Converts string fraction 'num/den'
-    representing input resolution to float.
+    """ Matches a string consting of an integer followed by either a divisor
+    ("/" and an integer) or some spaces and a simple fraction (two integers
+    separated by "/").
+    From https://stackoverflow.com/a/1806375
     Args:
-        frac (str): resolution fraction from config file
+        frac (str): resolution as string fraction or integer from config file
     Returns:
         float: resolution as float
     Example:
-        for x in ['1/12', '1/20']: print(repr(parse_fraction_to_float(x)))
-        > ...
+        for x in ['3', '1/12', '1/20', '1 2/3']: print(repr(parse_fraction_to_float(x)))
+        >
+        3.0
         0.0833333333333333
         0.05
+        1.6666666666666665
     """
-    num, den = frac.split('/')
-    return float(num) / float(den)
+    frac_regex = re.compile(r'^(\d+)(?:(?:\s+(\d+))?/(\d+))?$')
+    i, n, d = frac_regex.match(frac).groups()
+    if d is None: n, d = 0, 1  # if d is None, then n is also None
+    if n is None: i, n = 0, i
+    return float(i) + float(n) / float(d)
 
 
 def find_pad(sl, st, N):
@@ -214,13 +221,7 @@ class FourDVarNetDataset(Dataset):
         ) - mean) / std
 
         # glorys model has NaNs on land
-        _gt_item = self.gt_ds[item]
-        _gt_item = np.where(
-            np.isnan(_gt_item),
-            0.,
-            _gt_item
-        )
-        _gt_item = (_gt_item - mean) / std
+        gt_item = (self.gt_ds[item] - mean) / std
 
         oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
         # obs_mask_item = self.obs_mask_ds[item].astype(bool) & ~np.isnan(oi_item) & ~np.isnan(_gt_item)
@@ -228,8 +229,6 @@ class FourDVarNetDataset(Dataset):
         _obs_item = (self.obs_mask_ds[item] - mean) / std
         obs_mask_item = ~np.isnan(_obs_item)
         obs_item = np.where(~np.isnan(_obs_item), _obs_item, np.zeros_like(_obs_item))
-
-        gt_item = _gt_item
 
         if self.sst_ds == None:
             return oi_item, obs_mask_item, obs_item, gt_item
