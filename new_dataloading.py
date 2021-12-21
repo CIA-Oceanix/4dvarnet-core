@@ -5,6 +5,24 @@ import xarray as xr
 from torch.utils.data import Dataset, ConcatDataset, DataLoader
 import pandas as pd
 
+
+def parse_fraction_to_float(frac):
+    """Converts string fraction 'num/den'
+    representing input resolution to float.
+    Args:
+        frac (str): resolution fraction from config file
+    Returns:
+        float: resolution as float
+    Example:
+        for x in ['1/12', '1/20']: print(repr(parse_fraction_to_float(x)))
+        > ...
+        0.0833333333333333
+        0.05
+    """
+    num, den = frac.split('/')
+    return float(num) / float(den)
+
+
 def find_pad(sl, st, N):
     k = np.floor(N/st)
     if N>((k*st) + (sl-st)):
@@ -20,26 +38,39 @@ class XrDataset(Dataset):
     torch Dataset based on an xarray file with on the fly slicing.
     """
 
-    def __init__(self, path, var, slice_win, dim_range=None, strides=None, decode=False, resize_factor=1):
+    def __init__(self, path, var, slice_win, resolution=1/20, dim_range=None, strides=None, decode=False, resize_factor=1):
         """
         :param path: xarray file
         :param var: data variable to fetch
         :param slice_win: window size for each dimension {<dim>: <win_size>...}
+        :param resolution: input spatial resolution 
         :param dim_range: Optional dimensions bounds for each dimension {<dim>: slice(<min>, <max>)...}
         :param strides: strides on each dim while scanning the dataset {<dim>: <dim_stride>...}
         :param decode: Whether to decode the time dim xarray (useful for gt dataset)
         """
         super().__init__()
         self.var = var
-        self.res = 0.05
-        _ds = xr.open_dataset(path, cache=False)
+        self.res = resolution
+        # try/except block for handling both netcdf and zarr files
+        try:
+            _ds = xr.open_dataset(path, cache=False)
+        except OSError as ex:
+            _ds = xr.open_zarr(path)
         if decode:
             if str(_ds.time.dtype) == 'float64':
-
                 _ds.time.attrs["units"] = "seconds since 2012-10-01"
                 _ds = xr.decode_cf(_ds)
             else:
                 _ds['time'] = pd.to_datetime(_ds.time)
+
+        # rename latitute/longitude to lat/lon for consistency
+        rename_coords = {}
+        if not "lat" in _ds.coords and "latitude" in _ds.coords:
+            rename_coords["latitude"] = "lat"
+        if not "lon" in _ds.coords and "longitude" in _ds.coords:
+            rename_coords["longitude"] = "lon"
+        _ds = _ds.rename(rename_coords)
+
         # reshape
         if resize_factor!=1:
             _ds = _ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
@@ -91,6 +122,10 @@ class XrDataset(Dataset):
             dim: max((self.ds.dims[dim] - slice_win[dim]) // self.strides.get(dim, 1) + 1, 0)
             for dim in slice_win
         }
+
+        # reorder dimensions, this ensures dims ordering using
+        # DataArray.data is consistent in numpy arrays (batch,time,lat,lon)
+        self.ds = self.ds.transpose('time', 'lat', 'lon')
 
     def __del__(self):
         self.ds.close()
@@ -148,7 +183,6 @@ class FourDVarNetDataset(Dataset):
                                dim_range=dim_range,strides=strides, decode=True, resize_factor=resize_factor)
         self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win, resolution=resolution,
                                      dim_range=dim_range,strides=strides, resize_factor=resize_factor)
-
         self.norm_stats = (0, 1)
 
         if sst_var is not None:
@@ -179,7 +213,15 @@ class FourDVarNetDataset(Dataset):
             np.nan,
         ) - mean) / std
 
-        _gt_item = (self.gt_ds[item] - mean) / std
+        # glorys model has NaNs on land
+        _gt_item = self.gt_ds[item]
+        _gt_item = np.where(
+            np.isnan(_gt_item),
+            0.,
+            _gt_item
+        )
+        _gt_item = (_gt_item - mean) / std
+
         oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
         # obs_mask_item = self.obs_mask_ds[item].astype(bool) & ~np.isnan(oi_item) & ~np.isnan(_gt_item)
 
@@ -221,7 +263,6 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             dl_kwargs=None,
     ):
         super().__init__()
-
         self.resize_factor = resize_factor
         self.dim_range = dim_range
         self.slice_win = slice_win
@@ -230,7 +271,6 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             **{'batch_size': 2, 'num_workers': 2, 'pin_memory': True},
             **(dl_kwargs or {})
         }
-
         self.oi_path = oi_path
         self.oi_var = oi_var
         self.obs_mask_path = obs_mask_path
@@ -315,7 +355,6 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             self.set_norm_stats(self.test_ds, self.norm_stats)
         else:
             self.norm_stats, self.norm_stats_sst = self.compute_norm_stats(self.train_ds)
-
             self.set_norm_stats(self.train_ds, self.norm_stats, self.norm_stats_sst)
             self.set_norm_stats(self.val_ds, self.norm_stats, self.norm_stats_sst)
             self.set_norm_stats(self.test_ds, self.norm_stats, self.norm_stats_sst)
