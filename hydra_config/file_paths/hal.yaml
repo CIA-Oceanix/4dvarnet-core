@@ -7,4 +7,4 @@ pseudo_obs: /work/scratch/carpenb/data_4dvarnet/dataset_nadir_0d_swot.nc
 # GLORYS 12v1
 glorys_ssh: /work/scratch/carpenb/data_4dvarnet/glorys12v1_filled_shifted_masked.zarr
 oi_miost: /work/scratch/carpenb/data_4dvarnet/miost_glorys12v1_j3_s3a_s3b_swot.zarr
-glorys_pseudo_obs: /work/scratch/carpenb/data_4dvarnet/gridded_obs_swot_3nadirs_glorys.nc
+glorys_pseudo_obs: /work/scratch/carpenb/data_4dvarnet/gridded_obs_swot_3nadirs_glorys_masked.zarr
