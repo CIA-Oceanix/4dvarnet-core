@@ -29,3 +29,4 @@ datamodule:
   dl_kwargs:
     batch_size: 2
     num_workers: 6
+  compute: True
