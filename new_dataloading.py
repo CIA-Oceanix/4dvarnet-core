@@ -46,7 +46,18 @@ class XrDataset(Dataset):
     torch Dataset based on an xarray file with on the fly slicing.
     """
 
-    def __init__(self, path, var, slice_win, resolution=1/20, dim_range=None, strides=None, decode=False, resize_factor=1):
+    def __init__(
+        self,
+        path,
+        var,
+        slice_win,
+        resolution=1/20,
+        dim_range=None,
+        strides=None,
+        decode=False,
+        resize_factor=1,
+        compute=False
+    ):
         """
         :param path: xarray file
         :param var: data variable to fetch
@@ -55,6 +66,7 @@ class XrDataset(Dataset):
         :param dim_range: Optional dimensions bounds for each dimension {<dim>: slice(<min>, <max>)...}
         :param strides: strides on each dim while scanning the dataset {<dim>: <dim_stride>...}
         :param decode: Whether to decode the time dim xarray (useful for gt dataset)
+        :param compute: whether to convert dask arrays to xr.DataArray (caution memory)
         """
         super().__init__()
         self.var = var
@@ -135,6 +147,10 @@ class XrDataset(Dataset):
         # DataArray.data is consistent in numpy arrays (batch,time,lat,lon)
         self.ds = self.ds.transpose('time', 'lat', 'lon')
 
+        # convert dask arrays to xr.DataArrays for faster computations
+        if compute:
+            self.ds = self.ds.compute()
+
     def __del__(self):
         self.ds.close()
 
@@ -167,38 +183,69 @@ class FourDVarNetDataset(Dataset):
     """
 
     def __init__(
-            self,
-            slice_win,
-            dim_range=None,
-            strides=None,
-            oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc',
-            oi_var='ssh_mod',
-            obs_mask_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d_swot.nc',
-            obs_mask_var='ssh_mod',
-            # obs_mask_var='mask',
-            gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
-            gt_var='ssh',
-            sst_path=None,
-            sst_var=None,
-            resolution=1/20,
-            resize_factor=1,
+        self,
+        slice_win,
+        dim_range=None,
+        strides=None,
+        oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc',
+        oi_var='ssh_mod',
+        obs_mask_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d_swot.nc',
+        obs_mask_var='ssh_mod',
+        # obs_mask_var='mask',
+        gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
+        gt_var='ssh',
+        sst_path=None,
+        sst_var=None,
+        resolution=1/20,
+        resize_factor=1,
+        compute=False
     ):
         super().__init__()
 
-        self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win, resolution=resolution,
-                               dim_range=dim_range, strides=strides, resize_factor=resize_factor)
-        self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win, resolution=resolution,
-                               dim_range=dim_range,strides=strides, decode=True, resize_factor=resize_factor)
-        self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win, resolution=resolution,
-                                     dim_range=dim_range,strides=strides, resize_factor=resize_factor)
-        self.norm_stats = (0, 1)
+        self.oi_ds = XrDataset(
+            oi_path, oi_var,
+            slice_win=slice_win,
+            resolution=resolution,
+            dim_range=dim_range,
+            strides=strides,
+            resize_factor=resize_factor,
+            compute=compute
+        )
+        self.gt_ds = XrDataset(
+            gt_path, gt_var,
+            slice_win=slice_win,
+            resolution=resolution,
+            dim_range=dim_range,
+            strides=strides,
+            decode=True,
+            resize_factor=resize_factor,
+            compute=compute
+        )
+        self.obs_mask_ds = XrDataset(
+            obs_mask_path, obs_mask_var,
+            slice_win=slice_win,
+            resolution=resolution,
+            dim_range=dim_range,
+            strides=strides,
+            resize_factor=resize_factor,
+            compute=compute
+        )
 
         if sst_var is not None:
-            self.sst_ds = XrDataset(sst_path, sst_var, slice_win=slice_win, resolution=resolution,
-                                    dim_range=dim_range, strides=strides,
-                                    decode=sst_var=='sst', resize_factor=resize_factor)
+            self.sst_ds = XrDataset(
+                sst_path, sst_var,
+                slice_win=slice_win,
+                resolution=resolution,
+                dim_range=dim_range,
+                strides=strides,
+                decode=sst_var=='sst',
+                resize_factor=resize_factor,
+                compute=compute
+            )
         else:
             self.sst_ds = None
+
+        self.norm_stats = (0, 1)
         self.norm_stats_sst = (0, 1)
 
     def set_norm_stats(self, stats, stats_sst=None):
@@ -261,6 +308,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             resize_factor=1,
             resolution="1/20",
             dl_kwargs=None,
+            compute=False
     ):
         super().__init__()
         self.resize_factor = resize_factor
@@ -282,6 +330,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
 
         self.resize_factor = resize_factor
         self.resolution  = parse_resolution_to_float(resolution)
+        self.compute = compute
 
         self.train_slices, self.test_slices, self.val_slices = train_slices, test_slices, val_slices
         self.train_ds, self.val_ds, self.test_ds = None, None, None
@@ -343,6 +392,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     sst_var=self.sst_var,
                     resolution=self.resolution,
                     resize_factor=self.resize_factor,
+                    compute=self.compute
                 ) for sl in slices]
             )
             for slices in (self.train_slices, self.val_slices, self.test_slices)
