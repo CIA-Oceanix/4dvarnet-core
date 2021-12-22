@@ -1,6 +1,6 @@
 lightning_logs
 data
-__pycache__
+**__pycache__**
 .idea
 results
 tb_profile
@@ -14,7 +14,6 @@ models_wSPDE.py
 merge_ose_osse*
 main_wSPDE.slurm
 checkpoints
-__pycache__
 tmp
 outputs
 .hydra
@@ -28,5 +27,8 @@ multirun.yaml
 icassp_code
 archive_dash
 icassp_code_bis
-notebooks
+notebooks/*
 tags
+
+# exceptions
+!notebooks/visualize_exp.ipynb
