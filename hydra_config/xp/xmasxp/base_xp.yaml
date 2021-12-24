@@ -7,8 +7,8 @@ params:
     oi_var: ??? 
     obs_mask_path: ???
     obs_mask_var: ???
-    obs_target_path: ${file_paths.cal_data}
-    obs_target_var: swot
+    obs_target_path: ${file_paths.new_noisy_swot}
+    obs_target_var: swot_no_noise
     gt_path: ${file_paths.natl_ssh}
     gt_var: ssh
   iter_update: ??? # train_strat

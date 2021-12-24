@@ -1,0 +1,18 @@
+# @package _global_
+xp_name: repro_insta
+callbacks:
+  - _target_: pytorch_lightning.callbacks.ModelCheckpoint
+    save_top_k: 3
+    monitor: tr_loss
+defaults:
+  - /xp/xmasxp/base_xp
+  - /splits/dc_boost_swot@datamodule
+  - /xp/xmasxp/aug/without_aug_state
+  - /xp/xmasxp/dl/d200_p200x5_s200x1
+  - /xp/xmasxp/ds/noisy_swot
+  - /xp/xmasxp/sst/without_sst
+  - /xp/xmasxp/loss/map
+  - /xp/xmasxp/train_strat/const_lr_ngrad_5_3cas
+  - _self_ 
+
+

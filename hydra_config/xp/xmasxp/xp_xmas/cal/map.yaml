@@ -1,0 +1,8 @@
+# @package _global_
+xp_name_cal: map
+defaults:
+  - /xp/xmasxp/loss/map
+  - _self_ 
+
+
+

@@ -4,6 +4,7 @@ import kornia
 from hydra.utils import instantiate
 import pandas as pd
 from functools import reduce
+from torch.nn.modules import loss
 import xarray as xr
 from pathlib import Path
 from hydra.utils import call
@@ -241,7 +242,8 @@ class LitCalModel(pl.LightningModule):
         self.x_oi = None  # variable to store OI
         self.x_rec = None  # variable to store output of test method
         self.test_figs = {}
-
+        
+        self.tr_loss_hist = []
         self.automatic_optimization = False
 
     def create_model(self):
@@ -306,6 +308,26 @@ class LitCalModel(pl.LightningModule):
                     pg['lr'] = lr[mm]  # * self.hparams.learning_rate
                     mm += 1
 
+    def training_epoch_end(self, outputs):
+        best_ckpt_path = self.trainer.checkpoint_callback.best_model_path
+        if len(best_ckpt_path) > 0:
+            def should_reload_ckpt(losses):
+                diffs = losses.diff()
+                if losses.max() > (10 * losses.min()):
+                    print("Reloading because of check", 1)
+                    return True
+
+                if diffs.max() > (100 * diffs.abs().median()):
+                    print("Reloading because of check", 2)
+                    return True
+
+            if should_reload_ckpt(torch.stack([out['loss'] for out in outputs])):
+                print('reloading', best_ckpt_path)
+                ckpt = torch.load(best_ckpt_path)
+                self.load_state_dict(ckpt['state_dict'])
+                
+
+            
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
 
         opt = self.optimizers()
@@ -482,7 +504,7 @@ class LitCalModel(pl.LightningModule):
         Path(self.logger.log_dir).mkdir(exist_ok=True)
         # display map
         path_save0 = self.logger.log_dir + '/maps.png'
-        t_idx = 0
+        t_idx = 3
         fig_maps = plot_maps(
                   self.x_gt[t_idx],
                 self.obs_inp[t_idx],
@@ -574,14 +596,17 @@ class LitCalModel(pl.LightningModule):
 
         self.logger.experiment.add_figure(f'{log_pref} SNR', snr_fig, global_step=self.current_epoch)
         
+        psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
         fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt, self.test_xr_ds.pred, self.test_xr_ds.oi, with_fig=True)
         self.test_figs['res'] = fig
         self.logger.experiment.add_figure(f'{log_pref} Spat. Resol', fig, global_step=self.current_epoch)
         # PENDING: Compute metrics on swath
         psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
         psd_fig = metrics.plot_psd_score(psd_ds)
+        psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
         self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
         _, _, mu, sig = metrics.rmse_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
+
         mdf = pd.concat([
             nrmse_df.rename(columns=lambda c: f'{log_pref}_{c}_glob').loc['pred'].T,
             mse_df.rename(columns=lambda c: f'{log_pref}_{c}_glob').loc['pred'].T,

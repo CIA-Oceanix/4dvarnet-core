@@ -32,3 +32,6 @@ notebooks
 tags
 tb_logs
 scratches_logs
+version_*
+instab
+*.nc

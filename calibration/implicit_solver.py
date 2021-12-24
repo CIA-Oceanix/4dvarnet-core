@@ -82,9 +82,21 @@ class SirenNet(nn.Module):
 class SirenState(nn.Module):
     def __init__(self, hparams):
         super().__init__()
+        dim_in = hparams.shape_state[0]
+        if hparams.get('siren_state_with_pos', False):
+            t_coord = F.normalize(torch.arange(dT))  
+            lat_coord = F.normalize(torch.arange(hparams.shape_state[1]))
+            lon_coord = F.normalize(torch.arange(hparams.shape_state[2]))
+            state_coords = nn.Parameter(torch.stack(
+                torch.broadcast_tensors(
+                    t_coord[:, None, None],
+                    lat_coord[None, :, None],
+                    lot_coord[None, None, :],
+                    )), requires_grad=False
+            )
+            dim_in += 3
         self.state_init = nn.Parameter(torch.rand(hparams.shape_state))
-
-        self.fwd_fn = SirenNet(dim_in=hparams.shape_state[0], dim_hidden=32, dim_out=hparams.shape_data[0], num_layers=2)
+        self.fwd_fn = SirenNet(dim_in=dim_in, dim_hidden=hparams.siren_dim_hidden, dim_out=hparams.shape_data[0], num_layers=hparams.siren_num_layers)
 
     def forward(self, state):
         x = einops.rearrange(state, 'bs t lat lon -> bs lat lon t')
@@ -122,10 +134,22 @@ def get_4dvarsiren_sst(hparams):
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_data, hparams.n_grad)
 
+def get_4dvarsiren(hparams):
+    return ImplicitSolver_Grad_4DVarNN(
+                SirenState(hparams=hparams),
+                models.Phi_r(hparams.shape_data[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+                calibration.lit_cal_model.Model_H_with_noisy_Swot(hparams.shape_data[0], hparams.shape_obs[0], hparams=hparams),
+                solver.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+                    hparams.dim_grad_solver, hparams.dropout),
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_data, hparams.n_grad)
+
 class ImpLitCalMod(calibration.lit_cal_model.LitCalModel):
     MODELS = {
             '4dsiren_sst': get_4dvarsiren_sst,
+            '4dsiren': get_4dvarsiren,
     }
+
     def get_init_state(self, batch, state):
         if state is not None:
             return state

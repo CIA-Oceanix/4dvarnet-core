@@ -31,7 +31,7 @@ def get_nadir_slice(path, **slice_args):
 
             dses.append(
                 ds
-                    .pipe(lambda ds: ds.isel(time=(ds.time < te) & (ds.time > ts))).compute()
+                    .pipe(lambda ds: ds.isel(time=(ds.time < te) & (ds.time >= ts))).compute()
                     .pipe(xr.decode_cf)
                     .pipe(lambda ds: ds.isel(time=(ds.lat > slice_args.get('lat_min', 0))))
                     .pipe(lambda ds: ds.isel(time=(ds.lat < slice_args.get('lat_max', 360))))
@@ -66,7 +66,7 @@ def get_swot_slice(path, drop_vars=('model_index',),
             te = (dt_end - pd.to_datetime(reference_date)).to_timedelta64().astype(float)
             dses.append(
                 ds
-                    .pipe(lambda ds: ds.isel(time=(ds.time < te) & (ds.time > ts))).compute()
+                    .pipe(lambda ds: ds.isel(time=(ds.time < te) & (ds.time >= ts))).compute()
                     .pipe(xr.decode_cf)
                     .pipe(lambda ds: ds.isel(time=(ds.lat_nadir > slice_args.get('lat_min', 0))))
                     .pipe(lambda ds: ds.isel(time=(ds.lat_nadir < slice_args.get('lat_max', 360))))

@@ -7,17 +7,15 @@ params:
     - 15
     - 240
     - 240
+  DimAE: 50
+  dim_grad_solver: 150
 
+  siren_dim_hidden: 256
+  siren_num_layers: 8
 
 defaults:
-  - xmasxp/base_xp
-  - /splits/dc_boost_swot@datamodule
-  - xmasxp/aug/without_aug_state
-  - xmasxp/dl/d240_p240x5_s240x1
-  - xmasxp/ds/clean_swot_oi_w_swot
-  - xmasxp/sst/with_sst
-  - xmasxp/loss/map
-  - xmasxp/train_strat/dec_lr_ngrad5_15_nocas
+  - xmasxp/xp_latent/base
+  - /xp/xmasxp/train_strat/dec_lr_ngrad_5_3cas
   - _self_ 
 
 

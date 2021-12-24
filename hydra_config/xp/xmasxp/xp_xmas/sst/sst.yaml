@@ -1,0 +1,8 @@
+# @package _global_
+xp_name_sst: sst
+
+defaults:
+  - /xp/xmasxp/sst/with_sst
+  - _self_ 
+
+

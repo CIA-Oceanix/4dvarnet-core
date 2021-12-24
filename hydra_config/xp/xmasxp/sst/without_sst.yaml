@@ -4,4 +4,7 @@ params:
   model: 4dvarnet
   sst: false
 
+datamodule:
+  sst_path: null
+  sst_var: null
 

@@ -425,7 +425,7 @@ def get_psd_score(x_t, x, ref, with_fig=False):
         name='PSD score',
         dims=('var', 'wl'),
         coords={
-            'wl': ('wl', 20 * 5 * 1 / model_score.freq_r, {'long_name': 'Wavelength', 'units': 'km'}),
+            'wl': ('wl', 20 * 5 * 1 / model_score.freq_r.data, {'long_name': 'Wavelength', 'units': 'km'}),
             'var': ('var', ['model', 'OI'], {}),
         },
     )
@@ -433,7 +433,7 @@ def get_psd_score(x_t, x, ref, with_fig=False):
     try:
         spatial_resolution_model = (
             xr.DataArray(
-                psd_plot_data.wl,
+                psd_plot_data.wl.data,
                 dims=['psd'],
                 coords={'psd': psd_plot_data.sel(var='model').data}
             ).interp(psd=0.5)
@@ -445,7 +445,7 @@ def get_psd_score(x_t, x, ref, with_fig=False):
     try:
         spatial_resolution_ref = (
             xr.DataArray(
-                psd_plot_data.wl,
+                psd_plot_data.wl.data,
                 dims=['psd'],
                 coords={'psd': psd_plot_data.sel(var='OI').data}
             ).interp(psd=0.5)
