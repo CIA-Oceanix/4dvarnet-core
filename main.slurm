@@ -27,6 +27,8 @@ export PYTHONPATH=${WORK}/4dvarnet-core:${PYTHONPATH}
 
 # train the model
 srun python main.py --config=$1 --max_epochs=30 --progress_bar_refresh_rate=5 run
+#srun python hydra_main.py xp=ose_gf_wsst file_paths=jz_ose entrypoint=run entrypoint.max_epochs=1
+#srun python hydra_main.py xp=stoch_osse_gf file_paths=jz_osse entrypoint=run entrypoint.max_epochs=1
 # test the model
 #srun python main.py --config=$1 --ckpt_path=checkpoints/GF_OSE_OSSE.ckpt --progress_bar_refresh_rate=5 test
 

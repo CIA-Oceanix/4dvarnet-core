@@ -130,31 +130,37 @@ class FourDVarNetDataset(Dataset):
             strides=None,
             oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc',
             oi_var='ssh_mod',
+            oi_decode=False,
             obs_mask_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d_swot.nc',
             obs_mask_var='ssh_mod',
-            # obs_mask_var='mask',
+            obs_mask_decode=False,
             gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
             gt_var='ssh',
+            gt_decode=True,
             sst_path=None,
             sst_var=None,
+            sst_decode=True,
             resize_factor=1,
     ):
         super().__init__()
 
         self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win,
-                               dim_range=dim_range, strides=strides, resize_factor=resize_factor)
+                               dim_range=dim_range, strides=strides, decode=oi_decode,
+                               resize_factor=resize_factor)
         self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win,
-                               dim_range=dim_range,strides=strides, decode=True, resize_factor=resize_factor)
+                               dim_range=dim_range,strides=strides, decode=gt_decode,
+                               resize_factor=resize_factor)
         self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win,
-                                     dim_range=dim_range,strides=strides, resize_factor=resize_factor)
+                                     dim_range=dim_range,strides=strides, decode=obs_mask_decode,
+                                     resize_factor=resize_factor)
 
         self.norm_stats = (0, 1)
 
         if sst_var is not None:
             self.sst_ds = XrDataset(sst_path, sst_var, slice_win=slice_win,
                                     dim_range=dim_range, strides=strides,
-                                    #decode=sst_var=='sst',
-                                    decode=False, resize_factor=resize_factor)
+                                    decode=sst_decode,
+                                    resize_factor=resize_factor)
         else:
             self.sst_ds = None
         self.norm_stats_sst = (0, 1)
@@ -209,13 +215,16 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             val_slices= (slice('2012-11-30', "2012-12-24"),),
             oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc',
             oi_var='ssh_mod',
+            oi_decode=False,
             obs_mask_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/data/dataset_nadir_0d_swot.nc',
             obs_mask_var='ssh_mod',
-            # obs_mask_var='mask',
+            obs_mask_decode=False,
             gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
             gt_var='ssh',
+            gt_decode=True,
             sst_path=None,
             sst_var=None,
+            sst_decode=True,
             resize_factor=1,
             dl_kwargs=None,
     ):
@@ -232,12 +241,16 @@ class FourDVarNetDataModule(pl.LightningDataModule):
 
         self.oi_path = oi_path
         self.oi_var = oi_var
+        self.oi_decode = oi_decode
         self.obs_mask_path = obs_mask_path
         self.obs_mask_var = obs_mask_var
+        self.obs_mask_decode = obs_mask_decode
         self.gt_path = gt_path
         self.gt_var = gt_var
+        self.gt_decode = gt_decode
         self.sst_path = sst_path
         self.sst_var = sst_var
+        self.sst_decode = sst_decode
 
         self.resize_factor = resize_factor
 
@@ -293,12 +306,16 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     slice_win=self.slice_win,
                     oi_path=self.oi_path,
                     oi_var=self.oi_var,
+                    oi_decode=self.oi_decode,
                     obs_mask_path=self.obs_mask_path,
                     obs_mask_var=self.obs_mask_var,
+                    obs_mask_decode=self.obs_mask_decode,
                     gt_path=self.gt_path,
                     gt_var=self.gt_var,
+                    gt_decode=self.gt_decode,
                     sst_path=self.sst_path,
                     sst_var=self.sst_var,
+                    sst_decode=self.sst_decode,
                     resize_factor=self.resize_factor,
                 ) for sl in slices]
             )

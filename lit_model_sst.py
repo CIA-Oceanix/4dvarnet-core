@@ -121,13 +121,13 @@ class LitModelWithSST(LitModel):
                 new_tensor = torch.masked_select(outputs[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(targets_GT[:,iT,:,:],mask[:,iT,:,:])
                 loss = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
                 # GradMSE
-                mask = ( (self.gradient_img(targets_GT_wo_nan)!=0.) & (~torch.isnan(self.gradient_img(targets_GT_wo_nan))) )
+                mask = (self.gradient_img(targets_GT_wo_nan)!=0.)
                 iT = int(self.hparams.dT / 2)
-                new_tensor = torch.masked_select(self.gradient_img(outputs)[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(self.gradient_img(targets_GT_wo_nan)[:,iT,:,:],mask[:,iT,:,:])
+                new_tensor = torch.masked_select(self.gradient_img(outputs)[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(self.gradient_img(targets_GT)[:,iT,:,:],mask[:,iT,:,:])
                 loss_Grad = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
 
-                #loss = self.hparams.alpha_mse_ssh * loss  + 0.5 * self.hparams.alpha_proj * loss_AE + self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
-                loss = self.hparams.alpha_mse_ssh * loss + self.hparams.alpha_mse_gssh * loss_Grad + 0.5 * self.hparams.alpha_proj * loss_AE + self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
+                #loss = self.hparams.alpha_mse_ssh * loss + self.hparams.alpha_mse_gssh * loss_Grad + 0.5 * self.hparams.alpha_proj * loss_AE + self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
+                loss = self.hparams.alpha_mse_ssh * loss  + 0.5 * self.hparams.alpha_proj * loss_AE + self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
 
             # metrics
             mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_GT, self.w_loss)

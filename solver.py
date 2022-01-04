@@ -146,7 +146,10 @@ class ConvLSTM1d(torch.nn.Module):
 
 def compute_WeightedLoss(x2,w):
     #  fix normalizing factor ( Sum w = 1 != w~ bool index)
-    x2_msk = (x2 * w[None, :, None, None])[:, w>0, ...]
+    if len(list(w.size()))>0:
+        x2_msk = (x2 * w[None, :, None, None])[:, w>0, ...]
+    else:
+        x2_msk = x2[:, w==1, ...]
     x2_num = ~x2_msk.isnan() & ~x2_msk.isinf()
     if x2_num.sum() == 0:
         return torch.scalar_tensor(0., device=x2_num.device)
