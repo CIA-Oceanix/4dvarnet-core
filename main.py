@@ -71,7 +71,7 @@ class FourDVarNetRunner:
         else:
             self.setup(datamodule=datamodule)
 
-        if config.params['stochastic'] == False:
+        if not config.params['stochastic']:
             self.lit_cls = LitModelWithSST if dataloading == "with_sst" else LitModel
         else:
             self.lit_cls = LitModelStochastic
@@ -120,8 +120,9 @@ class FourDVarNetRunner:
         print('get_model: ', ckpt_path)
         if ckpt_path:
             mod = self.lit_cls.load_from_checkpoint(ckpt_path, w_loss=self.wLoss, strict=False,
-                                                    mean_Tr=self.mean_Tr, mean_Tt=self.mean_Tt, mean_Val=self.mean_Val,
-                                                    var_Tr=self.var_Tr, var_Tt=self.var_Tt, var_Val=self.var_Val,
+                                                    mean_Tr=self.mean_Tr, mean_Tt=self.mean_Tt,
+                                                    mean_Val=self.mean_Val, var_Tr=self.var_Tr,
+                                                    var_Tt=self.var_Tt, var_Val=self.var_Val,
                                                     min_lon=self.min_lon, max_lon=self.max_lon,
                                                     min_lat=self.min_lat, max_lat=self.max_lat,
                                                     ds_size_time=self.ds_size_time,
@@ -130,7 +131,8 @@ class FourDVarNetRunner:
                                                     time=self.time,
                                                     dX = self.dX, dY = self.dY,
                                                     swX = self.swX, swY = self.swY,
-                                                    coord_ext = {'lon_ext': self.lon, 'lat_ext': self.lat}
+                                                    coord_ext = {'lon_ext': self.lon,
+                                                                'lat_ext': self.lat}
                                                     )
 
         else:
@@ -168,8 +170,9 @@ class FourDVarNetRunner:
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         num_gpus = torch.cuda.device_count()
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
-        trainer = pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, auto_select_gpus=(num_gpus * num_nodes) > 0,
-                             callbacks=[checkpoint_callback, lr_monitor], **trainer_kwargs)
+        trainer = pl.Trainer(num_nodes=num_nodes, gpus=num_gpus,
+                            accelerator=accelerator, auto_select_gpus=(num_gpus * num_nodes) > 0,
+                            callbacks=[checkpoint_callback, lr_monitor], **trainer_kwargs)
         trainer.fit(mod, self.dataloaders['train'], self.dataloaders['val'])
         return mod, trainer
 
