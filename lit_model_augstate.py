@@ -88,7 +88,8 @@ class LitModelAugState(pl.LightningModule):
         #self.Ny = int(((self.ymax-self.ymin)/.05)/self.hparams.resize_factor)
         self.lon = np.linspace(self.xmin, self.xmax, self.Nx)
         self.lat = np.linspace(self.ymin, self.ymax, self.Ny)
-        self.shapeData = [self.hparams.dT*2,self.Ny,self.Nx]
+
+        # self.shapeData = [self.hparams.dT*2,self.Ny,self.Nx]
         self.ds_size_time = kwargs['ds_size_time']
         self.ds_size_lon = kwargs['ds_size_lon']
         self.ds_size_lat = kwargs['ds_size_lat']
@@ -152,14 +153,13 @@ class LitModelAugState(pl.LightningModule):
                                     ], lr=0.)
 
             return optimizer
-        # else:
-            # opt = optim.Adam(self.parameters(), lr=1e-4)
-        # return {
-            # 'optimizer': opt,
-            # 'lr_scheduler': optim.lr_scheduler.ReduceLROnPlateau(opt, verbose=True, patience=50,),
-            # 'monitor': 'val_loss'
-        # }
-        return optimizer
+        else:
+            opt = optim.Adam(self.parameters(), lr=1e-4)
+        return {
+            'optimizer': opt,
+            'lr_scheduler': optim.lr_scheduler.ReduceLROnPlateau(opt, verbose=True, patience=50,),
+            'monitor': 'val_loss'
+        }
 
     def on_epoch_start(self):
         self.model.n_grad = self.hparams.n_grad
