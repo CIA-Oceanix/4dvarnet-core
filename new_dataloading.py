@@ -327,7 +327,6 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             **{'batch_size': 2, 'num_workers': 2, 'pin_memory': True},
             **(dl_kwargs or {})
         }
-
         self.oi_path = oi_path
         self.oi_var = oi_var
         self.oi_decode = oi_decode
