@@ -15,8 +15,9 @@ class LitModel(pl.LightningModule):
         self.xmax = kwargs['max_lon']
         self.ymin = kwargs['min_lat']
         self.ymax = kwargs['max_lat']
-        self.Nx = int(((self.xmax-self.xmin)/.05)/self.hparams.resize_factor)
-        self.Ny = int(((self.ymax-self.ymin)/.05)/self.hparams.resize_factor)
+        self.resolution = kwargs['resolution']
+        self.Nx = int(((self.xmax-self.xmin)/self.resolution)/self.hparams.resize_factor)
+        self.Ny = int(((self.ymax-self.ymin)/self.resolution)/self.hparams.resize_factor)
         self.lon = np.linspace(self.xmin, self.xmax, self.Nx)
         self.lat = np.linspace(self.ymin, self.ymax, self.Ny)
         self.shapeData = [self.hparams.dT*2,self.Ny,self.Nx]

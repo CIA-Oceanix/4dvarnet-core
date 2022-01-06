@@ -70,7 +70,7 @@ class XrDataset(Dataset):
         """
         super().__init__()
         self.var = var
-        self.res = resolution
+        self.resolution = resolution
         # try/except block for handling both netcdf and zarr files
         try:
             _ds = xr.open_dataset(path, cache=False)
@@ -94,7 +94,7 @@ class XrDataset(Dataset):
         # reshape
         if resize_factor!=1:
             _ds = _ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
-            self.res = self.res*resize_factor
+            self.resolution = self.resolution*resize_factor
         # dimensions
         self.ds = _ds.sel(**(dim_range or {}))
         self.Nt = self.ds.time.shape[0]
@@ -104,8 +104,8 @@ class XrDataset(Dataset):
         pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
         pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
         # get additional data for patch center based reconstruction
-        dX = [pad_ *self.res for pad_ in pad_x]
-        dY = [pad_ *self.res for pad_ in pad_y]
+        dX = [pad_ *self.resolution for pad_ in pad_x]
+        dY = [pad_ *self.resolution for pad_ in pad_y]
         dim_range_ = {
           'lon': slice(self.ds.lon.min().item()-dX[0], self.ds.lon.max().item()+dX[1]),
           'lat': slice(self.ds.lat.min().item()-dY[0], self.ds.lat.max().item()+dY[1]),
@@ -119,8 +119,8 @@ class XrDataset(Dataset):
         pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
         pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
         # pad the dataset
-        dX = [pad_ *self.res for pad_ in pad_x]
-        dY = [pad_ *self.res for pad_ in pad_y]
+        dX = [pad_ *self.resolution for pad_ in pad_x]
+        dY = [pad_ *self.resolution for pad_ in pad_y]
         pad_ = {'lon':(pad_x[0],pad_x[1]),
                 'lat':(pad_y[0],pad_y[1])}
         self.ds = self.ds.pad(pad_,
@@ -128,14 +128,14 @@ class XrDataset(Dataset):
         self.Nx += np.sum(pad_x)
         self.Ny += np.sum(pad_y)
         # III) get lon-lat for the final reconstruction
-        dX = ((slice_win['lon']-strides['lon'])/2)*self.res
-        dY = ((slice_win['lat']-strides['lat'])/2)*self.res
+        dX = ((slice_win['lon']-strides['lon'])/2)*self.resolution
+        dY = ((slice_win['lat']-strides['lat'])/2)*self.resolution
         dim_range_ = {
           'lon': slice(dim_range_['lon'].start+dX, dim_range_['lon'].stop-dX),
           'lat': slice(dim_range_['lat'].start+dY, dim_range_['lat'].stop-dY),
         }
-        self.lon = np.arange(dim_range_['lon'].start, dim_range_['lon'].stop, self.res)
-        self.lat = np.arange(dim_range_['lat'].start, dim_range_['lat'].stop, self.res)
+        self.lon = np.arange(dim_range_['lon'].start, dim_range_['lon'].stop, self.resolution)
+        self.lat = np.arange(dim_range_['lat'].start, dim_range_['lat'].stop, self.resolution)
         self.slice_win = slice_win
         self.strides = strides or {}
         self.ds_size = {
