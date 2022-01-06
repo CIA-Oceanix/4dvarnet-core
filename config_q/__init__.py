@@ -122,7 +122,6 @@ def def_time(params,time_period):
                   (time[i] <= datetime.strptime(time_period['test_slices'][0].stop,'%Y-%m-%d')-timedelta(params['dT']//2)) ) \
         ]
     time_test = [time[i] for i in itest]
-
     time = {
         'time_train' : time_train,
         'time_test' : time_test,

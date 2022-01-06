@@ -189,13 +189,16 @@ class FourDVarNetDataset(Dataset):
         strides=None,
         oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc',
         oi_var='ssh_mod',
+        oi_decode=False,
         obs_mask_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d_swot.nc',
         obs_mask_var='ssh_mod',
-        # obs_mask_var='mask',
+        obs_mask_decode=False,
         gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
         gt_var='ssh',
+        gt_decode=True,
         sst_path=None,
         sst_var=None,
+        sst_decode=True,
         resolution=1/20,
         resize_factor=1,
         compute=False
@@ -208,6 +211,7 @@ class FourDVarNetDataset(Dataset):
             resolution=resolution,
             dim_range=dim_range,
             strides=strides,
+            decode=oi_decode,
             resize_factor=resize_factor,
             compute=compute
         )
@@ -217,7 +221,7 @@ class FourDVarNetDataset(Dataset):
             resolution=resolution,
             dim_range=dim_range,
             strides=strides,
-            decode=True,
+            decode=gt_decode,
             resize_factor=resize_factor,
             compute=compute
         )
@@ -227,6 +231,7 @@ class FourDVarNetDataset(Dataset):
             resolution=resolution,
             dim_range=dim_range,
             strides=strides,
+            decode=obs_mask_decode,
             resize_factor=resize_factor,
             compute=compute
         )
@@ -238,7 +243,7 @@ class FourDVarNetDataset(Dataset):
                 resolution=resolution,
                 dim_range=dim_range,
                 strides=strides,
-                decode=sst_var=='sst',
+                decode=sst_decode,
                 resize_factor=resize_factor,
                 compute=compute
             )
@@ -298,13 +303,16 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             val_slices= (slice('2012-11-30', "2012-12-24"),),
             oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc',
             oi_var='ssh_mod',
+            oi_decode=False,
             obs_mask_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/data/dataset_nadir_0d_swot.nc',
             obs_mask_var='ssh_mod',
-            # obs_mask_var='mask',
+            obs_mask_decode=False,
             gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
             gt_var='ssh',
+            gt_decode=True,
             sst_path=None,
             sst_var=None,
+            sst_decode=True,
             resize_factor=1,
             resolution="1/20",
             dl_kwargs=None,
@@ -321,12 +329,16 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         }
         self.oi_path = oi_path
         self.oi_var = oi_var
+        self.oi_decode = oi_decode
         self.obs_mask_path = obs_mask_path
         self.obs_mask_var = obs_mask_var
+        self.obs_mask_decode = obs_mask_decode
         self.gt_path = gt_path
         self.gt_var = gt_var
+        self.gt_decode = gt_decode
         self.sst_path = sst_path
         self.sst_var = sst_var
+        self.sst_decode = sst_decode
 
         self.resize_factor = resize_factor
         self.resolution  = parse_resolution_to_float(resolution)
@@ -384,12 +396,16 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     slice_win=self.slice_win,
                     oi_path=self.oi_path,
                     oi_var=self.oi_var,
+                    oi_decode=self.oi_decode,
                     obs_mask_path=self.obs_mask_path,
                     obs_mask_var=self.obs_mask_var,
+                    obs_mask_decode=self.obs_mask_decode,
                     gt_path=self.gt_path,
                     gt_var=self.gt_var,
+                    gt_decode=self.gt_decode,
                     sst_path=self.sst_path,
                     sst_var=self.sst_var,
+                    sst_decode=self.sst_decode,
                     resolution=self.resolution,
                     resize_factor=self.resize_factor,
                     compute=self.compute

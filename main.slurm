@@ -5,7 +5,7 @@
 #SBATCH --gres=gpu:4                # nombre de GPU à réserver (un unique GPU ici)
 #SBATCH --ntasks-per-node=4         # nombre de coeurs à réserver (un quart du noeud)
 #SBATCH --cpus-per-task=10
-#SBATCH --time=00:10:00
+#SBATCH --time=03:00:00
 #SBATCH --hint=nomultithread
 #SBATCH -C v100-32g
 #SBATCH --qos=qos_gpu-t3
@@ -26,7 +26,9 @@ export PYTHONPATH=${WORK}/4dvarnet-core:${PYTHONPATH}
 # config files stored in config_q --> examples: --config=q.nad_swot
 
 # train the model
-srun python main.py --config=$1 --max_epochs=20 --progress_bar_refresh_rate=5 run
+srun python main.py --config=$1 --max_epochs=30 --progress_bar_refresh_rate=5 run
+#srun python hydra_main.py xp=ose_gf_wsst file_paths=jz_ose entrypoint=run entrypoint.max_epochs=1
+#srun python hydra_main.py xp=stoch_osse_gf file_paths=jz_osse entrypoint=run entrypoint.max_epochs=1
 # test the model
 #srun python main.py --config=$1 --ckpt_path=checkpoints/GF_OSE_OSSE.ckpt --progress_bar_refresh_rate=5 test
 
