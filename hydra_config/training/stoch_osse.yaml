@@ -1,0 +1,32 @@
+# @package _global_
+params:
+  ckpt_name: 'model_stoch_OSSE_GF-{epoch:02d}-{val_loss:.2f}'
+  norm_obs: 'l2'
+  norm_prior: 'l2'
+  n_fourdvar_iter: 2
+lit_mod_cls: lit_model_4DEnVar.LitModel4DEnVar
+datamodule:
+  _target_: new_dataloading.FourDVarNetDataModule
+  slice_win:
+    lat: 200
+    lon: 200
+    time: 5
+  strides:
+    lat: 200
+    lon: 200
+    time: 1
+  train_slices: ${splits.train_slices}
+  test_slices: ${splits.test_slices}
+  val_slices: ${splits.val_slices}
+  oi_path: ${params.files_cfg.oi_path}
+  oi_var: ${params.files_cfg.oi_var}
+  obs_mask_path: ${params.files_cfg.obs_mask_path}
+  obs_mask_var: ${params.files_cfg.obs_mask_var}
+  gt_path: ${params.files_cfg.gt_path}
+  gt_var: ${params.files_cfg.gt_var}
+  sst_path: ${params.files_cfg.sst_path}
+  sst_var: ${params.files_cfg.sst_var}
+  dl_kwargs:
+    batch_size: 2
+    num_workers: 2
+

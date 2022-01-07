@@ -1,0 +1,5 @@
+oi_path: /gpfsstore/rech/yrf/uba22to/data_OSE/NATL/training/oi_OSE_OSSE.nc
+obs_mask_path: /gpfsstore/rech/yrf/uba22to/data_OSE/NATL/training/data_OSE_OSSE.nc
+gt_path: /gpfsstore/rech/yrf/uba22to/data_OSE/NATL/training/ref_ssh_OSE_OSSE.nc
+sst_path: /gpfsstore/rech/yrf/uba22to/data_OSE/NATL/training/ref_sst_OSE_OSSE.nc
+

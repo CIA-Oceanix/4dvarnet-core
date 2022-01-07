@@ -1,0 +1,18 @@
+# @package _global_
+xp_name: ose_gf_wsst
+datamodule:
+  dl_kwargs:
+    batch_size: 2
+params:
+  iter_update: [0, 10, 20, 30, 40, 150, 800]
+  nb_grad_update: [5, 5, 5, 5, 5, 5, 5, 5]
+  lr_update: [0.001, 0.001, 0.001, 0.001, 1.0e-04, 1.0e-04, 1.0e-06, 1.0e-07]
+  n_grad: 5
+  n_fourdvar_iter: 2 
+defaults:
+  - /params: fourdvarnet_ose_wsst
+  - /splits: ose
+  - /domain@datamodule.dim_range: gf
+  - /training: ose_wsst
+  - _self_
+

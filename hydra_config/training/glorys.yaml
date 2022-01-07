@@ -1,0 +1,33 @@
+# @package _global_
+lit_mod_cls: lit_model.LitModel
+
+datamodule:
+  _target_: new_dataloading.FourDVarNetDataModule
+  slice_win:
+    lat: 200
+    lon: 200
+    time: 5
+  strides:
+    lat: 200
+    lon: 200
+    time: 1
+  train_slices: 
+    - _target_: builtins.slice
+      _args_: ['2014-07-01', '2014-10-01']
+  test_slices: 
+    - _target_: builtins.slice
+      _args_: ['2015-01-01', '2015-01-20']
+  val_slices: 
+    - _target_: builtins.slice
+      _args_: ['2014-10-10', '2014-12-01']
+  oi_path: ${file_paths.oi_miost}
+  oi_var: ssh_model
+  obs_mask_path: ${file_paths.glorys_pseudo_obs}
+  obs_mask_var: ssh_model
+  gt_path: ${file_paths.glorys_ssh}
+  gt_var: zos
+  resolution: 1/12
+  dl_kwargs:
+    batch_size: 2
+    num_workers: 6
+  compute: True
