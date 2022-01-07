@@ -32,7 +32,6 @@ dT: 5
 dx: 1
 W: 200 
 resize_factor: 1
-resolution: 1/12
 shapeData:
   - 10
   - 200

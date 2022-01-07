@@ -26,6 +26,7 @@ datamodule:
   obs_mask_var: ssh_model
   gt_path: ${file_paths.glorys_ssh}
   gt_var: zos
+  resolution: 1/12
   dl_kwargs:
     batch_size: 2
     num_workers: 6
