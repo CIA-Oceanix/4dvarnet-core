@@ -1,10 +1,12 @@
 import hydra
 import pandas as pd
+from datetime import datetime, timedelta
 from hydra.utils import get_class, instantiate, call
 from main import FourDVarNetRunner
 from omegaconf import OmegaConf
 import hydra_config
 from pytorch_lightning import seed_everything
+import numpy as np
 
 class FourDVarNetHydraRunner(FourDVarNetRunner):
     def __init__(self, params, dm, lit_mod_cls):
@@ -19,12 +21,14 @@ class FourDVarNetHydraRunner(FourDVarNetRunner):
             'test': dm.test_dataloader(),
         }
 
-        test_dates = [str(dt.date()) for dt in \
-            pd.date_range(dm.test_slices[0].start, dm.test_slices[0].stop)]
+        test_dates = np.concatenate([ \
+                       [str(dt.date()) for dt in \
+                       pd.date_range(dm.test_slices[i].start,dm.test_slices[i].stop)[(self.cfg.dT//2):-(self.cfg.dT//2)]] \
+                      for i in range(len(dm.test_slices))])
+        #print(test_dates)
         self.time = {'time_test' : test_dates}
 
         self.setup(dm)
-
 
 @hydra.main(config_path='hydra_config', config_name='main')
 def main(cfg):
@@ -34,8 +38,6 @@ def main(cfg):
     lit_mod_cls = get_class(cfg.lit_mod_cls)
     runner = FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls)
     call(cfg.entrypoint, self=runner)
-
-
 
 if __name__ == '__main__':
     main()

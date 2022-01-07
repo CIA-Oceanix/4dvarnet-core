@@ -4,21 +4,27 @@ import einops
 import numpy as np
 import xarray as xr
 import matplotlib
+import os
 matplotlib.use('Agg') # Must be before importing matplotlib.pyplot or pylab!
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from matplotlib import cm
+from matplotlib import cm, colors
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 import pandas as pd
 import shapely
 from shapely import wkt
 #import geopandas as gpd
+import cartopy
+from os.path import expanduser
+#cartopy.config['pre_existing_data_dir'] = expanduser('/gpfswork/rech/yrf/uba22to/4dvarnet-core/shapefiles/natural_earth/physical')
+#cartopy.config['data_dir'] = '/gpfswork/rech/yrf/uba22to/4dvarnet-core/shapefiles/natural_earth/physical'
 from cartopy import crs as ccrs
 import cartopy.feature as cfeature
-from cartopy.io import shapereader
+from cartopy.io.shapereader import Reader
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 import cv2
 import matplotlib.animation as animation
+import matplotlib.gridspec as gridspec
 import xrft
 
 from spectral import *
@@ -137,31 +143,32 @@ def plot_mse(gt, oi, pred, resfile, time):
     plt.close()                                 # close the figure
     return  fig
 
-def plot(ax,lon,lat,data,title,extent=[-65,-55,30,40],cmap="coolwarm",gridded=True,vmin=-2,vmax=2,colorbar=True,orientation="horizontal"):
+def plot(ax, lon, lat, data, title, cmap, norm, extent=[-65, -55, 30, 40], gridded=True, colorbar=True, orientation="horizontal"):
     ax.set_extent(list(extent))
     if gridded:
-        im=ax.pcolormesh(lon, lat, data, cmap=cmap,\
-                          vmin=vmin, vmax=vmax,edgecolors='face', alpha=1, \
-                          transform= ccrs.PlateCarree(central_longitude=0.0))
+        im=ax.pcolormesh(lon, lat, data, cmap=cmap, \
+                          norm=norm, edgecolors='face', alpha=1, \
+                          transform=ccrs.PlateCarree(central_longitude=0.0))
     else:
-        im=ax.scatter(lon, lat, c=data, cmap=cmap, s=1,\
-                       vmin=vmin, vmax=vmax,edgecolors='face', alpha=1, \
-                       transform= ccrs.PlateCarree(central_longitude=0.0))
-    im.set_clim(vmin,vmax)
+        im=ax.scatter(lon, lat, c=data, cmap=cmap, s=1, \
+                       norm=norm, edgecolors='face', alpha=1, \
+                       transform=ccrs.PlateCarree(central_longitude=0.0))
+    #  im.set_clim(vmin,vmax)
     if colorbar==True:
         clb = plt.colorbar(im, orientation=orientation, extend='both', pad=0.1, ax=ax)
-    ax.set_title(title, pad=40, fontsize = 15)
-    gl = ax.gridlines(alpha=0.5,draw_labels=True)
+    ax.set_title(title, pad=10, fontsize = 15)
+    ax.add_feature(cfeature.LAND.with_scale('10m'), zorder=100,
+                   edgecolor='k', facecolor='white')
+    gl = ax.gridlines(alpha=0.5, zorder=200)#,draw_labels=True)
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
     gl.xlabels_bottom = False
     gl.ylabels_right = False
     gl.xlabel_style = {'fontsize': 10, 'rotation' : 45}
     gl.ylabel_style = {'fontsize': 10}
-    # ax[i][j].coastlines(resolution='50m')
 
 def gradient(img, order):
-    """ calcuate x, y gradient and magnitude """
+    """ calculate x, y gradient and magnitude """
     sobelx = cv2.Sobel(img,cv2.CV_64F,1,0,ksize=3)
     sobelx = sobelx/8.0
     sobely = cv2.Sobel(img,cv2.CV_64F,0,1,ksize=3)
@@ -174,51 +181,93 @@ def gradient(img, order):
     else:
         return sobel_norm
 
-def plot_maps(gt,obs,oi,pred,lon,lat,resfile,grad=False):
+def plot_maps(gt,obs,oi,pred,lon,lat,resfile,grad=False, 
+                 crop=None, orthographic=True,supervised=True):
 
-    if grad==False:
+    if crop is not None:
+        ilon = np.where((lon>=crop[0]) & (lon<=crop[1]))[0]
+        ilat = np.where((lat>=crop[2]) & (lat<=crop[3]))[0]
+        gt = (gt[:,ilat,:])[:,:,ilon]
+        obs = (obs[:,ilat,:])[:,:,ilon]
+        oi = (oi[:,ilat,:])[:,:,ilon]
+        pred = (pred[:,ilat,:])[:,:,ilon]
+        lon = lon[ilon]
+        lat = lat[ilat]
+    extent = [np.min(lon)-1,np.max(lon)+1,np.min(lat)-1,np.max(lat)+1]
+    central_lon = np.mean(extent[:2])
+    central_lat = np.mean(extent[2:])
+
+    if orthographic:
+        #crs = ccrs.Orthographic(central_lon,central_lat)
+        crs = ccrs.Orthographic(-30,45)
+    else:
+        crs = ccrs.PlateCarree(central_longitude=0.0)
+
+    if grad:
+        vmax = np.nanmax(np.abs(gradient(oi, 2)))
+        vmin = 0
+        cm = plt.cm.viridis
+        norm = colors.PowerNorm(gamma=0.7, vmin=vmin, vmax=vmax)
+    else:
         vmax = np.nanmax(np.abs(oi))
         vmin = -1.*vmax
-    else:
-        vmax = np.nanmax(np.abs(gradient(oi,2)))
-        vmin = 0
+        cm = plt.cm.coolwarm
+        norm = colors.Normalize(vmin=vmin, vmax=vmax)
 
     extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
 
-    id_nan = np.where(np.isnan(gt))
-    obs[id_nan] = np.nan
+    obs = np.where(np.isnan(gt),np.nan,obs)
 
-    fig = plt.figure(figsize=(15,15))
-    ax1 = fig.add_subplot(221, projection=ccrs.PlateCarree(central_longitude=0.0))
-    ax2 = fig.add_subplot(222, projection=ccrs.PlateCarree(central_longitude=0.0))
-    ax3 = fig.add_subplot(223, projection=ccrs.PlateCarree(central_longitude=0.0))
-    ax4 = fig.add_subplot(224, projection=ccrs.PlateCarree(central_longitude=0.0))
-
-    if grad==False:
-        plot(ax1,lon,lat,gt,'GT',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
-        plot(ax2,lon,lat,obs,'OBS',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
-        plot(ax3,lon,lat,oi,'OI',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
-        plot(ax4,lon,lat,pred,'4DVarNet',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
+    fig = plt.figure(figsize=(15,9))
+    gs = gridspec.GridSpec(2, 4)
+    gs.update(wspace=0.5)
+    if supervised:
+        ax1 = fig.add_subplot(gs[0, :2], projection=crs)
+        ax2 = fig.add_subplot(gs[0, 2:], projection=crs)
+        ax3 = fig.add_subplot(gs[1, :2], projection=crs)
+        ax4 = fig.add_subplot(gs[1, 2:], projection=crs)
+        if grad:
+            plot(ax1, lon, lat, gradient(gt, 2), r"$\nabla_{GT}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax2, lon, lat, gradient(obs, 2), r"$\nabla_{OBS}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax3, lon, lat, gradient(oi, 2), r"$\nabla_{OI}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax4, lon, lat, gradient(pred, 2), r"$\nabla_{4DVarNet}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+        else:
+            plot(ax1, lon, lat, gt, 'GT', extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax2, lon, lat, obs, 'OBS', extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax3, lon, lat, oi, 'OI', extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax4, lon, lat, pred, '4DVarNet', extent=extent, cmap=cm, norm=norm, colorbar=False)
     else:
-        plot(ax1,lon,lat,gradient(gt,2),r"$\nabla_{GT}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
-        plot(ax2,lon,lat,gradient(obs,2),r"$\nabla_{OBS}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
-        plot(ax3,lon,lat,gradient(oi,2),r"$\nabla_{OI}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
-        plot(ax4,lon,lat,gradient(pred,2),r"$\nabla_{4DVarNet}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
-  
+        ax1 = fig.add_subplot(gs[0, 1:3], projection=crs)
+        ax2 = fig.add_subplot(gs[1, :2], projection=crs)
+        ax3 = fig.add_subplot(gs[1, 2:], projection=crs)
+        if grad:
+            plot(ax1, lon, lat, gradient(obs, 2), r"$\nabla_{OBS}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax2, lon, lat, gradient(oi, 2), r"$\nabla_{OI}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax3, lon, lat, gradient(pred, 2), r"$\nabla_{4DVarNet}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+        else:
+            plot(ax1, lon, lat, obs, 'OBS', extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax2, lon, lat, oi, 'OI', extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax3, lon, lat, pred, '4DVarNet', extent=extent, cmap=cm, norm=norm, colorbar=False)
+
+    # Colorbar
+    cbar_ax = fig.add_axes([0.1, 0.05, 0.8, 0.01])
+    sm = plt.cm.ScalarMappable(cmap=cm, norm=norm)
+    sm._A = []
+    cbar = fig.colorbar(sm, cax=cbar_ax, orientation='horizontal', pad=3.0)
     plt.savefig(resfile)    # save the figure
     fig = plt.gcf()
     plt.close()             # close the figure
     return fig
 
-
-def animate_maps(gt,obs,oi,pred,lon,lat,resfile,orthographic=True,dw=4,grad=False):
+def animate_maps(gt, obs, oi, pred, lon, lat, resfile,
+                 crop=None, orthographic=True, dw=4, grad=False, supervised=True):
 
     if dw>1:
         # decrease the resolution
         Nlon = len(lon)
         Nlat = len(lat)
-        ilon = np.arange(0,Nlon,4)
-        ilat = np.arange(0,Nlat,4)
+        ilon = np.arange(0,Nlon,dw)
+        ilat = np.arange(0,Nlat,dw)
         gt = (gt[:,ilat,:])[:,:,ilon]
         obs = (obs[:,ilat,:])[:,:,ilon]
         oi = (oi[:,ilat,:])[:,:,ilon]
@@ -226,69 +275,170 @@ def animate_maps(gt,obs,oi,pred,lon,lat,resfile,orthographic=True,dw=4,grad=Fals
         lon = lon[ilon]
         lat = lat[ilat]
 
-    def animate(i):
-        print(i)
-        id_nan = np.where(np.isnan(gt[i]))
-        obs[i][id_nan] = np.nan
-        #oi[i][id_nan] = np.nan
-        #pred[i][id_nan] = np.nan
+    if crop is not None:
+        ilon = np.where((lon>=crop[0]) & (lon<=crop[1]))[0]
+        ilat = np.where((lat>=crop[2]) & (lat<=crop[3]))[0]
+        gt = (gt[:,ilat,:])[:,:,ilon]
+        obs = (obs[:,ilat,:])[:,:,ilon]
+        oi = (oi[:,ilat,:])[:,:,ilon]
+        pred = (pred[:,ilat,:])[:,:,ilon]
+        lon = lon[ilon]
+        lat = lat[ilat]
+    extent = [np.min(lon)-1,np.max(lon)+1,np.min(lat)-1,np.max(lat)+1]
+    central_lon = np.mean(extent[:2])
+    central_lat = np.mean(extent[2:])
 
-        if grad==False:
-            plot(ax1,lon,lat,gt[i],'GT',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
-            plot(ax2,lon,lat,obs[i],'OBS',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
-            plot(ax3,lon,lat,oi[i],'OI',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
-            plot(ax4,lon,lat,pred[i],'4DVarNet',extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
-        else:
-            plot(ax1,lon,lat,gradient(gt[i],2),r"$\nabla_{GT}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
-            plot(ax2,lon,lat,gradient(obs[i],2),r"$\nabla_{OBS}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
-            plot(ax3,lon,lat,gradient(oi[i],2),r"$\nabla_{OI}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
-            plot(ax4,lon,lat,gradient(pred[i],2),r"$\nabla_{4DVarNet}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
-
-    if grad==False:
+    if grad:
+        vmax = np.nanmax([np.nanmax(np.abs(gradient(oi[i], 2))) for i in range(len(oi))])
+        vmin = 0
+        cm = plt.cm.viridis
+        norm = colors.PowerNorm(gamma=0.7, vmin=vmin, vmax=vmax)
+    else:
         vmax = np.nanmax(np.abs(oi))
         vmin = -1.*vmax
-    else:
-        vmax = np.nanmax(np.abs(gradient(oi,2)))
-        vmin = 0
+        cm = plt.cm.coolwarm
+        norm = colors.Normalize(vmin=vmin, vmax=vmax)
 
-    extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
+    def animate(i):
+        print(i)
+        if supervised:
+            ax1.clear()
+            ax2.clear()
+            ax3.clear()
+            ax4.clear()
+            if grad==False:
+                plot(ax1, lon, lat, gt[i], 'GT', extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax2, lon, lat, obs[i], 'OBS', extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax3, lon, lat, oi[i], 'OI', extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax4, lon, lat, pred[i], '4DVarNet', extent=extent, cmap=cm, norm=norm, colorbar=False)
+            else:
+                plot(ax1, lon, lat, gradient(gt[i], 2), r"$\nabla_{GT}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax2, lon, lat, gradient(obs[i], 2), r"$\nabla_{OBS}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax3, lon, lat, gradient(oi[i], 2), r"$\nabla_{OI}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax4, lon, lat, gradient(pred[i], 2), r"$\nabla_{4DVarNet}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+        else:
+            ax1.clear()
+            ax2.clear()
+            ax3.clear()
+            if grad==False:
+                plot(ax1, lon, lat, obs[i], 'OBS', extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax2, lon, lat, oi[i], 'OI', extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax3, lon, lat, pred[i], '4DVarNet', extent=extent, cmap=cm, norm=norm, colorbar=False)
+            else:
+                #plot(ax1, lon, lat, gradient(obs[i], 2), r"$\nabla_{OBS}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax1, lon, lat, np.where(np.isnan(obs[i]), np.nan, 0.), "obs (mask)", extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax2, lon, lat, gradient(oi[i], 2), r"$\nabla_{OI}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax3, lon, lat, gradient(pred[i], 2), r"$\nabla_{4DVarNet}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
 
-    fig = plt.figure(figsize=(15,15))
-    if orthographic==False:
-        ax1 = fig.add_subplot(221, projection=ccrs.PlateCarree(central_longitude=0.0))
-        ax2 = fig.add_subplot(222, projection=ccrs.PlateCarree(central_longitude=0.0))
-        ax3 = fig.add_subplot(223, projection=ccrs.PlateCarree(central_longitude=0.0))
-        ax4 = fig.add_subplot(224, projection=ccrs.PlateCarree(central_longitude=0.0))
+    fig = plt.figure(figsize=(15,9))
+    gs = gridspec.GridSpec(2, 4)
+    gs.update(wspace=0.1)
+    if orthographic:
+        #crs = ccrs.Orthographic(central_lon,central_lat)
+        crs = ccrs.Orthographic(-30,45)
     else:
-        ax1 = fig.add_subplot(221, projection=ccrs.Orthographic(-30, 45))
-        ax2 = fig.add_subplot(222, projection=ccrs.Orthographic(-30, 45))
-        ax3 = fig.add_subplot(223, projection=ccrs.Orthographic(-30, 45))
-        ax4 = fig.add_subplot(224, projection=ccrs.Orthographic(-30, 45))
-    plt.subplots_adjust(hspace=0.5)
+        crs = ccrs.PlateCarree(central_longitude=0.0)
+    if supervised:
+        ax1 = fig.add_subplot(gs[0, :2], projection=crs)
+        ax2 = fig.add_subplot(gs[0, 2:], projection=crs)
+        ax3 = fig.add_subplot(gs[1, :2], projection=crs)
+        ax4 = fig.add_subplot(gs[1, 2:], projection=crs)
+    else:
+        ax1 = fig.add_subplot(gs[0, 1:3], projection=crs)
+        ax1.set_extent(extent)
+        ax2 = fig.add_subplot(gs[1, :2], projection=crs)
+        ax2.set_extent(extent)
+        ax3 = fig.add_subplot(gs[1, 2:], projection=crs)
+        ax3.set_extent(extent)
+
+    plt.subplots_adjust(hspace=0.05)
+    # Colorbar
+    cbar_ax = fig.add_axes([0.1, 0.05, 0.8, 0.02])
+    sm = plt.cm.ScalarMappable(cmap=cm, norm=norm)
+    sm._A = []
+    cbar = fig.colorbar(sm, cax=cbar_ax, orientation='horizontal', pad=3.0)
+
     ani = animation.FuncAnimation(fig, animate, frames=len(gt), interval=200, repeat=False)
-    writergif = animation.PillowWriter(fps=3) 
+    writergif = animation.PillowWriter(fps=3)
     writer = animation.FFMpegWriter(fps=3)
     ani.save(resfile, writer = writer)
     plt.close()
 
-def plot_ensemble(pred,lon,lat,resfile):
+def plot_ensemble(pred,lon,lat,resfile,crop=None, 
+                   orthographic=True):
 
     vmax = np.nanmax(np.abs(pred))
     vmin = -1.*vmax
+    cm = plt.cm.coolwarm
+    norm = colors.Normalize(vmin=vmin, vmax=vmax)
+
     grad_vmax = np.nanmax(np.abs(gradient(pred,2)))
     grad_vmin = 0
-    extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
+    cm_grad = plt.cm.viridis
+    norm_grad = colors.PowerNorm(gamma=0.7, vmin=grad_vmin, vmax=grad_vmax)
+
+    if crop is not None:
+        ilon = np.where((lon>=crop[0]) & (lon<=crop[1]))[0]
+        ilat = np.where((lat>=crop[2]) & (lat<=crop[3]))[0]
+        pred = (pred[ilat,:,:])[:,ilon,:]
+        lon = lon[ilon]
+        lat = lat[ilat]
+    extent = [np.min(lon)-1,np.max(lon)+1,np.min(lat)-1,np.max(lat)+1]
+    central_lon = np.mean(extent[:2])
+    central_lat = np.mean(extent[2:])
+
+    if orthographic:
+        #crs = ccrs.Orthographic(central_lon,central_lat)
+        crs = ccrs.Orthographic(-30,45)
+    else:
+        crs = ccrs.PlateCarree(central_longitude=0.0)
 
     n_members = pred.shape[-1]
     fig, ax = plt.subplots(2,n_members,figsize=(5*n_members,15),squeeze=False,
-                          subplot_kw=dict(projection=ccrs.PlateCarree(central_longitude=0.0)))
+                          subplot_kw=dict(projection=crs))
     for i in range(n_members):
-        plot(ax,0,i,lon,lat,pred[:,:,i],'M'+str(i),extent=extent,cmap="coolwarm",vmin=vmin,vmax=vmax)
-        plot(ax,1,i,lon,lat,gradient(pred[:,:,i],2),r"$\nabla_{M"+str(i)+"}$",extent=extent,cmap="viridis",vmin=grad_vmin,vmax=grad_vmax)
+        plot(ax[0,i],lon,lat,pred[:,:,i],'M'+str(i),extent=extent,cmap=cm,norm=norm,colorbar=False)
+        plot(ax[1,i],lon,lat,gradient(pred[:,:,i],2),r"$\nabla_{M"+str(i)+"}$",extent=extent,
+                                        cmap=cm_grad,norm=norm_grad, colorbar=False)
     plt.savefig(resfile)       # save the figure
     plt.close()                # close the figure
 
-def save_netcdf(saved_path1, pred, lon, lat, time,
+def maps_score(resfile, ds, lon, lat):
+    mesh_lat, mesh_lon = np.meshgrid(lat, lon)
+    mesh_lat = mesh_lat.T
+    mesh_lon = mesh_lon.T
+    cor_map_oi = xr.corr(ds['GT'],ds['OI'], dim='time')
+    rmse_map_oi = (((ds['GT'] - ds['OI'])**2).mean(dim=('time')))**0.5
+    cor_map_pred = xr.corr(ds['GT'],ds['4DVarNet'], dim='time')
+    rmse_map_pred = (((ds['GT'] - ds['4DVarNet'])**2).mean(dim=('time')))**0.5
+
+    extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
+
+    fig = plt.figure(figsize=(20,20))
+    ax1 = fig.add_subplot(221,projection=ccrs.PlateCarree(central_longitude=0.0))
+    ax2 = fig.add_subplot(222,projection=ccrs.PlateCarree(central_longitude=0.0))
+    ax3 = fig.add_subplot(223,projection=ccrs.PlateCarree(central_longitude=0.0))
+    ax4 = fig.add_subplot(224,projection=ccrs.PlateCarree(central_longitude=0.0))
+
+    vmax = cor_map_oi.max()
+    vmin = cor_map_oi.min()
+    cmap_cor = plt.cm.coolwarm
+    norm_cor = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
+    plot(ax1,lon,lat,cor_map_oi.values,'Correlation OI',extent=extent,cmap=cmap_cor,norm=norm_cor)
+    plot(ax2,lon,lat,cor_map_pred.values,'Correlation 4DVarNet',extent=extent,cmap=cmap_cor,norm=norm_cor)
+    vmax = rmse_map_oi.max()
+    vmin = 0.
+    cmap_rmse = plt.cm.viridis
+    norm_rmse = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
+    plot(ax3,lon,lat,rmse_map_oi.values,'RMSE OI',extent=extent,cmap=cmap_rmse,norm=norm_rmse)
+    plot(ax4,lon,lat,rmse_map_pred.values,'RMSE 4DVarNet',extent=extent,cmap=cmap_rmse,norm=norm_rmse)
+
+    plt.savefig(resfile)
+    fig = plt.gcf()
+    plt.close()                        
+    return fig
+
+def save_netcdf(saved_path1, gt, oi, pred, lon, lat, time,
                 time_units='days since 2012-10-01 00:00:00'):
     '''
     saved_path1: string 
@@ -307,7 +457,9 @@ def save_netcdf(saved_path1, pred, lon, lat, time,
         data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
                    'latitude': (('lat', 'lon'), mesh_lat), \
                    'Time': (('time'), time), \
-                   'ssh': (('time', 'lat', 'lon'), pred[:, int(dt / 2), :, :])}, \
+                   'GT': (('time', 'lat', 'lon'), gt[:, int(dt / 2), :, :]),
+                   'OI': (('time', 'lat', 'lon'), oi[:, int(dt / 2), :, :]),
+                   '4DVarNet': (('time', 'lat', 'lon'), pred[:, int(dt / 2), :, :])}, \
         coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred))})
     xrdata.time.attrs['units'] = time_units
     xrdata.to_netcdf(path=saved_path1, mode='w')

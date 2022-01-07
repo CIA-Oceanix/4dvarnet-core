@@ -4,9 +4,7 @@ natl_ssh: /work/scratch/carpenb/data_4dvarnet/NATL60-CJM165_NATL_ssh_y2013.1y.nc
 # natl_sst: /gpfsdsstore/projects/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_sst_y2013.1y.nc
 pseudo_obs: /work/scratch/carpenb/data_4dvarnet/dataset_nadir_0d_swot.nc
 
-# oi_path: /work/scratch/carpenb/data_4dvarnet/ssh_NATL60_swot_4nadir.nc
-# oi_var: ssh_mod
-# obs_mask_path: /work/scratch/carpenb/data_4dvarnet/dataset_nadir_0d_swot.nc
-# obs_mask_var: ssh_mod
-# gt_path: /work/scratch/carpenb/data_4dvarnet/NATL60-CJM165_NATL_ssh_y2013.1y.nc
-# gt_var: ssh
+# GLORYS 12v1
+glorys_ssh: /work/scratch/carpenb/data_4dvarnet/glorys12v1_filled_shifted_masked.zarr
+oi_miost: /work/scratch/carpenb/data_4dvarnet/miost_glorys12v1_j3_s3a_s3b_swot.zarr
+glorys_pseudo_obs: /work/scratch/carpenb/data_4dvarnet/gridded_obs_swot_3nadirs_glorys_masked.zarr

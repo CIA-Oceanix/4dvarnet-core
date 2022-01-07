@@ -4,11 +4,11 @@ dim_range['lat'] = slice(33, 43)
 dim_range['lon'] = slice(-65, -55)
 
 # Specify the stride between two patches
-strides['X'] = 170
-strides['Y'] = 170
+strides['X'] = 190
+strides['Y'] = 190
 
-time_period['train_slices'] = (slice("2012-10-01", "2013-09-01"),slice('2017-01-01', "2017-12-31"),)
-time_period['test_slices'] = (slice('2017-01-01', "2017-12-31"),)
+time_period['train_slices'] = (slice("2012-10-01", "2013-09-01"),slice('2016-12-30', "2018-01-02"),)
+time_period['test_slices'] = (slice('2016-12-30', "2018-01-02"),)
 time_period['val_slices'] = (slice('2013-09-01', "2013-10-01"),slice('2017-03-01', "2017-04-01"),)
 
 params['files_cfg'].update( 

@@ -128,9 +128,12 @@ class LitModelStochastic(LitModel):
         self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
         # save NetCDF
         path_save1 = self.logger.log_dir+'/maps.nc'
-        save_netcdf(saved_path1 = path_save1, pred = pred,
+        save_netcdf(saved_path1 = path_save1, gt=gt, oi=oi, pred=pred,
             lon = self.lon,lat = self.lat, time=self.time['time_test'])
-
+        # maps score
+        if self.hparams.supervised==True:
+            path_save = self.logger.log_dir + '/maps_score.png'
+            maps_score(path_save,xr.open_dataset(path_save1),lon=self.lon, lat=self.lat)
 
     def compute_loss(self, batch, phase):
 

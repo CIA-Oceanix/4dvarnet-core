@@ -100,6 +100,7 @@ class FourDVarNetRunner:
         w_ = np.zeros(self.cfg.dT)
         w_[int(self.cfg.dT / 2)] = 1.
         self.wLoss = torch.Tensor(w_)
+        self.resolution = datamodule.resolution
 
     def run(self, ckpt_path=None, dataloader="test", **trainer_kwargs):
         """
@@ -132,7 +133,8 @@ class FourDVarNetRunner:
                                                     dX = self.dX, dY = self.dY,
                                                     swX = self.swX, swY = self.swY,
                                                     coord_ext = {'lon_ext': self.lon,
-                                                                'lat_ext': self.lat}
+                                                                'lat_ext': self.lat},
+                                                    resolution=self.resolution
                                                     )
 
         else:
@@ -147,7 +149,8 @@ class FourDVarNetRunner:
                                time=self.time,
                                dX = self.dX, dY = self.dY,
                                swX = self.swX, swY = self.swY,
-                               coord_ext = {'lon_ext': self.lon, 'lat_ext': self.lat}
+                               coord_ext = {'lon_ext': self.lon, 'lat_ext': self.lat},
+                               resolution=self.resolution,
                                )
         return mod
 

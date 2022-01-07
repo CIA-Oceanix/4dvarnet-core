@@ -1,4 +1,5 @@
 from models import *
+import xarray as xr
 
 class LitModel(pl.LightningModule):
     def __init__(self, hparam, *args, **kwargs):
@@ -14,10 +15,9 @@ class LitModel(pl.LightningModule):
         self.xmax = kwargs['max_lon']
         self.ymin = kwargs['min_lat']
         self.ymax = kwargs['max_lat']
-        self.Nx = 200
-        self.Ny = 200
-        #self.Nx = int(((self.xmax-self.xmin)/.05)/self.hparams.resize_factor)
-        #self.Ny = int(((self.ymax-self.ymin)/.05)/self.hparams.resize_factor)
+        self.resolution = kwargs['resolution']
+        self.Nx = int(((self.xmax-self.xmin)/self.resolution)/self.hparams.resize_factor)
+        self.Ny = int(((self.ymax-self.ymin)/self.resolution)/self.hparams.resize_factor)
         self.lon = np.linspace(self.xmin, self.xmax, self.Nx)
         self.lat = np.linspace(self.ymin, self.ymax, self.Ny)
         self.shapeData = [self.hparams.dT*2,self.Ny,self.Nx]
@@ -188,14 +188,16 @@ class LitModel(pl.LightningModule):
                   self.x_obs[0],
                   self.x_oi[0],
                   self.x_rec[0],
-                  self.lon, self.lat, path_save0)
+                  self.lon, self.lat, path_save0,
+                  supervised=self.hparams.supervised)
         path_save0 = self.logger.log_dir + '/maps_Grad.png'
         fig_maps_grad = plot_maps(
                   self.x_gt[0],
                   self.x_obs[0],
                   self.x_oi[0],
                   self.x_rec[0],
-                  self.lon, self.lat, path_save0, grad=True)
+                  self.lon, self.lat, path_save0,
+                  grad=True, supervised=self.hparams.supervised)
         self.test_figs['maps'] = fig_maps
         self.test_figs['maps_grad'] = fig_maps_grad
         # animate maps
@@ -205,7 +207,8 @@ class LitModel(pl.LightningModule):
                          self.x_obs,
                          self.x_oi,
                          self.x_rec,
-                         self.lon, self.lat, path_save0, grad=True)
+                         self.lon, self.lat, path_save0, dw=4, 
+                         grad=True, supervised=self.hparams.supervised)
         # compute nRMSE
         path_save2 = self.logger.log_dir + '/nRMSE.txt'
         tab_scores = nrmse_scores(gt, oi, pred, path_save2)
@@ -238,9 +241,14 @@ class LitModel(pl.LightningModule):
         self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
         # save NetCDF
         path_save1 = self.logger.log_dir + '/maps.nc'
-        save_netcdf(saved_path1=path_save1, pred=pred,
+        save_netcdf(saved_path1=path_save1, gt=gt, oi=oi, pred=pred,
                     lon=self.lon, lat=self.lat, time=self.time['time_test'],
-                    time_units='days since 2017-10-01 00:00:00')
+                    time_units='days since 2017-01-01 00:00:00')
+
+        # maps score
+        if self.hparams.supervised==True:
+            path_save = self.logger.log_dir + '/maps_score.png'
+            maps_score(path_save,xr.open_dataset(path_save1),lon=self.lon, lat=self.lat)
 
     def compute_loss(self, batch, phase):
 

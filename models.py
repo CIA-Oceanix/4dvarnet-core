@@ -7,7 +7,7 @@ import torch.optim as optim
 from omegaconf import OmegaConf
 from scipy import stats
 import solver as NN_4DVar
-from metrics import save_netcdf, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, plot_ensemble
+from metrics import save_netcdf, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, plot_ensemble, maps_score
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
