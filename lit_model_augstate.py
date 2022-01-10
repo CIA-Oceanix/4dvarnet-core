@@ -165,23 +165,40 @@ class LitModelAugState(pl.LightningModule):
         self.model.n_grad = self.hparams.n_grad
 
     def on_train_epoch_start(self):
-        if self.model_name in ('4dvarnet', '4dvarnet_sst'):
-            opt = self.optimizers()
-            if (self.current_epoch in self.hparams.iter_update) & (self.current_epoch > 0):
-                indx = self.hparams.iter_update.index(self.current_epoch)
-                print('... Update Iterations number/learning rate #%d: NGrad = %d -- lr = %f' % (
-                    self.current_epoch, self.hparams.nb_grad_update[indx],
-                    self.hparams.lr_update[indx]))
+        opt = self.optimizers()
+        if (self.current_epoch in self.hparams.iter_update) & (self.current_epoch > 0):
+            indx = self.hparams.iter_update.index(self.current_epoch)
+            print('... Update Iterations number/learning rate #%d: NGrad = %d -- lr = %f' % (
+                self.current_epoch,
+                self.hparams.nb_grad_update[indx],
+                self.hparams.lr_update[indx]))
 
-                self.hparams.n_grad = self.hparams.nb_grad_update[indx]
-                self.model.n_grad = self.hparams.n_grad
-                print("ngrad iter", self.model.n_grad)
-                mm = 0
-                lrCurrent = self.hparams.lr_update[indx]
-                lr = np.array([lrCurrent, lrCurrent, 0.5 * lrCurrent, 0.])
-                for pg in opt.param_groups:
-                    pg['lr'] = lr[mm]  # * self.hparams.learning_rate
-                    mm += 1
+            self.hparams.n_grad = self.hparams.nb_grad_update[indx]
+            self.model.n_grad = self.hparams.n_grad
+
+            mm = 0
+            lrCurrent = self.hparams.lr_update[indx]
+            lr = np.array([lrCurrent, lrCurrent, 0.5 * lrCurrent, 0.])
+            for pg in opt.param_groups:
+                pg['lr'] = lr[mm]  # * self.hparams.learning_rate
+                mm += 1
+        # if self.model_name in ('4dvarnet', '4dvarnet_sst'):
+            # opt = self.optimizers()
+            # if (self.current_epoch in self.hparams.iter_update) & (self.current_epoch > 0):
+                # indx = self.hparams.iter_update.index(self.current_epoch)
+                # print('... Update Iterations number/learning rate #%d: NGrad = %d -- lr = %f' % (
+                    # self.current_epoch, self.hparams.nb_grad_update[indx],
+                    # self.hparams.lr_update[indx]))
+
+                # self.hparams.n_grad = self.hparams.nb_grad_update[indx]
+                # self.model.n_grad = self.hparams.n_grad
+                # print("ngrad iter", self.model.n_grad)
+                # mm = 0
+                # lrCurrent = self.hparams.lr_update[indx]
+                # lr = np.array([lrCurrent, lrCurrent, 0.5 * lrCurrent, 0.])
+                # for pg in opt.param_groups:
+                    # pg['lr'] = lr[mm]  # * self.hparams.learning_rate
+                    # mm += 1
 
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
         # compute loss and metrics
@@ -388,11 +405,14 @@ class LitModelAugState(pl.LightningModule):
                     )
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
         if not self.hparams.augment_state:
-            state = torch.cat((targets_OI, inputs_Mask * (inputs_obs - targets_OI)), dim=1)
+            inputs_init = torch.cat((targets_OI, inputs_Mask * (inputs_obs - targets_OI)), dim=1)
         else:
-            state = torch.cat((targets_OI, inputs_Mask * (inputs_obs - targets_OI), torch.zeros_like(targets_OI)), dim=1)
-        # state = torch.cat((targets_OI, inputs_obs), dim=1)
-        # state = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
+            inputs_init = torch.cat((targets_OI,
+                                     inputs_Mask * (inputs_obs - targets_OI),
+                                     torch.zeros_like(targets_OI)),
+                                    dim=1)
+        # inputs_init = torch.cat((targets_OI, inputs_obs), dim=1)
+        # inputs_init = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
         if not self.use_sst:
             if not self.hparams.augment_state:
                 new_masks = torch.cat((torch.ones_like(inputs_Mask), inputs_Mask), dim=1)
@@ -400,15 +420,21 @@ class LitModelAugState(pl.LightningModule):
             else:
                 # new_masks = torch.cat((torch.ones_like(inputs_Mask), inputs_Mask), dim=1)
                 # inputs_obs = torch.cat((targets_OI, inputs_obs), dim=1)
-                new_masks = torch.cat((torch.ones_like(inputs_Mask), inputs_Mask, torch.zeros_like(inputs_Mask)), dim=1)
-                inputs_obs = torch.cat((targets_OI, inputs_Mask * (inputs_obs - targets_OI), torch.zeros_like(targets_OI)), dim=1)
+                new_masks = torch.cat((torch.ones_like(inputs_Mask),
+                                       inputs_Mask,
+                                       torch.zeros_like(inputs_Mask)),
+                                      dim=1)
+                inputs_missing = torch.cat((targets_OI,
+                                            inputs_Mask * (inputs_obs - targets_OI),
+                                            torch.zeros_like(targets_OI)),
+                                           dim=1)
         else:
             new_masks = [
                     torch.cat((torch.ones_like(inputs_Mask), inputs_Mask, torch.zeros_like(inputs_Mask)), dim=1),
                     torch.ones_like(sst_gt)
             ]
-            inputs_obs = [
-                    torch.cat((targets_OI, inputs_obs, torch.zeros_like(targets_OI)), dim=1),
+            inputs_missing = [
+                    torch.cat((targets_OI, inputs_missing, torch.zeros_like(targets_OI)), dim=1),
                     sst_gt
             ]
 
@@ -418,8 +444,8 @@ class LitModelAugState(pl.LightningModule):
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
             # with torch.set_grad_enabled(phase == 'train'):
-            state = torch.autograd.Variable(state, requires_grad=True)
-            outputs, hidden_new, cell_new, normgrad = self.model(state, inputs_obs, new_masks)
+            inputs_init = torch.autograd.Variable(inputs_init, requires_grad=True)
+            outputs, hidden_new, cell_new, normgrad = self.model(inputs_init, inputs_missing, new_masks)
 
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
