@@ -6,8 +6,8 @@ datamodule:
 params:
   iter_update: [0, 10, 20, 30, 40, 150, 800]
 file_paths:
-  natl_ssh: '/gpfsscratch/rech/yrf/uor23la/gt_gf_3.nc'
-  #natl_ssh: '/gpfsstore/rech/yrf/commun/NATL60/NATL/ref_new/NATL60-CJM165_NATL_ssh_y2013.1y.nc'
+  #natl_ssh: '/gpfsscratch/rech/yrf/uor23la/gt_gf_3.nc'
+  natl_ssh: '/gpfsstore/rech/yrf/commun/NATL60/NATL/ref_new/NATL60-CJM165_NATL_ssh_y2013.1y.nc'
   noisy_swot: '/gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d_swot.nc'
 entrypoint:
   max_epochs: 50
