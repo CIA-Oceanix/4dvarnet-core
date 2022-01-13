@@ -409,7 +409,7 @@ class LitModelAugState(pl.LightningModule):
         else:
             inputs_init = torch.cat((targets_OI,
                                      inputs_Mask * (inputs_obs - targets_OI),
-                                     torch.zeros_like(targets_OI)),
+                                     inputs_Mask * (inputs_obs - targets_OI)),
                                     dim=1)
         # inputs_init = torch.cat((targets_OI, inputs_obs), dim=1)
         # inputs_init = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
