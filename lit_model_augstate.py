@@ -405,7 +405,9 @@ class LitModelAugState(pl.LightningModule):
                     )
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
         if not self.hparams.augment_state:
-            inputs_init = torch.cat((targets_OI, inputs_Mask * (inputs_obs - targets_OI)), dim=1)
+            inputs_init = torch.cat((targets_OI,
+                                     inputs_Mask * (inputs_obs - targets_OI)),
+                                    dim=1)
         else:
             inputs_init = torch.cat((targets_OI,
                                      inputs_Mask * (inputs_obs - targets_OI),
@@ -472,15 +474,18 @@ class LitModelAugState(pl.LightningModule):
             loss_AE = torch.mean((self.model.phi_r(outputsSLRHR) - outputsSLRHR) ** 2)
 
             if not self.hparams.augment_state:
-                # yGT = torch.cat((targets_OI, targets_GT - outputsSLR), dim=1)
-                yGT = torch.cat((targets_GT_wo_nan, outputsSLR - targets_GT_wo_nan), dim=1)
+                yGT = torch.cat((targets_OI, targets_GT_wo_nan - outputsSLR), dim=1)
+                # yGT = torch.cat((targets_GT_wo_nan, outputsSLR - targets_GT_wo_nan), dim=1)
             else:
                 # yGT = torch.cat((targets_OI,targets_GT-targets_OI),dim=1)
-                # yGT = torch.cat((targets_GT_wo_nan, outputsSLR - targets_GT_wo_nan, outputsSLR - targets_GT_wo_nan), dim=1)
                 yGT = torch.cat((targets_OI,
-                                 targets_GT_wo_nan - targets_OI,
-                                 targets_GT_wo_nan - targets_OI),
+                                 targets_GT_wo_nan - outputsSLR,
+                                 targets_GT_wo_nan - outputsSLR),
                                 dim=1)
+                # yGT = torch.cat((targets_OI,
+                                 # targets_GT_wo_nan - targets_OI,
+                                 # targets_GT_wo_nan - targets_OI),
+                                # dim=1)
 
             loss_AE_GT = torch.mean((self.model.phi_r(yGT) - yGT) ** 2)
 
