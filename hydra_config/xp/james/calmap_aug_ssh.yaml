@@ -19,9 +19,6 @@ params:
   - 20
   - 240
   - 240
-file_paths:
-  natl_ssh: '/gpfsstore/rech/yrf/commun/NATL60/NATL/ref_new/NATL60-CJM165_NATL_ssh_y2013.1y.nc'
-  noisy_swot: '/gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d_swot.nc'
 defaults:
   - /xp/james/base@_global_
   - _self_
