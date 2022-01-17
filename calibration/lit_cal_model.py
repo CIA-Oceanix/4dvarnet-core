@@ -40,7 +40,7 @@ class Model_H_with_noisy_Swot(torch.nn.Module):
     def forward(self, x, y, mask):
         if self.hparams.get('aug_state', False):
             output_low_res,  output_anom_glob, output_anom_swath, _ = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
-        else: 
+        else:
             output_low_res,  output_anom_glob, output_anom_swath = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
         output_global = output_low_res + output_anom_glob
 
@@ -63,7 +63,7 @@ class Model_H_SST_with_noisy_Swot(torch.nn.Module):
     obs: [[oi, obs], sst]
     mask: [[ones, obs_mask], ones]
     """
-    
+
 
     def __init__(self, shape_data, shape_obs, hparams=None):
         super().__init__()
@@ -82,7 +82,7 @@ class Model_H_SST_with_noisy_Swot(torch.nn.Module):
         mask_ssh, mask_sst = mask
         if self.hparams.get('aug_state', False):
             output_low_res,  output_anom_glob, output_anom_swath, _ = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
-        else: 
+        else:
             output_low_res,  output_anom_glob, output_anom_swath = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
         output_global = output_low_res + output_anom_glob
 
@@ -90,7 +90,7 @@ class Model_H_SST_with_noisy_Swot(torch.nn.Module):
             output_swath = output_low_res + output_anom_swath
         elif self.hparams.swot_anom_wrt == 'high_res':
             output_swath = output_global + output_anom_swath
-        
+
 
         yhat_glob = torch.cat((output_low_res, output_global), dim=1)
         yhat_swath = torch.cat((output_low_res, output_swath), dim=1)
@@ -103,7 +103,7 @@ class Model_H_SST_with_noisy_Swot(torch.nn.Module):
 
         return [dyout, dyout1]
 
-# Aurélie Albert referente données soft 
+# Aurélie Albert referente données soft
 # Johanna CNN multi modal avec attention prediction chlorophile
 # Batimetrie: profondeur de l'ocean important pour les courants
 
@@ -111,15 +111,15 @@ class Model_H_SST_with_noisy_Swot(torch.nn.Module):
 # TODO: ref donnée journalière vs snapshot
 # TODO: utiliser la sst uniquement pour la fauchée
 # TODO: etat augmenté
-# TODO: Check 2 termes d'observation SST 
-# TODO: apprendre post traitement 
+# TODO: Check 2 termes d'observation SST
+# TODO: apprendre post traitement
 
 
 # Artefacts NATL
 
 # TODO: test prediction tout le domaine
-# TODO: test prediction sur plus gradn domaine 
-# TODO: Plusieurs cartes  
+# TODO: test prediction sur plus gradn domaine
+# TODO: Plusieurs cartes
 
 # Artefacts calib natl
 
@@ -128,22 +128,22 @@ class Model_H_SST_with_noisy_Swot(torch.nn.Module):
 
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r(hparams.shape_data[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                     hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
-                Model_H_with_noisy_Swot(hparams.shape_data[0], hparams.shape_obs[0], hparams=hparams),
+                Model_H_with_noisy_Swot(hparams.shape_state[0], hparams.shape_obs[0], hparams=hparams),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
-                hparams.norm_obs, hparams.norm_prior, hparams.shape_data, hparams.n_grad)
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad)
 
 
 def get_4dvarnet_sst(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r(hparams.shape_data[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                     hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
-                Model_H_SST_with_noisy_Swot(hparams.shape_data[0], hparams.shape_obs[0], hparams=hparams),
+                Model_H_SST_with_noisy_Swot(hparams.shape_state[0], hparams.shape_obs[0], hparams=hparams),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
-                hparams.norm_obs, hparams.norm_prior, hparams.shape_data, hparams.n_grad)
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad)
 
 def get_phi(hparams):
     class PhiPassThrough(torch.nn.Module):
@@ -242,7 +242,7 @@ class LitCalModel(pl.LightningModule):
         self.x_oi = None  # variable to store OI
         self.x_rec = None  # variable to store output of test method
         self.test_figs = {}
-        
+
         self.tr_loss_hist = []
         self.automatic_optimization = False
 
@@ -261,7 +261,7 @@ class LitCalModel(pl.LightningModule):
         return losses, outs, metrics
 
     def configure_optimizers(self):
-        
+
         if self.model_name == '4dvarnet':
             optimizer = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
@@ -279,7 +279,7 @@ class LitCalModel(pl.LightningModule):
                                 ], lr=0., weight_decay=self.hparams.weight_decay)
 
             return optimizer
-        else: 
+        else:
             opt = optim.Adam(self.parameters(), lr=1e-4)
         return {
             'optimizer': opt,
@@ -325,13 +325,13 @@ class LitCalModel(pl.LightningModule):
                 print('reloading', best_ckpt_path)
                 ckpt = torch.load(best_ckpt_path)
                 self.load_state_dict(ckpt['state_dict'])
-                
 
-            
+
+
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
 
         opt = self.optimizers()
-        # compute loss and metrics    
+        # compute loss and metrics
         if self.hparams.get('rand_mask'):
             rand = torch.rand_like(train_batch[0])
             mask_95 = rand > 0.95
@@ -357,7 +357,7 @@ class LitCalModel(pl.LightningModule):
         opt.zero_grad()
         self.manual_backward(loss)
         opt.step()
-        # log step metric        
+        # log step metric
         # self.log('train_mse', mse)
         # self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True)
         # self.log("tr_min_nobs", train_batch[1].sum(dim=[1,2,3]).min().item(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
@@ -416,10 +416,10 @@ class LitCalModel(pl.LightningModule):
         print(len(outputs))
         torch.save(outputs, data_path / f'{self.global_rank}.t')
         if dist.is_initialized():
-            dist.barrier() 
+            dist.barrier()
         if self.global_rank > 0:
             print(f'Saved data for rank {self.global_rank}')
-            return 
+            return
 
         full_outputs = [torch.load(f) for f in sorted(data_path.glob('*'))]
 
@@ -452,8 +452,8 @@ class LitCalModel(pl.LightningModule):
                                 outputs[bc][b]['obs_pred'][i],
                                 outputs[bc][b]['inp_obs'][i],
                         )
-            
-        dses =[ 
+
+        dses =[
                 xr.Dataset( {
                     'gt': (('time', 'lat', 'lon'), x_gt),
                     'oi': (('time', 'lat', 'lon'), x_oi),
@@ -478,10 +478,10 @@ class LitCalModel(pl.LightningModule):
 
         for ds in dses:
             ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
-            xr_weight = xr.DataArray(self.patch_weight, ds.coords, dims=ds.gt.dims) 
+            xr_weight = xr.DataArray(self.patch_weight, ds.coords, dims=ds.gt.dims)
             _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
-            fin_ds = fin_ds + _ds 
-        
+            fin_ds = fin_ds + _ds
+
 
         self.test_xr_ds = (
             (fin_ds.drop('weight') / fin_ds.weight)
@@ -495,7 +495,7 @@ class LitCalModel(pl.LightningModule):
         self.obs_pred = self.test_xr_ds.obs_pred.data
         self.x_oi = self.test_xr_ds.oi.data
         self.x_rec = self.test_xr_ds.pred.data
-        
+
         self.test_coords = self.test_xr_ds.coords
         self.test_lat = self.test_coords['lat'].data
         self.test_lon = self.test_coords['lon'].data
@@ -595,7 +595,7 @@ class LitCalModel(pl.LightningModule):
         self.test_figs['snr'] = snr_fig
 
         self.logger.experiment.add_figure(f'{log_pref} SNR', snr_fig, global_step=self.current_epoch)
-        
+
         psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
         fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt, self.test_xr_ds.pred, self.test_xr_ds.oi, with_fig=True)
         self.test_figs['res'] = fig
@@ -620,7 +620,7 @@ class LitCalModel(pl.LightningModule):
             f'{log_pref}_lambda_t': lamb_t,
             f'{log_pref}_mu': mu,
             f'{log_pref}_sigma': sig,
-            **mdf.to_dict(), 
+            **mdf.to_dict(),
         }
         self.latest_metrics.update(md)
         print(pd.DataFrame([md]).T.to_markdown())
@@ -633,7 +633,7 @@ class LitCalModel(pl.LightningModule):
         step=self.current_epoch)
 
     def teardown(self, stage='test'):
-        
+
         self.logger.log_hyperparams(
                 {**self.hparams},
                 self.latest_metrics
@@ -755,7 +755,7 @@ class LitCalModel(pl.LightningModule):
             g_output_swath = self.gradient_img(output_swath)
             # PENDING: add loss term computed on obs (outputs swath - obs_target)
 
-            _err_swath =(output_swath - target_obs_GT_wo_nan)**2 
+            _err_swath =(output_swath - target_obs_GT_wo_nan)**2
             err_swath = torch.where(target_obs_GT.isnan() | target_obs_GT.isinf(), torch.zeros_like(_err_swath), _err_swath)
             _err_g_swath =(g_output_swath - g_targets_obs)**2
             err_g_swath = torch.where(g_targets_obs_mask.isnan() | g_targets_obs_mask.isinf(), torch.zeros_like(_err_g_swath), _err_g_swath)
