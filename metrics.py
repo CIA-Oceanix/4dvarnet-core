@@ -205,7 +205,7 @@ def plot_maps(gt,obs,oi,pred,lon,lat,resfile,grad=False):
         plot(ax2,lon,lat,gradient(obs,2),r"$\nabla_{OBS}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
         plot(ax3,lon,lat,gradient(oi,2),r"$\nabla_{OI}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
         plot(ax4,lon,lat,gradient(pred,2),r"$\nabla_{4DVarNet}$",extent=extent,cmap="viridis",vmin=vmin,vmax=vmax)
-  
+
     plt.savefig(resfile)    # save the figure
     fig = plt.gcf()
     plt.close()             # close the figure
@@ -267,7 +267,7 @@ def animate_maps(gt,obs,oi,pred,lon,lat,resfile,orthographic=True,dw=4,grad=Fals
         ax4 = fig.add_subplot(224, projection=ccrs.Orthographic(-30, 45))
     plt.subplots_adjust(hspace=0.5)
     ani = animation.FuncAnimation(fig, animate, frames=len(gt), interval=200, repeat=False)
-    writergif = animation.PillowWriter(fps=3) 
+    writergif = animation.PillowWriter(fps=3)
     writer = animation.FFMpegWriter(fps=3)
     ani.save(resfile, writer = writer)
     plt.close()
@@ -292,9 +292,9 @@ def plot_ensemble(pred,lon,lat,resfile):
 def save_netcdf(saved_path1, pred, lon, lat, time,
                 time_units='days since 2012-10-01 00:00:00'):
     '''
-    saved_path1: string 
+    saved_path1: string
     pred: 3d numpy array (4DVarNet-based predictions)
-    lon: 1d numpy array 
+    lon: 1d numpy array
     lat: 1d numpy array
     time: 1d array-like of time corresponding to the experiment
     '''
@@ -400,14 +400,14 @@ def get_psd_score(x_t, x, ref, with_fig=False):
         psd_x_t = (
             x_t.copy()
                 .pipe(
-                lambda _da: xrft.isotropic_power_spectrum(_da, dim=['lat', 'lon'], window='hann', detrend='linear', scaling='density'))
+                lambda _da: xrft.xrft.isotropic_power_spectrum(_da, dim=['lat', 'lon'], window='hann', detrend='linear', scaling='density'))
                 .mean(['time'])
         ).compute()
 
         psd_err = (
             err.copy()
                 .pipe(
-                lambda _da: xrft.isotropic_power_spectrum(_da, dim=['lat', 'lon'], window='hann', detrend='linear', scaling='density'))
+                lambda _da: xrft.xrft.isotropic_power_spectrum(_da, dim=['lat', 'lon'], window='hann', detrend='linear', scaling='density'))
                 .mean(['time'])
         ).compute()
 
@@ -429,7 +429,7 @@ def get_psd_score(x_t, x, ref, with_fig=False):
             'var': ('var', ['model', 'OI'], {}),
         },
     )
-   
+
     try:
         spatial_resolution_model = (
             xr.DataArray(
@@ -475,15 +475,15 @@ def get_psd_score(x_t, x, ref, with_fig=False):
 
 
 def rmse_based_scores(da_rec, da_ref):
-    # boost swot rmse score 
+    # boost swot rmse score
     logging.info('     Compute RMSE-based scores...')
-    
+
     # RMSE(t) based score
     rmse_t = 1.0 - (((da_rec - da_ref)**2).mean(dim=('lon', 'lat')))**0.5/(((da_ref)**2).mean(dim=('lon', 'lat')))**0.5
     # RMSE(x, y) based score
     # rmse_xy = 1.0 - (((da_rec - da_ref)**2).mean(dim=('time')))**0.5/(((da_ref)**2).mean(dim=('time')))**0.5
     rmse_xy = (((da_rec - da_ref)**2).mean(dim=('time')))**0.5
-    
+
     rmse_t = rmse_t.rename('rmse_t')
     rmse_xy = rmse_xy.rename('rmse_xy')
 
@@ -496,20 +496,20 @@ def rmse_based_scores(da_rec, da_ref):
 
     logging.info('          => Leaderboard SSH RMSE score = %s', np.round(leaderboard_rmse.values, 2))
     logging.info('          Error variability = %s (temporal stability of the mapping error)', np.round(reconstruction_error_stability_metric, 2))
-    
+
     return rmse_t, rmse_xy, np.round(leaderboard_rmse.values, 2), np.round(reconstruction_error_stability_metric, 2)
 
 
 def psd_based_scores(da_rec, da_ref):
-    # boost-swot-psd-score 
+    # boost-swot-psd-score
     logging.info('     Compute PSD-based scores...')
-    
+
     # Compute error = SSH_reconstruction - SSH_true
     err = (da_rec - da_ref)
     err = err.chunk({"lat":1, 'time': err['time'].size, 'lon': err['lon'].size})
-    # make time vector in days units 
+    # make time vector in days units
     err['time'] = (err.time - err.time[0]) / np.timedelta64(1, 'D')
-    
+
     # Rechunk SSH_true
     signal = da_ref.chunk({"lat":1, 'time': da_ref['time'].size, 'lon': da_ref['lon'].size})
     # make time vector in days units
@@ -518,23 +518,23 @@ def psd_based_scores(da_rec, da_ref):
     # Compute PSD_err and PSD_signal
     psd_err = xrft.power_spectrum(err, dim=['time', 'lon'], detrend='constant', window=True).compute()
     psd_signal = xrft.power_spectrum(signal, dim=['time', 'lon'], detrend='constant', window=True).compute()
-    
+
     # Averaged over latitude
     mean_psd_signal = psd_signal.mean(dim='lat').where((psd_signal.freq_lon > 0.) & (psd_signal.freq_time > 0), drop=True)
     mean_psd_err = psd_err.mean(dim='lat').where((psd_err.freq_lon > 0.) & (psd_err.freq_time > 0), drop=True)
-    
+
     # return PSD-based score
     psd_based_score = (1.0 - mean_psd_err/mean_psd_signal)
 
     # Find the key metrics: shortest temporal & spatial scales resolved based on the 0.5 contour criterion of the PSD_score
 
-    
+
 
     level = [0.5]
     cs = plt.contour(1./psd_based_score.freq_lon.values,1./psd_based_score.freq_time.values, psd_based_score, level)
     x05, y05 = cs.collections[0].get_paths()[0].vertices.T
     plt.close()
-    
+
     shortest_spatial_wavelength_resolved = np.min(x05)
     shortest_temporal_wavelength_resolved = np.min(y05)
 
@@ -542,13 +542,13 @@ def psd_based_scores(da_rec, da_ref):
                  np.round(shortest_spatial_wavelength_resolved, 2))
     logging.info('          => shortest temporal wavelength resolved = %s (days)',
                  np.round(shortest_temporal_wavelength_resolved, 2))
-    psd_da = (1.0 - mean_psd_err/mean_psd_signal) 
+    psd_da = (1.0 - mean_psd_err/mean_psd_signal)
     psd_da.name = 'psd_score'
     return psd_da.to_dataset(), np.round(shortest_spatial_wavelength_resolved, 2), np.round(shortest_temporal_wavelength_resolved, 2)
 
 
 def plot_psd_score(ds):
-    fig, ax = plt.subplots() 
+    fig, ax = plt.subplots()
     #ax.invert_yaxis()
     #ax.invert_xaxis()
     c1 = plt.contourf(1./(ds['freq_lon']), 1./ds['freq_time'], ds['psd_score'],
