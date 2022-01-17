@@ -450,6 +450,21 @@ def main_np():
         return locals()
 
 def scratch():
+        full_outs = {}
+        for obs_var in [
+                'swot_nadirs_new_errors_w_wet_tropo',
+                'four_nadirs',
+                'five_nadirs',
+                'swot_nadirs_old_errors',
+                'swot_nadirs_no_noise',
+                'swot_nadirs_new_errors_no_wet_tropo',
+                ]:
+            full_outs[obs_var] = xr.open_dataset(f'{obs_var}_oi.nc')
+
+    path_oi_4nadir = '../sla-data-registry/NATL60/NATL/oi/ssh_NATL60_4nadir.nc'
+    for k, v in full_outs.items():
+        print(k, v[1].item(), v[2].item())
+
     s = ...
 
     simu_start_date = s['simu_start_date']

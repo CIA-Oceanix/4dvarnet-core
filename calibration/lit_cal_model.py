@@ -312,6 +312,7 @@ class LitCalModel(pl.LightningModule):
         best_ckpt_path = self.trainer.checkpoint_callback.best_model_path
         if len(best_ckpt_path) > 0:
             def should_reload_ckpt(losses):
+                return True
                 diffs = losses.diff()
                 if losses.max() > (10 * losses.min()):
                     print("Reloading because of check", 1)
@@ -323,7 +324,7 @@ class LitCalModel(pl.LightningModule):
 
             if should_reload_ckpt(torch.stack([out['loss'] for out in outputs])):
                 print('reloading', best_ckpt_path)
-                ckpt = torch.load(best_ckpt_path)
+                ckpt = torch.load(best_ckpt_path, map_location='cpu')
                 self.load_state_dict(ckpt['state_dict'])
                 
 
