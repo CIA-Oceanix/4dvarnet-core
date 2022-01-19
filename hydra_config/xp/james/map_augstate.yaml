@@ -9,10 +9,10 @@ logger:
 params:
   loss_loc: 0
   ckpt_name: modelSLAInterpGF-Exp3-{epoch:02d}-{val_loss:.2f}
-  #alpha_mse_ssh: 1.0
-  #alpha_mse_gssh: 1.0
-  #alpha_loc_mse_ssh: 10.
-  #alpha_loc_mse_gssh: 10.
+  alpha_mse_ssh: 1.0
+  alpha_mse_gssh: 10.0
+  alpha_loc_mse_ssh: 0
+  alpha_loc_mse_gssh: 0
   model: 4dvarnet
   sst: false
   aug_state: true
