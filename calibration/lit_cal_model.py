@@ -404,7 +404,6 @@ class LitCalModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         return self.diag_step(batch, batch_idx, log_pref='val')
 
-
     def validation_epoch_end(self, outputs):
         print(f'epoch end {self.global_rank} {len(outputs)}')
         if (self.current_epoch + 1) % self.hparams.val_diag_freq == 0:

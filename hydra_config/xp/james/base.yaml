@@ -16,7 +16,7 @@ datamodule:
   slice_win: ${patch_size}
   strides: ${strides}
 params:
-  ckpt_name: best.ckpt
+  ckpt_name: best
   val_diag_freq: 2
   weight_decay: 0.0003
   patch_weight:

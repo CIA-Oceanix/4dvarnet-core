@@ -8,10 +8,11 @@ logger:
   default_hp_metric: False
 params:
   loss_loc: 0
-  alpha_mse_ssh: 1.0
-  alpha_mse_gssh: 1.0
-  alpha_loc_mse_ssh: 10.
-  alpha_loc_mse_gssh: 10.
+  ckpt_name: modelSLAInterpGF-Exp3-{epoch:02d}-{val_loss:.2f}
+  #alpha_mse_ssh: 1.0
+  #alpha_mse_gssh: 1.0
+  #alpha_loc_mse_ssh: 10.
+  #alpha_loc_mse_gssh: 10.
   model: 4dvarnet
   sst: false
   aug_state: true
@@ -19,6 +20,7 @@ params:
   - 20
   - 240
   - 240
+  n_fourdvar_iter: 2
 defaults:
   - /xp/james/base@_global_
   - _self_
