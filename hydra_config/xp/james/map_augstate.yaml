@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: calmap_aug_ssh
+xp_name: map_augstate
 logger:
   _target_: pytorch_lightning.loggers.TensorBoardLogger
   save_dir: .
