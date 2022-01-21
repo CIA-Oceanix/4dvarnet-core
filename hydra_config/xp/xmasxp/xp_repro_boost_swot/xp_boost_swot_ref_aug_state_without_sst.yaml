@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: xp_boost_swot_aug
+xp_name: xp_boost_swot_aug_without_sst
 defaults:
   - /xp/xmasxp/base_xp
   - /splits/dc_boost_swot@datamodule
