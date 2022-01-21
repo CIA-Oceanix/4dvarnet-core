@@ -7,7 +7,7 @@ defaults:
   - /xp/xmasxp/aug/with_aug_state
   - /xp/xmasxp/dl/d200_p200x5_s200x1
   - /xp/xmasxp/ds/clean_swot_oi_w_swot
-  - /xp/xmasxp/sst/with_sst
+  - /xp/xmasxp/sst/without_sst
   - /xp/xmasxp/loss/map
   - /xp/xmasxp/train_strat/dec_lr_ngrad5_15_nocas
   - _self_ 
