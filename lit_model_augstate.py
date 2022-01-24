@@ -354,7 +354,6 @@ class LitModelAugstate(pl.LightningModule):
                                 outputs[bc][b]['gt'][i],
                                 outputs[bc][b]['oi'][i],
                                 outputs[bc][b]['preds'][i],
-                                outputs[bc][b]['obs_pred'][i],
                                 outputs[bc][b]['inp_obs'][i],
                         )
 
@@ -363,11 +362,9 @@ class LitModelAugstate(pl.LightningModule):
                     'gt': (('time', 'lat', 'lon'), x_gt),
                     'oi': (('time', 'lat', 'lon'), x_oi),
                     'pred': (('time', 'lat', 'lon'), x_rec),
-                    'obs_gt': (('time', 'lat', 'lon'), obs_gt),
-                    'obs_pred': (('time', 'lat', 'lon'), obs_pred),
                     'obs_inp': (('time', 'lat', 'lon'), obs_inp),
                 }, coords=coords)
-            for  (x_gt, x_oi, x_rec, obs_gt, obs_pred, obs_inp), coords
+            for  (x_gt, x_oi, x_rec, obs_inp), coords
             in zip(iter_item(self.outputs), self.test_patch_coords)
         ]
         import time
