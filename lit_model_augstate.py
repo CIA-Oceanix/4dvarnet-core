@@ -425,10 +425,8 @@ class LitModelAugstate(pl.LightningModule):
 
         path_save02 = self.logger.log_dir + '/maps_obs.png'
         fig_maps = plot_maps(
-                self.obs_gt[t_idx],
                 self.obs_inp[t_idx],
                   self.x_rec[t_idx],
-                self.obs_pred[t_idx],
                 self.test_lon, self.test_lat, path_save02, grad=True)
         self.test_figs['maps_obs'] = fig_maps
         self.logger.experiment.add_figure(f'{log_pref} Maps Obs', fig_maps, global_step=self.current_epoch)
