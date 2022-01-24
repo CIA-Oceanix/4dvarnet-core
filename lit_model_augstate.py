@@ -483,13 +483,6 @@ class LitModelAugstate(pl.LightningModule):
         nrmse_df.to_csv(self.logger.log_dir + '/nRMSE.txt')
         mse_df.to_csv(self.logger.log_dir + '/MSE.txt')
 
-        # compute nRMSE on swath
-        path_save23 = self.logger.log_dir + '/nRMSE_swath.txt'
-
-        nrmse_swath_df = nrmse_fn('obs_pred', 'obs_inp', 'obs_gt')
-        mse_swath_df = mse_fn('obs_pred', 'obs_inp', 'obs_gt')
-        nrmse_df.to_csv(self.logger.log_dir + '/nRMSE_swath.txt')
-        mse_df.to_csv(self.logger.log_dir + '/MSE_swath.txt')
         # plot nRMSE
         # PENDING: replace hardcoded 60
         path_save3 = self.logger.log_dir + '/nRMSE.png'
@@ -517,8 +510,6 @@ class LitModelAugstate(pl.LightningModule):
         mdf = pd.concat([
             nrmse_df.rename(columns=lambda c: f'{log_pref}_{c}_glob').loc['pred'].T,
             mse_df.rename(columns=lambda c: f'{log_pref}_{c}_glob').loc['pred'].T,
-            nrmse_swath_df.rename(columns=lambda c: f'{log_pref}_{c}_swath').loc['obs_pred'].T,
-            mse_swath_df.rename(columns=lambda c: f'{log_pref}_{c}_swath').loc['obs_pred'].T,
         ])
         md = {
             f'{log_pref}_spatial_res': float(spatial_res_model),
