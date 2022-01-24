@@ -393,8 +393,6 @@ class LitModelAugstate(pl.LightningModule):
 
         self.x_gt = self.test_xr_ds.gt.data
         self.obs_inp = self.test_xr_ds.obs_inp.data
-        self.obs_gt = self.test_xr_ds.obs_gt.data
-        self.obs_pred = self.test_xr_ds.obs_pred.data
         self.x_oi = self.test_xr_ds.oi.data
         self.x_rec = self.test_xr_ds.pred.data
 
