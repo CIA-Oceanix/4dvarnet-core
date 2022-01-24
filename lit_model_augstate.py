@@ -94,7 +94,7 @@ def get_constant_crop(patch_size, crop, dim_order=['time', 'lat', 'lon']):
 # plt.imshow(msk[2, ...])
 ############################################ Lightning Module #######################################################################
 
-class LitCalModel(pl.LightningModule):
+class LitModelAugstate(pl.LightningModule):
 
 
     MODELS = {
