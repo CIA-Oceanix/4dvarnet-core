@@ -596,8 +596,22 @@ class LitModelAugstate(pl.LightningModule):
 
         #state = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
         if not self.use_sst:
-            new_masks = torch.cat((torch.ones_like(inputs_Mask), inputs_Mask), dim=1)
-            obs = torch.cat((targets_OI, inputs_obs), dim=1)
+            if self.aug_state:
+                new_masks = torch.cat((torch.ones_like(inputs_Mask),
+                                       inputs_Mask,
+                                       torch.zeros_like(inputs_Mask)),
+                                      dim=1)
+                obs = torch.cat((targets_OI,
+                                 inputs_Mask * (inputs_obs - targets_OI),
+                                 torch.zeros_like(targets_OI)),
+                                dim=1)
+            else:
+                new_masks = torch.cat((torch.ones_like(inputs_Mask),
+                                       inputs_Mask),
+                                      dim=1)
+                obs = torch.cat((targets_OI,
+                                 inputs_Mask * (inputs_obs - targets_OI)),
+                                dim=1)
         else:
             new_masks = [
                     torch.cat((torch.ones_like(inputs_Mask), inputs_Mask), dim=1),
