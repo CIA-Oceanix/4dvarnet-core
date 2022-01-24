@@ -282,8 +282,6 @@ class LitModelAugstate(pl.LightningModule):
         if self.hparams.get('rand_mask'):
             self.log("tr_mse_95", metrics_95_obs['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
         self.log("tr_mseG", metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
-        self.log("tr_mse_swath", metrics[-1]['mseSwath'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("tr_mseG_swath", metrics[-1]['mseGradSwath'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
 
         return loss
 
