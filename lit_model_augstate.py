@@ -668,9 +668,9 @@ class LitModelAugstate(pl.LightningModule):
             loss_AE_GT = torch.mean((self.model.phi_r(yGT) - yGT) ** 2)
 
             # low-resolution loss
-            loss_SR = NN_4DVar.compute_WeightedLoss(outputsSLR - targets_OI, self.w_loss)
+            loss_SR = NN_4DVar.compute_spatio_temp_weighted_loss(outputsSLR - targets_OI, self.w_loss)
             targets_GTLR = self.model_LR(targets_OI)
-            loss_LR = NN_4DVar.compute_WeightedLoss(self.model_LR(outputs) - targets_GTLR, self.w_loss)
+            loss_LR = NN_4DVar.compute_spatio_temp_weighted_loss(self.model_LR(outputs) - targets_GTLR, self.model_LR(self.w_loss))
 
             # total loss
             loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
