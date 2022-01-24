@@ -6,7 +6,7 @@ params:
     oi_path: ${file_paths.oi_swot_4nadir}
     oi_var: ssh_mod
     obs_mask_path: ${file_paths.pseudo_obs}
-    obs_mask_var: obs
+    obs_mask_var: ssh_mod
     gt_path: ${file_paths.natl_ssh}
     gt_var: ssh
   iter_update: ??? # train_strat
