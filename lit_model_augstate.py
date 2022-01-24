@@ -292,8 +292,7 @@ class LitModelAugstate(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
-        losses, outs, metrics = self(batch, phase='test')
-        _, out, out_pred = self.get_outputs(batch, outs)
+        losses, out, metrics = self(batch, phase='test')
         loss = losses[-1]
         if loss is not None:
             self.log(f'{log_pref}_loss', loss)
@@ -303,7 +302,6 @@ class LitModelAugstate(pl.LightningModule):
         return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'oi'    : (targets_OI.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'inp_obs'    : (inputs_obs.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'obs_pred'    : (out_pred.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'preds' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def test_step(self, test_batch, batch_idx):
