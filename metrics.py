@@ -497,7 +497,7 @@ def rmse_based_scores(da_rec, da_ref):
     logging.info('          => Leaderboard SSH RMSE score = %s', np.round(leaderboard_rmse.values, 2))
     logging.info('          Error variability = %s (temporal stability of the mapping error)', np.round(reconstruction_error_stability_metric, 2))
 
-    return rmse_t, rmse_xy, np.round(leaderboard_rmse.values, 2), np.round(reconstruction_error_stability_metric, 2)
+    return rmse_t, rmse_xy, np.round(leaderboard_rmse.values, 3), np.round(reconstruction_error_stability_metric, 3)
 
 
 def psd_based_scores(da_rec, da_ref):
@@ -544,7 +544,7 @@ def psd_based_scores(da_rec, da_ref):
                  np.round(shortest_temporal_wavelength_resolved, 2))
     psd_da = (1.0 - mean_psd_err/mean_psd_signal)
     psd_da.name = 'psd_score'
-    return psd_da.to_dataset(), np.round(shortest_spatial_wavelength_resolved, 2), np.round(shortest_temporal_wavelength_resolved, 2)
+    return psd_da.to_dataset(), np.round(shortest_spatial_wavelength_resolved, 3), np.round(shortest_temporal_wavelength_resolved, 3)
 
 
 def plot_psd_score(ds):
