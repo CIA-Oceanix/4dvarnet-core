@@ -162,7 +162,7 @@ class FourDVarNetRunner:
 
         checkpoint_callback = ModelCheckpoint(monitor='val_loss',
                                               filename=self.filename_chkpt,
-                                              save_top_k=1,
+                                              save_top_k=3,
                                               mode='min')
         from pytorch_lightning.callbacks import LearningRateMonitor
         lr_monitor = LearningRateMonitor(logging_interval='step')
