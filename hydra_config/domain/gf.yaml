@@ -1,6 +1,6 @@
 lat:
   _target_: builtins.slice
-  _args_: [33.05, 43.]
+  _args_: [33., 43.]
 lon:
   _target_: builtins.slice
   _args_: [-65., -55.]
