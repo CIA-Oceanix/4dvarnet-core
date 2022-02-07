@@ -1,0 +1,5 @@
+# @package _global_
+xp_name_obs: old_errs
+defaults:
+  - /xp/xmasxp/ds/noisy_swot
+  - _self_ 

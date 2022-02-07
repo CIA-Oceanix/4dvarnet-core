@@ -1,0 +1,25 @@
+# @package _global_
+
+xp_name: ${xp_name_obs}_${xp_name_cal}_${xp_name_sst}_uncal_chan
+
+params:
+  model: 4dvarnet_uncal
+  uncal_obs: True
+datamodule:
+  obs_mask_path: ${file_paths.new_noisy_swot}
+  obs_mask_var: five_nadirs
+  obs_uncal_path: ${file_paths.new_noisy_swot}
+  obs_uncal_var: swot_new_errors_w_wet_tropo 
+  oi_path: ${file_paths.oi_4nadir}
+  oi_var: ssh_mod
+
+defaults:
+  - /xp/xmasxp/base_xp
+  - /xp/xmasxp/aug/with_aug_state
+  - /splits/dc_boost_swot@datamodule
+  - /xp/xmasxp/dl/d240_p240x5_s240x1
+  - /xp/xmasxp/train_strat/dec_lr_ngrad5_15_nocas
+  # - /xp/xmasxp/train_strat/const_lr_ngrad_5_3cas
+  - _self_ 
+
+

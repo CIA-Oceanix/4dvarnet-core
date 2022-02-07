@@ -431,6 +431,9 @@ def get_psd_score(x_t, x, ref, with_fig=False):
     )
    
     try:
+        print('here')
+
+        print(psd_plot_data.wl.data)
         spatial_resolution_model = (
             xr.DataArray(
                 psd_plot_data.wl.data,
@@ -438,9 +441,8 @@ def get_psd_score(x_t, x, ref, with_fig=False):
                 coords={'psd': psd_plot_data.sel(var='model').data}
             ).interp(psd=0.5)
         ).data
-    except KeyError as e:
+    except (KeyError, ValueError) as e:
         spatial_resolution_model = -1
-
 
     try:
         spatial_resolution_ref = (
@@ -450,7 +452,7 @@ def get_psd_score(x_t, x, ref, with_fig=False):
                 coords={'psd': psd_plot_data.sel(var='OI').data}
             ).interp(psd=0.5)
         ).data
-    except KeyError as e:
+    except (KeyError, ValueError) as e:
         spatial_resolution_ref = -1
 
     if not with_fig:

@@ -1,4 +1,4 @@
-import xarray
+import xarray as xr
 from scipy import ndimage
 import pandas as pd
 import numpy as np
@@ -66,6 +66,12 @@ xpxmas_test/old_errs_map_sst_dec_lr/version_0/test.nc
 xpxmas_test/old_errs_map_sst_dec_lr/version_1/test.nc
 xpxmas_test/old_errs_map_sst_inc_ngrad/version_0/test.nc
 """.strip().splitlines()
+
+'xpxmas_test/5nad_map_no_sst/version_0/test.nc',
+'xpxmas_test/errs_cal_no_sst/version_0/test.nc',
+
+'xpxmas_test/5nad_map_sst_inc_ngrad/version_0/test.nc'
+'xpxmas_test/errs_map_sst/version_1/test.nc',
 
 def main():
 
@@ -170,3 +176,75 @@ def main():
 
     pd.DataFrame(feats).T.columns
     pd.concat([rmse_td_df, rmse_ois_df])
+    return locals()
+
+
+def main2():
+    no_errs = next((k for k,v in feats.items() if v['obs']=='no_err' and v['cal']=='map' and v['sst']=='no_sst'  and 'train' not in  v))
+    no_errs_sst = next((k for k,v in feats.items() if v['obs']=='no_err' and v['cal']=='map' and v['sst']=='sst' and v.get('train')=='inc_ngrad'))
+    fivenad = next((k for k,v in feats.items() if v['obs']=='5nad' and v['cal']=='map' and v['sst']=='sst'  and v.get('train')=='inc_ngrad'))
+    fivenad_sst = next((k for k,v in feats.items() if v['obs']=='5nad' and v['cal']=='map' and v['sst']=='no_sst'  and 'train' not in  v))
+    old_err_cal = next((k for k,v in feats.items() if v['obs']=='old_errs' and v['cal']=='map' and v['sst']=='no_sst'  and 'train' not in  v))
+    old_err_map = next((k for k,v in feats.items() if v['obs']=='old_errs' and v['cal']=='cal' and v['sst']=='no_sst'  and 'train' not in  v))
+    old_err_map_sst = next((k for k,v in feats.items() if v['obs']=='old_errs' and v['cal']=='map' and v['sst']=='sst'  and v.get('train')=='dec_lr'))
+    errs_cal = next((k for k,v in feats.items() if v['obs']=='errs' and v['cal']=='cal' and v['sst']=='no_sst'  and 'train' not in  v))
+    errs_map = next((k for k,v in feats.items() if v['obs']=='errs' and v['cal']=='map' and v['sst']=='no_sst'  and v.get('train')=='inc_ngrad' and v['v']=='1'))
+    errs_map_sst = next((k for k,v in feats.items() if v['obs']=='errs' and v['cal']=='map' and v['sst']=='sst'  and v.get('train')=='inc_ngrad'))
+
+    import hvplot.xarray
+    plot_kwargs = dict(clim=(-0.5, 0.5))
+    ds_noerr = xr.open_dataset(no_errs).assign(err = lambda ds: ds.gt - ds.pred)
+    ds_noerr.err.isel(time=4).plot(**plot_kwargs)
+
+    ds_fivenad = xr.open_dataset(fivenad).assign(err = lambda ds: ds.gt - ds.pred)
+    ds_fivenad.err.isel(time=4).plot()
+
+    ds_errs = xr.open_dataset(errs_map).assign(err = lambda ds: ds.gt - ds.pred)
+    ds_errs.err.isel(time=4).plot()
+
+
+
+    (
+            ds_noerr.err.isel(time=4).hvplot.image(width=500, cmap='RdBu') \
+            + ds_fivenad.err.isel(time=4).hvplot.image(width=500, cmap='RdBu') \
+            + ds_errs.err.isel(time=4).hvplot.image(width=500, cmap='RdBu') \
+    )
+
+    (
+            ds_noerr.obs_inp.isel(time=4).hvplot.image(width=500, cmap='RdBu') \
+            + ds_fivenad.obs_inp.isel(time=4).hvplot.image(width=500, cmap='RdBu') \
+            + ds_errs.obs_inp.isel(time=4).hvplot.image(width=500, cmap='RdBu') \
+    )
+
+    (
+            (ds_noerr - ds_fivenad).err.isel(time=4).hvplot.image(width=500, cmap='RdBu') \
+            + (ds_fivenad - ds_errs).err.isel(time=4).hvplot.image(width=500, cmap='RdBu') \
+            + (ds_noerr - ds_errs).err.isel(time=4).hvplot.image(width=500, cmap='RdBu') \
+    )
+    (
+            ds_noerr.pred.isel(time=4).hvplot.image(width=500, cmap='RdBu') \
+            + ds_fivenad.pred.isel(time=4).hvplot.image(width=500, cmap='RdBu') \
+            + ds_errs.pred.isel(time=4).hvplot.image(width=500, cmap='RdBu') \
+    )
+    (
+            sobel_grid(ds_noerr.gt).isel(time=4).hvplot.image(width=450, cmap='RdBu') \
+            + sobel_grid(ds_noerr.pred).isel(time=4).hvplot.image(width=450, cmap='RdBu') \
+            + sobel_grid(ds_fivenad.pred).isel(time=4).hvplot.image(width=450, cmap='RdBu') \
+            + sobel_grid(ds_errs.pred).isel(time=4).hvplot.image(width=450, cmap='RdBu') \
+    )
+    (
+            sobel_grid(ds_noerr.obs_gt).isel(time=4).hvplot.image(width=500, cmap='RdBu') \
+            # + sobel_grid(ds_fivenad.obs_inp).isel(time=4).hvplot.image(width=500, cmap='RdBu') \
+            # + sobel_grid(ds_errs.obs_inp).isel(time=4).hvplot.image(width=500, cmap='RdBu') \
+    )
+    (ds_noerr.obs_inp.isel(time=4).hvplot.image(width=500, cmap='RdBu') \
+            + ds_errs.obs_inp.isel(time=4).hvplot.image(width=500, cmap='RdBu'))
+
+    ds = xr.open_dataset(old_err_cal).assign(err = lambda ds: ds.gt - ds.pred)
+    ds.assign(err = lambda ds: ds.gt - ds.pred).err.isel(time=4).plot()
+    ds.assign(err = lambda ds: ds.gt - ds.pred).err.isel(time=4).hvplot()
+    ds = xr.open_dataset(old_err_map)
+    ds.assign(err = lambda ds: ds.gt - ds.pred).err.isel(time=4).plot()
+    ds = xr.open_dataset(errs_cal)
+    ds.assign(err = lambda ds: ds.gt - ds.pred).err.isel(time=4).plot()
+    ds.obs_gt.isel(time=4).plot()
