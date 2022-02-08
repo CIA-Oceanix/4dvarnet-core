@@ -312,7 +312,6 @@ class LitCalModel(pl.LightningModule):
         best_ckpt_path = self.trainer.checkpoint_callback.best_model_path
         if len(best_ckpt_path) > 0:
             def should_reload_ckpt(losses):
-                return True
                 diffs = losses.diff()
                 if losses.max() > (10 * losses.min()):
                     print("Reloading because of check", 1)

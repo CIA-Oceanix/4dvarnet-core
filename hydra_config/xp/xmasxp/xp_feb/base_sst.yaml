@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: ${xp_name_obs}_${datamodule.item_prepro.w}_${xp_name_cal}_${xp_name_sst}
+xp_name: ${xp_name_obs}_${oc.select:datamodule.item_prepro.w,no_aug}_${xp_name_cal}_${xp_name_sst}
 
 datamodule:
   item_prepro:
