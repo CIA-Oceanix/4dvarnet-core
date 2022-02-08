@@ -20,29 +20,6 @@ import metrics
 from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
 from models import Model_H, Model_HwithSST, Phi_r, ModelLR, Gradient_img
 
-# Aurélie Albert referente données soft
-# Johanna CNN multi modal avec attention prediction chlorophile
-# Batimetrie: profondeur de l'ocean important pour les courants
-
-# Artefacts sst
-# TODO: ref donnée journalière vs snapshot
-# TODO: utiliser la sst uniquement pour la fauchée
-# TODO: etat augmenté
-# TODO: Check 2 termes d'observation SST
-# TODO: apprendre post traitement
-
-
-# Artefacts NATL
-
-# TODO: test prediction tout le domaine
-# TODO: test prediction sur plus gradn domaine
-# TODO: Plusieurs cartes
-
-# Artefacts calib natl
-
-# TODO: chekc plusieurs journées
-# TODO: demander à Clément dans le design des chaine de cross calib est-ce qu'ils ont refléchit à soustraire le dac  ou bien regarde -t il que en ocean ouvert
-
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,

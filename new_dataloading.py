@@ -54,7 +54,7 @@ class XrDataset(Dataset):
     def __iter__(self):
         for i in range(len(self)):
             yield self[i]
-        
+
     @contextlib.contextmanager
     def get_coords(self):
         try:
@@ -276,14 +276,13 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             for slices in (self.train_slices, self.val_slices, self.test_slices)
         ]
 
-        if self.sst_var == None:
+        if self.sst_var is None:
             self.norm_stats = self.compute_norm_stats(self.train_ds)
             self.set_norm_stats(self.train_ds, self.norm_stats)
             self.set_norm_stats(self.val_ds, self.norm_stats)
             self.set_norm_stats(self.test_ds, self.norm_stats)
         else:
             self.norm_stats, self.norm_stats_sst = self.compute_norm_stats(self.train_ds)
-
             self.set_norm_stats(self.train_ds, self.norm_stats, self.norm_stats_sst)
             self.set_norm_stats(self.val_ds, self.norm_stats, self.norm_stats_sst)
             self.set_norm_stats(self.test_ds, self.norm_stats, self.norm_stats_sst)
