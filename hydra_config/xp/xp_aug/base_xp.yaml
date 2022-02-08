@@ -59,7 +59,7 @@ datamodule:
   gt_var: ${params.files_cfg.gt_var}
   sst_path: ??? # sst
   sst_var: ???
-  aug_train_data: ???
+  aug_train_data: false
   dl_kwargs:
     batch_size: 2
     num_workers: 2
