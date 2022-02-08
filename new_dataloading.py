@@ -115,7 +115,6 @@ class FourDVarNetDataset(Dataset):
 
         if self.aug_train_data:
             self.perm = np.random.permutation(len(self.obs_mask_ds))
-            print("\n aug_train_data OK \n")
 
         self.norm_stats = (0, 1)
 
@@ -155,22 +154,25 @@ class FourDVarNetDataset(Dataset):
                 return self.gt_ds[item]
 
         mean, std = self.norm_stats
-        _oi_item = self.oi_ds[item]
+        length = len(self.obs_mask_ds)
+        if item < length:
+            _oi_item = self.oi_ds[item]
+            _obs_item = (self.obs_mask_ds[item] - mean) / std
+            _gt_item = (self.gt_ds[item] - mean) / std
+        else:
+            _oi_item = self.oi_ds[item - length]
+            _obs_item = (self.obs_mask_ds[self.perm[item - length]] - mean) / std
+            _gt_item = (self.gt_ds[item - length] - mean) / std
+
         _oi_item = (np.where(
             np.abs(_oi_item) < 10,
             _oi_item,
             np.nan,
         ) - mean) / std
 
-        _gt_item = (self.gt_ds[item] - mean) / std
         oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
         # obs_mask_item = self.obs_mask_ds[item].astype(bool) & ~np.isnan(oi_item) & ~np.isnan(_gt_item)
 
-        length = len(self.obs_mask_ds)
-        if item < length:
-            _obs_item = (self.obs_mask_ds[item] - mean) / std
-        else:
-            _obs_item = (self.obs_mask_ds[self.perm[item - length]] - mean) / std
         obs_mask_item = ~np.isnan(_obs_item)
         obs_item = np.where(~np.isnan(_obs_item), _obs_item, np.zeros_like(_obs_item))
 
