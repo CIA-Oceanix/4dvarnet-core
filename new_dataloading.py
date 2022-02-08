@@ -97,16 +97,25 @@ class FourDVarNetDataset(Dataset):
             sst_path=None,
             sst_var=None,
             resize_factor=1,
+            aug_train_data=False,
     ):
         super().__init__()
 
+        self.aug_train_data = aug_train_data
         self.return_coords = False
         self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win,
-                               dim_range=dim_range, strides=strides, resize_factor=resize_factor)
+                               dim_range=dim_range, strides=strides,
+                               resize_factor=resize_factor)
         self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win,
-                               dim_range=dim_range,strides=strides, decode=True, resize_factor=resize_factor)
+                               dim_range=dim_range,strides=strides,
+                               decode=True, resize_factor=resize_factor)
         self.obs_mask_ds = XrDataset(obs_mask_path, obs_mask_var, slice_win=slice_win,
-                                     dim_range=dim_range,strides=strides, resize_factor=resize_factor)
+                                     dim_range=dim_range,strides=strides,
+                                     resize_factor=resize_factor)
+
+        if self.aug_train_data:
+            self.perm = np.random.permutation(len(self.obs_mask_ds))
+            print("\n aug_train_data OK \n")
 
         self.norm_stats = (0, 1)
 
@@ -123,7 +132,10 @@ class FourDVarNetDataset(Dataset):
         self.norm_stats_sst = stats_sst
 
     def __len__(self):
-        return min(len(self.oi_ds), len(self.gt_ds), len(self.obs_mask_ds))
+        length = min(len(self.oi_ds), len(self.gt_ds), len(self.obs_mask_ds))
+        if self.aug_train_data:
+            return 2 * length
+        return length
 
     def coordXY(self):
         # return self.gt_ds.lon, self.gt_ds.lat
@@ -154,7 +166,11 @@ class FourDVarNetDataset(Dataset):
         oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
         # obs_mask_item = self.obs_mask_ds[item].astype(bool) & ~np.isnan(oi_item) & ~np.isnan(_gt_item)
 
-        _obs_item = (self.obs_mask_ds[item] - mean) / std
+        length = len(self.obs_mask_ds)
+        if item < length:
+            _obs_item = (self.obs_mask_ds[item] - mean) / std
+        else:
+            _obs_item = (self.obs_mask_ds[self.perm[item - length]] - mean) / std
         obs_mask_item = ~np.isnan(_obs_item)
         obs_item = np.where(~np.isnan(_obs_item), _obs_item, np.zeros_like(_obs_item))
 
@@ -188,11 +204,13 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             sst_path=None,
             sst_var=None,
             resize_factor=1,
+            aug_train_data=False,
             dl_kwargs=None,
     ):
         super().__init__()
 
         self.resize_factor = resize_factor
+        self.aug_train_data = aug_train_data
         self.dim_range = dim_range
         self.slice_win = slice_win
         self.strides = strides
@@ -256,7 +274,24 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         return self.test_ds.datasets[0].gt_ds.ds_size
 
     def setup(self, stage=None):
-        self.train_ds, self.val_ds, self.test_ds = [
+        self.train_ds = ConcatDataset(
+            [FourDVarNetDataset(
+                dim_range={**self.dim_range, **{'time': sl}},
+                strides=self.strides,
+                slice_win=self.slice_win,
+                oi_path=self.oi_path,
+                oi_var=self.oi_var,
+                obs_mask_path=self.obs_mask_path,
+                obs_mask_var=self.obs_mask_var,
+                gt_path=self.gt_path,
+                gt_var=self.gt_var,
+                sst_path=self.sst_path,
+                sst_var=self.sst_var,
+                resize_factor=self.resize_factor,
+                aug_train_data=self.aug_train_data,
+            ) for sl in self.train_slices])
+
+        self.val_ds, self.test_ds = [
             ConcatDataset(
                 [FourDVarNetDataset(
                     dim_range={**self.dim_range, **{'time': sl}},
@@ -273,7 +308,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     resize_factor=self.resize_factor,
                 ) for sl in slices]
             )
-            for slices in (self.train_slices, self.val_slices, self.test_slices)
+            for slices in (self.val_slices, self.test_slices)
         ]
 
         if self.sst_var is None:
