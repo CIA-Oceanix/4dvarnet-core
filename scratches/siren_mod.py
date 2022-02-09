@@ -1,13 +1,16 @@
 import torch
+import kornia
+import matplotlib.pyplot as plt
 import math
 import traceback
 from pathlib import Path
 import pytorch_lightning as pl
+from pytorch_lightning import callbacks
 from torch import nn
 import torch.nn.functional as F
 import hydra
 from hydra.utils import instantiate
-from einops import rearrange
+from einops import rearrange, repeat
  
 def exists(val):
     return val is not None
@@ -59,6 +62,7 @@ class Siren(nn.Module):
 class SirenNet(nn.Module):
     def __init__(self, dim_in, dim_hidden, dim_out, num_layers, w0 = 1., w0_initial = 30., use_bias = True, final_activation = None):
         super().__init__()
+        self.dim_in = dim_in
         self.num_layers = num_layers
         self.dim_hidden = dim_hidden
 
@@ -87,9 +91,7 @@ class SirenNet(nn.Module):
             x = layer(x)
 
             if exists(mod):
-                print(x.shape)
-                print(mod.shape)
-                x *= rearrange(mod, 'd -> () d')
+                x *= rearrange(mod, 'b d -> b () d')
 
         return self.last_layer(x)
 
@@ -121,13 +123,12 @@ class Modulator(nn.Module):
 # wrapper
 
 class SirenWrapper(nn.Module):
-    def __init__(self, net, image_width, image_height, latent_dim = None):
+    def __init__(self, net, dims, latent_dim = None):
         super().__init__()
         assert isinstance(net, SirenNet), 'SirenWrapper must receive a Siren network'
 
         self.net = net
-        self.image_width = image_width
-        self.image_height = image_height
+        assert len(dims) == net.dim_in
 
         self.modulator = None
         if exists(latent_dim):
@@ -136,10 +137,12 @@ class SirenWrapper(nn.Module):
                 dim_hidden = net.dim_hidden,
                 num_layers = net.num_layers
             )
+        
+        self.dims = dims
 
-        tensors = [torch.linspace(-1, 1, steps = image_height), torch.linspace(-1, 1, steps = image_width)]
+        tensors = [torch.linspace(-1, 1, steps = d) for d in dims.values()]
         mgrid = torch.stack(torch.meshgrid(*tensors, indexing = 'ij'), dim=-1)
-        mgrid = rearrange(mgrid, 'h w c -> (h w) c')
+        mgrid = rearrange(mgrid, '... c-> (...) c')
         self.register_buffer('grid', mgrid)
 
     def forward(self, img = None, *, latent = None):
@@ -148,9 +151,9 @@ class SirenWrapper(nn.Module):
 
         mods = self.modulator(latent) if modulate else None
 
-        coords = self.grid.clone().detach().requires_grad_()
+        coords = repeat(self.grid.clone().detach().requires_grad_(), '... -> b ...', b=latent.shape[0]) 
         out = self.net(coords, mods)
-        out = rearrange(out, '(h w) c -> () c h w', h = self.image_height, w = self.image_width)
+        out = rearrange(out, f'b ({" ".join(self.dims.keys())}) c -> b {" ".join(self.dims.keys())} c',**self.dims)
 
         if exists(img):
             return F.mse_loss(img, out)
@@ -158,92 +161,161 @@ class SirenWrapper(nn.Module):
         return out
 
 class LitSirenAE(pl.LightningModule):
-    def __init__(self, net, state_dim=512, img_dim=240):
+    def __init__(self, net, state_dim=512, dims={}):
         super().__init__()
         self.net = net
         self.state_dim = state_dim
         self.mod = SirenWrapper(
             self.net,
             latent_dim = self.state_dim,
-            image_width = img_dim,
-            image_height = img_dim
+            dims=dims,
         )
+        self.state_init = nn.Parameter(torch.randn(self.state_dim))
+        self.solver_mod = nn.Sequential(
+            nn.Linear(self.state_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, 64),
+            nn.ReLU(),
+            nn.Linear(64, state_dim),
+        )
+        self.norm_grad = None
 
 
-    def encode(self, obs, obs_mask, n_iter=50):
+    def encode(self, obs, obs_mask, n_iter=5):
+        # return self.state
         with torch.enable_grad():
-            state = torch.zeros(obs.shape[0], self.state_dim).normal_(0, 1e-2).requires_grad_() 
-            opt = torch.optim.Adam((state,))
-            print(state.shape)
-            for _ in range(n_iter):
-                out = self.mod(latent=state)
-                loss = F.mse_loss(out[obs_mask], obs[obs_mask])
-                opt.zero_grad()
-                loss.backward()
-                opt.step()
+            # state = torch.zeros(obs.shape[0], self.state_dim, device=self.device).normal_(0, 1e-2).requires_grad_() 
+            state = repeat(self.state_init, 'd -> b d', b=obs.shape[0])
 
-        return state.detach()
+            out = self.mod(latent=state)
+            loss = F.mse_loss(out[obs_mask], obs[obs_mask])
+            state_grad = torch.autograd.grad(loss, state, create_graph=True)[0]
+            norm_grad = self.norm_grad or torch.sqrt( torch.mean( state_grad**2 + 0.))
+            state_out = self.state_init + self.solver_mod(state_grad / norm_grad) 
 
+        # return state.detach()
+        return state_out
 
-    def forward(self, obs, mask):
+    def get_batch_obs(self, batch):
+        oi, mask, obs, *other = batch
+        mod_obs = torch.stack((oi, torch.where(mask, obs-oi, obs)), dim=-1)
+        mod_mask = torch.stack((oi.isfinite(), mask), dim=-1)
+        return mod_obs, mod_mask
+
+    def format_output(self, mod_out):
+        return mod_out.sum(-1)
+
+    def forward(self, batch):
+        obs, mask = self.get_batch_obs(batch)
         state_dec = self.encode(obs, mask)
-        return self.mod(latent =state_dec)
+        out = self.mod(latent=state_dec)
 
+        return self.format_output(out)
 
-    def training_step(self, batch, batch_idx):
-        oi, mask, obs, gt, *other = batch
-        print(obs.shape)
-        print(gt.shape)
-        state_dec = self.encode(obs, mask, n_iter=10)
-        print(state_dec.shape)
-        out = self.mod(latent = state_dec)
-        loss = F.mse_loss(out, gt)
-        self.log('decloss', loss)
+    def process_batch(self, batch, phase='val'):
+
+        oi, _, _, gt, *other = batch
+        obs, mask = self.get_batch_obs(batch)
+        n_iter = min(self.current_epoch // 5, 5)
+        state_dec = self.encode(obs, mask, n_iter=n_iter)
+        mod_out = self.mod(latent = state_dec)
+        out = self.format_output(mod_out)
+
+        err = torch.where(gt.isfinite(), out - gt, torch.zeros_like(gt))
+        loss_rec = (err**2).mean()
+        self.log(f'{phase}_loss_rec', loss_rec)
+
+        err_obs = torch.where(mask, mod_out - obs, torch.zeros_like(obs))
+        loss_obs = (err_obs**2).mean()
+        self.log(f'{phase}_err_obs', loss_obs)
+        with torch.no_grad():
+            err_oi = torch.where(gt.isfinite(), oi - gt, torch.zeros_like(gt))
+            loss_oi = (err_oi**2).mean()
+            self.log(f'{phase}_imp_wrt_oi', loss_rec / loss_oi)
+
+                   
+        loss = loss_rec + loss_obs
+        self.log(f'{phase}_loss', loss)
         return loss
         
+    def training_step(self, batch, batch_idx):
+        return self.process_batch(batch, phase='train')
+
+
+    def validation_step(self, batch, batch_idx):
+        return self.process_batch(batch, phase='val')
+
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=1e-4)
+        opt = torch.optim.Adam(self.parameters(), lr=2e-3)
+        return {
+            'optimizer': opt,
+            'lr_scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(opt, verbose=True),
+            'monitor': 'val_loss'
+        }
 
 
 def main():
     try:
-        xp = 'xmasxp/xp_siren/base'
+        xp = 'xmasxp/xp_feb/base_siren'
         with hydra.initialize_config_dir(str(Path('hydra_config').absolute())):
             cfg = hydra.compose(config_name='main', overrides=
                 [
                     f'xp={xp}',
-                    'file_paths=srv5',
+                    'file_paths=dgx_ifremer',
                     'entrypoint=train',
                 ]
             )
 
 
-        dm = instantiate(cfg.datamodule)
-        dm.setup()
+        dm = instantiate(cfg.datamodule, dl_kwargs=dict(batch_size=4, num_workers=0, pin_memory=False))
 
 
 
         net = SirenNet(
-            dim_in = 2,                        # input dimension, ex. 2d coor
-            dim_hidden = 256,                  # hidden dimension
-            dim_out = 5,                       # output dimension, ex. rgb value
-            num_layers = 5,                    # number of layers
+            dim_in = 3,                        # input dimension, ex. 2d coor
+            dim_hidden = 512,                 # hidden dimension
+            dim_out = 2,                       # output dimension, ex. rgb value
+            num_layers = 3,                    # number of layers
             w0_initial = 30.                   # different signals may require different omega_0 in the first layer - this is a hyperparameter
         )
 
-        lit_mod  = LitSirenAE(net, state_dim=512, img_dim=240)
+        lit_mod  = LitSirenAE(net, state_dim=64, dims={'time': 5, 'lat': 240, 'lon': 240, })
 
+        logger = instantiate(cfg.logger)
+        trainer = pl.Trainer(
+            gpus=[2],
+            logger=logger,
+            callbacks=[
+                callbacks.LearningRateMonitor(),
+                callbacks.RichProgressBar(),
+                callbacks.RichModelSummary(max_depth=3),
+                callbacks.GradientAccumulationScheduler({1: 1, 10: 5, 30: 10}),
+            ],
+            max_epochs=301,
+            overfit_batches=10,
+        )
+        dm.setup()
+        trainer.fit(
+            lit_mod,
+            # train_dataloader=dm.train_dataloader(),
+            train_dataloader=dm.train_dataloader(),
+            val_dataloaders=dm.val_dataloader()
+        )
+        print(logger.save_dir)
         dl = dm.val_dataloader()
-        batch = next(iter(dl))
-
-        batch[0].shape
-        print('hello')
-        loss = lit_mod.training_step(batch, 0)
-        print(loss)
-        trainer = pl.Trainer(gpus=0)
-
+        trainer = pl.Trainer(
+            gpus=[2],
+        )
+        predictions = trainer.predict(lit_mod, dataloaders=dl)
+        img = plt.imshow(kornia.filters.sobel(predictions[0])[0,2,...])
+        plt.colorbar(img)
+        plt.show()
+        img = plt.imshow(predictions[0][1,2,...] - predictions[0][0,2,...])
+        plt.colorbar(img)
+        plt.show()
+        
     except Exception as e:
-        print('Am I here')
+        # print('Am I here')
         print(traceback.format_exc()) 
     finally:
         print('I have to be here')
