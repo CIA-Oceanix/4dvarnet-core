@@ -181,7 +181,7 @@ class LitSirenAE(pl.LightningModule):
         self.norm_grad = None
 
 
-    def encode(self, obs, obs_mask, n_iter=5):
+    def encode(self, obs, obs_mask):
         # return self.state
         with torch.enable_grad():
             # state = torch.zeros(obs.shape[0], self.state_dim, device=self.device).normal_(0, 1e-2).requires_grad_() 
@@ -216,8 +216,7 @@ class LitSirenAE(pl.LightningModule):
 
         oi, _, _, gt, *other = batch
         obs, mask = self.get_batch_obs(batch)
-        n_iter = min(self.current_epoch // 5, 5)
-        state_dec = self.encode(obs, mask, n_iter=n_iter)
+        state_dec = self.encode(obs, mask)
         mod_out = self.mod(latent = state_dec)
         out = self.format_output(mod_out)
 
@@ -249,7 +248,7 @@ class LitSirenAE(pl.LightningModule):
         opt = torch.optim.Adam(self.parameters(), lr=2e-3)
         return {
             'optimizer': opt,
-            'lr_scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(opt, verbose=True),
+            'lr_scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(opt, verbose=True, factor=0.8, min_lr=1e-5),
             'monitor': 'val_loss'
         }
 
@@ -273,13 +272,13 @@ def main():
 
         net = SirenNet(
             dim_in = 3,                        # input dimension, ex. 2d coor
-            dim_hidden = 512,                 # hidden dimension
+            dim_hidden = 256,                 # hidden dimension
             dim_out = 2,                       # output dimension, ex. rgb value
-            num_layers = 3,                    # number of layers
+            num_layers = 4,                    # number of layers
             w0_initial = 30.                   # different signals may require different omega_0 in the first layer - this is a hyperparameter
         )
 
-        lit_mod  = LitSirenAE(net, state_dim=64, dims={'time': 5, 'lat': 240, 'lon': 240, })
+        lit_mod  = LitSirenAE(net, state_dim=32, dims={'time': 5, 'lat': 240, 'lon': 240, })
 
         logger = instantiate(cfg.logger)
         trainer = pl.Trainer(
@@ -289,10 +288,10 @@ def main():
                 callbacks.LearningRateMonitor(),
                 callbacks.RichProgressBar(),
                 callbacks.RichModelSummary(max_depth=3),
-                callbacks.GradientAccumulationScheduler({1: 1, 10: 5, 30: 10}),
+                callbacks.GradientAccumulationScheduler({1: 1, 10: 5, 30: 10, 60: 20}),
             ],
             max_epochs=301,
-            overfit_batches=10,
+            # overfit_batches=10,
         )
         dm.setup()
         trainer.fit(
@@ -302,18 +301,28 @@ def main():
             val_dataloaders=dm.val_dataloader()
         )
         print(logger.save_dir)
-        dl = dm.val_dataloader()
+        dl = dm.train_dataloader()
         trainer = pl.Trainer(
             gpus=[2],
         )
         predictions = trainer.predict(lit_mod, dataloaders=dl)
+        oi, _, _, gt, *others = next(iter(dl))
+        img = plt.imshow(kornia.filters.sobel(oi)[0,2,...])
+        plt.colorbar(img)
+        plt.show()
+        img = plt.imshow(kornia.filters.sobel(gt)[0,2,...])
+        plt.colorbar(img)
+        plt.show()
         img = plt.imshow(kornia.filters.sobel(predictions[0])[0,2,...])
         plt.colorbar(img)
         plt.show()
-        img = plt.imshow(predictions[0][1,2,...] - predictions[0][0,2,...])
+        img = plt.imshow(predictions[0][0,2,...] - gt[0,2,...])
         plt.colorbar(img)
         plt.show()
         
+        img = plt.imshow(oi[0,2,...] - gt[0,2,...])
+        plt.colorbar(img)
+        plt.show()
     except Exception as e:
         # print('Am I here')
         print(traceback.format_exc()) 

@@ -38,8 +38,12 @@ class Model_H_with_noisy_Swot(torch.nn.Module):
 
 
     def forward(self, x, y, mask):
-        if self.hparams.get('aug_state', False):
-            output_low_res,  output_anom_glob, output_anom_swath, _ = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
+        aug_state = self.hparams.get('aug_state', False)
+        if aug_state:
+            if aug_state == 2:
+                output_low_res,  output_anom_glob, output_anom_swath, _, _ = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
+            else:
+                output_low_res,  output_anom_glob, output_anom_swath, _ = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
         else: 
             output_low_res,  output_anom_glob, output_anom_swath = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
         output_global = output_low_res + output_anom_glob
@@ -80,8 +84,12 @@ class Model_H_SST_with_noisy_Swot(torch.nn.Module):
     def forward(self, x, y, mask):
         y_ssh, y_sst = y
         mask_ssh, mask_sst = mask
-        if self.hparams.get('aug_state', False):
-            output_low_res,  output_anom_glob, output_anom_swath, _ = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
+        aug_state = self.hparams.get('aug_state', False)
+        if aug_state:
+            if aug_state == 2:
+                output_low_res,  output_anom_glob, output_anom_swath, _, _ = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
+            else:
+                output_low_res,  output_anom_glob, output_anom_swath, _ = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
         else: 
             output_low_res,  output_anom_glob, output_anom_swath = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
         output_global = output_low_res + output_anom_glob
@@ -656,7 +664,10 @@ class LitCalModel(pl.LightningModule):
             anomaly_swath = (inputs_obs - targets_OI).detach()
 
         if self.aug_state:
-            init_state = torch.cat((targets_OI, anomaly_global, anomaly_swath, torch.zeros_like(targets_OI)), dim=1)
+            if self.aug_state == 2:
+                init_state = torch.cat((targets_OI, anomaly_global, anomaly_swath, torch.zeros_like(targets_OI), torch.zeros_like(targets_OI)), dim=1)
+            else:
+                init_state = torch.cat((targets_OI, anomaly_global, anomaly_swath, torch.zeros_like(targets_OI)), dim=1)
         else:
             init_state = torch.cat((targets_OI, anomaly_global, anomaly_swath), dim=1)
         return init_state
@@ -670,7 +681,10 @@ class LitCalModel(pl.LightningModule):
         # print(state_out.shape)
         # print(targets_OI.shape)
         if self.aug_state:
-            output_low_res,  _, output_anom_swath, output_anom_glob = torch.split(state_out, split_size_or_sections=targets_OI.size(1), dim=1)
+            if self.aug_state == 2:
+                output_low_res, _,  _, output_anom_swath, output_anom_glob = torch.split(state_out, split_size_or_sections=targets_OI.size(1), dim=1)
+            else:
+                output_low_res,  _, output_anom_swath, output_anom_glob = torch.split(state_out, split_size_or_sections=targets_OI.size(1), dim=1)
         else:
             output_low_res,  output_anom_glob, output_anom_swath = torch.split(state_out, split_size_or_sections=targets_OI.size(1), dim=1)
 
@@ -756,9 +770,9 @@ class LitCalModel(pl.LightningModule):
             # PENDING: add loss term computed on obs (outputs swath - obs_target)
 
             _err_swath =(output_swath - target_obs_GT_wo_nan)**2 
-            err_swath = torch.where(target_obs_GT.isnan() | target_obs_GT.isinf(), torch.zeros_like(_err_swath), _err_swath)
+            err_swath = _err_swath.where(target_obs_GT.isfinite(), torch.zeros_like(_err_swath))
             _err_g_swath =(g_output_swath - g_targets_obs)**2
-            err_g_swath = torch.where(g_targets_obs_mask.isnan() | g_targets_obs_mask.isinf(), torch.zeros_like(_err_g_swath), _err_g_swath)
+            err_g_swath = _err_g_swath.where(g_targets_obs_mask.isfinite(), torch.zeros_like(_err_g_swath))
 
             loss_swath = NN_4DVar.compute_spatio_temp_weighted_loss(err_swath, self.w_loss)
             # print(f"{loss_swath=}")
@@ -775,7 +789,16 @@ class LitCalModel(pl.LightningModule):
 
             if self.aug_state:
 
-                yGT = torch.cat((targets_OI, targets_GT_wo_nan - targets_OI, target_obs_GT_wo_nan - gt_anom_swath, targets_GT_wo_nan - targets_OI), dim=1)
+                if self.aug_state==2:
+                    yGT = torch.cat((
+                        targets_OI,
+                        targets_GT_wo_nan - targets_OI,
+                        (target_obs_GT_wo_nan - gt_anom_swath).where(target_obs_GT.isfinite(), torch.zeros_like(target_obs_GT)),
+                        targets_GT_wo_nan - targets_OI,
+                        (inputs_obs - gt_anom_swath).where(target_obs_GT.isfinite(), torch.zeros_like(target_obs_GT))),
+                        dim=1)
+                else:
+                    yGT = torch.cat((targets_OI, targets_GT_wo_nan - targets_OI, target_obs_GT_wo_nan - gt_anom_swath, targets_GT_wo_nan - targets_OI), dim=1)
             else:
 
                 yGT = torch.cat((targets_OI, targets_GT_wo_nan - targets_OI, target_obs_GT_wo_nan - gt_anom_swath), dim=1)

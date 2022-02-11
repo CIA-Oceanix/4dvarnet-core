@@ -35,3 +35,5 @@ scratches_logs
 version_*
 instab
 *.nc
+*.csv
+xp*

@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: ${xp_name_obs}_${oc.select:datamodule.item_prepro.w,no_aug}_${xp_name_cal}_${xp_name_sst}
+xp_name: newaug_${xp_name_obs}_${oc.select:datamodule.item_prepro.w,no_aug}_${xp_name_cal}_${xp_name_sst}
 
 datamodule:
   item_prepro:
@@ -9,13 +9,15 @@ datamodule:
 
 defaults:
   - /xp/xmasxp/base_xp
-  - /xp/xmasxp/aug/with_aug_state
+  # - /xp/xmasxp/aug/with_aug_state
+  - /xp/xmasxp/aug/with_double_aug_state
   - /splits/dc_boost_swot@datamodule
   - /xp/xmasxp/dl/d240_p240x5_s240x1
   - /xp/xmasxp/xp_xmas/obs/errs
   - /xp/xmasxp/xp_xmas/sst/sst
   - /xp/xmasxp/xp_xmas/cal/map
-  - /xp/xmasxp/train_strat/dec_lr_ngrad5_15_nocas
+  # - /xp/xmasxp/train_strat/dec_lr_ngrad5_15_nocas
+  - /xp/xmasxp/train_strat/const_lr_ngrad_5_3cas
   - _self_ 
 
 
