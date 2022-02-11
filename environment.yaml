@@ -7,12 +7,13 @@ channels:
 dependencies:
   - zarr
   - jupyterlab
+  - pytorch-lightning
   - python=3.9
   - pip=21.1
   - fire=0.4
   - cudatoolkit=11.3
   - pytorch=1.10
-  - torchvision=0.9.1
+  # - torchvision=0.9.1
   - xarray=0.17
   - scikit-learn=0.24.2
   - numpy=1.20.2
@@ -26,7 +27,6 @@ dependencies:
   - xrft=0.3.0
   - numpy_groupies=0.9.13
   - pip:
-    - pytorch-lightning==1.4.9
     - seaborn
     - sparse
     - omegaconf
