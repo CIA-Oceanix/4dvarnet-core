@@ -17,6 +17,7 @@ Discussed in this [HackMd file](https://hackmd.io/@maxbeauchamp/ryVfI3rdu)
 ```
 conda create -n 4dvarnet mamba -c conda-forge
 conda activate 4dvarnet
+mamba install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
 mamba env update -f environment.yaml
 ```
 

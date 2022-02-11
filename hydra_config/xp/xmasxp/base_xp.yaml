@@ -34,8 +34,8 @@ params:
   nbBlocks: 1
   DimAE: 50
   dim_grad_solver: 150
-  dropout: 0.25
-  dropout_phi_r: 0.0
+  dropout: 0.1
+  dropout_phi_r: 0.1
   alpha_mse_ssh: ??? # loss
   alpha_mse_gssh: ???
   alpha_loc_mse_ssh: ???
