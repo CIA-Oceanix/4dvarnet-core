@@ -21,7 +21,6 @@ outputs
 dashboard
 hydra_main.log
 multirun
-scratch.py
 .hydra
 .submitit
 multirun.yaml
@@ -36,4 +35,4 @@ version_*
 instab
 *.nc
 *.csv
-xp*
+

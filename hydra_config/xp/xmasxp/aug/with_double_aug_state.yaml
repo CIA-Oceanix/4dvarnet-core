@@ -1,0 +1,13 @@
+# @package _global_
+
+params:
+  aug_state: 2
+  shape_state:
+    - 25
+    - ${datamodule.slice_win.lon}
+    - ${datamodule.slice_win.lat}
+  shape_data:
+    - 25
+    - ${datamodule.slice_win.lon}
+    - ${datamodule.slice_win.lat}
+
