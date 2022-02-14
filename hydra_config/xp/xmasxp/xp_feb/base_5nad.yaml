@@ -1,0 +1,23 @@
+# @package _global_
+
+xp_name: newaug_${xp_name_obs}_${datamodule.item_prepro.w}_${xp_name_cal}_${xp_name_sst}
+
+datamodule:
+  item_prepro:
+    _target_: calibration.dataset.weight_error
+    w: ???
+
+defaults:
+  - /xp/xmasxp/base_xp
+  # - /xp/xmasxp/aug/with_aug_state
+  - /xp/xmasxp/aug/with_double_aug_state
+  - /splits/dc_boost_swot@datamodule
+  - /xp/xmasxp/dl/d240_p240x5_s240x1
+  - /xp/xmasxp/xp_xmas/obs/5nad
+  - /xp/xmasxp/xp_xmas/sst/no_sst
+  - /xp/xmasxp/xp_xmas/cal/map
+  - /xp/xmasxp/train_strat/const_lr_ngrad_5_3cas
+  - _self_ 
+
+
+
