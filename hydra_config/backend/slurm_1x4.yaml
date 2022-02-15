@@ -5,6 +5,7 @@ hydra:
     constraint: v100-32g
     nodes: 1
     additional_parameters:
+      signal: SIGUSR1@90
       account: yrf@gpu
       gres: gpu:4
       ntasks_per_node: 4

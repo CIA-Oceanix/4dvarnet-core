@@ -5,7 +5,7 @@ xp_name: newaug_${xp_name_obs}_${datamodule.item_prepro.w}_${xp_name_cal}_${xp_n
 datamodule:
   item_prepro:
     _target_: calibration.dataset.weight_error
-    w: ???
+    w: 1.
 
 defaults:
   - /xp/xmasxp/base_xp
