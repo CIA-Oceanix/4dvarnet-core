@@ -1,6 +1,0 @@
-# @package _global_
-xp_name_obs: 5nad
-defaults:
-  - /xp/xmasxp/ds/five_nadirs
-  - _self_ 
-

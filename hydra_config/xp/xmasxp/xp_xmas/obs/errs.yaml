@@ -1,6 +1,0 @@
-# @package _global_
-xp_name_obs: errs
-defaults:
-  - /xp/xmasxp/ds/new_noisy_swot
-  - _self_ 
-

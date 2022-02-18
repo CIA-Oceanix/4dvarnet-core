@@ -75,6 +75,9 @@ datamodule:
   dl_kwargs:
     batch_size: 2
     num_workers: 2
+  item_prepro:
+    _target_: calibration.dataset.weight_error
+    w: 1.0
 logger:
   _target_: pytorch_lightning.loggers.TensorBoardLogger
   save_dir: .

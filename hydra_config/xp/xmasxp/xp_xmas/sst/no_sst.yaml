@@ -1,7 +1,0 @@
-# @package _global_
-xp_name_sst: no_sst
-
-defaults:
-  - /xp/xmasxp/sst/without_sst
-  - _self_ 
-
