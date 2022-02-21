@@ -595,7 +595,7 @@ class LitModelAugstate(pl.LightningModule):
 
             # median filter
             if self.median_filter_width > 1:
-                outputs = kornia.filters.blur_pool2d(outputs, (self.median_filter_width, self.median_filter_width))
+                outputs = kornia.filters.blur_pool2d(outputs, self.median_filter_width)
 
             # reconstruction losses
             g_outputs = self.gradient_img(outputs)
