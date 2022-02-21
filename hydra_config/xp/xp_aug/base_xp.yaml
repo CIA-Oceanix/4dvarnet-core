@@ -43,6 +43,7 @@ params:
   norm_obs: 'l1'
   norm_prior: 'l1'
   patch_weight: ??? # dl
+  median_filter_width: 1
 lit_mod_cls: lit_model_augstate.LitModelAugstate
 datamodule:
   _target_: new_dataloading.FourDVarNetDataModule
@@ -60,7 +61,6 @@ datamodule:
   sst_path: ??? # sst
   sst_var: ???
   aug_train_data: false
-  median_filter_width: 1
   dl_kwargs:
     batch_size: 2
     num_workers: 2
