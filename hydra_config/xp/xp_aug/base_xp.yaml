@@ -60,6 +60,7 @@ datamodule:
   sst_path: ??? # sst
   sst_var: ???
   aug_train_data: false
+  median_filter_width: 1
   dl_kwargs:
     batch_size: 2
     num_workers: 2
