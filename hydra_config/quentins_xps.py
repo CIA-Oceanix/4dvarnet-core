@@ -5,11 +5,15 @@ from itertools import product
 
 cs = ConfigStore.instance()
 
+BASE_DEFAULTS = [
+  '/xp/qfebvre/base_xp',
+  '/splits/dc_boost_swot@datamodule',
+]
 for  defaults in product(
         [
             ('aug0', '/xp/qfebvre/aug/with_aug_state.yaml'),
             ('aug1','/xp/qfebvre/aug/with_double_aug_state.yaml'),
-            # ('aug2','/xp/qfebvre/aug/without_aug_state.yaml.yaml'),
+            # ('aug2','/xp/qfebvre/aug/without_aug_state.yaml.yam'),
         ],
         [
             ('dp240','/xp/qfebvre/dl/d240_p240x5_s240x1.yaml'),
@@ -18,7 +22,7 @@ for  defaults in product(
         [
             # ('5nad', '/xp/qfebvre/ds/five_nadirs.yaml'),
             ('roll', '/xp/qfebvre/ds/new_noisy_swot_roll.yaml'),
-            ('syst', '/xp/qfebvre/ds/new_noisy_swot_syst_errs.yaml'),
+            # ('syst', '/xp/qfebvre/ds/new_noisy_swot_syst_errs.yaml'),
         ],
         [
             ('cal', '/xp/qfebvre/loss/calmap.yaml'),
@@ -50,7 +54,7 @@ for  defaults in product(
         cfg = {
                 **add_cfgs,
                 'xp_name': xp_name,
-                'defaults': list(defaults) + ['_self_'],
+                'defaults': BASE_DEFAULTS + list(defaults) + ['_self_'],
             }
         cs.store(name='qxp1_' +xp_name, node=cfg, group='xp', package='_global_')
         # print(cs.list('xp'))
@@ -102,7 +106,7 @@ for  defaults in product(
         cfg = {
                 **add_cfgs,
                 'xp_name': xp_name,
-                'defaults': list(defaults) + ['_self_'],
+                'defaults': BASE_DEFAULTS + list(defaults) + ['_self_'],
             }
         cs.store(name='qxp2_' +xp_name, node=cfg, group='xp', package='_global_')
         # print(cs.list('xp'))
