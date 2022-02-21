@@ -19,7 +19,6 @@ import solver as NN_4DVar
 import metrics
 from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
 from models import Model_H, Model_HwithSST, Phi_r, ModelLR, Gradient_img
-import medianFilterKornia as medianFilter2D
 
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
@@ -596,7 +595,7 @@ class LitModelAugstate(pl.LightningModule):
 
             # median filter
             if self.median_filter_width > 1:
-                outputs = medianFilter2D.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
+                outputs = kornia.filters.blur_pool2d(outputs, (self.median_filter_width, self.median_filter_width))
 
             # reconstruction losses
             g_outputs = self.gradient_img(outputs)
