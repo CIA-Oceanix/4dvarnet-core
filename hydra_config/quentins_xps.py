@@ -11,9 +11,9 @@ BASE_DEFAULTS = [
 ]
 for  defaults in product(
         [
-            ('aug0', '/xp/qfebvre/aug/with_aug_state.yaml'),
-            ('aug1','/xp/qfebvre/aug/with_double_aug_state.yaml'),
-            # ('aug2','/xp/qfebvre/aug/without_aug_state.yaml.yam'),
+            ('aug1', '/xp/qfebvre/aug/with_aug_state.yaml'),
+            ('aug2','/xp/qfebvre/aug/with_double_aug_state.yaml'),
+            # ('aug0','/xp/qfebvre/aug/without_aug_state.yaml.yam'),
         ],
         [
             ('dp240','/xp/qfebvre/dl/d240_p240x5_s240x1.yaml'),
@@ -63,9 +63,9 @@ for  defaults in product(
 
 for  defaults in product(
         [
-            ('aug0', '/xp/qfebvre/aug/with_aug_state.yaml'),
-            ('aug1','/xp/qfebvre/aug/with_double_aug_state.yaml'),
-            ('aug2','/xp/qfebvre/aug/without_aug_state.yaml'),
+            ('aug1', '/xp/qfebvre/aug/with_aug_state.yaml'),
+            ('aug2','/xp/qfebvre/aug/with_double_aug_state.yaml'),
+            ('aug0','/xp/qfebvre/aug/without_aug_state.yaml'),
         ],
         [
             ('dp240','/xp/qfebvre/dl/d240_p240x5_s240x1.yaml'),
