@@ -456,6 +456,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 compute=self.compute
             ) for sl in self.train_slices])
 
+        print("end train_ds")
+
         self.val_ds, self.test_ds = [
             ConcatDataset(
                 [FourDVarNetDataset(
@@ -481,6 +483,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             )
             for slices in (self.val_slices, self.test_slices)
         ]
+        print("end val/test_ds")
 
         if self.sst_var is None:
             self.norm_stats = self.compute_norm_stats(self.train_ds)
@@ -496,7 +499,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.bounding_box = self.get_domain_bounds(self.train_ds)
         print("\nbound box : ", self.bounding_box)
         self.ds_size = self.get_domain_split()
-        print("ds size", self.ds_size)
+        print(" \nds size", self.ds_size)
 
     def train_dataloader(self):
         return DataLoader(self.train_ds, **self.dl_kwargs, shuffle=True)
