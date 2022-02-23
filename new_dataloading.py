@@ -33,11 +33,15 @@ def parse_resolution_to_float(frac):
 
 def find_pad(sl, st, N):
     k = np.floor(N/st)
+    print("k sl st N : ", k, sl, st, N)
     if N>((k*st) + (sl-st)):
+        print("1")
         pad = (k+1)*st + (sl-st) - N
     elif N<((k*st) + (sl-st)):
+        print("2")
         pad = (k*st) + (sl-st) - N
     else:
+        print("3")
         pad = 0
     return int(pad/2), int(pad-int(pad/2))
 
