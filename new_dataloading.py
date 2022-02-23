@@ -106,13 +106,14 @@ class XrDataset(Dataset):
         pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
         # get additional data for patch center based reconstruction
         dX = [pad_ *self.resolution for pad_ in pad_x]
-        print("dX : ", dX)
         dY = [pad_ *self.resolution for pad_ in pad_y]
+        print("ds : ", self.ds)
         dim_range_ = {
           'lon': slice(self.ds.lon.min().item()-dX[0], self.ds.lon.max().item()+dX[1]),
           'lat': slice(self.ds.lat.min().item()-dY[0], self.ds.lat.max().item()+dY[1]),
           'time': dim_range['time']
         }
+        print("dim range : ", dim_range)
         self.ds = _ds.sel(**(dim_range_ or {}))
         self.Nt = self.ds.time.shape[0]
         self.Nx = self.ds.lon.shape[0]
