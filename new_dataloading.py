@@ -33,15 +33,11 @@ def parse_resolution_to_float(frac):
 
 def find_pad(sl, st, N):
     k = np.floor(N/st)
-    print("k sl st N : ", k, sl, st, N)
     if N>((k*st) + (sl-st)):
-        print("1")
         pad = (k+1)*st + (sl-st) - N
     elif N<((k*st) + (sl-st)):
-        print("2")
         pad = (k*st) + (sl-st) - N
     else:
-        print("3")
         pad = 0
     return int(pad/2), int(pad-int(pad/2))
 
@@ -107,11 +103,10 @@ class XrDataset(Dataset):
         self.Ny = self.ds.lat.shape[0]
         # I) first padding x and y
         pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
-        print("Nx : ", self.Nx )
-        print("pad_x : ", pad_x)
         pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
         # get additional data for patch center based reconstruction
         dX = [pad_ *self.resolution for pad_ in pad_x]
+        print("dX : ", dX)
         dY = [pad_ *self.resolution for pad_ in pad_y]
         dim_range_ = {
           'lon': slice(self.ds.lon.min().item()-dX[0], self.ds.lon.max().item()+dX[1]),
