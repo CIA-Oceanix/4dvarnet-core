@@ -103,6 +103,7 @@ class XrDataset(Dataset):
         self.Ny = self.ds.lat.shape[0]
         # I) first padding x and y
         pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
+        print("pad_x : ", pad_x)
         pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
         # get additional data for patch center based reconstruction
         dX = [pad_ *self.resolution for pad_ in pad_x]
