@@ -8,6 +8,7 @@ import os
 
 import numpy as np
 import pytorch_lightning as pl
+import hydra
 import torch
 from omegaconf import OmegaConf
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -22,36 +23,24 @@ class FourDVarNetRunner:
         from old_dataloading import LegacyDataLoading
         self.filename_chkpt = 'modelSLAInterpGF-Exp3-{epoch:02d}-{val_loss:.2f}'
         if config is None:
-            import config
-        else:
-            import importlib
-            print('loading config')
-            config = importlib.import_module("config_" + str(config))
-        self.callbacks = []
-        self.logger = True
-        self.cfg = OmegaConf.create(config.params)
+            raise Exception('Please specify hydra xp ')
+        with hydra.initialize('hydra_config'):
+            config = hydra.compose('main', overrides=[
+                f'xp={config}',
+                'entrypoint=train',
+                '+params.dataloading=dataloading',
+            ])
+
+        self.cfg = config.params
         print(OmegaConf.to_yaml(self.cfg))
+        print(OmegaConf.to_yaml(config))
         dataloading = config.params['dataloading']
 
-        dim_range = config.dim_range
-        slice_win = config.slice_win
-        strides = config.strides
-        time_period = config.time_period
 
         if dataloading == "old":
             datamodule = LegacyDataLoading(self.cfg)
         else:
-            datamodule = FourDVarNetDataModule(
-                slice_win=slice_win,
-                dim_range=dim_range,
-                strides=strides,
-                train_slices=config.time_period['train_slices'],
-                test_slices=config.time_period['test_slices'],
-                val_slices=config.time_period['val_slices'],
-                resize_factor=config.params['resize_factor'],
-                **config.params['files_cfg']
-            )
-
+            datamodule = hydra.utils.instantiate(config.datamodule)
         datamodule.setup()
         self.dataloaders = {
             'train': datamodule.train_dataloader(),
@@ -101,6 +90,7 @@ class FourDVarNetRunner:
         w_ = np.zeros(self.cfg.dT)
         w_[int(self.cfg.dT / 2)] = 1.
         self.wLoss = torch.Tensor(w_)
+        self.resolution = datamodule.resolution
 
     def run(self, ckpt_path=None, dataloader="test", **trainer_kwargs):
         """
@@ -131,7 +121,8 @@ class FourDVarNetRunner:
                                                     time=self.time,
                                                     dX = self.dX, dY = self.dY,
                                                     swX = self.swX, swY = self.swY,
-                                                    coord_ext = {'lon_ext': self.lon, 'lat_ext': self.lat}
+                                                    coord_ext = {'lon_ext': self.lon, 'lat_ext': self.lat},
+                                                    resolution=self.resolution,
                                                     )
 
         else:
@@ -146,7 +137,8 @@ class FourDVarNetRunner:
                                time=self.time,
                                dX = self.dX, dY = self.dY,
                                swX = self.swX, swY = self.swY,
-                               coord_ext = {'lon_ext': self.lon, 'lat_ext': self.lat}
+                               coord_ext = {'lon_ext': self.lon, 'lat_ext': self.lat},
+                               resolution=self.resolution,
                                )
         return mod
 

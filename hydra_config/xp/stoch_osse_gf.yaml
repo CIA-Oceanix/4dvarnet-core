@@ -1,0 +1,19 @@
+# @package _global_
+xp_name: stoch_osse_gf
+datamodule:
+  dl_kwargs:
+    batch_size: 2
+params:
+  iter_update: [0, 10, 20, 30, 40, 150, 800]
+  nb_grad_update: [5, 5, 5, 5, 5, 5, 5, 5]
+  lr_update: [0.001, 0.001, 0.001, 0.001, 1.0e-04, 1.0e-04, 1.0e-06, 1.0e-07]
+  n_grad: 5
+  n_fourdvar_iter: 2 
+  n_fourdenvar: 5
+defaults:
+  - /params: fourdvarnet_stoch_osse
+  - /splits: osse
+  - /domain@datamodule.dim_range: gf
+  - /training: stoch_osse
+  - _self_
+

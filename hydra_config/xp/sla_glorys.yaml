@@ -1,0 +1,7 @@
+# @package _global_
+xp_name: glorys
+defaults:
+  - /domain@datamodule.dim_range: glorys
+  - /training: glorys
+  - /params: glorys
+  - _self_
