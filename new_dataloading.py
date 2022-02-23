@@ -494,7 +494,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             self.set_norm_stats(self.test_ds, self.norm_stats, self.norm_stats_sst)
 
         self.bounding_box = self.get_domain_bounds(self.train_ds)
+        print("\nbound box : ", self.bounding_box)
         self.ds_size = self.get_domain_split()
+        print("ds size", self.ds_size)
 
     def train_dataloader(self):
         return DataLoader(self.train_ds, **self.dl_kwargs, shuffle=True)
