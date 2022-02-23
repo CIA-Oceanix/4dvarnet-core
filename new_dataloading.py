@@ -117,6 +117,7 @@ class XrDataset(Dataset):
         self.Nt = self.ds.time.shape[0]
         self.Nx = self.ds.lon.shape[0]
         self.Ny = self.ds.lat.shape[0]
+        print("\nNt, Nx, Ny : ", self.Nt, self.Nx, self.Ny)
         # II) second padding x and y
         pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
         pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
@@ -385,7 +386,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
 
         self.resize_factor = resize_factor
         self.resolution  = parse_resolution_to_float(resolution)
-        print("\nresolution : ", resolution)
+        print("\nresolution : ", self.resolution)
         self.compute = compute
 
         self.train_slices, self.test_slices, self.val_slices = train_slices, test_slices, val_slices
