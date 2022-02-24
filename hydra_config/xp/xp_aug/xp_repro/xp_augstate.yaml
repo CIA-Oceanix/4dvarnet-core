@@ -10,5 +10,3 @@ defaults:
   - /xp/xp_aug/loss/map
   - /xp/xp_aug/train_strat/dec_lr_ngrad5_15_nocas
   - _self_ 
-
-
