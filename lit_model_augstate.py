@@ -269,7 +269,12 @@ class LitModelAugstate(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
-        losses, out, metrics = self(batch, phase='test')
+        losses, outs, metrics = self(batch, phase='test')
+        out = outs[:, 0:self.hparams.dT, :, :]
+        if self.aug_state:
+            out = out + outs[:, 2*self.hparams.dT:, :, :]
+        else:
+            out = out + outs[:, self.hparams.dT:2*self.hparams.dT, :, :]
         loss = losses[-1]
         if loss is not None:
             self.log(f'{log_pref}_loss', loss)
