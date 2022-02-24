@@ -183,4 +183,5 @@ seed: 0
 dvc:
   entrypoint: hydra_main._main
   stage_name: run
-  cmd: dvc stage add --force --name run python -c 'import dvc_main as dm; dm.dvc_execute()'
+  cmd: dvc stage add --force --name run python -c 'import sys;sys.path.append('"'"'../..'"'"');import
+    dvc_main as dm; dm.dvc_execute()'

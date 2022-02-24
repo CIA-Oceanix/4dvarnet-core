@@ -1,3 +1,4 @@
+schema: '2.0'
 stages:
   run:
     cmd: python -c "import sys;sys.path.append('../..');import dvc_main as dm; dm.dvc_execute()"
