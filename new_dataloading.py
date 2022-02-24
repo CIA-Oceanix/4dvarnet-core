@@ -101,7 +101,7 @@ class XrDataset(Dataset):
         self.Nt = self.ds.time.shape[0]
         self.Nx = self.ds.lon.shape[0]
         self.Ny = self.ds.lat.shape[0]
-        print("Nt Nx Ny : ", self.Nt, self.Nx, self.Ny)
+        # print("Nt Nx Ny : ", self.Nt, self.Nx, self.Ny)
         # I) first padding x and y
         pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
         pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
@@ -117,6 +117,7 @@ class XrDataset(Dataset):
         self.Nt = self.ds.time.shape[0]
         self.Nx = self.ds.lon.shape[0]
         self.Ny = self.ds.lat.shape[0]
+        print("Nt Nx Ny : ", self.Nt, self.Nx, self.Ny)
         # II) second padding x and y
         pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
         pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
