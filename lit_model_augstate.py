@@ -580,13 +580,11 @@ class LitModelAugstate(pl.LightningModule):
         with torch.set_grad_enabled(True):
             # with torch.set_grad_enabled(phase == 'train'):
             state = torch.autograd.Variable(state, requires_grad=True)
-            print("\nsize obs, size state : ", obs.shape, state.shape)
             outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks)
 
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
 
-            # PENDING: reconstruct outputs, outputs LowRes and outputSwath MegaRes
             outputsSLRHR = outputs
             outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
             if self.aug_state:
@@ -644,4 +642,4 @@ class LitModelAugstate(pl.LightningModule):
                 ('mseGOI', loss_GOI.detach())])
             # PENDING: Add new loss term to metrics
 
-        return loss, outputs, metrics
+        return loss, outputsSLRHR, metrics
