@@ -3,13 +3,13 @@
 dvc:
   entrypoint: hydra_main._main
   stage_name: ${aprl:run,--name}
-  deps:
-    - ${aprl:${datamodule.oi_path},-d}
-    - ${aprl:${datamodule.gt_path},-d}
-    - ${aprl:${datamodule.obs_target_path},-d}
-    - ${aprl:${datamodule.obs_mask_path},-d}
-  outs:
-    - ${aprl:${datamodule.obs_mask_path},-d}
+  # deps:
+  #   - ${aprl:${datamodule.oi_path},-d}
+  #   - ${aprl:${datamodule.gt_path},-d}
+  #   - ${aprl:${datamodule.obs_target_path},-d}
+  #   - ${aprl:${datamodule.obs_mask_path},-d}
+  # outs:
+  #   - ${aprl:${datamodule.obs_mask_path},-o}
   cmd: ${aprl_cmd:}
 
 

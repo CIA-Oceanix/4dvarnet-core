@@ -7,17 +7,16 @@ from pathlib import Path
 import subprocess
 
 """
-- [ ] register resolver
-- [ ] dump config
-- [ ] print dvc command
-
+- Complete outs
+- use relative paths (additional resolver)
+- add possible overrides during exp run in configs
+- Keep thinking of visidata workflow to facilitate runs etc... 
 """
 
 XP_FILE_NAME = "xp_config"
 
 class DvcStageBuilder:
-    def __init__(self, name):
-        self.name = name
+    def __init__(self):
         self.options = []
         self.base_cmd = []
         self.app_cmd = []
@@ -56,7 +55,7 @@ def register_resolvers(stage_builder):
 
 @hydra.main(config_path='hydra_config', config_name='dvc_main')
 def dvc_dump(cfg):
-    sb = DvcStageBuilder('yo')
+    sb = DvcStageBuilder()
     register_resolvers(sb)
     OmegaConf.resolve(cfg)
     Path(f'{ XP_FILE_NAME }.yaml').write_text(OmegaConf.to_yaml(cfg))
@@ -70,7 +69,8 @@ def dvc_execute():
     with hydra.initialize():
         cfg = hydra.compose(config_name=XP_FILE_NAME)
 
-    hydra.utils.call(cfg.dvc.entrypoint, cfg=cfg)
+    print(OmegaConf.to_yaml(cfg))
+    # hydra.utils.call(cfg.dvc.entrypoint, cfg=cfg)
 
 if __name__ == '__main__':
     dvc_dump()
