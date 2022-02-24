@@ -144,7 +144,7 @@ class XrDataset(Dataset):
             for dim in slice_win
         }
         for dim in slice_win:
-            print("dim ", dim, " : ", self.ds.dim[dim])
+            print("dim ", dim, " : ", self.ds.dims[dim])
 
         # reorder dimensions, this ensures dims ordering using
         # DataArray.data is consistent in numpy arrays (batch,time,lat,lon)
