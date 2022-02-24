@@ -580,6 +580,7 @@ class LitModelAugstate(pl.LightningModule):
         with torch.set_grad_enabled(True):
             # with torch.set_grad_enabled(phase == 'train'):
             state = torch.autograd.Variable(state, requires_grad=True)
+            print("\nsize obs, size state : ", obs.shape, state.shape)
             outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks)
 
             if (phase == 'val') or (phase == 'test'):
