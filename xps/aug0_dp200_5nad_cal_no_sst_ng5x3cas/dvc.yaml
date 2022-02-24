@@ -1,0 +1,7 @@
+stages:
+  run:
+    cmd: python -c "import dvc_main as dm; dm.dvc_execute()"
+    deps:
+    - /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/CalData/cal_data_new_errs.nc
+    - /gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_4nadir.nc
+    - /gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc

@@ -1,0 +1,15 @@
+hydra:
+  run:
+    dir: xps/${oc.select:xp_name,.}
+  sweep:
+    dir: xps
+    subdir: ${oc.select:xp_name,.}
+
+seed: 0
+
+defaults:
+  - file_paths: jz
+  - entrypoint: ???
+  - xp: ???
+  - _self_
+

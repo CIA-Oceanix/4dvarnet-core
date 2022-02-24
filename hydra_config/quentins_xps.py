@@ -110,3 +110,21 @@ for  defaults in product(
             }
         cs.store(name='qxp2_' +xp_name, node=cfg, group='xp', package='_global_')
         # print(cs.list('xp'))
+
+
+for d in [
+            ('cal', '/xp/qfebvre/loss/calmap.yaml'),
+            ('map', '/xp/qfebvre/loss/map.yaml'),
+        ]:
+    labels, defaults = zip(
+           *[
+            ('aug0','/xp/qfebvre/aug/without_aug_state.yaml'),
+            ('dp200', '/xp/qfebvre/dl/d200_p200x5_s200x1.yaml'),
+            ('5nad', '/xp/qfebvre/ds/five_nadirs.yaml'),
+            d,
+            ('no_sst', '/xp/qfebvre/sst/without_sst.yaml'),
+            ('ng5x3cas', '/xp/qfebvre/train_strat/const_lr_ngrad_5_3cas.yaml'),
+            ]
+        )
+    xp_name = '_'.join(labels)
+    cs.store(name='qxp3_dvc_' + xp_name, node={'xp_name': xp_name, 'defaults': BASE_DEFAULTS + list(defaults)}, group='xp', package='_global_')

@@ -28,8 +28,7 @@ class FourDVarNetHydraRunner(FourDVarNetRunner):
         self.setup(dm)
 
 
-@hydra.main(config_path='hydra_config', config_name='main')
-def main(cfg):
+def _main(cfg):
     print(OmegaConf.to_yaml(cfg))
     seed_everything(seed=cfg.get('seed', None))
     dm = instantiate(cfg.datamodule)
@@ -47,6 +46,8 @@ def main(cfg):
     call(cfg.entrypoint, self=runner)
 
 
+
+main = hydra.main(config_path='hydra_config', config_name='main')(_main)
 
 if __name__ == '__main__':
     main()
