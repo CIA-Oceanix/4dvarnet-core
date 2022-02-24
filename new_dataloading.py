@@ -93,66 +93,14 @@ class XrDataset(Dataset):
         _ds = _ds.rename(rename_coords)
 
         # reshape
-        if resize_factor!=1:
-            _ds = _ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
-            self.resolution = self.resolution*resize_factor
         # dimensions
         self.ds = _ds.sel(**(dim_range or {}))
-        self.Nt = self.ds.time.shape[0]
-        self.Nx = self.ds.lon.shape[0]
-        self.Ny = self.ds.lat.shape[0]
-        # print("Nt Nx Ny : ", self.Nt, self.Nx, self.Ny)
-        # I) first padding x and y
-        pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
-        pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
-        # get additional data for patch center based reconstruction
-        dX = [pad_ *self.resolution for pad_ in pad_x]
-        dY = [pad_ *self.resolution for pad_ in pad_y]
-        dim_range_ = {
-          'lon': slice(self.ds.lon.min().item()-dX[0], self.ds.lon.max().item()+dX[1]),
-          'lat': slice(self.ds.lat.min().item()-dY[0], self.ds.lat.max().item()+dY[1]),
-          'time': dim_range['time']
-        }
-        self.ds = _ds.sel(**(dim_range_ or {}))
-        self.Nt = self.ds.time.shape[0]
-        self.Nx = self.ds.lon.shape[0]
-        self.Ny = self.ds.lat.shape[0]
-        print("Nt Nx Ny : ", self.Nt, self.Nx, self.Ny)
-        # II) second padding x and y
-        pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
-        pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
-        # pad the dataset
-        dX = [pad_ *self.resolution for pad_ in pad_x]
-        dY = [pad_ *self.resolution for pad_ in pad_y]
-        pad_ = {'lon':(pad_x[0],pad_x[1]),
-                'lat':(pad_y[0],pad_y[1])}
-        self.ds = self.ds.pad(pad_,
-                              mode='reflect')
-        self.Nx += np.sum(pad_x)
-        self.Ny += np.sum(pad_y)
-        # III) get lon-lat for the final reconstruction
-        dX = ((slice_win['lon']-strides['lon'])/2)*self.resolution
-        dY = ((slice_win['lat']-strides['lat'])/2)*self.resolution
-        dim_range_ = {
-          'lon': slice(dim_range_['lon'].start+dX, dim_range_['lon'].stop-dX),
-          'lat': slice(dim_range_['lat'].start+dY, dim_range_['lat'].stop-dY),
-        }
-        self.lon = np.arange(dim_range_['lon'].start, dim_range_['lon'].stop, self.resolution)
-        self.lat = np.arange(dim_range_['lat'].start, dim_range_['lat'].stop, self.resolution)
         self.slice_win = slice_win
         self.strides = strides or {}
         self.ds_size = {
-            dim: max((self.ds.dims[dim] - slice_win[dim]) // self.strides.get(dim, 1) + 1, 0)
-            for dim in slice_win
+                dim: max((self.ds.dims[dim] - slice_win[dim]) // self.strides.get(dim, 1) + 1, 0)
+                for dim in slice_win
         }
-
-        # reorder dimensions, this ensures dims ordering using
-        # DataArray.data is consistent in numpy arrays (batch,time,lat,lon)
-        self.ds = self.ds.transpose('time', 'lat', 'lon')
-
-        # convert dask arrays to xr.DataArrays for faster computations
-        if compute:
-            self.ds = self.ds.compute()
 
     def __del__(self):
         self.ds.close()
