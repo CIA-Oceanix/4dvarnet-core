@@ -16,7 +16,8 @@ dvc:
     - ${aprl:checkpoints,-o}
   params:
     - ${aprl:xp_config.yaml:params.loss_loc,-p}
-  cmd: ${aprl_cmd:}
+  create_stage_cmd: ${aprl_cmd:}
+  run_cmd: dvc exp run
 
 
   

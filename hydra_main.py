@@ -12,7 +12,7 @@ from omegaconf import OmegaConf
 import hydra_config
 import numpy as np
 
-class FourDVarNetHydraRunner(FourDVarNetRunner):
+class FourDVarNetHydraRunner:
     def __init__(self, params, dm, lit_mod_cls, callbacks=None, logger=None):
         self.cfg = params
         self.filename_chkpt = self.cfg.ckpt_name
@@ -140,10 +140,15 @@ class FourDVarNetHydraRunner(FourDVarNetRunner):
         from pytorch_lightning.callbacks import LearningRateMonitor
         lr_monitor = LearningRateMonitor(logging_interval='step')
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
-        num_gpus = torch.cuda.device_count()
+        gpus = trainer_kwargs.get('gpus', torch.cuda.device_count())
+
+        num_gpus = gpus if isinstance(gpus, (int, float)) else  len(gpus) if hasattr(gpus, '__len__') else 0
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
-        trainer = pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, auto_select_gpus=(num_gpus * num_nodes) > 0,
-                             callbacks=[checkpoint_callback, lr_monitor], **trainer_kwargs)
+        trainer_kwargs_final = {**dict(num_nodes=num_nodes, gpus=gpus, strategy=accelerator, auto_select_gpus=(num_gpus * num_nodes) > 0,
+                             callbacks=[checkpoint_callback, lr_monitor]), **trainer_kwargs}
+        print(trainer_kwargs)
+        print(trainer_kwargs_final)
+        trainer = pl.Trainer(**trainer_kwargs_final)
         trainer.fit(mod, self.dataloaders['train'], self.dataloaders['val'])
         return mod, trainer
 
@@ -157,7 +162,7 @@ class FourDVarNetHydraRunner(FourDVarNetRunner):
 
         mod = _mod or self._get_model(ckpt_path=ckpt_path)
 
-        trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs)
+        trainer = _trainer or pl.Trainer(num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs)
         trainer.test(mod, test_dataloaders=self.dataloaders[dataloader])
 
     def profile(self):
