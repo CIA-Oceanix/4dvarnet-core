@@ -1,4 +1,5 @@
 import inspect
+import traceback
 import hydra
 import hydra_config
 import shlex
@@ -72,7 +73,7 @@ def register_resolvers(stage_builder):
             "rel_path", rel_with_backward_search, replace=True
         )
         OmegaConf.register_new_resolver(
-            "aprl", stage_builder.add_opt, replace=True
+           "aprl", stage_builder.add_opt, replace=True
         )
         OmegaConf.register_new_resolver(
             f"aprl_cmd", stage_builder.cmd, replace=True
@@ -84,9 +85,18 @@ def dvc_dump(cfg):
     register_resolvers(sb)
     OmegaConf.resolve(cfg)
     Path(f'{ XP_FILE_NAME }.yaml').write_text(OmegaConf.to_yaml(cfg))
-    print(cfg.dvc.cmd)
-    ret_code = subprocess.call(shlex.split(cfg.dvc.cmd))
-    print(ret_code)
+    print(cfg.dvc.create_stage_cmd)
+    # with open(cfg.dvc.get('log_file', 'dvc.log'), 'w') as f:
+    ret_code_dump= subprocess.call(shlex.split(cfg.dvc.create_stage_cmd))
+    print(ret_code_dump)
+    if ret_code_dump != 0:
+        raise Exception('Create stage Failed')
+
+    print(cfg.dvc.run_cmd)
+    ret_code_run= subprocess.check_call(shlex.split(cfg.dvc.run_cmd))
+    print(ret_code_run)
+    if ret_code_run != 0:
+        raise Exception('Create stage Failed')
 
 def test_xp(cfg):
     print("Should be here")
@@ -100,15 +110,15 @@ def test_xp(cfg):
     Path(out_path).write_text(out_s)
 
 def dvc_execute():
-    import hydra
-    import os
-    print(os.getcwd())
-    with hydra.initialize_config_dir(config_dir=str(Path('.').absolute())):
-        cfg = hydra.compose(config_name=XP_FILE_NAME)
+    try:
+        with hydra.initialize_config_dir(config_dir=str(Path('.').absolute())):
+            cfg = hydra.compose(config_name=XP_FILE_NAME)
 
-    print(OmegaConf.to_yaml(cfg))
-    print(f'calling {cfg.dvc.entrypoint}')
-    hydra.utils.call(cfg.dvc.entrypoint, cfg=cfg, _recursive_=False)
+        print(OmegaConf.to_yaml(cfg))
+        print(f'calling {cfg.dvc.entrypoint}')
+        hydra.utils.call(cfg.dvc.entrypoint, cfg=cfg, _recursive_=False)
+    except:
+        print(traceback.format_exc()) 
 
 if __name__ == '__main__':
     dvc_dump()

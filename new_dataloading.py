@@ -97,6 +97,7 @@ class XrDataset(Dataset):
         # dimensions
         if not self.auto_padding:
             self.ds = _ds.sel(**(dim_range or {}))
+
         if self.auto_padding:
             if resize_factor!=1:
                 _ds = _ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
@@ -149,6 +150,8 @@ class XrDataset(Dataset):
             dim: max((self.ds.dims[dim] - slice_win[dim]) // self.strides.get(dim, 1) + 1, 0)
             for dim in slice_win
         }
+        print(self.auto_padding)
+        print(self.ds_size)
 
         # reorder dimensions, this ensures dims ordering using
         # DataArray.data is consistent in numpy arrays (batch,time,lat,lon)
@@ -218,10 +221,11 @@ class FourDVarNetDataset(Dataset):
         resolution=1/20,
         resize_factor=1,
         compute=False,
-        use_auto_padding=False
+        use_auto_padding=True
     ):
         super().__init__()
 
+        self.use_auto_padding=use_auto_padding
         self.return_coords = False
 
         self.oi_ds = XrDataset(
@@ -268,7 +272,7 @@ class FourDVarNetDataset(Dataset):
                 decode=sst_decode,
                 resize_factor=resize_factor,
                 compute=compute,
-            auto_padding=use_auto_padding,
+                auto_padding=use_auto_padding,
             )
         else:
             self.sst_ds = None
@@ -445,8 +449,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     sst_decode=self.sst_decode,
                     resolution=self.resolution,
                     resize_factor=self.resize_factor,
-                    compute=self.compute
-                    use_auto_padding=self.use_auto_padding
+                    compute=self.compute,
+                    use_auto_padding=self.use_auto_padding,
                 ) for sl in slices]
             )
             for slices in (self.train_slices, self.val_slices, self.test_slices)

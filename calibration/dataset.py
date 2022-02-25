@@ -25,7 +25,7 @@ class FourDVarNetCalDataset(FourDVarNetDataset):
         super().__init__(*args, **kwargs)
 
         self.obs_target_ds = XrDataset(obs_target_path, obs_target_var, slice_win=kwargs['slice_win'], dim_range=kwargs['dim_range'],
-                                     strides=kwargs['strides'])
+                                     strides=kwargs['strides'], auto_padding=self.use_auto_padding)
         self.item_prepro = item_prepro
 
     def __getitem__(self, item):
@@ -72,6 +72,7 @@ class FourDVarNetCalDataModule(FourDVarNetDataModule):
                     sst_path=self.sst_path,
                     sst_var=self.sst_var,
                     item_prepro=self.item_prepro,
+                    use_auto_padding=self.use_auto_padding,
                 ) for sl in slices]
             )
             for slices in (self.train_slices, self.val_slices, self.test_slices)
