@@ -168,6 +168,8 @@ def test_models_on_diff_noises():
         metrics = []
         xps = cs.list('xp')
         for cfg in xps:
+            if '5nad' in cfg: continue
+            print(cfg)
             m = re.match(r'qxp(?P<xp_number>\d+)_(?P<xp_name>.+)\.yaml', cfg)
             xp_n = m.group('xp_number')
             xp_name = m.group('xp_name')
@@ -220,7 +222,7 @@ def test_models_on_diff_noises():
                 ).pipe(
                         lambda _df:_df.assign(**pd.DataFrame(list(_df.metrics)).to_dict(orient='list'))
                 ).drop('metrics', axis=1)
-                df.to_csv('metrics_roll.csv')
+                df.to_csv('metrics_roll2.csv')
     except Exception as e:
 
         print(traceback.format_exc()) 
