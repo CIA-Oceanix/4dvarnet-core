@@ -242,7 +242,7 @@ class LitModelAugstate(pl.LightningModule):
             self.manual_backward((loss_95_obs) / 2)
             opt.step()
 
-        losses, _, _, metrics = self(train_batch, phase='train')
+        losses, _, metrics = self(train_batch, phase='train')
         if losses[-1] is None:
             print("None loss")
             return None
@@ -269,7 +269,7 @@ class LitModelAugstate(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
-        losses, out, _, metrics = self(batch, phase='test')
+        losses, out, metrics = self(batch, phase='test')
         loss = losses[-1]
         if loss is not None:
             self.log(f'{log_pref}_loss', loss)
