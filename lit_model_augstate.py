@@ -148,11 +148,11 @@ class LitModelAugstate(pl.LightningModule):
         metrics = []
         state_init = None
         for _ in range(self.hparams.n_fourdvar_iter):
-            _loss, outs, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
-            state_init = outs.detach()
+            _loss, out, state, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
+            state_init = state.detach()
             losses.append(_loss)
             metrics.append(_metrics)
-        return losses, outs, metrics
+        return losses, out, metrics
 
     def configure_optimizers(self):
 
@@ -234,7 +234,7 @@ class LitModelAugstate(pl.LightningModule):
             # loss_95, outs_95, metrics_95 = self.compute_loss(
             #     (targets_OI, mask_95, mask_gt(targets_GT, mask_95), targets_GT, *rest), phase='train'
             # )
-            loss_95_obs, outs_95_obs, metrics_95_obs = self.compute_loss(
+            loss_95_obs, _, _, metrics_95_obs = self.compute_loss(
                 (targets_OI, inputs_Mask.logical_or(mask_95), inputs_obs.where(inputs_Mask, mask_gt(targets_GT, mask_95)), targets_GT, *rest),
                 phase='train'
             )
@@ -242,7 +242,7 @@ class LitModelAugstate(pl.LightningModule):
             self.manual_backward((loss_95_obs) / 2)
             opt.step()
 
-        losses, outs, metrics = self(train_batch, phase='train')
+        losses, _, _, metrics = self(train_batch, phase='train')
         if losses[-1] is None:
             print("None loss")
             return None
@@ -269,12 +269,7 @@ class LitModelAugstate(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
-        losses, outs, metrics = self(batch, phase='test')
-        out = outs[:, 0:self.hparams.dT, :, :]
-        if self.aug_state:
-            out = out + outs[:, 2*self.hparams.dT:, :, :]
-        else:
-            out = out + outs[:, self.hparams.dT:2*self.hparams.dT, :, :]
+        losses, out, _, metrics = self(batch, phase='test')
         loss = losses[-1]
         if loss is not None:
             self.log(f'{log_pref}_loss', loss)
@@ -647,4 +642,4 @@ class LitModelAugstate(pl.LightningModule):
                 ('mseGOI', loss_GOI.detach())])
             # PENDING: Add new loss term to metrics
 
-        return loss, outputsSLRHR, metrics
+        return loss, outputs, outputsSLRHR, metrics
