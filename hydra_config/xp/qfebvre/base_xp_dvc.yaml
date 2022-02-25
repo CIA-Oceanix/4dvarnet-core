@@ -1,19 +1,19 @@
 # @package _global_
 
 dvc:
-  # entrypoint: hydra_main._main
   entrypoint: 
-    _target_: dvc_main.test_xp
+    # _target_: dvc_main.test_xp
+    _target_: hydra_main._main
   stage_name: ${aprl:run,--name}
   deps:
-    - ${aprl:${rel_path:lit_model.py},-d}
-    # - ${aprl:${rel_path:${datamodule.oi_path}},-d}
-    # - ${aprl:${rel_path:${datamodule.gt_path}},-d}
-    # - ${aprl:${rel_path:${datamodule.obs_target_path}},-d}
-    # - ${aprl:${rel_path:${datamodule.obs_mask_path}},-d}
+    # - ${aprl:${rel_path:lit_model.py},-d}
+    - ${aprl:${rel_path:${datamodule.oi_path}},-d}
+    - ${aprl:${rel_path:${datamodule.gt_path}},-d}
+    - ${aprl:${rel_path:${datamodule.obs_target_path}},-d}
+    - ${aprl:${rel_path:${datamodule.obs_mask_path}},-d}
   outs:
-    - ${aprl:test_xp_out.txt,-o}
-    # - ${aprl:checkpoints,-o}
+    # - ${aprl:test_xp_out.txt,-o}
+    - ${aprl:checkpoints,-o}
   params:
     - ${aprl:xp_config.yaml:params.loss_loc,-p}
   cmd: ${aprl_cmd:}
