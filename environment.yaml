@@ -23,6 +23,7 @@ dependencies:
   - hvplot
   - bokeh
   - cartopy=0.19.0
+  - cartopy_offlinedata=0.2.4
   - tabulate=0.8.9
   - xrft=0.4.1
   - numpy_groupies=0.9.13
@@ -35,3 +36,4 @@ dependencies:
     - opencv-python==4.5.2.52
     - hydra-core
     - kornia
+    - pyepsg

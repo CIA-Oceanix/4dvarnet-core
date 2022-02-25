@@ -13,6 +13,8 @@ scipy_sparse_tools.py
 models_wSPDE.py
 merge_ose_osse*
 main_wSPDE.slurm
+lit_model_4DEnVar.py
+solver_4DEnVar.py
 checkpoints
 __pycache__
 tmp
