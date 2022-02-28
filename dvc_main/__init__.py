@@ -1,4 +1,5 @@
 import inspect
+import os
 import traceback
 import hydra
 import hydra_config
@@ -31,7 +32,8 @@ class DvcStageBuilder:
     def init_attrs(self):
         self.options = []
         self.base_cmd = ["dvc", "stage", "add", "--force"]
-        self.app_cmd =  [f"PYTHONPATH={rel_with_backward_search('.')} python -m dvc_main.run"]
+        # self.app_cmd =  [f"PYTHONPATH={rel_with_backward_search('.')} python -m dvc_main.run"]
+        self.app_cmd =  [f"python -m dvc_main.run"]
 
 
     def add_opt(self, value, opt):
@@ -66,6 +68,9 @@ def rel_with_backward_search(path_a, path_b=None):
 
 def register_resolvers(stage_builder):
 
+        OmegaConf.register_new_resolver(
+            "cwd", os.getcwd, replace=True
+        )
         OmegaConf.register_new_resolver(
             "rel_path", rel_with_backward_search, replace=True
         )

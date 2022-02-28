@@ -7,17 +7,23 @@ dvc:
   stage_name: ${aprl:run,--name}
   deps:
     # - ${aprl:${rel_path:lit_model.py},-d}
-    - ${aprl:${rel_path:${datamodule.oi_path}},-d}
-    - ${aprl:${rel_path:${datamodule.gt_path}},-d}
-    - ${aprl:${rel_path:${datamodule.obs_target_path}},-d}
-    - ${aprl:${rel_path:${datamodule.obs_mask_path}},-d}
+    # - ${aprl:${rel_path:${datamodule.oi_path}},-d}
+    # - ${aprl:${rel_path:${datamodule.gt_path}},-d}
+    # - ${aprl:${rel_path:${datamodule.obs_target_path}},-d}
+    # - ${aprl:${rel_path:${datamodule.obs_mask_path}},-d}
+    - ${aprl:${datamodule.oi_path},-d}
+    - ${aprl:${datamodule.gt_path},-d}
+    - ${aprl:${datamodule.obs_target_path},-d}
+    - ${aprl:${datamodule.obs_mask_path},-d}
   outs:
     # - ${aprl:test_xp_out.txt,-o}
     - ${aprl:checkpoints,-o}
   params:
     - ${aprl:xp_config.yaml:params.loss_loc,-p}
   create_stage_cmd: ${aprl_cmd:}
-  run_cmd: dvc exp run
+  run_cmd: 'git add *.yaml && dvc exp run --temp'
+  # run_cmd: dvc exp run --temp
+  # run_cmd: dvc exp run --temp
 
 
   

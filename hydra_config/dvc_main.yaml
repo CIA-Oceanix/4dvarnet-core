@@ -9,7 +9,7 @@ seed: 0
 
 defaults:
   - file_paths: jz
-  - entrypoint: ???
+  - entrypoint: run
   - xp: ???
   - _self_
 
