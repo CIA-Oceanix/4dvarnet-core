@@ -21,6 +21,7 @@ import subprocess
 """
 
 XP_FILE_NAME = "xp_config"
+HOME_SYMLINK = "__home"
 
 class DvcStageBuilder:
     def __init__(self):
@@ -33,7 +34,8 @@ class DvcStageBuilder:
         self.options = []
         self.base_cmd = ["dvc", "stage", "add", "--force"]
         # self.app_cmd =  [f"PYTHONPATH={rel_with_backward_search('.')} python -m dvc_main.run"]
-        self.app_cmd =  [f"python -m dvc_main.run"]
+        self.app_cmd =  [f"PYTHONPATH=__home python -m dvc_main.run"]
+        # self.app_cmd =  [f"python dvc_main/run.py"]
 
 
     def add_opt(self, value, opt):
@@ -66,6 +68,18 @@ def rel_with_backward_search(path_a, path_b=None):
             ).relative_to(path_b)
     )
 
+def rel_with_symlink(path_a):
+    abs_a = Path(hydra.utils.to_absolute_path(path_a))
+    abs_b = Path(hydra.utils.to_absolute_path('.'))
+    common_parent = max(set(abs_a.parents) & set(abs_b.parents), key=lambda p: len(str(p)))
+
+    return str(
+             Path(HOME_SYMLINK) / (
+                 abs_b /
+                '/'.join(['..'] * len(list(abs_b.relative_to(common_parent).parents))) /
+                abs_a.relative_to(common_parent)
+            ).relative_to(abs_b)
+    )
 def register_resolvers(stage_builder):
 
         OmegaConf.register_new_resolver(
@@ -73,6 +87,9 @@ def register_resolvers(stage_builder):
         )
         OmegaConf.register_new_resolver(
             "rel_path", rel_with_backward_search, replace=True
+        )
+        OmegaConf.register_new_resolver(
+            "rel_sl_path", rel_with_symlink, replace=True
         )
         OmegaConf.register_new_resolver(
            "aprl", stage_builder.add_opt, replace=True
@@ -90,9 +107,13 @@ def dvc_dump(cfg):
     print(cfg.dvc.create_stage_cmd)
     # with open(cfg.dvc.get('log_file', 'dvc.log'), 'w') as f:
     ret_code_dump= subprocess.run(shlex.split(cfg.dvc.create_stage_cmd))
-
     ret_code_dump.check_returncode()
-    print(ret_code_dump)
+
+    if cfg.dvc.mk_home_symlink:
+        print("Making home symlink")
+        Path(HOME_SYMLINK).unlink(missing_ok=True)
+        os.symlink(hydra.utils.get_original_cwd(),HOME_SYMLINK, target_is_directory=True)
+
     print(cfg.dvc.run_cmd)
     # ret_code_run= subprocess.check_call(shlex.split(cfg.dvc.run_cmd))
     # ret_code_run= subprocess.run(shlex.split(cfg.dvc.run_cmd), shell=True)
