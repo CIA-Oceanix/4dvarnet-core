@@ -9,7 +9,7 @@ params:
     obs_mask_var: ???
     obs_target_path: ${file_paths.new_noisy_swot}
     obs_target_var: swot_no_noise
-    gt_path: ${file_paths.natl_ssh}
+    gt_path: ${file_paths.natl_ssh_daily}
     gt_var: ssh
   iter_update: ??? # train_strat
   nb_grad_update: ???
@@ -21,7 +21,8 @@ params:
   val_diag_freq: 5 
   n_grad: 5
   dT: 5
-  aug_state: ??? #aug
+  aug_state: expl_err 
+  loc_estim: ??? # loc_estim
   shape_data: ???
   shape_state: ??? 
   shape_obs: [10]
@@ -36,25 +37,28 @@ params:
   dim_grad_solver: 150
   dropout: 0.1
   dropout_phi_r: 0.1
-  alpha_mse_ssh: ??? # loss
-  alpha_mse_gssh: ???
-  alpha_loc_mse_ssh: ???
-  alpha_loc_mse_gssh: ???
-  loss_loc: ???
+  alpha_mse_ssh: 10. 
+  alpha_mse_gssh: 1.
+  alpha_loc_mse_ssh: 10.
+  alpha_loc_mse_gssh: 1.
   alpha_proj: 0.5
   alpha_sr: 0.5
   alpha_lr: 0.5
+  alpha_err_mse_ssh: 1.
   loss_glob: 1
   loss_proj: 1
   loss_low_res: 1
+  loss_loc: ??? # loss 
+  loss_err: ???
+  train_error_scaling: ???
   automatic_optimization: true
   swot_anom_wrt: low_res
   anom_swath_init: zeros
   ckpt_name: 'modelCalSLAInterpGF-{epoch:02d}-{val_loss:.4f}'
-  norm_obs: 'l1'
-  norm_prior: 'l1'
+  norm_obs: 'l2'
+  norm_prior: 'l2'
   patch_weight: ??? # dl
-lit_mod_cls: calibration.lit_cal_model.LitCalModel
+lit_mod_cls: calibration.lit_cal_model_expl_err.LitModel
 datamodule:
   _target_: calibration.dataset.FourDVarNetCalDataModule
   slice_win: ??? # dl

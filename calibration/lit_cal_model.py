@@ -24,47 +24,6 @@ from models import Phi_r, ModelLR, Gradient_img
 from calibration.models import get_passthrough, get_vit
 
 
-class Model_H_explicit_errors(torch.nn.Module):
-
-    """
-    state: [oi, anom_glob, anom_swath, error_glob, error_swath]
-
-    obs: [oi, obs]
-    mask: [ones, obs_mask]
-    """
-    def __init__(self, shape_data, shape_obs, hparams=None):
-        super().__init__()
-        self.hparams = hparams
-        self.dim_obs = 1
-        self.dim_obs_channel = np.array([shape_obs])
-        self.components
-
-
-
-    def forward(self, x, y, mask):
-        aug_state = self.hparams.get('aug_state', False)
-        if aug_state:
-            if aug_state == 2:
-                output_low_res,  output_anom_glob, output_anom_swath, _, _ = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
-            else:
-                output_low_res,  output_anom_glob, output_anom_swath, _ = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
-        else: 
-            output_low_res,  output_anom_glob, output_anom_swath = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
-        output_global = output_low_res + output_anom_glob
-
-        if self.hparams.swot_anom_wrt == 'low_res':
-            output_swath = output_low_res + output_anom_swath
-        elif self.hparams.swot_anom_wrt == 'high_res':
-            output_swath = output_global + output_anom_swath
-
-
-        yhat_glob = torch.cat((output_low_res, output_global), dim=1)
-        yhat_swath = torch.cat((output_low_res, output_swath), dim=1)
-        dyout_glob = (yhat_glob - y) * mask
-        dyout_swath = (yhat_swath - y) * mask
-
-        return dyout_glob + dyout_swath
-
 class Model_H_with_noisy_Swot(torch.nn.Module):
     """
     state: [oi, anom_glob, anom_swath ] or [oi, anom_glob_obs,  anom_swath, anom_glob_rec]
@@ -211,6 +170,7 @@ class LitCalModel(pl.LightningModule):
             'vit': get_vit,
             '4dvarnet': get_4dvarnet,
             '4dvarnet_sst': get_4dvarnet_sst,
+            '4dvarnet_exp_err': get_4dvarnet_exp_err,
             'phi': get_phi,
         }
 
