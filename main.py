@@ -12,14 +12,12 @@ import torch
 from omegaconf import OmegaConf
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-
 class FourDVarNetRunner:
-    def __init__(self, dataloading="old", config=None):
+    def __init__(self, config=None):
         from lit_model import LitModel
         from lit_model_sst import LitModelWithSST
         from lit_model_stochastic import LitModelStochastic
-        from new_dataloading import FourDVarNetDataModule
-        from old_dataloading import LegacyDataLoading
+        from dataloading import FourDVarNetDataModule
         self.filename_chkpt = 'modelSLAInterpGF-Exp3-{epoch:02d}-{val_loss:.2f}'
         if config is None:
             import config
@@ -37,19 +35,16 @@ class FourDVarNetRunner:
         strides = config.strides
         time_period = config.time_period
 
-        if dataloading == "old":
-            datamodule = LegacyDataLoading(self.cfg)
-        else:
-            datamodule = FourDVarNetDataModule(
-                slice_win=slice_win,
-                dim_range=dim_range,
-                strides=strides,
-                train_slices=config.time_period['train_slices'],
-                test_slices=config.time_period['test_slices'],
-                val_slices=config.time_period['val_slices'],
-                resize_factor=config.params['resize_factor'],
-                **config.params['files_cfg']
-            )
+        datamodule = FourDVarNetDataModule(
+            slice_win=slice_win,
+            dim_range=dim_range,
+            strides=strides,
+            train_slices=config.time_period['train_slices'],
+            test_slices=config.time_period['test_slices'],
+            val_slices=config.time_period['val_slices'],
+            resize_factor=config.params['resize_factor'],
+            **config.params['files_cfg']
+        )
 
         datamodule.setup()
         self.dataloaders = {
@@ -57,19 +52,7 @@ class FourDVarNetRunner:
             'val': datamodule.val_dataloader(),
             'test': datamodule.test_dataloader(),
         }
-        if dataloading == "old":
-            self.var_Tr = datamodule.var_Tr
-            self.var_Tt = datamodule.var_Tt
-            self.var_Val = datamodule.var_Val
-            self.mean_Tr = datamodule.mean_Tr
-            self.mean_Tt = datamodule.mean_Tt
-            self.mean_Val = datamodule.mean_Val
-            self.min_lon, self.max_lon, self.min_lat, self.max_lat = -65, -55, 33, 43
-            self.ds_size_time = 20
-            self.ds_size_lon = 1
-            self.ds_size_lat = 1
-        else:
-            self.setup(datamodule=datamodule)
+        self.setup(datamodule=datamodule)
 
         if config.params['stochastic'] == False:
             self.lit_cls = LitModelWithSST if dataloading == "with_sst" else LitModel

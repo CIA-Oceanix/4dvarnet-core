@@ -1,0 +1,9 @@
+# @package _global_
+xp_name: sla_natl
+defaults:
+  - /params: fourdvarnet_osse_natl
+  - /domain@datamodule.dim_range: natl
+  - /training: baseline
+  - _self_
+
+

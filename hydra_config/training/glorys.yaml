@@ -2,7 +2,7 @@
 lit_mod_cls: lit_model.LitModel
 
 datamodule:
-  _target_: new_dataloading.FourDVarNetDataModule
+  _target_: dataloading.FourDVarNetDataModule
   slice_win:
     lat: 200
     lon: 200

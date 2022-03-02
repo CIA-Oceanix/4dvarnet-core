@@ -55,12 +55,13 @@ class ConvLSTM2d(torch.nn.Module):
         # get batch and spatial sizes
         batch_size = input_.shape[0]
         spatial_size = input_.shape[2:]
+        """
         if self.stochastic == True:
             z = torch.randn(input_.shape).to(device)
             z = self.correlate_noise(z)
             z = (z-torch.mean(z))/torch.std(z)
             #z = torch.mul(self.regularize_variance(z),self.correlate_noise(z))
-
+        """
         # generate empty prev_state, if None is provided
         if prev_state is None:
             state_size = [batch_size, self.hidden_size] + list(spatial_size)
@@ -73,10 +74,13 @@ class ConvLSTM2d(torch.nn.Module):
         prev_hidden, prev_cell = prev_state
 
         # data size is [batch, channel, height, width]
+        stacked_inputs = torch.cat((input_, prev_hidden), 1)
+        """
         if self.stochastic == False:
             stacked_inputs = torch.cat((input_, prev_hidden), 1)
         else:
             stacked_inputs = torch.cat((torch.add(input_,z), prev_hidden), 1)
+        """
 
         gates = self.Gates(stacked_inputs)
 
@@ -355,7 +359,7 @@ class Solver_Grad_4DVarNN(nn.Module):
             'l1': Model_WeightedL1Norm,
             'l2': Model_WeightedL2Norm,
     }
-    def __init__(self ,phi_r,mod_H, m_Grad, m_NormObs, m_NormPhi, ShapeData,n_iter_grad, stochastic=False):
+    def __init__(self ,phi_r,mod_H, m_Grad, m_NormObs, m_NormPhi, shape_data,n_iter_grad, stochastic=False):
         super(Solver_Grad_4DVarNN, self).__init__()
         self.phi_r         = phi_r
         
@@ -367,10 +371,10 @@ class Solver_Grad_4DVarNN(nn.Module):
             m_NormPhi = Model_WeightedL2Norm()
         else:
             m_NormPhi = self.NORMS[m_NormPhi]()
-
+        self.shape_data = shape_data
         self.model_H = mod_H
         self.model_Grad = m_Grad
-        self.model_VarCost = Model_Var_Cost(m_NormObs, m_NormPhi, ShapeData, mod_H.dim_obs, mod_H.dim_obs_channel)
+        self.model_VarCost = Model_Var_Cost(m_NormObs, m_NormPhi, shape_data, mod_H.dim_obs, mod_H.dim_obs_channel)
 
         self.stochastic = stochastic
 
@@ -409,7 +413,7 @@ class Solver_Grad_4DVarNN(nn.Module):
 
     def var_cost(self , x, yobs, mask):
         dy = self.model_H(x,yobs,mask)
-        dx = x - self.phi_r(x)
+        dx = x - torch.index_select(self.phi_r(x),1,torch.from_numpy(np.arange(self.shape_data[0])).to(device))
         
         loss = self.model_VarCost( dx , dy )
         
