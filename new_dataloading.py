@@ -150,8 +150,6 @@ class XrDataset(Dataset):
             dim: max((self.ds.dims[dim] - slice_win[dim]) // self.strides.get(dim, 1) + 1, 0)
             for dim in slice_win
         }
-        print(self.auto_padding)
-        print(self.ds_size)
 
         # reorder dimensions, this ensures dims ordering using
         # DataArray.data is consistent in numpy arrays (batch,time,lat,lon)

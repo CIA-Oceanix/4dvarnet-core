@@ -37,17 +37,19 @@ class ModelHWithExplicitError(torch.nn.Module):
     def __init__(self, shape_data, shape_obs, hparams=None):
         super().__init__()
         self.use_sst = hparams.sst
+        self.dim_obs = 2 if self.use_sst else 1
+        self.dim_obs_channel = np.array([shape_obs])
         self.hparams = hparams
         self.use_loc_estim = hparams.loc_estim
         if self.use_loc_estim:
             assert shape_data == 5 * hparams.dT , 'sanity check fail'
-
         self.err_scaling = torch.nn.Parameter(torch.scalar_tensor(0.), requires_grad=hparams.train_error_scaling)
         if self.use_sst:
+            ssh_ch = 2*hparams.dT 
             sst_ch = hparams.dT
             self.dim_obs_channel = np.array([shape_data, sst_ch])
 
-            self.conv11 = torch.nn.Conv2d(shape_data, hparams.dT, (3, 3), padding=1, bias=False)
+            self.conv11 = torch.nn.Conv2d(ssh_ch, hparams.dT, (3, 3), padding=1, bias=False)
             self.conv21 = torch.nn.Conv2d(sst_ch, hparams.dT, (3, 3), padding=1, bias=False)
             self.conv_m = torch.nn.Conv2d(sst_ch, self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
             self.sigmoid = torch.nn.Sigmoid()  # torch.nn.Softmax(dim=1)
@@ -76,13 +78,15 @@ class ModelHWithExplicitError(torch.nn.Module):
 
 
     def forward(self, x, y, mask):
+        returns = []
         dyouts = []
         if self.use_sst:
             y_ssh, y_sst = y
             mask_ssh, mask_sst = y
 
             y_hat_no_err = self.get_y_hat(x, loc=False, err=False)
-            dyouts.append(self.sst_cost(y_hat_no_err, y_sst, mask_sst))
+            dyout1 = self.sst_cost(y_hat_no_err, y_sst, mask_sst)
+            returns.append(dyout1)
 
         else:
             y_ssh = y 
@@ -91,17 +95,20 @@ class ModelHWithExplicitError(torch.nn.Module):
         y_hat_err = self.get_y_hat(x, loc=False, err=True)
         dyouts.append(self.ssh_cost(y_hat_err, y_ssh, mask_ssh))
 
-        if self.use_loc_estimation:
+        if self.use_loc_estim:
 
             y_hat_loc_err = self.get_y_hat(x, loc=True, err=True)
             dyouts.append(self.ssh_cost(y_hat_loc_err, y_ssh, mask_ssh))
-
-        return einops.reduce(dyouts, 'outs ... -> ...', reduction='sum')
+        
+        dyouts =  torch.stack(dyouts).sum(0)
+        returns = [dyouts] + returns
+        return tuple(returns)
 
 
 class PhiRWrapper(torch.nn.Module):
     ERR_PRIORS = ('none', 'same', 'diff')
     def __init__(self, hparams, shape_data, *args, **kwargs):
+        super().__init__()
         self.err_prior = hparams.get('err_prior', 'same')
         self.use_loc_estim = hparams.get('loc_estim', hparams.dT *5 == shape_data)
         self.hparams = hparams
@@ -113,11 +120,11 @@ class PhiRWrapper(torch.nn.Module):
             return
 
         if self.use_loc_estim:
-            shape_data_ssh = shape_data - 2*hparams.dT
-            shape_data_err = 2*hparams.dT
+            shape_data_ssh = shape_data - 2*int(hparams.dT)
+            shape_data_err = 2*int(hparams.dT)
         else:
-            shape_data_ssh = shape_data - 1*hparams.dT
-            shape_data_err = 1*hparams.dT
+            shape_data_ssh = shape_data - 1*int(hparams.dT)
+            shape_data_err = 1*int(hparams.dT)
         
         phi_ssh = Phi_r(shape_data_ssh, *args, **kwargs)
         if self.err_prior == 'none':
@@ -207,20 +214,19 @@ class LitModel(LitCalModel):
         if self.hparams.loc_estim:
             anomaly_local = (inputs_obs - targets_OI).detach() / 2
             err_local = (inputs_obs - targets_OI).detach() / 2
-            init_state = torch.cat(targets_OI, anomaly_global, err_global, anomaly_local, err_local), dim=1)
+            init_state = torch.cat((targets_OI, anomaly_global, err_global, anomaly_local, err_local), dim=1)
         else:
-            init_state = torch.cat(targets_OI, anomaly_global, err_global), dim=1)
+            init_state = torch.cat((targets_OI, anomaly_global, err_global), dim=1)
 
         return init_state
 
-    def get_outputs(self, batch, state_out):
-        x_glob_wo_err = self.model.model_H.get_y_hat(state_out, loc=False, err=False).sum(0)
-        x_glob_w_err = self.model.model_H.get_y_hat(state_out, loc=False, err=True).sum(0)
+    def get_outputs(self, batch, state_out, with_error=False):
+        sum_channels = lambda t: einops.reduce(t, 'b (n t) lat lon -> b t lat lon', t=self.hparams.dT, reduction='sum')
+        x_glob = sum_channels(self.model.model_H.get_y_hat(state_out, loc=False, err=with_error))
 
-        x_loc_wo_err = self.model.model_H.get_y_hat(state_out, loc=True, err=False).sum(0)
-        x_loc_w_err = self.model.model_H.get_y_hat(state_out, loc=True, err=True).sum(0)
+        x_loc = sum_channels(self.model.model_H.get_y_hat(state_out, loc=True, err=with_error))
         x_lr = state_out[:, :self.hparams.dT, ...]
-        return x_lr, x_glob_w_err, x_glob_wo_err, x_loc_w_err, x_loc_wo_err
+        return x_lr, x_glob, x_loc
 
     def compute_loss(self, batch, phase, state_init=None):
 
@@ -273,7 +279,8 @@ class LitModel(LitCalModel):
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
 
-            x_lr, x_glob_w_err, x_glob_wo_err, x_loc_w_err, x_loc_wo_err = self.get_outputs(batch, outputs)
+            _, x_glob_w_err, x_loc_w_err = self.get_outputs(batch, outputs, with_error=True)
+            x_lr, x_glob_wo_err, x_loc_wo_err = self.get_outputs(batch, outputs, with_error=False)
             # reconstruction losses
             g_output_global = self.gradient_img(x_glob_wo_err)
             g_output_swath = self.gradient_img(x_loc_wo_err)
@@ -287,9 +294,7 @@ class LitModel(LitCalModel):
 
             loss_swath = NN_4DVar.compute_spatio_temp_weighted_loss(err_swath, self.w_loss)
             loss_err_swath = NN_4DVar.compute_spatio_temp_weighted_loss(err_swath, self.w_loss)
-            # print(f"{loss_swath=}")
             loss_grad_swath = NN_4DVar.compute_spatio_temp_weighted_loss(err_g_swath, self.w_loss)
-            # print(f"{loss_grad_swath=}")
 
             loss_All = NN_4DVar.compute_spatio_temp_weighted_loss((x_glob_wo_err - targets_GT), self.w_loss)
             loss_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_output_global - g_targets_GT, self.w_loss)
@@ -303,14 +308,15 @@ class LitModel(LitCalModel):
                 yGT = torch.cat((
                     targets_OI,
                     targets_GT_wo_nan - targets_OI,
-                    (x_loc_w_err - x_loc_wo_err).where(target_obs_GT.isfinite(), torch.zeros_like(targets_OI)),
-                    (target_obs_GT_wo_nan - targets_OI).where(target_obs_GT.isfinite(), targets_GT_wo_nan - targets_OI)
+                    (inputs_obs - targets_GT).where(target_obs_GT.isfinite(), torch.zeros_like(targets_OI)),
+                    (target_obs_GT_wo_nan - targets_OI).where(target_obs_GT.isfinite(), targets_GT_wo_nan - targets_OI),
+                    (inputs_obs - target_obs_GT).where(target_obs_GT.isfinite(), torch.zeros_like(targets_OI)),
                     ), dim=1)
             else:
                 yGT = torch.cat((
                     targets_OI,
                     targets_GT_wo_nan - targets_OI,
-                    (x_loc_w_err - x_loc_wo_err).where(target_obs_GT.isfinite(), torch.zeros_like(targets_OI))
+                    (inputs_obs - targets_GT).where(target_obs_GT.isfinite(), torch.zeros_like(targets_OI)),
                     ), dim=1)
 
             # yGT        = torch.cat((targets_OI,targets_GT-targets_OI),dim=1)

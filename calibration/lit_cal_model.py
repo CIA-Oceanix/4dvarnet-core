@@ -170,7 +170,6 @@ class LitCalModel(pl.LightningModule):
             'vit': get_vit,
             '4dvarnet': get_4dvarnet,
             '4dvarnet_sst': get_4dvarnet_sst,
-            '4dvarnet_exp_err': get_4dvarnet_exp_err,
             'phi': get_phi,
         }
 

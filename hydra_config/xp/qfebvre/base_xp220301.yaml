@@ -76,6 +76,7 @@ datamodule:
   gt_var: ${params.files_cfg.gt_var}
   sst_path: ??? # sst
   sst_var: ???
+  use_auto_padding: 0
   dl_kwargs:
     batch_size: 2
     num_workers: 2
