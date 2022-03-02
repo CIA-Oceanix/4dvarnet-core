@@ -308,15 +308,15 @@ class LitModel(LitCalModel):
                 yGT = torch.cat((
                     targets_OI,
                     targets_GT_wo_nan - targets_OI,
-                    (inputs_obs - targets_GT).where(target_obs_GT.isfinite(), torch.zeros_like(targets_OI)),
+                    (inputs_obs - targets_GT_wo_nan).where(target_obs_GT.isfinite(), torch.zeros_like(targets_OI)),
                     (target_obs_GT_wo_nan - targets_OI).where(target_obs_GT.isfinite(), targets_GT_wo_nan - targets_OI),
-                    (inputs_obs - target_obs_GT).where(target_obs_GT.isfinite(), torch.zeros_like(targets_OI)),
+                    (inputs_obs - target_obs_GT_wo_nan).where(target_obs_GT.isfinite(), torch.zeros_like(targets_OI)),
                     ), dim=1)
             else:
                 yGT = torch.cat((
                     targets_OI,
                     targets_GT_wo_nan - targets_OI,
-                    (inputs_obs - targets_GT).where(target_obs_GT.isfinite(), torch.zeros_like(targets_OI)),
+                    (inputs_obs - targets_GT_wo_nan).where(target_obs_GT.isfinite(), torch.zeros_like(targets_OI)),
                     ), dim=1)
 
             # yGT        = torch.cat((targets_OI,targets_GT-targets_OI),dim=1)
@@ -331,21 +331,27 @@ class LitModel(LitCalModel):
             loss = 0
             if self.hparams.loss_glob:
                 loss += self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
+                # print('#############', loss, 1)
 
 
             if (self.hparams.loss_loc if hasattr(self.hparams, 'loss_loc') else 1):
                 alpha_mse = self.hparams.alpha_loc_mse_ssh if hasattr(self.hparams, 'alpha_loc_mse_ssh') else self.hparams.alpha_mse_ssh
                 alpha_gmse = self.hparams.alpha_loc_mse_gssh if hasattr(self.hparams, 'alpha_loc_mse_gssh') else self.hparams.alpha_mse_gssh
                 loss += alpha_mse * loss_swath * 20
+                # print('#############', loss, 2)
                 loss += alpha_gmse * loss_grad_swath * 20
+                # print('#############', loss, 3)
 
             if self.hparams.loss_err:
                 loss += self.hparams.alpha_err_mse_ssh * loss_err_swath
+                # print('#############', loss, 4)
 
             if (self.hparams.loss_proj if hasattr(self.hparams, 'loss_proj') else 1):
                 loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
+                # print('#############', loss, 5)
             if (self.hparams.loss_low_res if hasattr(self.hparams, 'loss_low_res') else 1):
                 loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
+                # print('#############', loss, 6)
             # metrics
             mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
             mse = loss_All.detach()

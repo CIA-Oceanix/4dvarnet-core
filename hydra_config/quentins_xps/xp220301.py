@@ -72,5 +72,5 @@ for xp_name, xp_defaults in XPS.items():
     cs.store(f'qxp4_{xp_name}', node={'xp_name': xp_name, 'defaults': xp_defaults + ['_self_']}, package='_global_', group='xp')
 
 if __name__== '__main__':
-    for xp in cs.list('loc_estim'):
+    for xp in cs.list('xp'):
         print(xp)
