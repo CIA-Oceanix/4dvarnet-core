@@ -610,12 +610,12 @@ class LitModelAugstate(pl.LightningModule):
 
             if self.aug_state:
                 yGT = torch.cat((targets_OI,
-                                 targets_GT_wo_nan - outputsSLR,
-                                 targets_GT_wo_nan - outputsSLR),
+                                 targets_GT_wo_nan - targets_OI,
+                                 targets_GT_wo_nan - targets_OI),
                                 dim=1)
             else:
                 yGT = torch.cat((targets_OI,
-                                 targets_GT_wo_nan - outputsSLR),
+                                 targets_GT_wo_nan - targets_OI),
                                 dim=1)
             # yGT        = torch.cat((targets_OI,targets_GT-targets_OI),dim=1)
             loss_AE_GT = torch.mean((self.model.phi_r(yGT) - yGT) ** 2)
