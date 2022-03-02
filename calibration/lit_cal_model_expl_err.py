@@ -78,7 +78,6 @@ class ModelHWithExplicitError(torch.nn.Module):
 
 
     def forward(self, x, y, mask):
-        returns = []
         dyouts = []
         if self.use_sst:
             y_ssh, y_sst = y
@@ -86,7 +85,6 @@ class ModelHWithExplicitError(torch.nn.Module):
 
             y_hat_no_err = self.get_y_hat(x, loc=False, err=False)
             dyout1 = self.sst_cost(y_hat_no_err, y_sst, mask_sst)
-            returns.append(dyout1)
 
         else:
             y_ssh = y 
@@ -101,8 +99,10 @@ class ModelHWithExplicitError(torch.nn.Module):
             dyouts.append(self.ssh_cost(y_hat_loc_err, y_ssh, mask_ssh))
         
         dyouts =  torch.stack(dyouts).sum(0)
-        returns = [dyouts] + returns
-        return tuple(returns)
+        if self.use_sst:
+            return dyouts, dyout1
+
+        return dyouts
 
 
 class PhiRWrapper(torch.nn.Module):
