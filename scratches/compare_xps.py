@@ -22,6 +22,19 @@ Dev
 display(Markdown(s))
 
 
+def main():
+    try:
+        fn = test_models_on_diff_noises
+        # fn = data_stats
+        # fn = plot_results
+
+        locals().update(fn())
+    except Exception as e:
+        print('I am here')
+        print(traceback.format_exc()) 
+    finally:
+        return locals()
+
 cs = ConfigStore.instance()
 
 
@@ -79,18 +92,6 @@ importlib.reload(calibration.dataset)
 importlib.reload(hydra_main)
 import json
 
-def main():
-    try:
-        fn = test_models_on_diff_noises
-        # fn = data_stats
-        # fn = plot_results
-
-        locals().update(fn())
-    except Exception as e:
-        print('I am here')
-        print(traceback.format_exc()) 
-    finally:
-        return locals()
 
 def foo():
 

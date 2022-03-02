@@ -1,4 +1,6 @@
 import inspect
+from git.repo import Repo as GitRepo
+from git import IndexFile
 import os
 import traceback
 import hydra
@@ -21,7 +23,7 @@ import subprocess
 """
 
 XP_FILE_NAME = "xp_config"
-HOME_SYMLINK = "__home"
+# HOME_SYMLINK = "__home"
 
 class DvcStageBuilder:
     def __init__(self):
@@ -33,8 +35,8 @@ class DvcStageBuilder:
     def init_attrs(self):
         self.options = []
         self.base_cmd = ["dvc", "stage", "add", "--force"]
-        # self.app_cmd =  [f"PYTHONPATH={rel_with_backward_search('.')} python -m dvc_main.run"]
-        self.app_cmd =  [f"PYTHONPATH=__home python -m dvc_main.run"]
+        self.app_cmd =  ["PYTHONPATH=${original_cwd:} python -m dvc_main.run"]
+        # self.app_cmd =  [f"PYTHONPATH=__home python -m dvc_main.run"]
         # self.app_cmd =  [f"python dvc_main/run.py"]
 
 
@@ -53,6 +55,31 @@ class DvcStageBuilder:
         return cmd
 
 
+
+def commit_cwd(branch, message, repo=None):
+    # TODO : full test suite with fixtures
+    # TODO : test with Keyboard interrupt
+    repo = repo or GitRepo('.')
+    index = IndexFile(repo)
+    log_branch = getattr(repo.heads, branch, False) or repo.create_head(branch)
+
+    to_add = (
+                     set(repo.untracked_files)
+                     | set([d.a_path or d.b_path for d in index.diff(None) if d.change_type != 'D'])
+                     | set([d.a_path or d.b_path for d in index.diff(repo.head.commit) if d.change_type != 'A'])
+             ) - set([d.a_path or d.b_path for d in index.diff(None) if d.change_type == 'D'])
+
+    index.add(
+        to_add,
+        force=False,
+        write=False,
+        write_extension_data=True,
+    )
+
+    log_commit = index.commit(message, parent_commits=[log_branch.commit], head=False)
+    log_branch.commit = log_commit
+    return log_commit
+
 def rel_with_backward_search(path_a, path_b=None):
     if path_b is None:
         path_b = '.'
@@ -68,19 +95,22 @@ def rel_with_backward_search(path_a, path_b=None):
             ).relative_to(path_b)
     )
 
-def rel_with_symlink(path_a):
-    abs_a = Path(hydra.utils.to_absolute_path(path_a))
-    abs_b = Path(hydra.utils.to_absolute_path('.'))
-    common_parent = max(set(abs_a.parents) & set(abs_b.parents), key=lambda p: len(str(p)))
+# def rel_with_symlink(path_a):
+#     abs_a = Path(hydra.utils.to_absolute_path(path_a))
+#     abs_b = Path(hydra.utils.to_absolute_path('.'))
+#     common_parent = max(set(abs_a.parents) & set(abs_b.parents), key=lambda p: len(str(p)))
 
-    return str(
-             Path(HOME_SYMLINK) / (
-                 abs_b /
-                '/'.join(['..'] * len(list(abs_b.relative_to(common_parent).parents))) /
-                abs_a.relative_to(common_parent)
-            ).relative_to(abs_b)
-    )
+#     return str(
+#              Path(HOME_SYMLINK) / (
+#                  abs_b /
+#                 '/'.join(['..'] * len(list(abs_b.relative_to(common_parent).parents))) /
+#                 abs_a.relative_to(common_parent)
+#             ).relative_to(abs_b)
+#     )
 def register_resolvers(stage_builder):
+        OmegaConf.register_new_resolver(
+            "original_cwd", hydra.utils.get_original_cwd, replace=True
+        )
 
         OmegaConf.register_new_resolver(
             "cwd", os.getcwd, replace=True
@@ -88,9 +118,9 @@ def register_resolvers(stage_builder):
         OmegaConf.register_new_resolver(
             "rel_path", rel_with_backward_search, replace=True
         )
-        OmegaConf.register_new_resolver(
-            "rel_sl_path", rel_with_symlink, replace=True
-        )
+        # OmegaConf.register_new_resolver(
+        #     "rel_sl_path", rel_with_symlink, replace=True
+        # )
         OmegaConf.register_new_resolver(
            "aprl", stage_builder.add_opt, replace=True
         )
@@ -103,33 +133,25 @@ def dvc_dump(cfg):
     sb = DvcStageBuilder()
     register_resolvers(sb)
     OmegaConf.resolve(cfg)
+    OmegaConf.resolve(cfg)
     Path(f'{ XP_FILE_NAME }.yaml').write_text(OmegaConf.to_yaml(cfg))
     print(cfg.dvc.create_stage_cmd)
     # with open(cfg.dvc.get('log_file', 'dvc.log'), 'w') as f:
     ret_code_dump= subprocess.run(shlex.split(cfg.dvc.create_stage_cmd))
     ret_code_dump.check_returncode()
 
-    if cfg.dvc.mk_home_symlink:
-        print("Making home symlink")
-        Path(HOME_SYMLINK).unlink(missing_ok=True)
-        os.symlink(hydra.utils.get_original_cwd(),HOME_SYMLINK, target_is_directory=True)
+    # if cfg.dvc.mk_home_symlink:
+    #     print("Making home symlink")
+    #     Path(HOME_SYMLINK).unlink(missing_ok=True)
+    #     os.symlink(hydra.utils.get_original_cwd(),HOME_SYMLINK, target_is_directory=True)
 
     print(cfg.dvc.run_cmd)
     # ret_code_run= subprocess.check_call(shlex.split(cfg.dvc.run_cmd))
     # ret_code_run= subprocess.run(shlex.split(cfg.dvc.run_cmd), shell=True)
     ret_code_run= subprocess.run(cfg.dvc.run_cmd, shell=True)
-    ret_code_run.check_returncode()
+    # ret_code_run.check_returncode()
+    print('I am out')
 
-def test_xp(cfg):
-    print("Should be here")
-    import hashlib
-    out_path = 'test_xp_out.txt'
-    out_s = ""
-    dep1  = hashlib.md5(Path(cfg.dvc.deps[0]).read_bytes())
-
-    out_s += f"{dep1}\n"
-    out_s += f"{cfg.params.loss_loc}\n"
-    Path(out_path).write_text(out_s)
 
 def dvc_execute():
     try:

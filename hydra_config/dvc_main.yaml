@@ -1,8 +1,8 @@
 hydra:
   run:
-    dir: xps/${oc.select:xp_name,.}
+    dir: xps/current/${oc.select:xp_name,.}
   sweep:
-    dir: xps
+    dir: xps/current
     subdir: ${oc.select:xp_name,.}
 
 seed: 0
@@ -12,4 +12,5 @@ defaults:
   - entrypoint: run
   - xp: ???
   - _self_
+  # - override hydra/launcher: joblib
 

@@ -1,4 +1,5 @@
 import einops
+import shutil
 import torch.distributed as dist
 import kornia
 from hydra.utils import instantiate
@@ -21,6 +22,48 @@ from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, pl
 from models import Phi_r, ModelLR, Gradient_img
 
 from calibration.models import get_passthrough, get_vit
+
+
+class Model_H_explicit_errors(torch.nn.Module):
+
+    """
+    state: [oi, anom_glob, anom_swath, error_glob, error_swath]
+
+    obs: [oi, obs]
+    mask: [ones, obs_mask]
+    """
+    def __init__(self, shape_data, shape_obs, hparams=None):
+        super().__init__()
+        self.hparams = hparams
+        self.dim_obs = 1
+        self.dim_obs_channel = np.array([shape_obs])
+        self.components
+
+
+
+    def forward(self, x, y, mask):
+        aug_state = self.hparams.get('aug_state', False)
+        if aug_state:
+            if aug_state == 2:
+                output_low_res,  output_anom_glob, output_anom_swath, _, _ = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
+            else:
+                output_low_res,  output_anom_glob, output_anom_swath, _ = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
+        else: 
+            output_low_res,  output_anom_glob, output_anom_swath = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
+        output_global = output_low_res + output_anom_glob
+
+        if self.hparams.swot_anom_wrt == 'low_res':
+            output_swath = output_low_res + output_anom_swath
+        elif self.hparams.swot_anom_wrt == 'high_res':
+            output_swath = output_global + output_anom_swath
+
+
+        yhat_glob = torch.cat((output_low_res, output_global), dim=1)
+        yhat_swath = torch.cat((output_low_res, output_swath), dim=1)
+        dyout_glob = (yhat_glob - y) * mask
+        dyout_swath = (yhat_swath - y) * mask
+
+        return dyout_glob + dyout_swath
 
 class Model_H_with_noisy_Swot(torch.nn.Module):
     """
@@ -111,28 +154,6 @@ class Model_H_SST_with_noisy_Swot(torch.nn.Module):
 
         return [dyout, dyout1]
 
-# Aurélie Albert referente données soft 
-# Johanna CNN multi modal avec attention prediction chlorophile
-# Batimetrie: profondeur de l'ocean important pour les courants
-
-# Artefacts sst
-# TODO: ref donnée journalière vs snapshot
-# TODO: utiliser la sst uniquement pour la fauchée
-# TODO: etat augmenté
-# TODO: Check 2 termes d'observation SST 
-# TODO: apprendre post traitement 
-
-
-# Artefacts NATL
-
-# TODO: test prediction tout le domaine
-# TODO: test prediction sur plus gradn domaine 
-# TODO: Plusieurs cartes  
-
-# Artefacts calib natl
-
-# TODO: chekc plusieurs journées
-# TODO: demander à Clément dans le design des chaine de cross calib est-ce qu'ils ont refléchit à soustraire le dac  ou bien regarde -t il que en ocean ouvert
 
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
@@ -180,9 +201,6 @@ def get_constant_crop(patch_size, crop, dim_order=['time', 'lat', 'lon']):
         print(patch_weight.sum())
         return patch_weight
 
-# msk = get_constant_crop({'lat':200, 'lon':200, 'time':5}, crop={'lat':20, 'lon':20, 'time':2})
-# print(msk.shape)
-# plt.imshow(msk[2, ...])
 ############################################ Lightning Module #######################################################################
 
 class LitCalModel(pl.LightningModule):
@@ -430,6 +448,7 @@ class LitCalModel(pl.LightningModule):
             return 
 
         full_outputs = [torch.load(f) for f in sorted(data_path.glob('*'))]
+        shutil.rmtree(data_path)
 
         print(len(full_outputs))
         if log_pref == 'test':
@@ -511,7 +530,7 @@ class LitCalModel(pl.LightningModule):
 
         Path(self.logger.log_dir).mkdir(exist_ok=True)
         # display map
-        path_save0 = self.logger.log_dir + '/maps.png'
+        path_save0 = self.logger.log_dir + f'/{log_pref} maps.png'
         t_idx = 3
         fig_maps = plot_maps(
                   self.x_gt[t_idx],
@@ -519,7 +538,7 @@ class LitCalModel(pl.LightningModule):
                   self.x_oi[t_idx],
                   self.x_rec[t_idx],
                   self.test_lon, self.test_lat, path_save0)
-        path_save01 = self.logger.log_dir + '/maps_Grad.png'
+        path_save01 = self.logger.log_dir + f'/{log_pref} maps_Grad.png'
         fig_maps_grad = plot_maps(
                   self.x_gt[t_idx],
                 self.obs_inp[t_idx],
@@ -531,7 +550,7 @@ class LitCalModel(pl.LightningModule):
         self.logger.experiment.add_figure(f'{log_pref} Maps', fig_maps, global_step=self.current_epoch)
         self.logger.experiment.add_figure(f'{log_pref} Maps Grad', fig_maps_grad, global_step=self.current_epoch)
 
-        path_save02 = self.logger.log_dir + '/maps_obs.png'
+        path_save02 = self.logger.log_dir + f'/{log_pref} maps_obs.png'
         fig_maps = plot_maps(
                 self.obs_gt[t_idx],
                 self.obs_inp[t_idx],
@@ -543,13 +562,13 @@ class LitCalModel(pl.LightningModule):
 
         # animate maps
         if self.hparams.animate == True:
-            path_save0 = self.logger.log_dir + '/animation.mp4'
+            path_save0 = self.logger.log_dir + f'/{log_pref} animation.mp4'
             animate_maps(self.x_gt,
                     self.x_oi,
                     self.x_rec,
                     self.lon, self.lat, path_save0)
             # save NetCDF
-        path_save1 = self.logger.log_dir + f'/test.nc'
+        path_save1 = self.logger.log_dir + f'/{log_pref} data.nc'
         # PENDING: replace hardcoded 60
         self.test_xr_ds.to_netcdf(path_save1)
         # save_netcdf(saved_path1=path_save1, pred=self.x_rec,
@@ -581,40 +600,35 @@ class LitCalModel(pl.LightningModule):
 
         nrmse_df = nrmse_fn('pred', 'oi', 'gt')
         mse_df = mse_fn('pred', 'oi', 'gt')
-        nrmse_df.to_csv(self.logger.log_dir + '/nRMSE.txt')
-        mse_df.to_csv(self.logger.log_dir + '/MSE.txt')
-
-        # compute nRMSE on swath
-        path_save23 = self.logger.log_dir + '/nRMSE_swath.txt'
 
         nrmse_swath_df = nrmse_fn('obs_pred', 'obs_inp', 'obs_gt')
         mse_swath_df = mse_fn('obs_pred', 'obs_inp', 'obs_gt')
-        nrmse_df.to_csv(self.logger.log_dir + '/nRMSE_swath.txt')
-        mse_df.to_csv(self.logger.log_dir + '/MSE_swath.txt')
+        nrmse_df.to_csv(self.logger.log_dir + f'/{log_pref} nRMSE_swath.txt')
+        mse_df.to_csv(self.logger.log_dir + f'/{log_pref} MSE_swath.txt')
         # plot nRMSE
         # PENDING: replace hardcoded 60
-        path_save3 = self.logger.log_dir + '/nRMSE.png'
+        path_save3 = self.logger.log_dir + f'/{log_pref} nRMSE.png'
         nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, time=self.test_dates)
         self.test_figs['nrmse'] = nrmse_fig
-        self.logger.experiment.add_figure(f'{log_pref} NRMSE', nrmse_fig, global_step=self.current_epoch)
+        self.logger.experiment.add_figure(f'/{log_pref} NRMSE', nrmse_fig, global_step=self.current_epoch)
         # plot SNR
-        path_save4 = self.logger.log_dir + '/SNR.png'
+        path_save4 = self.logger.log_dir + f'/{log_pref} SNR.png'
         snr_fig = plot_snr(self.x_gt, self.x_oi, self.x_rec, path_save4)
         self.test_figs['snr'] = snr_fig
 
-        self.logger.experiment.add_figure(f'{log_pref} SNR', snr_fig, global_step=self.current_epoch)
+        self.logger.experiment.add_figure(f'/{log_pref} SNR', snr_fig, global_step=self.current_epoch)
         
         fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt, self.test_xr_ds.pred, self.test_xr_ds.oi, with_fig=True)
         self.test_figs['res'] = fig
-        self.logger.experiment.add_figure(f'{log_pref} Spat. Resol', fig, global_step=self.current_epoch)
+        self.logger.experiment.add_figure(f'/{log_pref} Spat. Resol', fig, global_step=self.current_epoch)
         # PENDING: Compute metrics on swath
         psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
         psd_fig = metrics.plot_psd_score(psd_ds)
-        self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
+        self.logger.experiment.add_figure(f'/{log_pref} PSD', psd_fig, global_step=self.current_epoch)
         self.test_figs['psd'] = fig
         _, _, mu, sig = metrics.rmse_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
 
-        mdf = pd.concat([
+        _mdf = pd.concat([
             nrmse_df.rename(columns=lambda c: f'{log_pref}_{c}_glob').loc['pred'].T,
             mse_df.rename(columns=lambda c: f'{log_pref}_{c}_glob').loc['pred'].T,
             nrmse_swath_df.rename(columns=lambda c: f'{log_pref}_{c}_swath').loc['obs_pred'].T,
@@ -627,17 +641,18 @@ class LitCalModel(pl.LightningModule):
             f'{log_pref}_lambda_t': lamb_t,
             f'{log_pref}_mu': mu,
             f'{log_pref}_sigma': sig,
-            **mdf.to_dict(), 
+            **_mdf.to_dict(), 
         }
+        mdf = pd.DataFrame([md])
+        metrics_path =Path(self.logger.log_dir).parent / 'metrics'
+        metrics_path.mkdir(exist_ok=True)
+        mdf.to_json(metrics_path / f'{log_pref}.json')
+
         self.latest_metrics.update(md)
-        print(pd.DataFrame([md]).T.to_markdown())
-        self.logger.log_metrics(
-                {
-                    f'{log_pref}_spatial_res': float(spatial_res_model),
-                    f'{log_pref}_spatial_res_imp': float(spatial_res_model / spatial_res_oi),
-                **mdf.to_dict(),
-            },
-        step=self.current_epoch)
+        print(mdf.T.to_markdown())
+        self.logger.log_metrics(md ,step=self.current_epoch)
+
+        
 
     def teardown(self, stage='test'):
         
@@ -841,3 +856,44 @@ class LitCalModel(pl.LightningModule):
             # PENDING: Add new loss term to metrics
 
         return loss, outputs, metrics
+
+
+if  __name__ == '__main__':
+    import hydra
+    import torch
+    import re
+    import matplotlib.pyplot as plt
+    import re
+    from hydra.utils import instantiate, get_class, call
+    from hydra.core.config_store import ConfigStore
+    from hydra_main import FourDVarNetHydraRunner
+    import pytorch_lightning as pl
+    import pandas as pd
+    from pathlib import Path
+    import traceback
+    import hydra_config
+    from IPython.display import display, Markdown, Latex, HTML
+
+    s = """
+    ## TODO
+    - [ ]  Use term without errors in sst comp
+    - [ ]  Use aug state as explicit error terms
+    - [ ]  Add normalization term
+    """
+    display(Markdown(s))
+
+
+    def main():
+        try:
+            fn = test_models_on_diff_noises
+
+            locals().update(fn())
+        except Exception as e:
+            print('I am here')
+            print(traceback.format_exc()) 
+        finally:
+            return locals()
+
+        """
+
+        """
