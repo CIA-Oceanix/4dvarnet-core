@@ -5,7 +5,7 @@ params:
   norm_prior: 'l2'
 lit_mod_cls: lit_model.LitModel
 datamodule:
-  _target_: new_dataloading.FourDVarNetDataModule
+  _target_: dataloading.FourDVarNetDataModule
   slice_win:
     lat: 200
     lon: 200
@@ -18,7 +18,7 @@ datamodule:
     - _target_: builtins.slice
       _args_: ['2012-10-01', '2012-11-20']
     - _target_: builtins.slice
-      _args_: ['2013-02-07', '2013-09-30']
+      _args_: ['2013-02-07', '2013-09-10']
   test_slices: 
     - _target_: builtins.slice
       _args_: ['2013-01-03', '2013-01-27']

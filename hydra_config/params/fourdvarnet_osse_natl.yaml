@@ -5,14 +5,12 @@ files_cfg:
   obs_mask_var: ssh_obs
   gt_path: ${file_paths.gt_path}
   gt_var: ssh
-  #  sst_path: ${file_paths.sst_path}
-  #  sst_var: sst
-  sst_path: null
-  sst_var: null
+  sst_path: ${file_paths.sst_path}
+  sst_var: sst
 iter_update:
   - 0
-  - 2
-  - 4
+  - 20
+  - 40
   - 60
   - 100
   - 150
@@ -30,7 +28,7 @@ nb_grad_update:
 lr_update:
   - 0.001
   - 0.0001
-  - 0.0001
+  - 0.001
   - 0.0001
   - 0.0001
   - 1.0e-05 
@@ -52,9 +50,9 @@ dW2: 1
 sS: 4
 nbBlocks: 1 
 Nbpatches: 1
-stochastic: true
-size_ensemble: 5
-animate: false 
+stochastic: false
+size_ensemble: 1
+animate: true
 supervised: true
 batch_size: 2
 DimAE: 25 
