@@ -52,7 +52,7 @@ XPS = {
                 ('map', 'true', 'false', 'none', 'false'),
                 ('map', 'true', 'true', 'same', 'false'),
                 ('map', 'true', 'true', 'diff', 'false'),
-                ('map', 'true', 'true', 'same', 'true'),
+                ('calmap', 'true', 'true', 'same', 'true'),
         ]},
         '5nad_base_sst': [ *BASE_DEFAULTS, losses['map'], sst['yes'], obs['5nad'], err_scaling['false'], err_loss['false'], err_prior['none'], loc_estim['false']],
         'errs_base_sst': [ *BASE_DEFAULTS, losses['map'], sst['yes'], obs['errs'], err_scaling['false'], err_loss['false'], err_prior['none'], loc_estim['false']],
@@ -64,7 +64,7 @@ XPS = {
                 ('map', 'true', 'false', 'none', 'false'),
                 ('map', 'true', 'true', 'same', 'false'),
                 ('map', 'true', 'true', 'diff', 'false'),
-                ('map', 'true', 'true', 'same', 'true'),
+                ('calmap', 'true', 'true', 'same', 'true'),
         ]},
 }
 

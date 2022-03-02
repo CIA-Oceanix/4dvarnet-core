@@ -298,13 +298,14 @@ class LitCalModel(pl.LightningModule):
         if len(best_ckpt_path) > 0:
             def should_reload_ckpt(losses):
                 diffs = losses.diff()
-                if losses.max() > (10 * losses.min()):
-                    print("Reloading because of check", 1)
-                    return True
+                if (losses.argmax() > losses.argmin()):
+                    if (losses.max() > (10 * losses.min())):
+                        print("Reloading because of check", 1)
+                        return True
 
-                if diffs.max() > (100 * diffs.abs().median()):
-                    print("Reloading because of check", 2)
-                    return True
+                    if diffs.max() > (100 * diffs.abs().median()):
+                        print("Reloading because of check", 2)
+                        return True
 
             if should_reload_ckpt(torch.stack([out['loss'] for out in outputs])):
                 print('reloading', best_ckpt_path)

@@ -346,6 +346,9 @@ class LitModel(LitCalModel):
                 loss += self.hparams.alpha_err_mse_ssh * loss_err_swath
                 # print('#############', loss, 4)
 
+            if self.hparams.train_error_scaling:
+                loss += 0.1 * max((outputs**2).mean() - (targets_OI**2).mean(), 0)
+
             if (self.hparams.loss_proj if hasattr(self.hparams, 'loss_proj') else 1):
                 loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
                 # print('#############', loss, 5)
