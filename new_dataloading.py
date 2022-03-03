@@ -30,17 +30,6 @@ def parse_resolution_to_float(frac):
     if n is None: i, n = 0, i
     return float(i) + float(n) / float(d)
 
-
-def find_pad(sl, st, N):
-    k = np.floor(N/st)
-    if N>((k*st) + (sl-st)):
-        pad = (k+1)*st + (sl-st) - N
-    elif N<((k*st) + (sl-st)):
-        pad = (k*st) + (sl-st) - N
-    else:
-        pad = 0
-    return int(pad/2), int(pad-int(pad/2))
-
 class XrDataset(Dataset):
     """
     torch Dataset based on an xarray file with on the fly slicing.
