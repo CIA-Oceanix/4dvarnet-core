@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: xp_augstate
+xp_name: xp_osmosis
 defaults:
   - /xp/xp_aug/base_xp
   - /splits/dc_boost_swot@datamodule
