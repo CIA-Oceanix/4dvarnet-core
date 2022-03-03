@@ -3,11 +3,11 @@
 datamodule:
   slice_win: 
     lat: 400
-    lon: 620
+    lon: 160
     time: 5
   strides: 
     lat: 400
-    lon: 620
+    lon: 160
     time: 1
 params:
   patch_weight:
