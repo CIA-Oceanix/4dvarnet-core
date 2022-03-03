@@ -2,12 +2,12 @@
 
 datamodule:
   slice_win: 
-    lat: 760
-    lon: 1720
+    lat: 240
+    lon: 240
     time: 5
   strides: 
-    lat: 760
-    lon: 1720
+    lat: 240
+    lon: 240
     time: 1
 params:
   patch_weight:
