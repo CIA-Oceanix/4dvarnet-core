@@ -303,20 +303,20 @@ class LitModel(LitCalModel):
 
             # projection losses
             loss_AE = self.loss_ae(outputs)
-            
+
             if self.hparams.loc_estim:
                 yGT = torch.cat((
                     targets_OI,
                     targets_GT_wo_nan - targets_OI,
-                    (inputs_obs - targets_GT_wo_nan).where(target_obs_GT.isfinite(), torch.zeros_like(targets_OI)),
+                    (inputs_obs - targets_GT_wo_nan).where(target_obs_GT.isfinite(), torch.zeros_like(targets_OI)) / 10**self.model.model_H.err_scaling,
                     (target_obs_GT_wo_nan - targets_OI).where(target_obs_GT.isfinite(), targets_GT_wo_nan - targets_OI),
-                    (inputs_obs - target_obs_GT_wo_nan).where(target_obs_GT.isfinite(), torch.zeros_like(targets_OI)),
+                    (inputs_obs - target_obs_GT_wo_nan).where(target_obs_GT.isfinite(), torch.zeros_like(targets_OI))/ 10**self.model.model_H.err_scaling,
                     ), dim=1)
             else:
                 yGT = torch.cat((
                     targets_OI,
                     targets_GT_wo_nan - targets_OI,
-                    (inputs_obs - targets_GT_wo_nan).where(target_obs_GT.isfinite(), torch.zeros_like(targets_OI)),
+                    (inputs_obs - targets_GT_wo_nan).where(target_obs_GT.isfinite(), torch.zeros_like(targets_OI))/ 10**self.model.model_H.err_scaling,
                     ), dim=1)
 
             # yGT        = torch.cat((targets_OI,targets_GT-targets_OI),dim=1)
