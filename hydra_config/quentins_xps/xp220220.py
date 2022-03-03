@@ -132,3 +132,6 @@ for d in [
 
 
 
+if __name__== '__main__':
+    for xp in cs.list('xp'):
+        print(xp)

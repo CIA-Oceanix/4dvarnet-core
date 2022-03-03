@@ -43,7 +43,7 @@ class ModelHWithExplicitError(torch.nn.Module):
         self.use_loc_estim = hparams.loc_estim
         if self.use_loc_estim:
             assert shape_data == 5 * hparams.dT , 'sanity check fail'
-        self.err_scaling = torch.nn.Parameter(torch.scalar_tensor(0.), requires_grad=hparams.train_error_scaling)
+        self.err_scaling = torch.nn.Parameter(torch.scalar_tensor(self.hparams.init_err_scaling), requires_grad=hparams.train_error_scaling)
         if self.use_sst:
             ssh_ch = 2*hparams.dT 
             sst_ch = hparams.dT
