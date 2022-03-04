@@ -80,17 +80,19 @@ class LitModelAugstate(pl.LightningModule):
             'phi': get_phi,
         }
 
-    def __init__(self, hparam=None,
-                               min_lon=None, max_lon=None,
-                               min_lat=None, max_lat=None,
-                               ds_size_time=None,
-                               ds_size_lon=None,
-                               ds_size_lat=None,
-                               time=None,
-                               dX = None, dY = None,
-                               swX = None, swY = None,
-                               coord_ext = None,
-                               *args, **kwargs):
+    def __init__(self,
+                 hparam=None,
+                 min_lon=None, max_lon=None,
+                 min_lat=None, max_lat=None,
+                 ds_size_time=None,
+                 ds_size_lon=None,
+                 ds_size_lat=None,
+                 time=None,
+                 dX = None, dY = None,
+                 swX = None, swY = None,
+                 coord_ext = None,
+                 test_domain=None,
+                 *args, **kwargs):
         super().__init__()
         hparam = {} if hparam is None else hparam
         hparams = hparam if isinstance(hparam, dict) else OmegaConf.to_container(hparam, resolve=True)
@@ -104,6 +106,7 @@ class LitModelAugstate(pl.LightningModule):
         self.var_Tt = self.hparams.var_Tt
 
         # create longitudes & latitudes coordinates
+        self.test_domain=test_domain
         self.test_coords = None
         self.test_ds_patch_size = None
         self.test_lon = None
@@ -366,7 +369,7 @@ class LitModelAugstate(pl.LightningModule):
 
         self.test_xr_ds = (
             (fin_ds.drop('weight') / fin_ds.weight)
-            .sel(instantiate(self.hparams.test_domain))
+            .sel(instantiate(self.test_domain))
             .pipe(lambda ds: ds.sel(time=~(np.isnan(ds.gt).all('lat').all('lon'))))
         ).transpose('time', 'lat', 'lon')
 
