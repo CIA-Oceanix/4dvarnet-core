@@ -413,8 +413,8 @@ class Solver_Grad_4DVarNN(nn.Module):
 
     def var_cost(self , x, yobs, mask):
         dy = self.model_H(x,yobs,mask)
-        dx = x - torch.index_select(self.phi_r(x),1,torch.from_numpy(np.arange(self.shape_data[0])).to(device))
-        
+        dx = x - self.phi_r(x)
+
         loss = self.model_VarCost( dx , dy )
         
         var_cost_grad = torch.autograd.grad(loss, x, create_graph=True)[0]

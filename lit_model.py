@@ -209,9 +209,7 @@ class LitModel(pl.LightningModule):
         self.test_figs['maps'] = fig_maps
         self.test_figs['maps_grad'] = fig_maps_grad
         # animate maps
-        toto=False
-        #if self.hparams.animate:
-        if toto:
+        if self.hparams.animate:
             path_save0 = self.logger.log_dir + '/animation.mp4'
             animate_maps(self.x_gt,
                          self.x_obs,

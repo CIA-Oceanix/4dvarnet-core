@@ -145,7 +145,7 @@ class XrDataset(Dataset):
 
         # reorder dimensions, this ensures dims ordering using
         # DataArray.data is consistent in numpy arrays (batch,time,lat,lon)
-        # self.ds = self.ds.transpose('time', 'lat', 'lon')
+        self.ds = self.ds.transpose('time', 'lat', 'lon')
 
         # convert dask arrays to xr.DataArrays for faster computations
         if compute:
