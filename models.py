@@ -108,6 +108,7 @@ class Phi_r(torch.nn.Module):
         super().__init__()
         self.stochastic = stochastic
         self.encoder = Encoder(shape_data, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
+        #self.encoder = Encoder(shape_data, 2*shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
         self.decoder = Decoder()
         self.correlate_noise = CorrelateNoise(shape_data, 10)
         self.regularize_variance = RegularizeVariance(shape_data, 10)
@@ -116,13 +117,11 @@ class Phi_r(torch.nn.Module):
         white = True
         if self.stochastic == True:
             # pure white noise
-            z = torch.randn([x.shape[0],x.shape[1],x.shape[2],x.shape[3]]).to(device)
+            z = torch.randn([x.shape[0],x.shape[1],x.shape[2],x.shape[3]]).to(device)        
             # correlated noise with regularization of the variance
             # z = torch.mul(self.regularize_variance(x),self.correlate_noise(z))
-            # z = z/torch.std(z)
-            # print(stats.describe(z.detach().cpu().numpy()))
+            z = z/torch.std(x)
             x = self.encoder(x+z)
-            #x = self.encoder(torch.cat([x,z],dim=1))
         else:
             x = self.encoder(x)
         x = self.decoder(x)

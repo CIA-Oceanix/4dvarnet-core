@@ -261,8 +261,8 @@ class FourDVarNetDataset(Dataset):
         return min(len(self.oi_ds), len(self.gt_ds), len(self.obs_mask_ds))
 
     def coordXY(self):
-        # return self.gt_ds.lon, self.gt_ds.lat
-        return self.gt_ds.ds.lon.data, self.gt_ds.ds.lat.data
+        return self.gt_ds.lon, self.gt_ds.lat
+        #return self.gt_ds.ds.lon.data, self.gt_ds.ds.lat.data
 
     def __getitem__(self, item):
         mean, std = self.norm_stats
