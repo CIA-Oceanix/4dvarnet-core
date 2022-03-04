@@ -120,6 +120,7 @@ class FourDVarNetHydraRunner:
                                swX=self.swX, swY=self.swY,
                                coord_ext = {'lon_ext': self.lon,
                                             'lat_ext': self.lat},
+                               test_domain=self.cfg.test_domain,
                                resolution=self.resolution,
                                )
         return mod

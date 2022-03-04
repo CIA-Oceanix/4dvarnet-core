@@ -134,6 +134,7 @@ class LitModelAugstate(pl.LightningModule):
 
         self.w_loss = torch.nn.Parameter(torch.Tensor(self.patch_weight), requires_grad=False)  # duplicate for automatic upload to gpu
         self.x_gt = None  # variable to store Ground Truth
+        self.obs_inp = None
         self.x_oi = None  # variable to store OI
         self.x_rec = None  # variable to store output of test method
         self.test_figs = {}
