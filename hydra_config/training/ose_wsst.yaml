@@ -6,7 +6,7 @@ params:
   n_fourdvar_iter: 2
 lit_mod_cls: lit_model_sst.LitModelWithSST
 datamodule:
-  _target_: new_dataloading.FourDVarNetDataModule
+  _target_: dataloading.FourDVarNetDataModule
   slice_win:
     lat: 200
     lon: 200

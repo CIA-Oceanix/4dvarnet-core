@@ -55,12 +55,13 @@ class ConvLSTM2d(torch.nn.Module):
         # get batch and spatial sizes
         batch_size = input_.shape[0]
         spatial_size = input_.shape[2:]
+        """
         if self.stochastic == True:
             z = torch.randn(input_.shape).to(device)
             z = self.correlate_noise(z)
             z = (z-torch.mean(z))/torch.std(z)
             #z = torch.mul(self.regularize_variance(z),self.correlate_noise(z))
-
+        """
         # generate empty prev_state, if None is provided
         if prev_state is None:
             state_size = [batch_size, self.hidden_size] + list(spatial_size)
@@ -73,10 +74,13 @@ class ConvLSTM2d(torch.nn.Module):
         prev_hidden, prev_cell = prev_state
 
         # data size is [batch, channel, height, width]
+        stacked_inputs = torch.cat((input_, prev_hidden), 1)
+        """
         if self.stochastic == False:
             stacked_inputs = torch.cat((input_, prev_hidden), 1)
         else:
             stacked_inputs = torch.cat((torch.add(input_,z), prev_hidden), 1)
+        """
 
         gates = self.Gates(stacked_inputs)
 
@@ -171,7 +175,7 @@ def compute_spatio_temp_weighted_loss(x2, w):
 class Model_WeightedL2Norm(torch.nn.Module):
     def __init__(self):
         super(Model_WeightedL2Norm, self).__init__()
- 
+
     def forward(self,x,w,eps=0.):
         loss_ = torch.nansum( x**2 , dim = 3)
         loss_ = torch.nansum( loss_ , dim = 2)
@@ -184,7 +188,7 @@ class Model_WeightedL2Norm(torch.nn.Module):
 class Model_WeightedL1Norm(torch.nn.Module):
     def __init__(self):
         super(Model_WeightedL1Norm, self).__init__()
- 
+
     def forward(self,x,w,eps):
 
         loss_ = torch.nansum( torch.sqrt( eps**2 + x**2 ) , dim = 3)
@@ -198,7 +202,7 @@ class Model_WeightedL1Norm(torch.nn.Module):
 class Model_WeightedLorenzNorm(torch.nn.Module):
     def __init__(self):
         super(Model_WeightedLorenzNorm, self).__init__()
- 
+
     def forward(self,x,w,eps):
 
         loss_ = torch.nansum( torch.log( 1. + eps**2 * x**2 ) , dim = 3)
@@ -212,7 +216,7 @@ class Model_WeightedLorenzNorm(torch.nn.Module):
 class Model_WeightedGMcLNorm(torch.nn.Module):
     def __init__(self):
         super(Model_WeightedL1Norm, self).__init__()
- 
+
     def forward(self,x,w,eps):
 
         loss_ = torch.nansum( 1.0 - torch.exp( - eps**2 * x**2 ) , dim = 3)
@@ -228,7 +232,7 @@ def compute_WeightedL2Norm1D(x2,w):
     loss_ = torch.nansum( loss_ , dim = 0)
     loss_ = torch.nansum( loss_ * w )
     loss_ = loss_ / (torch.sum(~torch.isnan(x2)) / x2.shape[1] )
-    
+
     return loss_
 
 # Gradient-based minimization using a LSTM using a (sub)gradient as inputs
@@ -318,7 +322,7 @@ class Model_Var_Cost(nn.Module):
             self.dim_state      = dim_state
         else:
             self.dim_state      = ShapeData[0]
-            
+
         # parameters for variational cost
         self.alphaObs    = torch.nn.Parameter(torch.Tensor(1. * np.ones((self.dim_obs,1))))
         self.alphaReg    = torch.nn.Parameter(torch.Tensor([1.]))
@@ -330,20 +334,20 @@ class Model_Var_Cost(nn.Module):
         self.WReg    = torch.nn.Parameter(torch.Tensor(np.ones(self.dim_state,)))
         self.epsObs = torch.nn.Parameter(0.1 * torch.Tensor(np.ones((self.dim_obs,))))
         self.epsReg = torch.nn.Parameter(torch.Tensor([0.1]))
-        
+
         self.normObs   = m_NormObs
         self.normPrior = m_NormPhi
-        
+
     def forward(self, dx, dy):
 
         loss = self.alphaReg**2 * self.normPrior(dx,self.WReg**2,self.epsReg)
-                
+
         if self.dim_obs == 1 :
             loss +=  self.alphaObs[0]**2 * self.normObs(dy,self.WObs[0,:]**2,self.epsObs[0])
         else:
             for kk in range(0,self.dim_obs):
                 loss +=  (
-                    self.alphaObs[kk]**2 
+                    self.alphaObs[kk]**2
                     * self.normObs(
                         dy[kk],
                         self.WObs[kk,0:dy[kk].size(1)]**2,
@@ -355,7 +359,7 @@ class Model_Var_Cost(nn.Module):
 
 # 4DVarNN Solver class using automatic differentiation for the computation of gradient of the variational cost
 # input modules: operator phi_r, gradient-based update model m_Grad
-# modules for the definition of the norm of the observation and prior terms given as input parameters 
+# modules for the definition of the norm of the observation and prior terms given as input parameters
 # (default norm (None) refers to the L2 norm)
 # updated inner modles to account for the variational model module
 class Solver_Grad_4DVarNN(nn.Module):
@@ -363,7 +367,7 @@ class Solver_Grad_4DVarNN(nn.Module):
             'l1': Model_WeightedL1Norm,
             'l2': Model_WeightedL2Norm,
     }
-    def __init__(self ,phi_r,mod_H, m_Grad, m_NormObs, m_NormPhi, ShapeData,n_iter_grad, stochastic=False, state_mod=None):
+    def __init__(self ,phi_r,mod_H, m_Grad, m_NormObs, m_NormPhi, shape_data,n_iter_grad, stochastic=False):
         super(Solver_Grad_4DVarNN, self).__init__()
         self.phi_r         = phi_r
 
@@ -371,20 +375,20 @@ class Solver_Grad_4DVarNN(nn.Module):
             m_NormObs =  Model_WeightedL2Norm()
         else:
             m_NormObs = self.NORMS[m_NormObs]()
-        if m_NormPhi == None:    
+        if m_NormPhi == None:
             m_NormPhi = Model_WeightedL2Norm()
         else:
             m_NormPhi = self.NORMS[m_NormPhi]()
-
+        self.shape_data = shape_data
         self.model_H = mod_H
         self.model_Grad = m_Grad
-        self.model_VarCost = Model_Var_Cost(m_NormObs, m_NormPhi, ShapeData, mod_H.dim_obs, mod_H.dim_obs_channel)
+        self.model_VarCost = Model_Var_Cost(m_NormObs, m_NormPhi, shape_data, mod_H.dim_obs, mod_H.dim_obs_channel)
 
         self.stochastic = stochastic
 
         with torch.no_grad():
             self.n_grad = int(n_iter_grad)
-        
+
     def forward(self, x, yobs, mask):
         return self.solve(
             x_0=x,
@@ -392,11 +396,11 @@ class Solver_Grad_4DVarNN(nn.Module):
             mask = mask)
 
     def solve(self, x_0, obs, mask):
-        x_k = torch.mul(x_0,1.) 
+        x_k = torch.mul(x_0,1.)
         hidden = None
-        cell = None 
+        cell = None
         normgrad_ = 0.
-        x_k_plus_1 = None 
+        x_k_plus_1 = None
         for _ in range(self.n_grad):
             x_k_plus_1, hidden, cell, normgrad_ = self.solver_step(x_k, obs, mask,hidden, cell, normgrad_)
 
@@ -418,13 +422,8 @@ class Solver_Grad_4DVarNN(nn.Module):
     def var_cost(self , x, yobs, mask):
         dy = self.model_H(x,yobs,mask)
         dx = x - self.phi_r(x)
-        
+
         loss = self.model_VarCost( dx , dy )
-        
+
         var_cost_grad = torch.autograd.grad(loss, x, create_graph=True)[0]
         return loss, var_cost_grad
-
-
-
-     
-

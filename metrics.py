@@ -217,8 +217,6 @@ def plot_maps(gt,obs,oi,pred,lon,lat,resfile,grad=False,
 
     extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
 
-    obs = np.where(np.isnan(gt),np.nan,obs)
-
     fig = plt.figure(figsize=(15,9))
     gs = gridspec.GridSpec(2, 4)
     gs.update(wspace=0.5)
@@ -229,7 +227,7 @@ def plot_maps(gt,obs,oi,pred,lon,lat,resfile,grad=False,
         ax4 = fig.add_subplot(gs[1, 2:], projection=crs)
         if grad:
             plot(ax1, lon, lat, gradient(gt, 2), r"$\nabla_{GT}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
-            plot(ax2, lon, lat, gradient(obs, 2), r"$\nabla_{OBS}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax2, lon, lat, np.where(np.isnan(obs), np.nan, 0.), "OBS (mask)", extent=extent, cmap=cm, norm=norm, colorbar=False)
             plot(ax3, lon, lat, gradient(oi, 2), r"$\nabla_{OI}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
             plot(ax4, lon, lat, gradient(pred, 2), r"$\nabla_{4DVarNet}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
         else:
@@ -242,7 +240,7 @@ def plot_maps(gt,obs,oi,pred,lon,lat,resfile,grad=False,
         ax2 = fig.add_subplot(gs[1, :2], projection=crs)
         ax3 = fig.add_subplot(gs[1, 2:], projection=crs)
         if grad:
-            plot(ax1, lon, lat, gradient(obs, 2), r"$\nabla_{OBS}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax1, lon, lat, np.where(np.isnan(obs), np.nan, 0.), "OBS (mask)", extent=extent, cmap=cm, norm=norm, colorbar=False)
             plot(ax2, lon, lat, gradient(oi, 2), r"$\nabla_{OI}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
             plot(ax3, lon, lat, gradient(pred, 2), r"$\nabla_{4DVarNet}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
         else:
@@ -314,7 +312,7 @@ def animate_maps(gt, obs, oi, pred, lon, lat, resfile,
                 plot(ax4, lon, lat, pred[i], '4DVarNet', extent=extent, cmap=cm, norm=norm, colorbar=False)
             else:
                 plot(ax1, lon, lat, gradient(gt[i], 2), r"$\nabla_{GT}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
-                plot(ax2, lon, lat, gradient(obs[i], 2), r"$\nabla_{OBS}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax2, lon, lat, np.where(np.isnan(obs[i]), np.nan, 0.), "OBS (mask)", extent=extent, cmap=cm, norm=norm, colorbar=False)
                 plot(ax3, lon, lat, gradient(oi[i], 2), r"$\nabla_{OI}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
                 plot(ax4, lon, lat, gradient(pred[i], 2), r"$\nabla_{4DVarNet}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
         else:
@@ -327,7 +325,7 @@ def animate_maps(gt, obs, oi, pred, lon, lat, resfile,
                 plot(ax3, lon, lat, pred[i], '4DVarNet', extent=extent, cmap=cm, norm=norm, colorbar=False)
             else:
                 #plot(ax1, lon, lat, gradient(obs[i], 2), r"$\nabla_{OBS}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
-                plot(ax1, lon, lat, np.where(np.isnan(obs[i]), np.nan, 0.), "obs (mask)", extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax1, lon, lat, np.where(np.isnan(obs[i]), np.nan, 0.), "OBS (mask)", extent=extent, cmap=cm, norm=norm, colorbar=False)
                 plot(ax2, lon, lat, gradient(oi[i], 2), r"$\nabla_{OI}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
                 plot(ax3, lon, lat, gradient(pred[i], 2), r"$\nabla_{4DVarNet}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
 
@@ -458,13 +456,12 @@ def save_netcdf(saved_path1, gt, oi, pred, lon, lat, time,
         data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
                    'latitude': (('lat', 'lon'), mesh_lat), \
                    'Time': (('time'), time), \
-                   'GT': (('time', 'lat', 'lon'), gt[:, int(dt / 2), :, :]),
-                   'OI': (('time', 'lat', 'lon'), oi[:, int(dt / 2), :, :]),
-                   '4DVarNet': (('time', 'lat', 'lon'), pred[:, int(dt / 2), :, :])}, \
+                   'GT': (('time', 'lat', 'lon'), gt),
+                   'OI': (('time', 'lat', 'lon'), oi),
+                   '4DVarNet': (('time', 'lat', 'lon'), pred)}, \
         coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred))})
     xrdata.time.attrs['units'] = time_units
     xrdata.to_netcdf(path=saved_path1, mode='w')
-
 
 def nrmse(ref, pred):
     '''
