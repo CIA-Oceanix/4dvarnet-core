@@ -220,8 +220,8 @@ class FourDVarNetDataset(Dataset):
         return length
 
     def coordXY(self):
-        return self.gt_ds.lon, self.gt_ds.lat
-        #return self.gt_ds.ds.lon.data, self.gt_ds.ds.lat.data
+        # return self.gt_ds.lon, self.gt_ds.lat
+        return self.gt_ds.ds.lon.data, self.gt_ds.ds.lat.data
 
     @contextlib.contextmanager
     def get_coords(self):
