@@ -5,3 +5,4 @@ natl_ssh: /raid/localscratch/qfebvre/sla-data-registry/NATL60/NATL/ref/NATL60-CJ
 natl_sst: /raid/localscratch/qfebvre/sla-data-registry/NATL60/NATL/ref/NATL60-CJM165_NATL_sst_y2013.1y.nc
 oi_swot_4nadir: /raid/localscratch/qfebvre/sla-data-registry/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc
 pseudo_obs: /raid/localscratch/qfebvre/sla-data-registry/NATL60/NATL/data_new/dataset_nadir_0d_swot.nc
+obs_4nadirs: /raid/localscratch/qfebvre/sla-data-registry/NATL60/NATL/data_new/dataset_nadir_0d.nc
