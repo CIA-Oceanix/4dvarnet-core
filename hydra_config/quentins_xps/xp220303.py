@@ -22,9 +22,21 @@ loc_estim = {'false': '/xp/qfebvre/aug/expl_err_no_loc', 'true': '/xp/qfebvre/au
 # xp defaults
 # err scaling
 cs.store(name='0', node={'train_error_scaling': False, 'init_err_scaling':0.}, group='err_scaling', package='params')
+cs.store(name='m03', node={'train_error_scaling': False, 'init_err_scaling':-0.3}, group='err_scaling', package='params')
 cs.store(name='m05', node={'train_error_scaling': False, 'init_err_scaling':-0.5}, group='err_scaling', package='params')
+cs.store(name='m07', node={'train_error_scaling': False, 'init_err_scaling':-0.7}, group='err_scaling', package='params')
+cs.store(name='m09', node={'train_error_scaling': False, 'init_err_scaling':-0.9}, group='err_scaling', package='params')
 cs.store(name='m1', node={'train_error_scaling': False, 'init_err_scaling':-1.}, group='err_scaling', package='params')
-err_scaling = {'0': '/err_scaling/0', 'm05': '/err_scaling/m05', 'm1': '/err_scaling/m1'}
+cs.store(name='m13', node={'train_error_scaling': False, 'init_err_scaling':-1.3}, group='err_scaling', package='params')
+err_scaling = {
+    '0': '/err_scaling/0',
+    'm03': '/err_scaling/m03',
+    'm05': '/err_scaling/m05',
+    'm07': '/err_scaling/m07',
+    'm09': '/err_scaling/m09',
+    'm1': '/err_scaling/m1',
+    'm13': '/err_scaling/m13',
+}
 
 # err loss
 cs.store(name='false', node={'loss_err': False}, group='loss_err', package='params')
@@ -77,6 +89,57 @@ XPS6 = {
 
 for xp_name, xp_defaults in XPS6.items():
     cs.store(f'qxp6_{xp_name}', node={'xp_name': xp_name, 'defaults': xp_defaults + ['_self_']}, package='_global_', group='xp')
+
+XPS7 = {
+        **{f'qxp7_errs_{loss}_es{scaling}_sst{use_sst}_ep{ep}': [
+            *BASE_DEFAULTS, losses[loss], sst[use_sst], obs['errs'], err_scaling[scaling], err_loss['true'], err_prior[ep], loc_estim['false']
+        ] for loss, scaling, use_sst, ep in [
+                ('map', '0', 'no', 'same'),
+                ('map', 'm03', 'no', 'same'),
+                ('map', 'm05', 'no', 'same'),
+                ('map', 'm07', 'no', 'same'),
+                ('map', 'm09', 'no', 'same'),
+                ('map', 'm1', 'no', 'same'),
+                ('map', 'm13', 'no', 'same'),
+                ('map', '0', 'yes', 'same'),
+                ('map', 'm03', 'yes', 'same'),
+                ('map', 'm05', 'yes', 'same'),
+                ('map', 'm07', 'yes', 'same'),
+                ('map', 'm09', 'yes', 'same'),
+                ('map', 'm1', 'yes', 'same'),
+                ('map', 'm13', 'yes', 'same'),
+        ]},
+}
+
+for xp_name, xp_defaults in XPS7.items():
+    cs.store(f'{xp_name}', node={'xp_name': xp_name, 'defaults': xp_defaults + ['_self_']}, package='_global_', group='xp')
+
+# Xps best swot estim with 5nad sst
+
+# norm
+cs.store(name='l1', node={'norm_obs': 'l1', 'norm_prior': 'l1'}, group='norm', package='params')
+cs.store(name='l2', node={'norm_obs': 'l2', 'norm_prior': 'l2'}, group='norm', package='params')
+norm = {'l1': '/norm/l1', 'l2': '/norm/l2'}
+
+# dropout
+cs.store(name='01_01', node={'dropout': 0.1, 'dropout_phi_r': 0.1}, group='dropout', package='params')
+cs.store(name='025_00', node={'dropout': 0.25, 'dropout_phi_r': 0.}, group='dropout', package='params')
+dropout = {'01_01': '/dropout/01_01', '025_00': '/dropout/025_00'}
+
+XPS8 = {
+        **{f'qxp8_5nad_sst_{n}_dp{dp}': [
+            *BASE_DEFAULTS, losses['map'], sst['yes'], obs['5nad'], err_scaling['0'], err_loss['false'], err_prior['same'], loc_estim['false'], norm[n], dropout[dp]
+        ] for n, dp in [
+                ('l1', '01_01'),
+                ('l1', '025_00'),
+                ('l2', '01_01'),
+                ('l2', '025_00'),
+        ]},
+}
+
+for xp_name, xp_defaults in XPS8.items():
+    cs.store(f'{xp_name}', node={'xp_name': xp_name, 'defaults': xp_defaults + ['_self_']}, package='_global_', group='xp')
+
 if __name__== '__main__':
     for xp in cs.list('xp'):
         print(xp)
