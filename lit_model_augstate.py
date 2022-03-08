@@ -43,9 +43,8 @@ def get_phi(hparams):
     class PhiPassThrough(torch.nn.Module):
         def __init__(self):
             super().__init__()
-            self.phi = Phi_r(hparams.shape_data[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
-                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic)
-
+            self.phi = Phi_r(hparams.shape_data[0], hparams.DimAE, hparams.dW, hparams.dW2,
+                    hparams.sS, hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic)
             self.phi_r = torch.nn.Identity()
             self.n_grad = 0
 
@@ -73,12 +72,11 @@ def get_constant_crop(patch_size, crop, dim_order=['time', 'lat', 'lon']):
 
 class LitModelAugstate(pl.LightningModule):
 
-
     MODELS = {
             '4dvarnet': get_4dvarnet,
             '4dvarnet_sst': get_4dvarnet_sst,
             'phi': get_phi,
-        }
+             }
 
     def __init__(self,
                  hparam=None,
