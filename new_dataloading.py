@@ -469,13 +469,13 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.ds_size = self.get_domain_split()
 
     def train_dataloader(self):
-        return DataLoader(self.train_ds, **self.dl_kwargs, shuffle=True)
+        return DataLoader(self.train_ds, **{**dict(shuffle=True), **self.dl_kwargs})
 
     def val_dataloader(self):
-        return DataLoader(self.val_ds, **self.dl_kwargs, shuffle=False)
+        return DataLoader(self.val_ds, **{**dict(shuffle=False), **self.dl_kwargs})
 
     def test_dataloader(self):
-        return DataLoader(self.test_ds, **self.dl_kwargs, shuffle=False)
+        return DataLoader(self.test_ds, **{**dict(shuffle=False), **self.dl_kwargs})
 
 
 if __name__ == '__main__':

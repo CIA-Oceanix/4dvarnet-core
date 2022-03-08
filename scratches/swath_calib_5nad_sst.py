@@ -1,12 +1,14 @@
 import hydra
+import einops
+import scipy.ndimage as ndi
 import contextlib
 import numpy as np
+from torch.nn.modules.conv import Conv2d
 import zarr
 import matplotlib.pyplot as plt
 import xarray as xr
 import torch
 import torch.utils.data
-import re
 import matplotlib.pyplot as plt
 import re
 from hydra.utils import instantiate, get_class, call
@@ -19,9 +21,7 @@ import traceback
 import hydra_config
 from IPython.display import display, Markdown, Latex, HTML
 
-import torch
 import kornia
-import matplotlib.pyplot as plt
 import math
 import traceback
 from pathlib import Path
@@ -29,8 +29,6 @@ import pytorch_lightning as pl
 from pytorch_lightning import callbacks
 from torch import nn
 import torch.nn.functional as F
-import hydra
-from hydra.utils import instantiate
 from einops import rearrange, repeat
  
 s = """
@@ -338,15 +336,22 @@ class SwathDataset(torch.utils.data.Dataset):
         return tuple(var_fn(self.ds.isel(**sl)).astype(np.float32) for var_fn in self.select_vars_fn)
 
 
+# import importlib
+# import new_dataloading
+# import hydra_main
+# importlib.reload(new_dataloading)
+# importlib.reload(hydra_main)
 # Generate data
 def generate_data():
     try:
-        cfg = get_cfg('qxp2_aug2_dp240_5nad_map_sst_ng5x3cas_w1.0')
-        dm = get_dm('qxp2_aug2_dp240_5nad_map_sst_ng5x3cas_w1.0')
-        model = get_model('qxp2_aug2_dp240_5nad_map_sst_ng5x3cas_w1.0', bst_ckpt('results/xpfeb_train/newaug_5nad_1.0_map_sst'), dm=dm)
+        overrides = ['+datamodule.dl_kwargs.shuffle=False']
+        cfg = get_cfg('qxp2_aug2_dp240_5nad_map_sst_ng5x3cas_w1.0', overrides=overrides)
+        dm = get_dm('qxp2_aug2_dp240_5nad_map_sst_ng5x3cas_w1.0',add_overrides=overrides)
+        model = get_model('qxp2_aug2_dp240_5nad_map_sst_ng5x3cas_w1.0', bst_ckpt('results/xpfeb_train/newaug_5nad_1.0_map_sst'), dm=dm, add_overrides=overrides)
 
         trainer = pl.Trainer(gpus=[5])
         trainer.test(model, dm.train_dataloader())
+        # trainer.test(model, dm.val_dataloader())
         slice_args = dict(
                 # time_min='2012-10-01', 
                 time_min= pd.to_datetime(np.min(model.test_xr_ds['time']).values).date(),
@@ -366,7 +371,12 @@ def generate_data():
          # 'syst_error_uncalibrated', 'wet_tropo_res', 'x_ac', 'x_al'
          ])
 
-        model.test_xr_ds.gt.isel(time=1).plot()
+        # model.test_xr_ds.obs_gt.isel(time=6).plot()
+        dl = dm.train_dataloader()
+        delta_ds = dl.dataset.datasets[0].gt_ds.ds.ssh - model.test_xr_ds.gt
+        dl.dataset.datasets[0].gt_ds.ds.ssh.isel(time=3).plot() 
+        model.test_xr_ds.gt.isel(time=3).plot() 
+        delta_ds.isel(time=3).plot()
         swathed_grid = model.test_xr_ds.interp(
             time=swath_data.time.broadcast_like(swath_data.ssh_model),
             lat=swath_data.lat.broadcast_like(swath_data.ssh_model),
@@ -376,7 +386,7 @@ def generate_data():
             swath_data.assign({v: (swath_data.ssh_model.dims, swathed_grid[v].data)for v in swathed_grid} )
             .pipe(lambda ds: ds.isel(time=np.isfinite(ds.oi).all('nC')))
         )
-        swath_data.to_netcdf('data/swath_calib_data.nc')
+        swath_data.to_netcdf('data/swath_train_data.nc')
     except Exception as e:
         print(traceback.format_exc()) 
     finally:
@@ -517,43 +527,90 @@ def training1():
 # manual calib 
 def calib_test():
     try:
-        def smooth(df, std, win_size=None):
-            win_size = win_size or 3 * std
-            return (
-                df
-                    .assign(contiguous_chunk=lambda _df: (_df.x_al.diff() > 3).cumsum())
-                    .groupby('contiguous_chunk')
-                    .apply(
-                    lambda gfd: gfd
-                        .drop('contiguous_chunk', axis=1)
-                        .rolling(
-                        win_size, min_periods=1, win_type="gaussian", center=True
-                    ).mean(std=std)
-                ).reset_index()
-            )
 
-        swath_data = xr.open_dataset('data/swath_calib_data.nc')        
+        # swath_data = xr.open_dataset('data/swath_val_data.nc')
+        swath_data = xr.open_dataset('data/swath_train_data.nc')
 
 
         swath_data = swath_data.assign(contiguous_chunk=lambda _df: (_df.x_al.diff('time') > 3).cumsum())
-        chunk = swath_data.pipe(lambda ds: ds.isel(time=ds.contiguous_chunk==1))
-        import scipy.ndimage as ndi
-        xrgf = lambda da, sig: xr.apply_ufunc(lambda nda: ndi.gaussian_filter1d(nda, axis=0, sigma=sig, order=0, mode='mirror', truncate=3.0), da)
+        chunk = swath_data.pipe(lambda ds: ds.isel(time=ds.contiguous_chunk==2))
+        xrgf = lambda da, sig: da if sig==0 else xr.apply_ufunc(lambda nda: ndi.gaussian_filter1d(nda, axis=0, sigma=sig, order=0, mode='mirror', truncate=3.0), da)
         p = lambda da: da.T.plot(figsize=(15,3))
-        p(xrgf(chunk.gt, 10))
-        p(xrgf(chunk.gt, 1))
-        p(xrgf(chunk.gt, 10) - xrgf(chunk.gt, 1))
-        p(xrgf(chunk.syst_error_uncalibrated, 10) - xrgf(chunk.syst_error_uncalibrated, 1))
-        p(xrgf(chunk.wet_tropo_res, 10) - xrgf(chunk.wet_tropo_res, 1))
-        p(xrgf(chunk.ssh_model, 10) - xrgf(chunk.ssh_model, 1))
-        
-        p(chunk.pred)
-        pred_err = chunk.pred - chunk.ssh_model
-        p(pred_err)
-        obs_res = chunk.pred - (chunk.ssh_model + chunk.syst_error_uncalibrated + chunk.wet_tropo_res)
-        hr_obs_res = (xrgf(obs_res, 75) - xrgf(obs_res, 100))
-        p(hr_obs_res)
-        p(pred_err - hr_obs_res)
+        rms = lambda da: np.sqrt(np.mean(da**2))
+        swath_data.gt.std()
+        swath_data.ssh_model.std()
+        rms(swath_data.ssh_model - swath_data.oi)
+        rms(swath_data.ssh_model - swath_data.pred)
+        rms(swath_data.ssh_model - swath_data.gt)
+
+
+        def find_best_sigmas(x_b, obs_res, gt):
+            best = (-1, (0, 0, 0))
+            for sig0 in [0, 1, 2, 5, 8]:
+                for sig1 in [0, 1, 2, 5, 8, 10]:
+                    for sig2 in [ 5, 10, 25, 30, 35, 40, 50, 75]:
+
+                        aug_pred =  xrgf(x_b, sig0) + (xrgf(obs_res, sig1) - xrgf(obs_res, sig2))
+
+                        aug_pred_err = aug_pred - gt
+                        pred_err = x_b - gt
+                        imp = 100 - (rms(aug_pred_err) / rms(pred_err)).item() * 100
+                        if imp > best[0]:
+                            best = imp, (sig0, sig1, sig2)
+            
+            (sig0, sig1, sig2) = best[1]
+            aug_pred =  xrgf(x_b, sig0) + (xrgf(obs_res, sig1) - xrgf(obs_res, sig2))
+            aug_pred_err = aug_pred - gt
+            pred_err = x_b - gt
+            imp = 100 - (rms(aug_pred_err) / rms(pred_err)).item() * 100
+            print(f"Improvements wrt 5nad sst: { imp:.1f}%, ({x_b.shape=}, {sig0, sig1, sig2=}")
+            return aug_pred
+
+        sw_data_w_aug = (
+                swath_data
+                .groupby('contiguous_chunk')
+                .apply(
+                    lambda g: g.assign(
+                        err =  lambda _g: _g.syst_error_uncalibrated + _g.wet_tropo_res,
+                    ).assign(
+                        obs = lambda _g:  _g.ssh_model + _g.err
+                    ).assign(
+                        obs_res = lambda _g: _g.obs - _g.pred 
+                    ).assign(
+                        aug_pred = lambda _g: find_best_sigmas(_g.pred, _g.obs_res, _g.ssh_model)
+                    )
+                )
+        )
+
+        eval_ds = (
+            sw_data_w_aug
+            .pipe( lambda ds: ds.isel(time= ds.lat_nadir > 33 ))
+            .pipe( lambda ds: ds.isel(time= ds.lat_nadir < 43 ))
+            .pipe( lambda ds: ds.isel(time= ds.lon_nadir > 295 ))
+            .pipe( lambda ds: ds.isel(time= ds.lon_nadir < 305 ))
+        )
+        aug_pred_err = eval_ds.aug_pred - eval_ds.ssh_model
+        pred_err = eval_ds.pred - eval_ds.ssh_model
+        oi_err = eval_ds.oi - eval_ds.ssh_model
+        err = eval_ds.err
+        imp = 100 - (rms(aug_pred_err) / rms(pred_err)).item() * 100
+        print(f"Improvements wrt 5nad sst: { imp:.1f}%")
+        print(f"Improvements wrt 4nad oi: { 100 - (rms(aug_pred_err) / rms(oi_err)).item() * 100:.1f}%")
+        print(f"Improvements wrt noisy_obs: { 100 - (rms(aug_pred_err) / rms(err)).item() * 100:.1f}%")
+
+
+        """
+        Aug pred
+        Improvements wrt 5nad sst: 33.5%
+        Improvements wrt 4nad oi: 65.3%
+        Improvements wrt noisy_obs: 99.4%
+
+        Oi aug
+        Improvements wrt 5nad sst: -3.4%
+        Improvements wrt 4nad oi: 46.1%
+        Improvements wrt noisy_obs: 99.0%
+        """
+
 
 
          
@@ -563,10 +620,279 @@ def calib_test():
     finally:
         return locals()
 
+
+def prepro():
+    try:
+        swath_data = xr.open_dataset('data/swath_train_data.nc')
+        xrgf = lambda da, sig: da if sig==0 else xr.apply_ufunc(lambda nda: ndi.gaussian_filter1d(nda, axis=0, sigma=sig, order=0, mode='mirror', truncate=3.0), da)
+        p = lambda da: da.T.plot(figsize=(15,3))
+        rms = lambda da: np.sqrt(np.mean(da**2))
+
+        class SmoothSwathDataset(torch.utils.data.Dataset):
+            def __init__(self, swath_data):
+                SIGMAS_OBS = [
+                        0, 1, 2, 5, 10, 25, 30, 35, 40, 50, 75, 100
+                ]
+                SIGMAS_XB = [
+                        0, 1, 2, 5, 10, 50
+                ]
+                swath_data = swath_data.assign(contiguous_chunk=lambda _df: (_df.x_al.diff('time') > 3).cumsum())
+                sw_data_w_aug = (
+                        swath_data
+                        .groupby('contiguous_chunk')
+                        .apply(
+                            lambda g: g.assign(
+                                err =  lambda _g: _g.syst_error_uncalibrated + _g.wet_tropo_res,
+                            ).assign(
+                                obs = lambda _g:  _g.ssh_model + _g.err
+                            ).assign(
+                                obs_res = lambda _g: _g.obs - _g.pred 
+                            ).assign(
+                                **{f'obs_{sig}' : lambda _g, sig=sig: xrgf(_g.obs, sig) for sig in SIGMAS_OBS},
+                                **{f'xb_{sig}' : lambda _g, sig=sig: xrgf(_g.pred, sig) for sig in SIGMAS_XB},
+                            )
+                        )
+                )
+
+                sw_res_data = sw_data_w_aug.assign(
+                        **{
+                            f'dobs_{sig2}_{sig1}': lambda ds, sig1=sig1, sig2=sig2: ds[f'obs_{sig2}'] - ds[f'obs_{sig1}']
+                            for sig1, sig2 in zip(SIGMAS_OBS[:-1], SIGMAS_OBS[1:])
+                        },
+                        **{
+                            f'dxb_{sig2}_{sig1}': lambda ds, sig1=sig1, sig2=sig2: ds[f'xb_{sig2}'] - ds[f'xb_{sig1}']
+                            for sig1, sig2 in zip(SIGMAS_XB[:-1], SIGMAS_XB[1:])
+                        },
+                        **{'gt_res': lambda ds: ds.ssh_model - ds.pred}
+                )
+
+                pp_vars = (
+                        [f'dobs_{sig2}_{sig1}'for sig1, sig2 in zip(SIGMAS_OBS[:-1], SIGMAS_OBS[1:])]  + [f'obs_{SIGMAS_OBS[-1]}']
+                        +[f'dxb_{sig2}_{sig1}'for sig1, sig2 in zip(SIGMAS_XB[:-1], SIGMAS_XB[1:])]+ [f'xb_{SIGMAS_XB[-1]}']
+                        )
+
+                # for v in pp_vars:
+                #     p(sw_res_data.isel(time=sw_res_data.contiguous_chunk==2)[v])
+
+                gt_vars = ['gt_res']
+                sw_res_data[pp_vars].mean()
+                sw_res_data[pp_vars].std()
+                pp_ds = sw_res_data[pp_vars + gt_vars].pipe(lambda ds: (ds - ds.mean()) / ds.std()).assign(contiguous_chunk=sw_res_data.contiguous_chunk).astype(np.float32)
+
+                min_timestep = 300
+                self.chunks = list(pp_ds.groupby('contiguous_chunk').count().isel(nC=0).pipe(lambda ds: ds.isel(contiguous_chunk=ds[pp_vars[0]] > min_timestep)).contiguous_chunk.values)
+
+                self.pp_vars = pp_vars 
+                self.gt_vars = gt_vars 
+                self.stats = sw_res_data[pp_vars + gt_vars].mean(), sw_res_data[pp_vars + gt_vars].std()
+                self.pp_ds = pp_ds
+                self.raw_ds = swath_data
+
+            def __len__(self):
+                return len(self.chunks)
+
+            def __getitem__(self, idx):
+                c = self.chunks[idx]
+                item_ds = self.pp_ds.pipe(lambda ds: ds.isel(time=ds.contiguous_chunk == c))
+
+                return item_ds[self.pp_vars].to_array().data, item_ds[self.gt_vars].to_array().data
+
+        ds = SmoothSwathDataset(swath_data) 
+        self = ds
+        idx=0
+        c = self.chunks[idx]
+        item_ds = self.pp_ds.pipe(lambda ds: ds.isel(time=ds.contiguous_chunk == c))
+        item_ds[self.pp_vars].to_array().data, item_ds[self.gt_vars].to_array().data
+        item = ds[0]
+
+        def get_same_pad(h, w, kh, kw, s):
+            # The total padding applied along the height and width is computed as:
+            if (h % s[0] == 0):
+                pad_along_height = max(kh - s[0], 0)
+            else:
+                pad_along_height = max(kh - (h % s[0]), 0)
+            if w % s[1] == 0:
+                pad_along_width = max(kw - s[1], 0)
+            else:
+                pad_along_width = max(kw - (w % s[1]), 0)
+
+            pad_top = pad_along_height // 2
+            pad_bottom = pad_along_height - pad_top
+            pad_left = pad_along_width // 2
+            pad_right = pad_along_width - pad_left
+
+            return {'left': pad_left, 'right': pad_right, 'top': pad_top, 'bottom': pad_bottom}
+
+            # %% models
+
+
+        class ConvSamePad(torch.nn.Module):
+            def __init__(self, apply_per_side=True, *args, **kwargs):
+                super().__init__()
+                self.apply_per_side = apply_per_side
+                self.conv = torch.nn.Conv2d(*args, **kwargs)
+
+            def _forward(self, inp):
+                inp_shape = einops.parse_shape(inp, 'bs inc w h')
+                kernel_shape = einops.parse_shape(self.conv.weight, 'inc outc w h')
+                same_pad = get_same_pad(
+                    inp_shape['h'],
+                    inp_shape['w'],
+                    kernel_shape['h'],
+                    kernel_shape['w'],
+                    self.conv.stride,
+                )
+                return self.conv(F.pad(inp, (same_pad['top'], same_pad['bottom'], same_pad['left'], same_pad['right'])))
+
+            def forward(self, x):
+                if self.apply_per_side:
+                    sizes = einops.parse_shape(x, 'b c time nc')
+                    side_limit = sizes['nc'] // 2
+                    return einops.rearrange(
+                        [
+                            self._forward(x[..., :side_limit]),
+                            self._forward(x[..., side_limit:]),
+                        ],
+                        'sides b c time hnc -> b c time (hnc sides)'
+                    )
+
+                return self._forward(x)
+
+        nhidden = 1024
+        kernel_size = 3
+        depth = 12
+        residual = True
+        # TODO  test mixer apply conv with nC as channels
+        class ResidualBlock(nn.Module):
+            def __init__(self, net,  res=True):
+                super().__init__()
+                self.net = net
+                self.res = res
+
+            def forward(self, x):
+                if not self.res:
+                    return self.net(x)
+                return x + self.net(x)
+        net = nn.Sequential(
+                ConvSamePad(in_channels=len(ds.pp_vars),out_channels=nhidden, kernel_size=kernel_size),
+                nn.BatchNorm2d(num_features=nhidden),
+                nn.SiLU(),
+                *[ nn.Sequential(
+                    ResidualBlock(
+                        nn.Sequential(
+                            ConvSamePad(in_channels=nhidden,out_channels=nhidden, kernel_size=kernel_size),
+                            nn.BatchNorm2d(num_features=nhidden),
+                            nn.SiLU(),
+                        ), res=residual),
+                    #ConvSamePad(in_channels=nhidden,out_channels=nhidden, kernel_size=kernel_size),
+                )
+                for _ in range(depth) ],
+                ConvSamePad(in_channels=nhidden, out_channels=len(ds.gt_vars), kernel_size=kernel_size),
+        )
+        
+        split = [int(len(ds) * 0.75 // 1), int(len(ds) - (len(ds) * 0.75 //1))]
+        train_ds, val_ds = torch.utils.data.random_split(ds, split)
+        train_dl = torch.utils.data.DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=3)
+        val_dl = torch.utils.data.DataLoader(val_ds, batch_size=1, shuffle=False, num_workers=3)
+        ds[0][0].shape
+        ds[0][1].shape
+
+        class LitDirectCNN(pl.LightningModule):
+            def __init__(self, net, lr_init=1e-3):
+                super().__init__()
+                self.net = net
+                self.lr_init = lr_init
+
+            def forward(self, batch):
+                x, y = batch 
+                return self.net(x)
+
+
+
+            def loss(self, t1, t2):
+                # TODO: add wegihting
+                rmse = ((t1 -t2)**2).mean().sqrt()
+                def sob(t):
+                    if len(t.shape) == 4:
+                        return kornia.filters.sobel(rearrange(t, 'b d1 d2 c -> b c d1 d2'))
+                    elif len(t.shape) == 3:
+                        return kornia.filters.sobel(rearrange(t, 'b d1 d2 -> b () d1 d2'))
+                    else:
+                        assert False, 'Should not be here'
+
+                rmse_grad = ((sob(t1) - sob(t2))**2).mean().sqrt()
+
+                return rmse, rmse_grad
+
+            def process_batch(self, batch, phase='val'):
+                x, y = batch 
+                out = self.forward(batch)
+                losses = {}
+                losses['err_tot'], losses['g_err_tot'] = self.loss(out, y)
+
+                for ln, l in losses.items():
+                    self.log(f'{phase}_{ln}', l)
+
+                loss_ref, g_loss_ref = self.loss(y, torch.zeros_like(y))
+                self.log(f'{phase}_imp_mse', losses['err_tot'] / loss_ref, prog_bar=True, on_step=False, on_epoch=True)
+                self.log(f'{phase}_imp_grad_mse', losses['g_err_tot'] / g_loss_ref, prog_bar=True, on_step=False, on_epoch=True)
+
+                loss = 3. * losses['err_tot'] + losses['g_err_tot']
+                self.log(f'{phase}_loss', loss, prog_bar=False)
+                return loss
+                
+            def training_step(self, batch, batch_idx):
+                return self.process_batch(batch, phase='train')
+
+            def validation_step(self, batch, batch_idx):
+                return self.process_batch(batch, phase='val')
+
+            def configure_optimizers(self):
+                opt = torch.optim.Adam(self.parameters(), lr=self.lr_init)
+                return {
+                    'optimizer': opt,
+                    'lr_scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(opt, verbose=True, factor=0.8, min_lr=1e-6),
+                    'monitor': 'val_loss'
+                }
+
+        lit_mod = LitDirectCNN(net, lr_init=4e-4)
+        trainer = pl.Trainer(
+            gpus=[5],
+            callbacks=[
+                callbacks.LearningRateMonitor(),
+                # callbacks.TQDMProgressBar(),
+                callbacks.RichProgressBar(),
+                callbacks.GradientAccumulationScheduler({1: 1, 10: 3, 30: 7, 60: 15}),
+                callbacks.StochasticWeightAveraging(swa_epoch_start=50),
+                # callbacks.GradientAccumulationScheduler({1: 15}),
+            ],
+            log_every_n_steps=10,
+            max_epochs=301,
+            # overfit_batches=2,
+        )
+        trainer.fit(lit_mod,
+            train_dataloaders=train_dl,
+            val_dataloaders=val_dl
+        )
+         
+        """    it/s loss: 0.456 v_num: 53
+        val_imp_mse: 0.677    
+        val_imp_grad_mse: 0.63
+        train_imp_mse: 0.192 
+        train_imp_grad_mse:0.41
+        """
+    except Exception as e:
+        print('I am here')
+        print(traceback.format_exc()) 
+    finally:
+        return locals()
+
 def main():
     try:
-        fn = fn1
-        fn = calib_test
+        # fn = fn1
+        # fn = generate_data
+        # fn = calib_test
+        fn = prepro
 
         locals().update(fn())
     except Exception as e:
