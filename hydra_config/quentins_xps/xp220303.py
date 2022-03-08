@@ -21,6 +21,12 @@ loc_estim = {'false': '/xp/qfebvre/aug/expl_err_no_loc', 'true': '/xp/qfebvre/au
 
 # xp defaults
 # err scaling
+cs.store(name='03', node={'train_error_scaling': False, 'init_err_scaling':0.3}, group='err_scaling', package='params')
+cs.store(name='05', node={'train_error_scaling': False, 'init_err_scaling':0.5}, group='err_scaling', package='params')
+cs.store(name='07', node={'train_error_scaling': False, 'init_err_scaling':0.7}, group='err_scaling', package='params')
+cs.store(name='09', node={'train_error_scaling': False, 'init_err_scaling':0.9}, group='err_scaling', package='params')
+cs.store(name='1', node={'train_error_scaling': False, 'init_err_scaling':1.}, group='err_scaling', package='params')
+cs.store(name='13', node={'train_error_scaling': False, 'init_err_scaling':1.3}, group='err_scaling', package='params')
 cs.store(name='0', node={'train_error_scaling': False, 'init_err_scaling':0.}, group='err_scaling', package='params')
 cs.store(name='m03', node={'train_error_scaling': False, 'init_err_scaling':-0.3}, group='err_scaling', package='params')
 cs.store(name='m05', node={'train_error_scaling': False, 'init_err_scaling':-0.5}, group='err_scaling', package='params')
@@ -36,6 +42,12 @@ err_scaling = {
     'm09': '/err_scaling/m09',
     'm1': '/err_scaling/m1',
     'm13': '/err_scaling/m13',
+    '03': '/err_scaling/03',
+    '05': '/err_scaling/05',
+    '07': '/err_scaling/07',
+    '09': '/err_scaling/09',
+    '1': '/err_scaling/1',
+    '13': '/err_scaling/13',
 }
 
 # err loss
@@ -177,6 +189,29 @@ XPS9 = {
 
 for xp_name, xp_defaults in XPS9.items():
     cs.store(f'{xp_name}', node={'xp_name': xp_name, 'defaults': xp_defaults + ['_self_']}, package='_global_', group='xp')
+
+XPS10 = {
+        **{f'qxp10_errs_{loss}_es{scaling}_sst{use_sst}_ep{ep}': [
+            *BASE_DEFAULTS, losses[loss], sst[use_sst], obs['errs'], err_scaling[scaling], err_loss['true'], err_prior[ep], loc_estim['false']
+        ] for loss, scaling, use_sst, ep in [
+                ('map', '03', 'no', 'same'),
+                ('map', '05', 'no', 'same'),
+                ('map', '07', 'no', 'same'),
+                ('map', '09', 'no', 'same'),
+                ('map', '1', 'no', 'same'),
+                ('map', '13', 'no', 'same'),
+                ('map', '03', 'yes', 'same'),
+                ('map', '05', 'yes', 'same'),
+                ('map', '07', 'yes', 'same'),
+                ('map', '09', 'yes', 'same'),
+                ('map', '1', 'yes', 'same'),
+                ('map', '13', 'yes', 'same'),
+        ]},
+}
+
+for xp_name, xp_defaults in XPS10.items():
+    cs.store(f'{xp_name}', node={'xp_name': xp_name, 'defaults': xp_defaults + ['_self_']}, package='_global_', group='xp')
+
 if __name__== '__main__':
     for xp in cs.list('xp'):
         print(xp)
