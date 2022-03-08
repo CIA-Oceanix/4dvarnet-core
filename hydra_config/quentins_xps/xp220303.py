@@ -140,6 +140,43 @@ XPS8 = {
 for xp_name, xp_defaults in XPS8.items():
     cs.store(f'{xp_name}', node={'xp_name': xp_name, 'defaults': xp_defaults + ['_self_']}, package='_global_', group='xp')
 
+XPS9 = {
+        **{f'qxp9_errs_{loss}_es{scaling}_sst{use_sst}_ep{ep}': [
+            *BASE_DEFAULTS, losses[loss], sst[use_sst], obs['errs'], err_scaling[scaling], err_loss['true'], err_prior[ep], loc_estim['false']
+        ] for loss, scaling, use_sst, ep in [
+                ('calmap', '0', 'no', 'same'),
+                ('calmap', 'm03', 'no', 'same'),
+                ('calmap', 'm05', 'no', 'same'),
+                ('calmap', 'm07', 'no', 'same'),
+                ('calmap', 'm09', 'no', 'same'),
+                ('calmap', 'm1', 'no', 'same'),
+                ('calmap', 'm13', 'no', 'same'),
+                ('calmap', '0', 'yes', 'same'),
+                ('calmap', 'm03', 'yes', 'same'),
+                ('calmap', 'm05', 'yes', 'same'),
+                ('calmap', 'm07', 'yes', 'same'),
+                ('calmap', 'm09', 'yes', 'same'),
+                ('calmap', 'm1', 'yes', 'same'),
+                ('calmap', 'm13', 'yes', 'same'),
+                ('map', '0', 'no', 'diff'),
+                ('map', 'm03', 'no', 'diff'),
+                ('map', 'm05', 'no', 'diff'),
+                ('map', 'm07', 'no', 'diff'),
+                ('map', 'm09', 'no', 'diff'),
+                ('map', 'm1', 'no', 'diff'),
+                ('map', 'm13', 'no', 'diff'),
+                ('map', '0', 'yes', 'diff'),
+                ('map', 'm03', 'yes', 'diff'),
+                ('map', 'm05', 'yes', 'diff'),
+                ('map', 'm07', 'yes', 'diff'),
+                ('map', 'm09', 'yes', 'diff'),
+                ('map', 'm1', 'yes', 'diff'),
+                ('map', 'm13', 'yes', 'diff'),
+        ]},
+}
+
+for xp_name, xp_defaults in XPS9.items():
+    cs.store(f'{xp_name}', node={'xp_name': xp_name, 'defaults': xp_defaults + ['_self_']}, package='_global_', group='xp')
 if __name__== '__main__':
     for xp in cs.list('xp'):
         print(xp)
