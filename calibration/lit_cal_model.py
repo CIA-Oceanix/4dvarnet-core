@@ -613,6 +613,12 @@ class LitCalModel(pl.LightningModule):
         self.logger.log_metrics(md ,step=self.current_epoch)
 
         
+    def configure_callbacks(self):
+        def save_ckpt_metrics(trainer, pl_module, checkpoint):
+            mdf = pd.DataFrame(pl_module.latest_metrics)
+            metrics_path = Path(pl_module.logger.log_dir).parent / 'metrics'
+            mdf.to_json(metrics_path / f'latest_ckpt.json')                                                                                                                                                       
+        return [pl.callbacks.LambdaCallback(on_save_checkpoint=save_ckpt_metrics)]
 
     def teardown(self, stage='test'):
         

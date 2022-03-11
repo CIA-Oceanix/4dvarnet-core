@@ -212,6 +212,44 @@ XPS10 = {
 for xp_name, xp_defaults in XPS10.items():
     cs.store(f'{xp_name}', node={'xp_name': xp_name, 'defaults': xp_defaults + ['_self_']}, package='_global_', group='xp')
 
+xpn= 11
+for xp_name, xp_defaults in XPS9.items():
+    cs.store(f'{xp_name}', node={'xp_name': xp_name, 'defaults': xp_defaults + ['_self_']}, package='_global_', group='xp')
+
+XPS = {
+        **{f'qxp{xpn}_errs_{loss}_es{scaling}_sst{use_sst}_ep{ep}': [
+            *BASE_DEFAULTS, losses[loss], sst[use_sst], obs['errs'], err_scaling[scaling], err_loss['true'], err_prior[ep], loc_estim['false']
+        ] for loss, scaling, use_sst, ep in [
+                ('map', '03', 'no', 'diff'),
+                ('map', '05', 'no', 'diff'),
+                ('map', '07', 'no', 'diff'),
+                ('map', '09', 'no', 'diff'),
+                ('map', '1', 'no', 'diff'),
+                ('map', '13', 'no', 'diff'),
+                ('map', '03', 'yes', 'diff'),
+                ('map', '05', 'yes', 'diff'),
+                ('map', '07', 'yes', 'diff'),
+                ('map', '09', 'yes', 'diff'),
+                ('map', '1', 'yes', 'diff'),
+                ('map', '13', 'yes', 'diff'),
+                ('map', '03', 'no', 'none'),
+                ('map', '05', 'no', 'none'),
+                ('map', '07', 'no', 'none'),
+                ('map', '09', 'no', 'none'),
+                ('map', '1', 'no', 'none'),
+                ('map', '13', 'no', 'none'),
+                ('map', '03', 'yes', 'none'),
+                ('map', '05', 'yes', 'none'),
+                ('map', '07', 'yes', 'none'),
+                ('map', '09', 'yes', 'none'),
+                ('map', '1', 'yes', 'none'),
+                ('map', '13', 'yes', 'none'),
+        ]},
+}
+
+for xp_name, xp_defaults in XPS.items():
+    cs.store(f'{xp_name}', node={'xp_name': xp_name, 'defaults': xp_defaults + ['_self_']}, package='_global_', group='xp')
+
 if __name__== '__main__':
     for xp in cs.list('xp'):
         print(xp)
