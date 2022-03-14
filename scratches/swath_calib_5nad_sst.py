@@ -149,16 +149,20 @@ def prepro():
                         1, 2, 5, 10, 25, 30, 35, 40, 50, 75, 100
                 ]
                 SIGMAS_XB = [
-                        # 0,
-                        # 1, 2, 5, 10, 50
+                        0,
+                        1, 2, 5, 10, 50
                 ]
                 SIGMAS_GT = [
                         0,
-                        5, 10, 25, 50, 75
+                        # 5, 10,
+                        # 25,
+                        # 50,
+                        # 75
                 ]
-                GT_VAR, REF_VAR = 'ssh_model', 'pred'
-                # GT_VAR, REF_VAR = 'gt_res', 'zeros'
+                # GT_VAR, REF_VAR = 'ssh_model', 'pred'
+                GT_VAR, REF_VAR = 'gt_res', 'ref_res'
                 XB_VAR = 'pred'
+                # XB_VAR = 'oi'
                 swath_data = swath_data.assign(contiguous_chunk=lambda _df: (_df.x_al.diff('time') > 3).cumsum())
                 sw_data_w_aug = (
                         swath_data
@@ -172,7 +176,7 @@ def prepro():
                             ).assign(
                                 obs_res = lambda _g: _g.obs - _g.xb,
                                 **{'gt_res': lambda ds: ds.ssh_model - ds.xb},
-                                **{'zeros': lambda ds: xr.zeros_like(ds.ssh_model)}
+                                **{'ref_res': lambda ds: ds.pred - ds[XB_VAR]}
                             ).assign(
                                 **{f'obs_{sig}' : lambda _g, sig=sig: xrgf(_g.obs, sig) for sig in SIGMAS_OBS},
                                 **{f'xb_{sig}' : lambda _g, sig=sig: xrgf(_g.xb, sig) for sig in SIGMAS_XB},
@@ -197,8 +201,10 @@ def prepro():
                 )
 
                 pp_vars = (
-                        [f'dobs_{sig2}_{sig1}'for sig1, sig2 in zip(SIGMAS_OBS[:-1], SIGMAS_OBS[1:])]  + [f'obs_{SIGMAS_OBS[-1]}']
-                        + [f'dxb_{sig2}_{sig1}'for sig1, sig2 in zip(SIGMAS_XB[:-1], SIGMAS_XB[1:])] + ([f'xb_{SIGMAS_XB[-1]}'] if len(SIGMAS_XB)>0 else [])
+                        [f'dobs_{sig2}_{sig1}'for sig1, sig2 in zip(SIGMAS_OBS[:-1], SIGMAS_OBS[1:])] 
+                        + ([f'obs_{SIGMAS_OBS[-1]}'] if len(SIGMAS_OBS)>0 else [])
+                        + [f'dxb_{sig2}_{sig1}'for sig1, sig2 in zip(SIGMAS_XB[:-1], SIGMAS_XB[1:])]
+                        + ([f'xb_{SIGMAS_XB[-1]}'] if len(SIGMAS_XB)>0 else [])
                 )
                 gt_vars = (
                         [f'dgt_{sig2}_{sig1}'for sig1, sig2 in zip(SIGMAS_GT[:-1], SIGMAS_GT[1:])] + [f'gt_{SIGMAS_GT[-1]}']
@@ -322,11 +328,19 @@ def prepro():
             - [ ] Big grad weight
         """
         
-        # nhidden = 256
-        nhidden = 128
-        kernel_size = 3
-        depth = 3
+        # nhidden = 1024
+        # depth = 12
+
+        # nhidden = 512
         # depth = 8
+
+        nhidden = 128
+        depth = 3
+
+        # nhidden = 64
+        # depth = 1
+
+        kernel_size = 3
         num_repeat = 1
         residual = True
         norm_type = 'lrn'
@@ -334,7 +348,7 @@ def prepro():
         mix = True
         mix_residual = False
         mix_act_type = 'none'
-        mix_norm_type = 'lrn'
+        mix_norm_type = 'none'
 
         def norm(norm_type='bn', nh=nhidden):
             if norm_type=='none':
@@ -344,21 +358,22 @@ def prepro():
             elif norm_type=='in':
                 return nn.InstanceNorm2d(num_features=nh)
             elif norm_type=='lrn':
-                return nn.LocalResponseNorm(size=3)
+                return nn.LocalResponseNorm(size=5)
             else:
                 assert False, 'Should not be here'
 
         def act(act_type='relu'):
             if act_type=='none':
                 return nn.Identity()
-            if act_type=='relu':
+            elif act_type=='relu':
                 return nn.ReLU()
             elif act_type=='silu':
                 return nn.SiLU()
             elif act_type=='gelu':
                 return nn.GELU()
-            else:
+            else: 
                 assert False, 'Should not be here'
+
 
         class ResidualBlock(nn.Module):
             def __init__(self, net,  res=True):
@@ -367,10 +382,9 @@ def prepro():
                 self.res = res
 
             def forward(self, x):
-                if not self.res:
-                    return self.net(x)
-                return x + self.net(x)
-
+              if not self.res:
+                  return self.net(x)
+              return x + self.net(x)
         from einops.layers.torch import Rearrange, Reduce
 
         def mixer(b=True, res=False):
@@ -413,11 +427,20 @@ def prepro():
         # ds[0][1].shape
 
         class LitDirectCNN(pl.LightningModule):
-            def __init__(self, net, lr_init=1e-3, wd=1e-4, loss_w={'tot':(.1, .1, .1), 'rec':(1., 1., 1.,)}, gt_var_stats=train_ds.stats):
+            def __init__(
+                    self,
+                    net,
+                    lr_init=1e-3,
+                    wd=1e-4,
+                    loss_w={'tot':(.1, .1, .1), 'rec':(1., 1., 1.,)},
+                    loss_budget_gt_vars=100,
+                    gt_var_stats=train_ds.stats,
+                ):
                 super().__init__()
                 self.net = net
                 self.lr_init = lr_init
                 self.wd = wd
+                self.loss_budget_gt_vars = loss_budget_gt_vars
                 self.loss_w = loss_w
                 self.gt_means = nn.Parameter(torch.from_numpy(gt_var_stats[0])[None, :, None, None], requires_grad=False)
                 self.gt_stds = nn.Parameter(torch.from_numpy(gt_var_stats[1])[None, :, None, None], requires_grad=False)
@@ -425,7 +448,6 @@ def prepro():
             def forward(self, batch):
                 x, *_ = batch 
                 return self.net(x)
-
 
             def loss(self, t1, t2):
                 rmse = ((t1 -t2)**2).mean().sqrt()
@@ -471,8 +493,12 @@ def prepro():
                 self.log(f'{phase}_imp_lap_mse', losses['l_err_rec'] / l_loss_ref, prog_bar=True, on_step=False, on_epoch=True)
 
                 loss = (
-                    self.loss_w['tot'][0] * losses['err_tot'] + self.loss_w['tot'][1] * losses['g_err_tot'] + self.loss_w['tot'][2] * losses['l_err_tot']
-                    + self.loss_w['rec'][0] * losses['err_rec'] + self.loss_w['rec'][1] * losses['g_err_rec'] + self.loss_w['rec'][2] * losses['l_err_rec']
+                    self.loss_w['tot'][0] * losses['err_tot']
+                    + self.loss_w['tot'][1] * losses['g_err_tot']
+                    + self.loss_w['tot'][2] * losses['l_err_tot']
+                    + self.loss_w['rec'][0] * losses['err_rec']
+                    + self.loss_w['rec'][1] * losses['g_err_rec']
+                    + self.loss_w['rec'][2] * losses['l_err_rec']
                 )
                 self.log(f'{phase}_loss', loss, prog_bar=False)
                 return loss
@@ -484,22 +510,28 @@ def prepro():
                 return self.process_batch(batch, phase='val')
 
             def configure_optimizers(self):
-                opt = torch.optim.Adam(self.parameters(), lr=self.lr_init, weight_decay=self.wd)
+                opt = torch.optim.AdamW(self.parameters(), lr=self.lr_init, weight_decay=self.wd)
+                # opt = torch.optim.SGD(self.parameters(), lr=self.lr_init)
                 return {
                     'optimizer': opt,
-                    'lr_scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(
-                        opt, verbose=True, factor=0.5, min_lr=1e-6, cooldown=5
-                    ),
+                    'lr_scheduler':
+                    # torch.optim.lr_scheduler.ReduceLROnPlateau(
+                    #     opt, verbose=True, factor=0.5, min_lr=1e-6, cooldown=5, patience=5,
+                    # ),
+                    # torch.optim.lr_scheduler.CosineAnnealingLR(opt, eta_min=1e-8, T_max=15),
+                    torch.optim.lr_scheduler.CyclicLR(
+                        opt, base_lr=1e-4, max_lr=5e-3,  step_size_up=10, step_size_down=10, cycle_momentum=False),
                     'monitor': 'val_loss'
                 }
 
         lit_mod = LitDirectCNN(
                 net,
-                lr_init=5e-4,
-                wd=1e-4,
+                lr_init=1e-3,
+                wd=1e-2,
                 loss_w={
-                    # 'tot':(.1, .1, .1), 'rec':(1., 1., 1.,)
-                    'tot':(1., 1., 1.), 'rec':(0., 0., 0.,)
+                    'tot':(5., 3., 3.),
+                    'rec':(0., 0., 0.,)
+                    # 'tot':(1., 1., 1.), 'rec':(0., 0., 0.,)
                 },
                 gt_var_stats=[s[train_ds.gt_vars].to_array().data for s in train_ds.stats]
             )
@@ -514,11 +546,12 @@ def prepro():
                 # callbacks.GradientAccumulationScheduler({1: 1, 10: 3, 30: 7, 60: 15, 100: 25, 150: 40}),
                 # callbacks.GradientAccumulationScheduler({1: 1, 10: 3, 30: 8, 60: 16}),
                 callbacks.StochasticWeightAveraging(),
-                callbacks.GradientAccumulationScheduler({1: 4, 10: 8, 25: 16}),
+                # callbacks.GradientAccumulationScheduler({1: 4, 10: 8, 25: 16}),
+                callbacks.GradientAccumulationScheduler({1: 4, 10: 8, 15: 16, 20: 32, 30: 64}),
                 VersioningCallback()
             ],
             log_every_n_steps=10,
-            max_epochs=200,
+            max_epochs=50,
             # overfit_batches=2,
         )
 
@@ -765,3 +798,6 @@ def get_nadir_slice(path, **slice_args):
         dim="time"
     )
 
+
+if __name__ == '__main__':
+    locals().update(main())
