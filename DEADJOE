@@ -12,3 +12,24 @@ user]
 *** Fichier '* Startup Log *'
 Traitement de '/etc/joe/editorrc'...Traitement de '/etc/joe/ftyperc'...Finished processing /etc/joe/ftyperc
 Finished processing /etc/joe/editorrc
+
+*** These modified files were found in JOE when it aborted on Mon Mar 14 15:42:45 2022
+*** JOE was aborted because the terminal closed
+
+*** Fichier '(Sans nom)'
+X
+X
+
+*** Fichier '(Sans nom)'
+/users/local/m19beauc/4dvarnet-core/.git/MERGE_MSG
+
+*** Fichier '/users/local/m19beauc/4dvarnet-core/.git/MERGE_MSG'
+Merge branch 'main' of https://github.com/CIA-Oceanix/4dvarnet-core into main
+# Veuillez entrer un message de validation pour expliquer en quoi cette fusion est
+# nécessaire, surtout si cela fusionne une branche amont mise à jour dans une branche de sujet.
+#
+# Les lignes commençant par '#' seront ignorées, et un message vide
+# a
+*** Fichier '* Startup Log *'
+Traitement de '/etc/joe/editorrc'...Traitement de '/etc/joe/ftyperc'...Finished processing /etc/joe/ftyperc
+Finished processing /etc/joe/editorrc
