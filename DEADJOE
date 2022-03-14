@@ -1,0 +1,14 @@
+
+*** These modified files were found in JOE when it aborted on Mon Mar 14 15:33:29 2022
+*** JOE was aborted because the terminal closed
+
+*** Fichier '(Sans nom)'
+/homes/m19beauc/.gitconfig
+
+*** Fichier '/homes/m19beauc/.gitconfig'
+user]
+	name = maxbeauchamp
+	email = maxime.beauchamp76@gmail.com
+*** Fichier '* Startup Log *'
+Traitement de '/etc/joe/editorrc'...Traitement de '/etc/joe/ftyperc'...Finished processing /etc/joe/ftyperc
+Finished processing /etc/joe/editorrc
