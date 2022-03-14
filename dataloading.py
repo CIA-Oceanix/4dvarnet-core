@@ -94,7 +94,7 @@ class XrDataset(Dataset):
                 _ds.time.attrs["units"] = "seconds since 2012-10-01"
                 _ds = xr.decode_cf(_ds)
             else:
-                _ds['time'] = pd.to_datetime(_ds.time)
+                _ds['time'] = pd.to_datetime(_ds.time.values)
 
         # rename latitute/longitude to lat/lon for consistency
         rename_coords = {}

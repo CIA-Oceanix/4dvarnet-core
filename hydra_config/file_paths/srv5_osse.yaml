@@ -1,0 +1,5 @@
+oi_path: /users/local/m19beauc/data/oi/ssh_NATL60_swot_4nadir.nc
+obs_mask_path: /users/local/m19beauc/data/data_new/dataset_nadir_0d_swot.nc
+gt_path: /users/local/m19beauc/data/ref/NATL60-CJM165_GULFSTREAM_ssh_y2013.1y.nc
+sst_path: /users/local/m19beauc/data/ref/NATL60-CJM165_GULFSTREAM_sst_y2013.1y.nc
+
