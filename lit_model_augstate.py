@@ -536,6 +536,9 @@ class LitModelAugstate(pl.LightningModule):
             return (
                     None,
                     torch.zeros_like(targets_GT),
+                    torch.cat((torch.zeros_like(targets_GT),
+                              torch.zeros_like(targets_GT),
+                              torch.zeros_like(targets_GT)), dim=1),
                     dict([('mse', 0.),
                         ('mseGrad', 0.),
                         ('meanGrad', 1.),
