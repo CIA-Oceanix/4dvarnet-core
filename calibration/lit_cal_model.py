@@ -250,6 +250,7 @@ class LitCalModel(pl.LightningModule):
         if self.model_name == '4dvarnet':
             optimizer = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                 ]
                 , lr=0., weight_decay=self.hparams.weight_decay)
@@ -563,8 +564,8 @@ class LitCalModel(pl.LightningModule):
 
         nrmse_swath_df = nrmse_fn('obs_pred', 'obs_inp', 'obs_gt')
         mse_swath_df = mse_fn('obs_pred', 'obs_inp', 'obs_gt')
-        nrmse_df.to_csv(self.logger.log_dir + f'/{log_pref} nRMSE_swath.txt')
-        mse_df.to_csv(self.logger.log_dir + f'/{log_pref} MSE_swath.txt')
+        nrmse_swath_df.to_csv(self.logger.log_dir + f'/{log_pref} nRMSE_swath.txt')
+        mse_swath_df.to_csv(self.logger.log_dir + f'/{log_pref} MSE_swath.txt')
         # plot nRMSE
         # PENDING: replace hardcoded 60
         path_save3 = self.logger.log_dir + f'/{log_pref} nRMSE.png'

@@ -10,6 +10,16 @@ BASE_DEFAULTS = [
   '/splits/dc_boost_swot@datamodule',
 ]
 XP=12
+# norm
+cs.store(name='l1', node={'norm_obs': 'l1', 'norm_prior': 'l1'}, group='norm', package='params')
+cs.store(name='l2', node={'norm_obs': 'l2', 'norm_prior': 'l2'}, group='norm', package='params')
+norm = {'l1': '/norm/l1', 'l2': '/norm/l2'}
+
+# dropout
+cs.store(name='01_01', node={'dropout': 0.1, 'dropout_phi_r': 0.1}, group='dropout', package='params')
+cs.store(name='025_00', node={'dropout': 0.25, 'dropout_phi_r': 0.}, group='dropout', package='params')
+dropout = {'dp01_01': '/dropout/01_01', 'dp025_00': '/dropout/025_00'}
+
 for  defaults in product(
         [
             ('aug1', '/xp/qfebvre/aug/with_aug_state.yaml'),
@@ -38,6 +48,8 @@ for  defaults in product(
         [
             ('ng5x3cas', '/xp/qfebvre/train_strat/const_lr_ngrad_5_3cas.yaml'),
         ],
+        norm.items(),
+        dropout.items(),
     ):
     labels, defaults = zip(*defaults)
     defaults_xp_name = '_'.join(labels)

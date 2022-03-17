@@ -1,4 +1,5 @@
 import hydra
+
 import holoviews as hv
 import holoviews.plotting.mpl  # noqa
 from dvc_main import VersioningCallback
@@ -49,6 +50,10 @@ Xps
 - [ ] from 4dvarnet 5nad no SST
 - [ ] swot only pred (full field tgt + no xb input)
 - [ ] OPT - from SST input
+- best no sst qxp12_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l1_dp025_00/version_0
+- best sst qxp12_aug2_dp240_5nad_map_sst_ng5x3cas_l1_dp01_01/version_0
+
+
 """
 
 display(Markdown(s))
@@ -68,22 +73,51 @@ cfgs = cs.list('xp')
 def generate_data():
     try:
 
+        preds_data = {}
         cs.list('xp')
         cfgs =  [
-             'qxp8_5nad_sst_l1_dp01_01',
-             'qxp8_5nad_sst_l1_dp025_00',
-             'qxp8_5nad_sst_l2_dp01_01',
-             'qxp8_5nad_sst_l2_dp025_00',
-            ]
+            'qxp12_aug1_dp240_5nad_cal_no_sst_ng5x3cas_l1_dp01_01',
+            'qxp12_aug1_dp240_5nad_cal_no_sst_ng5x3cas_l1_dp025_00',
+            'qxp12_aug1_dp240_5nad_cal_no_sst_ng5x3cas_l2_dp01_01',
+            'qxp12_aug1_dp240_5nad_cal_no_sst_ng5x3cas_l2_dp025_00',
+            'qxp12_aug1_dp240_5nad_cal_sst_ng5x3cas_l1_dp01_01',
+            'qxp12_aug1_dp240_5nad_cal_sst_ng5x3cas_l1_dp025_00',
+            'qxp12_aug1_dp240_5nad_cal_sst_ng5x3cas_l2_dp01_01',
+            'qxp12_aug1_dp240_5nad_cal_sst_ng5x3cas_l2_dp025_00',
+            'qxp12_aug1_dp240_5nad_map_no_sst_ng5x3cas_l1_dp01_01',
+            'qxp12_aug1_dp240_5nad_map_no_sst_ng5x3cas_l1_dp025_00',
+            'qxp12_aug1_dp240_5nad_map_no_sst_ng5x3cas_l2_dp01_01',
+            'qxp12_aug1_dp240_5nad_map_no_sst_ng5x3cas_l2_dp025_00',
+            'qxp12_aug1_dp240_5nad_map_sst_ng5x3cas_l1_dp01_01',
+            'qxp12_aug1_dp240_5nad_map_sst_ng5x3cas_l1_dp025_00',
+            'qxp12_aug1_dp240_5nad_map_sst_ng5x3cas_l2_dp01_01',
+            'qxp12_aug1_dp240_5nad_map_sst_ng5x3cas_l2_dp025_00',
+            'qxp12_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l1_dp01_01',
+            'qxp12_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l1_dp025_00',
+            'qxp12_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l2_dp01_01',
+            'qxp12_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l2_dp025_00',
+            'qxp12_aug2_dp240_5nad_cal_sst_ng5x3cas_l1_dp01_01',
+            'qxp12_aug2_dp240_5nad_cal_sst_ng5x3cas_l1_dp025_00',
+            'qxp12_aug2_dp240_5nad_cal_sst_ng5x3cas_l2_dp01_01',
+            'qxp12_aug2_dp240_5nad_cal_sst_ng5x3cas_l2_dp025_00',
+            'qxp12_aug2_dp240_5nad_map_no_sst_ng5x3cas_l1_dp01_01',
+            'qxp12_aug2_dp240_5nad_map_no_sst_ng5x3cas_l1_dp025_00',
+            'qxp12_aug2_dp240_5nad_map_no_sst_ng5x3cas_l2_dp01_01',
+            'qxp12_aug2_dp240_5nad_map_no_sst_ng5x3cas_l2_dp025_00',
+            'qxp12_aug2_dp240_5nad_map_sst_ng5x3cas_l1_dp01_01',
+            'qxp12_aug2_dp240_5nad_map_sst_ng5x3cas_l1_dp025_00',
+            'qxp12_aug2_dp240_5nad_map_sst_ng5x3cas_l2_dp01_01',
+            'qxp12_aug2_dp240_5nad_map_sst_ng5x3cas_l2_dp025_00',
+        ]
         for cfg_n in cfgs:
             overrides = ['+datamodule.dl_kwargs.shuffle=False']
             cfg = get_cfg(cfg_n, overrides=overrides)
             dm = get_dm(cfg_n,add_overrides=overrides)
-            model = get_model(cfg_n, bst_ckpt(f'results/xp8/{cfg_n}'), dm=dm, add_overrides=overrides)
+            model = get_model(cfg_n, bst_ckpt(f'results/xp12/{cfg_n}'), dm=dm, add_overrides=overrides)
 
             trainer = pl.Trainer(gpus=[5])
-            trainer.test(model, dm.train_dataloader())
-            # trainer.test(model, dm.val_dataloader())
+            # trainer.test(model, dm.train_dataloader())
+            trainer.test(model, dm.val_dataloader())
             slice_args = dict(
                     # time_min='2012-10-01', 
                     time_min= pd.to_datetime(np.min(model.test_xr_ds['time']).values).date(),
@@ -104,7 +138,8 @@ def generate_data():
              ])
 
             # model.test_xr_ds.obs_gt.isel(time=6).plot()
-            dl = dm.train_dataloader()
+            # dl = dm.train_dataloader()
+            dl = dm.val_dataloader()
             # delta_ds = dl.dataset.datasets[0].gt_ds.ds.ssh - model.test_xr_ds.gt
             # dl.dataset.datasets[0].gt_ds.ds.ssh.isel(time=3).plot() 
             # model.test_xr_ds.gt.isel(time=3).plot() 
@@ -119,7 +154,7 @@ def generate_data():
                 .pipe(lambda ds: ds.isel(time=np.isfinite(ds.oi).all('nC')))
             )
             # swath_data.to_netcdf('data/swath_train_data.nc')
-
+            preds_data[cfg_n] = swath_data.pred
             rms = lambda da: np.sqrt(np.mean(da**2))
             swath_data.gt.std()
             swath_data.ssh_model.std()
@@ -127,314 +162,277 @@ def generate_data():
             print(f'{rms(swath_data.ssh_model - swath_data.oi).item()=:.2e} m')
             print(f'{rms(swath_data.ssh_model - swath_data.pred).item()=:.2e} m')
             print(f'{rms(swath_data.ssh_model - swath_data.gt).item()=:.2e} m')
+            print(f'  ############################# {cfg_n} ########################################## \n\n')
     except Exception as e:
         print(traceback.format_exc()) 
     finally:
         return locals()
 
 
-
-
-
-def prepro():
-    try:
+class SmoothSwathDataset(torch.utils.data.Dataset):
+    def __init__(
+            self,
+            swath_data,
+            norm_stats=None,
+            sigmas_obs=(0,*[(i+1)*8 for i in range(20)]),
+            sigmas_xb=(0,),
+            sigmas_gt=(0,),
+            gt_var='ssh_model',
+            ref_var='pred',
+            xb_var='oi',
+        ):
         xrgf = lambda da, sig: da if sig==0 else xr.apply_ufunc(lambda nda: ndi.gaussian_filter1d(nda, axis=0, sigma=sig, order=0, mode='mirror', truncate=3.0), da)
-        p = lambda da: da.T.plot(figsize=(15,3))
-        rms = lambda da: np.sqrt(np.mean(da**2))
-
-        class SmoothSwathDataset(torch.utils.data.Dataset):
-            def __init__(self, swath_data, norm_stats=None):
-                SIGMAS_OBS = [
-                        0,
-                        1, 2, 5, 10, 25, 30, 35, 40, 50, 75, 100
-                ]
-                SIGMAS_XB = [
-                        0,
-                        1, 2, 5, 10, 50
-                ]
-                SIGMAS_GT = [
-                        0,
-                        # 5, 10,
-                        # 25,
-                        # 50,
-                        # 75
-                ]
-                # GT_VAR, REF_VAR = 'ssh_model', 'pred'
-                GT_VAR, REF_VAR = 'gt_res', 'ref_res'
-                XB_VAR = 'pred'
-                # XB_VAR = 'oi'
-                swath_data = swath_data.assign(contiguous_chunk=lambda _df: (_df.x_al.diff('time') > 3).cumsum())
-                sw_data_w_aug = (
-                        swath_data
-                        .groupby('contiguous_chunk')
-                        .apply(
-                            lambda g: g.assign(
-                                err =  lambda _g: _g.syst_error_uncalibrated + _g.wet_tropo_res,
-                                xb =  lambda _g: _g[XB_VAR],
-                            ).assign(
-                                obs = lambda _g:  _g.ssh_model + _g.err
-                            ).assign(
-                                obs_res = lambda _g: _g.obs - _g.xb,
-                                **{'gt_res': lambda ds: ds.ssh_model - ds.xb},
-                                **{'ref_res': lambda ds: ds.pred - ds[XB_VAR]}
-                            ).assign(
-                                **{f'obs_{sig}' : lambda _g, sig=sig: xrgf(_g.obs, sig) for sig in SIGMAS_OBS},
-                                **{f'xb_{sig}' : lambda _g, sig=sig: xrgf(_g.xb, sig) for sig in SIGMAS_XB},
-                                **{f'gt_{sig}' : lambda _g, sig=sig: xrgf(_g[GT_VAR], sig) for sig in SIGMAS_GT},
-                            )
-                        )
-                )
-
-                sw_res_data = sw_data_w_aug.assign(
-                        **{
-                            f'dobs_{sig2}_{sig1}': lambda ds, sig1=sig1, sig2=sig2: ds[f'obs_{sig1}'] - ds[f'obs_{sig2}']
-                            for sig1, sig2 in zip(SIGMAS_OBS[:-1], SIGMAS_OBS[1:])
-                        },
-                        **{
-                            f'dxb_{sig2}_{sig1}': lambda ds, sig1=sig1, sig2=sig2: ds[f'xb_{sig1}'] - ds[f'xb_{sig2}']
-                            for sig1, sig2 in zip(SIGMAS_XB[:-1], SIGMAS_XB[1:])
-                        },
-                        **{
-                            f'dgt_{sig2}_{sig1}': lambda ds, sig1=sig1, sig2=sig2: ds[f'gt_{sig1}'] - ds[f'gt_{sig2}']
-                            for sig1, sig2 in zip(SIGMAS_GT[:-1], SIGMAS_GT[1:])
-                        },
-                )
-
-                pp_vars = (
-                        [f'dobs_{sig2}_{sig1}'for sig1, sig2 in zip(SIGMAS_OBS[:-1], SIGMAS_OBS[1:])] 
-                        + ([f'obs_{SIGMAS_OBS[-1]}'] if len(SIGMAS_OBS)>0 else [])
-                        + [f'dxb_{sig2}_{sig1}'for sig1, sig2 in zip(SIGMAS_XB[:-1], SIGMAS_XB[1:])]
-                        + ([f'xb_{SIGMAS_XB[-1]}'] if len(SIGMAS_XB)>0 else [])
-                )
-                gt_vars = (
-                        [f'dgt_{sig2}_{sig1}'for sig1, sig2 in zip(SIGMAS_GT[:-1], SIGMAS_GT[1:])] + [f'gt_{SIGMAS_GT[-1]}']
-                )
-
-                # gt_vars = ['gt_res']
-                # ref_var = 'zeros'
-
-                
-                # for v in pp_vars:
-                #     p(sw_res_data.isel(time=sw_res_data.contiguous_chunk==2)[v])
-                all_vars = gt_vars + pp_vars
-                mean, std =  norm_stats  if norm_stats is not None else (
-                        sw_res_data[all_vars].mean(),
-                        sw_res_data[all_vars].std(),
-                )
-                # mean, std =train_ds.stats
-                # norm_stats=train_ds.stats
-                # print(mean)
-                pp_ds = ((sw_res_data[all_vars] - mean) / std).assign(contiguous_chunk=sw_res_data.contiguous_chunk).astype(np.float32)
-
-                min_timestep = 300
-                self.stats  = mean, std
-                self.chunks = list(pp_ds.groupby('contiguous_chunk').count().isel(nC=0).pipe(lambda ds: ds.isel(contiguous_chunk=ds[pp_vars[0]] > min_timestep)).contiguous_chunk.values)
-
-                self.pp_vars = pp_vars 
-                self.gt_vars = gt_vars
-                self.gt_var = GT_VAR
-                self.ref_var = REF_VAR
-                self.pp_ds = pp_ds
-                self.raw_ds = sw_data_w_aug
-
-            def __len__(self):
-                return len(self.chunks)
-
-            def __getitem__(self, idx):
-                c = self.chunks[idx]
-                pp_item_ds = self.pp_ds.pipe(lambda ds: ds.isel(time=ds.contiguous_chunk == c))
-                raw_item_ds = self.raw_ds.pipe(lambda ds: ds.isel(time=ds.contiguous_chunk == c))
-
-                return (
-                    pp_item_ds[self.pp_vars].to_array().data,
-                    pp_item_ds[self.gt_vars].to_array().data,
-                    raw_item_ds[[self.gt_var]].to_array().data,
-                    raw_item_ds[[self.ref_var]].to_array().data
-                )
-
-        swath_data = xr.open_dataset('data/swath_train_data.nc')
-        train_ds = SmoothSwathDataset(swath_data) 
-        val_swath_data = xr.open_dataset('data/swath_val_data.nc')
-        val_ds = SmoothSwathDataset(val_swath_data, norm_stats=train_ds.stats) 
-
-        # split = [int(len(ds) * 0.75 // 1), int(len(ds) - (len(ds) * 0.75 //1))]
-        # train_ds, val_ds = torch.utils.data.random_split(ds, split, generator=torch.Generator().manual_seed(42))
-        # self = ds
-        # idx=0
-        # c = self.chunks[idx]
-        # item_ds = self.pp_ds.pipe(lambda ds: ds.isel(time=ds.contiguous_chunk == c))
-        # item_ds[self.pp_vars].to_array().data, item_ds[self.gt_vars].to_array().data
-        # item = train_ds[0]
-
-        def get_same_pad(h, w, kh, kw, s):
-            # The total padding applied along the height and width is computed as:
-            if (h % s[0] == 0):
-                pad_along_height = max(kh - s[0], 0)
-            else:
-                pad_along_height = max(kh - (h % s[0]), 0)
-            if w % s[1] == 0:
-                pad_along_width = max(kw - s[1], 0)
-            else:
-                pad_along_width = max(kw - (w % s[1]), 0)
-
-            pad_top = pad_along_height // 2
-            pad_bottom = pad_along_height - pad_top
-            pad_left = pad_along_width // 2
-            pad_right = pad_along_width - pad_left
-
-            return {'left': pad_left, 'right': pad_right, 'top': pad_top, 'bottom': pad_bottom}
-
-            # %% models
-
-
-        class ConvSamePad(torch.nn.Module):
-            def __init__(self, apply_per_side=True, *args, **kwargs):
-                super().__init__()
-                self.apply_per_side = apply_per_side
-                self.conv = torch.nn.Conv2d(*args, **kwargs)
-
-            def _forward(self, inp):
-                inp_shape = einops.parse_shape(inp, 'bs inc w h')
-                kernel_shape = einops.parse_shape(self.conv.weight, 'inc outc w h')
-                same_pad = get_same_pad(
-                    inp_shape['h'],
-                    inp_shape['w'],
-                    kernel_shape['h'],
-                    kernel_shape['w'],
-                    self.conv.stride,
-                )
-                return self.conv(F.pad(inp, (same_pad['top'], same_pad['bottom'], same_pad['left'], same_pad['right'])))
-
-            def forward(self, x):
-                if self.apply_per_side:
-                    sizes = einops.parse_shape(x, 'b c time nc')
-                    side_limit = sizes['nc'] // 2
-                    return einops.rearrange(
-                        [
-                            self._forward(x[..., :side_limit]),
-                            self._forward(x[..., side_limit:]),
-                        ],
-                        'sides b c time hnc -> b c time (hnc sides)'
+        swath_data = swath_data.assign(contiguous_chunk=lambda _df: (_df.x_al.diff('time') > 3).cumsum())
+        sw_data_w_aug = (
+                swath_data
+                .groupby('contiguous_chunk')
+                .apply(
+                    lambda g: g.assign(
+                        err =  lambda _g: _g.syst_error_uncalibrated + _g.wet_tropo_res,
+                        xb =  lambda _g: _g[xb_var],
+                    ).assign(
+                        obs = lambda _g:  _g.ssh_model + _g.err
+                    ).assign(
+                        obs_res = lambda _g: _g.obs - _g.xb,
+                        **{'gt_res': lambda ds: ds.ssh_model - ds.xb},
+                        **{'ref_res': lambda ds: ds.pred - ds[xb_var]}
+                    ).assign(
+                        **{f'obs_{sig}' : lambda _g, sig=sig: xrgf(_g.obs, sig) for sig in sigmas_obs},
+                        **{f'xb_{sig}' : lambda _g, sig=sig: xrgf(_g.xb, sig) for sig in sigmas_xb},
+                        **{f'gt_{sig}' : lambda _g, sig=sig: xrgf(_g[gt_var], sig) for sig in sigmas_gt},
                     )
+                )
+        )
 
-                return self._forward(x)
+        sw_res_data = sw_data_w_aug.assign(
+                **{
+                    f'dobs_{sig2}_{sig1}': lambda ds, sig1=sig1, sig2=sig2: ds[f'obs_{sig1}'] - ds[f'obs_{sig2}']
+                    for sig1, sig2 in zip(sigmas_obs[:-1], sigmas_obs[1:])
+                },
+                **{
+                    f'dxb_{sig2}_{sig1}': lambda ds, sig1=sig1, sig2=sig2: ds[f'xb_{sig1}'] - ds[f'xb_{sig2}']
+                    for sig1, sig2 in zip(sigmas_xb[:-1], sigmas_xb[1:])
+                },
+                **{
+                    f'dgt_{sig2}_{sig1}': lambda ds, sig1=sig1, sig2=sig2: ds[f'gt_{sig1}'] - ds[f'gt_{sig2}']
+                    for sig1, sig2 in zip(sigmas_gt[:-1], sigmas_gt[1:])
+                },
+        )
 
+        pp_vars = (
+                [f'dobs_{sig2}_{sig1}'for sig1, sig2 in zip(sigmas_obs[:-1], sigmas_obs[1:])] 
+                + ([f'obs_{sigmas_obs[-1]}'] if len(sigmas_obs)>0 else [])
+                + [f'dxb_{sig2}_{sig1}'for sig1, sig2 in zip(sigmas_xb[:-1], sigmas_xb[1:])]
+                + ([f'xb_{sigmas_xb[-1]}'] if len(sigmas_xb)>0 else [])
+        )
+        gt_vars = (
+                [f'dgt_{sig2}_{sig1}'for sig1, sig2 in zip(sigmas_gt[:-1], sigmas_gt[1:])] + [f'gt_{sigmas_gt[-1]}']
+        )
 
-        """
-        Tests to do:
-            - [ ] ablation bn
-            - [ ] ablation mix
-            - [ ] ablation res
-            - [ ] Big grad weight
-        """
+        # gt_vars = ['gt_res']
+        # ref_var = 'zeros'
+
         
-        # nhidden = 1024
-        # depth = 12
+        # for v in pp_vars:
+        #     p(sw_res_data.isel(time=sw_res_data.contiguous_chunk==2)[v])
+        all_vars = gt_vars + pp_vars
+        mean, std =  norm_stats  if norm_stats is not None else (
+                sw_res_data[all_vars].mean(),
+                sw_res_data[all_vars].std(),
+        )
+        # mean, std =train_ds.stats
+        # norm_stats=train_ds.stats
+        # print(mean)
+        pp_ds = ((sw_res_data[all_vars] - mean) / std).assign(contiguous_chunk=sw_res_data.contiguous_chunk).astype(np.float32)
 
-        # nhidden = 512
-        # depth = 8
+        min_timestep = 300
+        self.stats  = mean, std
+        self.chunks = list(pp_ds.groupby('contiguous_chunk').count().isel(nC=0).pipe(lambda ds: ds.isel(contiguous_chunk=ds[pp_vars[0]] > min_timestep)).contiguous_chunk.values)
 
-        nhidden = 128
-        depth = 3
+        self.pp_vars = pp_vars 
+        self.gt_vars = gt_vars
+        self.gt_var = gt_var
+        self.ref_var = ref_var
+        self.pp_ds = pp_ds
+        self.raw_ds = sw_data_w_aug
 
-        # nhidden = 64
-        # depth = 1
+        self.return_coords = False
 
-        kernel_size = 3
-        num_repeat = 1
-        residual = True
-        norm_type = 'lrn'
-        act_type = 'silu'
-        mix = True
-        mix_residual = False
-        mix_act_type = 'none'
-        mix_norm_type = 'none'
+    def __len__(self):
+        return len(self.chunks)
 
-        def norm(norm_type='bn', nh=nhidden):
-            if norm_type=='none':
-                return nn.Identity()
-            elif norm_type=='bn':
-                return nn.BatchNorm2d(num_features=nh)
-            elif norm_type=='in':
-                return nn.InstanceNorm2d(num_features=nh)
-            elif norm_type=='lrn':
-                return nn.LocalResponseNorm(size=5)
-            else:
-                assert False, 'Should not be here'
+    @contextlib.contextmanager
+    def get_coords(self):
+        try:
+            self.return_coords = True
+            yield
+        finally:
+            self.return_coords = False
 
-        def act(act_type='relu'):
-            if act_type=='none':
-                return nn.Identity()
-            elif act_type=='relu':
-                return nn.ReLU()
-            elif act_type=='silu':
-                return nn.SiLU()
-            elif act_type=='gelu':
-                return nn.GELU()
-            else: 
-                assert False, 'Should not be here'
+    def __getitem__(self, idx):
+        c = self.chunks[idx]
+        pp_item_ds = self.pp_ds.pipe(lambda ds: ds.isel(time=ds.contiguous_chunk == c))
+        raw_item_ds = self.raw_ds.pipe(lambda ds: ds.isel(time=ds.contiguous_chunk == c))
+
+        if self.return_coords:
+            return raw_item_ds
+        return (
+            pp_item_ds[self.pp_vars].to_array().data,
+            pp_item_ds[self.gt_vars].to_array().data,
+            raw_item_ds[[self.gt_var]].to_array().data,
+            raw_item_ds[[self.ref_var]].to_array().data
+        )
+
+def get_same_pad(h, w, kh, kw, s):
+    # The total padding applied along the height and width is computed as:
+    if (h % s[0] == 0):
+        pad_along_height = max(kh - s[0], 0)
+    else:
+        pad_along_height = max(kh - (h % s[0]), 0)
+    if w % s[1] == 0:
+        pad_along_width = max(kw - s[1], 0)
+    else:
+        pad_along_width = max(kw - (w % s[1]), 0)
+
+    pad_top = pad_along_height // 2
+    pad_bottom = pad_along_height - pad_top
+    pad_left = pad_along_width // 2
+    pad_right = pad_along_width - pad_left
+
+    return {'left': pad_left, 'right': pad_right, 'top': pad_top, 'bottom': pad_bottom}
+
+    # %% models
 
 
-        class ResidualBlock(nn.Module):
-            def __init__(self, net,  res=True):
-                super().__init__()
-                self.net = net
-                self.res = res
+class ConvSamePad(torch.nn.Module):
+    def __init__(self, apply_per_side=True, *args, **kwargs):
+        super().__init__()
+        self.apply_per_side = apply_per_side
+        self.conv = torch.nn.Conv2d(*args, **kwargs)
 
-            def forward(self, x):
-              if not self.res:
-                  return self.net(x)
-              return x + self.net(x)
-        from einops.layers.torch import Rearrange, Reduce
+    def _forward(self, inp):
+        inp_shape = einops.parse_shape(inp, 'bs inc w h')
+        kernel_shape = einops.parse_shape(self.conv.weight, 'inc outc w h')
+        same_pad = get_same_pad(
+            inp_shape['h'],
+            inp_shape['w'],
+            kernel_shape['h'],
+            kernel_shape['w'],
+            self.conv.stride,
+        )
+        return self.conv(F.pad(inp, (same_pad['top'], same_pad['bottom'], same_pad['left'], same_pad['right'])))
 
-        def mixer(b=True, res=False):
-             return ResidualBlock(
-                 nn.Sequential(
-                   Rearrange('b c t nC -> b nC t c'),
-                   ConvSamePad(in_channels=52, out_channels=52, kernel_size=1, apply_per_side=False),
-                   norm(mix_norm_type, nh=52),
-                   act(act_type=mix_act_type),
-                   Rearrange('b nC t c -> b c t nC'),
-                ),
-             res=res) if b else nn.Identity()
-
-        inner_net = nn.Sequential(
-            *[ nn.Sequential(
-                ResidualBlock(
-                    nn.Sequential(
-                        ConvSamePad(in_channels=nhidden,out_channels=nhidden, kernel_size=kernel_size),
-                        norm(norm_type),
-                        act(act_type=act_type),
-                    ), res=residual),
-                    mixer(mix, res=mix_residual),
+    def forward(self, x):
+        if self.apply_per_side:
+            sizes = einops.parse_shape(x, 'b c time nc')
+            side_limit = sizes['nc'] // 2
+            return einops.rearrange(
+                [
+                    self._forward(x[..., :side_limit]),
+                    self._forward(x[..., side_limit:]),
+                ],
+                'sides b c time hnc -> b c time (hnc sides)'
             )
-            for _ in range(depth) ],
-        )
-        net = nn.Sequential(
-                ConvSamePad(in_channels=len(train_ds.pp_vars),out_channels=nhidden, kernel_size=1),
-                norm(norm_type=norm_type),
-                act(act_type=act_type),
-                nn.Sequential(
-                    *[inner_net for _ in range(num_repeat)]
-                ),
-                ConvSamePad(in_channels=nhidden, out_channels=len(train_ds.gt_vars), kernel_size=1),
-        )
-        
-        train_dl = torch.utils.data.DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=3)
-        val_dl = torch.utils.data.DataLoader(val_ds, batch_size=1, shuffle=False, num_workers=3)
-        b = next(iter(train_dl))
-        # ds[0][0].shape
-        # ds[0][1].shape
 
-        class LitDirectCNN(pl.LightningModule):
+        return self._forward(x)
+
+def build_net(
+    in_channels,
+    out_channels,
+    nhidden = 128,
+    depth = 3,
+    kernel_size = 3,
+    num_repeat = 1,
+    residual = True,
+    norm_type = 'lrn',
+    act_type = 'silu',
+    mix = True,
+    mix_residual = False,
+    mix_act_type = 'none',
+    mix_norm_type = 'none',
+):
+
+    def norm(norm_type='bn', nh=nhidden):
+        if norm_type=='none':
+            return nn.Identity()
+        elif norm_type=='bn':
+            return nn.BatchNorm2d(num_features=nh)
+        elif norm_type=='in':
+            return nn.InstanceNorm2d(num_features=nh)
+        elif norm_type=='lrn':
+            return nn.LocalResponseNorm(size=5)
+        else:
+            assert False, 'Should not be here'
+
+    def act(act_type='relu'):
+        if act_type=='none':
+            return nn.Identity()
+        elif act_type=='relu':
+            return nn.ReLU()
+        elif act_type=='silu':
+            return nn.SiLU()
+        elif act_type=='gelu':
+            return nn.GELU()
+        else: 
+            assert False, 'Should not be here'
+
+
+    class ResidualBlock(nn.Module):
+        def __init__(self, net,  res=True):
+            super().__init__()
+            self.net = net
+            self.res = res
+
+        def forward(self, x):
+          if not self.res:
+              return self.net(x)
+          return x + self.net(x)
+    from einops.layers.torch import Rearrange, Reduce
+
+    def mixer(b=True, res=False):
+         return ResidualBlock(
+             nn.Sequential(
+               Rearrange('b c t nC -> b nC t c'),
+               ConvSamePad(in_channels=52, out_channels=52, kernel_size=1, apply_per_side=False),
+               norm(mix_norm_type, nh=52),
+               act(act_type=mix_act_type),
+               Rearrange('b nC t c -> b c t nC'),
+            ),
+         res=res) if b else nn.Identity()
+
+    
+    inner_net = nn.Sequential(
+        *[ nn.Sequential(
+            ResidualBlock(
+                nn.Sequential(
+                    ConvSamePad(in_channels=nhidden,out_channels=nhidden, kernel_size=kernel_size),
+                    norm(norm_type),
+                    act(act_type=act_type),
+                ), res=residual),
+                mixer(mix, res=mix_residual),
+        )
+        for _ in range(depth) ],
+    )
+    net = nn.Sequential(
+            ConvSamePad(in_channels=in_channels,out_channels=nhidden, kernel_size=1),
+            norm(norm_type=norm_type),
+            act(act_type=act_type),
+            nn.Sequential(
+                *[inner_net for _ in range(num_repeat)]
+            ),
+            ConvSamePad(in_channels=nhidden, out_channels=out_channels, kernel_size=1),
+    )
+    return net
+
+class LitDirectCNN(pl.LightningModule):
             def __init__(
                     self,
                     net,
+                    gt_var_stats,
                     lr_init=1e-3,
                     wd=1e-4,
                     loss_w={'tot':(.1, .1, .1), 'rec':(1., 1., 1.,)},
                     loss_budget_gt_vars=100,
-                    gt_var_stats=train_ds.stats,
                 ):
                 super().__init__()
                 self.net = net
@@ -444,6 +442,7 @@ def prepro():
                 self.loss_w = loss_w
                 self.gt_means = nn.Parameter(torch.from_numpy(gt_var_stats[0])[None, :, None, None], requires_grad=False)
                 self.gt_stds = nn.Parameter(torch.from_numpy(gt_var_stats[1])[None, :, None, None], requires_grad=False)
+                self.coords = None
 
             def forward(self, batch):
                 x, *_ = batch 
@@ -509,8 +508,17 @@ def prepro():
             def validation_step(self, batch, batch_idx):
                 return self.process_batch(batch, phase='val')
 
+            def predict_step(self, batch, batch_idx):
+                out = self.forward(batch)
+                rec_out = (out * self.gt_stds + self.gt_means).sum(dim=1)
+                return rec_out.cpu().numpy()
+
+
             def configure_optimizers(self):
-                opt = torch.optim.AdamW(self.parameters(), lr=self.lr_init, weight_decay=self.wd)
+                # opt = torch.optim.AdamW(self.parameters(), lr=self.lr_init, weight_decay=self.wd)
+                opt = torch.optim.Adam(
+                        [{'params': self.parameters(), 'initial_lr': self.lr_init}],
+                        lr=self.lr_init, weight_decay=self.wd)
                 # opt = torch.optim.SGD(self.parameters(), lr=self.lr_init)
                 return {
                     'optimizer': opt,
@@ -518,22 +526,66 @@ def prepro():
                     # torch.optim.lr_scheduler.ReduceLROnPlateau(
                     #     opt, verbose=True, factor=0.5, min_lr=1e-6, cooldown=5, patience=5,
                     # ),
-                    # torch.optim.lr_scheduler.CosineAnnealingLR(opt, eta_min=1e-8, T_max=15),
+                    # torch.optim.lr_scheduler.CosineAnnealingLR(opt, eta_min=5e-5, T_max=20),
+                    # torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt,
+                    #     eta_min=5e-5, T_0=15, T_mult=2, last_epoch=-1),
                     torch.optim.lr_scheduler.CyclicLR(
-                        opt, base_lr=1e-4, max_lr=5e-3,  step_size_up=10, step_size_down=10, cycle_momentum=False),
+                        opt, base_lr=5e-5, max_lr=5e-3,  step_size_up=25, step_size_down=25, cycle_momentum=False, mode='triangular2'),
                     'monitor': 'val_loss'
                 }
+def prepro():
+    try:
+        p = lambda da: da.T.plot(figsize=(15,3))
+        rms = lambda da: np.sqrt(np.mean(da**2))
 
+        
+
+        swath_data = xr.open_dataset('data/swath_train_data.nc')
+        val_swath_data = xr.open_dataset('data/swath_val_data.nc')
+        ds_kwargs = dict(
+            sigmas_obs=(0,*[(i+1)*8 for i in range(40)]),
+            sigmas_xb=tuple(),
+            sigmas_gt=(0,),
+            gt_var='ssh_model',
+            ref_var='pred',
+            xb_var='oi',
+        )
+        train_ds = SmoothSwathDataset(swath_data, **ds_kwargs) 
+        val_ds = SmoothSwathDataset(val_swath_data, norm_stats=train_ds.stats, **ds_kwargs) 
+        
+        train_dl = torch.utils.data.DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=3)
+        val_dl = torch.utils.data.DataLoader(val_ds, batch_size=1, shuffle=False, num_workers=3)
+        b = next(iter(train_dl))
+        # ds[0][0].shape
+        # ds[0][1].shape
+
+        
+
+        net = build_net(
+                in_channels=len(train_ds.pp_vars),
+                out_channels=len(train_ds.gt_vars),
+                nhidden = 128,
+                depth = 3,
+                kernel_size = 3,
+                num_repeat = 1,
+                residual = True,
+                norm_type = 'lrn',
+                act_type = 'silu',
+                mix = True,
+                mix_residual = False,
+                mix_act_type = 'none',
+                mix_norm_type = 'none',
+        )
         lit_mod = LitDirectCNN(
                 net,
-                lr_init=1e-3,
+                gt_var_stats=[s[train_ds.gt_vars].to_array().data for s in train_ds.stats],
+                lr_init=2e-3,
                 wd=1e-2,
                 loss_w={
                     'tot':(5., 3., 3.),
                     'rec':(0., 0., 0.,)
                     # 'tot':(1., 1., 1.), 'rec':(0., 0., 0.,)
                 },
-                gt_var_stats=[s[train_ds.gt_vars].to_array().data for s in train_ds.stats]
             )
 
         trainer = pl.Trainer(
@@ -551,7 +603,7 @@ def prepro():
                 VersioningCallback()
             ],
             log_every_n_steps=10,
-            max_epochs=50,
+            max_epochs=1000,
             # overfit_batches=2,
         )
 
@@ -560,7 +612,107 @@ def prepro():
             train_dataloaders=train_dl,
             val_dataloaders=val_dl
         )
-         
+        model_version = 178
+        checkpoint = next(Path(f'lightning_logs/version_{model_version}/checkpoints').glob('epoch*.ckpt'))
+        lit_mod.load_state_dict(torch.load(checkpoint)['state_dict'])
+
+
+        def generate_cal_xrds(ds, lit_mod, trainer, var_name='cal'):
+            pred_dl = torch.utils.data.DataLoader(ds, batch_size=1, shuffle=False)
+            predictions = [p for pred in trainer.predict(lit_mod,pred_dl) for p in pred]
+            ds = pred_dl.dataset
+            with ds.get_coords():
+                coords = [
+                   ds[i]
+                   for i in range(len(ds))
+                ]
+
+            return xr.concat(
+                    [
+                        coord.assign({var_name: lambda ds: (ds.ssh_model.dims, pred)})
+                        for pred, coord in zip(predictions, coords)
+                    ], dim='time'
+            )
+        new_val_data = generate_cal_xrds(val_ds, lit_mod, trainer)[list(swath_data) + ['cal']]   
+        new_train_data = generate_cal_xrds(train_ds, lit_mod, trainer)[list(swath_data) + ['cal']]   
+
+        new_ds_kwargs = dict(
+            sigmas_obs=(0,*[(i+1)*15 for i in range(20)]),
+            sigmas_xb=(0,*[(i+1)*15 for i in range(20)]),
+            sigmas_gt=(0,),
+            gt_var='gt_res',
+            ref_var='ref_res',
+            xb_var='cal',
+        )
+
+        new_train_ds = SmoothSwathDataset(new_train_data, **new_ds_kwargs) 
+        new_val_ds = SmoothSwathDataset(new_val_data, norm_stats=new_train_ds.stats, **new_ds_kwargs) 
+        
+        new_train_dl = torch.utils.data.DataLoader(new_train_ds, batch_size=1, shuffle=True, num_workers=3)
+        new_val_dl = torch.utils.data.DataLoader(new_val_ds, batch_size=1, shuffle=False, num_workers=3)
+        # ds[0][0].shape
+        # ds[0][1].shape
+
+        
+
+        new_net = build_net(
+                in_channels=len(new_train_ds.pp_vars),
+                out_channels=len(new_train_ds.gt_vars),
+                nhidden = 128,
+                depth = 3,
+                kernel_size = 3,
+                num_repeat = 1,
+                residual = True,
+                norm_type = 'lrn',
+                act_type = 'silu',
+                mix = True,
+                mix_residual = False,
+                mix_act_type = 'none',
+                mix_norm_type = 'none',
+        )
+        new_lit_mod = LitDirectCNN(
+                new_net,
+                gt_var_stats=[s[new_train_ds.gt_vars].to_array().data for s in new_train_ds.stats],
+                lr_init=2e-3,
+                wd=1e-2,
+                loss_w={
+                    'tot':(5., 3., 3.),
+                    'rec':(0., 0., 0.,)
+                    # 'tot':(1., 1., 1.), 'rec':(0., 0., 0.,)
+                },
+            )
+
+        trainer = pl.Trainer(
+            gpus=[5],
+            callbacks=[
+                callbacks.LearningRateMonitor(),
+                # callbacks.TQDMProgressBar(),
+                callbacks.RichProgressBar(),
+                callbacks.ModelCheckpoint(monitor='val_loss', save_last=True),
+                # callbacks.GradientAccumulationScheduler({1: 1, 10: 3, 30: 7, 60: 15, 100: 25, 150: 40}),
+                # callbacks.GradientAccumulationScheduler({1: 1, 10: 3, 30: 8, 60: 16}),
+                callbacks.StochasticWeightAveraging(),
+                # callbacks.GradientAccumulationScheduler({1: 4, 10: 8, 25: 16}),
+                callbacks.GradientAccumulationScheduler({1: 4, 10: 8, 15: 16, 20: 32, 30: 64}),
+                VersioningCallback()
+            ],
+            log_every_n_steps=10,
+            max_epochs=1000,
+            # overfit_batches=2,
+        )
+
+        print(pl.utilities.model_summary.summarize(new_lit_mod, max_depth=3))
+        trainer.fit(new_lit_mod,
+            train_dataloaders=new_train_dl,
+            val_dataloaders=new_val_dl
+        )
+        """
+        change constants to parameters in dataset
+        move net creation inside LitModel (all parameters as init args)
+        trainer secondary model with cal output
+
+        """
+
         """    it/s loss: 0.456 v_num: 53
         val_imp_mse: 0.677    
         val_imp_grad_mse: 0.63
@@ -583,6 +735,31 @@ def prepro():
         train_imp_grad_mse:     0.399
         train_imp_lap_mse: 0.727
         """
+        """
+        loss: 2.58 v_num: 163
+        val_imp_mse: 0.625
+        val_imp_grad_mse: 0.579
+        val_imp_lap_mse: 0.818
+        train_imp_mse: 0.545
+        train_imp_grad_mse:0.513
+        train_imp_lap_mse:0722
+        """
+        """
+        loss: 2.81 v_num: 164   
+        val_imp_mse: 0.602      
+        val_imp_grad_mse: 0.544 
+        val_imp_lap_mse: 0.753  
+        train_imp_mse: 0.515    
+        train_imp_grad_mse:     0.468
+        train_imp_lap_mse: 0.653                   
+        """
+
+
+        """
+        174: obs + pred  -> gt - pred
+        176: obs + oi  -> gt - oi
+        178: obs -> gt
+        """
     except Exception as e:
         print('I am here')
         print(traceback.format_exc()) 
@@ -590,94 +767,267 @@ def prepro():
         return locals()
 
 def make_plots():
+    try:
+        swath_data = xr.open_dataset('data/swath_train_data.nc')
+        val_swath_data = xr.open_dataset('data/swath_val_data.nc')
 
-    ds = xr.Dataset()
-    print(f'{rms(ds.raw_ds.syst_error_uncalibrated).item()=:.2e} m')
-    print(f'{rms(ds.raw_ds.wet_tropo_res).item()=:.2e} m')
-    print(f'{rms(ds.raw_ds.ssh_model - ds.raw_ds.oi).item()=:.2e} m')
-    print(f'{rms(ds.raw_ds.ssh_model - ds.raw_ds.pred).item()=:.2e} m')
-    print(f'{rms(ds.raw_ds.ssh_model - ds.raw_ds.gt).item()=:.2e} m')
-    chunk_pp = ds.pp_ds.isel(time=ds.pp_ds.contiguous_chunk==ds.chunks[0])
-    chunk_raw = ds.raw_ds.isel(time=ds.raw_ds.contiguous_chunk==ds.chunks[0])
-    
-    to_plot_vars = [
-        # 'dobs_1_0', # pp_vars
-        # 'dobs_2_1',
-        # 'dobs_5_2',
-        # 'dobs_10_5',
-        # 'dobs_25_10',
-        # 'dobs_30_25',
-        # 'dobs_35_30',
-        # 'dobs_40_35',
-        # 'dobs_50_40',
-        # 'dobs_75_50',
-        # 'dobs_100_75',
-        # 'obs_100',
-        'dxb_1_0',
-        'dxb_2_1',
-        'dxb_5_2',
-        'dxb_10_5',
-        'dxb_50_10',
-        # 'lat',  # raw vars
-        # 'lat_nadir',
-        # 'lon',
-        # 'lon_nadir',
-        # 'ssh_model',
-        # 'ssh_obs',
-        # 'syst_error_uncalibrated',
-        # 'wet_tropo_res',
-        # 'x_ac',
-        # 'x_al',
-        # 'gt',
-        # 'oi',
-        # 'pred',
-        # 'obs_gt',
-        # 'obs_pred',
-        # 'obs_inp',
-    ]
-    to_plot_ds = (
-            # chunk_raw
-            chunk_pp
-            .assign_coords(x_ac=lambda ds: ('nC', chunk_raw.x_ac.isel(time=0).data))
-            .swap_dims(nC='x_ac')
-            # .assign_coords(x_ac=lambda ds: chunk_raw.x_ac.isel(time=0).data)
-            .reindex(x_ac=np.arange(-60, 62, 2), fill_value=np.nan)
-    )
-    hv.core.options.Store.set_current_backend('matplotlib')
-
-    hv_layout = hv.Layout([
-        hv.Dataset(
-            to_plot_ds, ['time', 'x_ac'], var
-        ).to(
-            hv.QuadMesh, kdims=['time', 'x_ac']
-        ).relabel(
-            f'{var}'
-        ).options(
-            colorbar=True,
-            cmap='PiYG',
-            clim=(to_plot_ds[to_plot_vars].min().to_array().min().item(), to_plot_ds[to_plot_vars].max().to_array().max().item()),
-            aspect=3.5,
-            fig_size=500,
+        trainer = pl.Trainer(
+            gpus=[5],
+            callbacks=[
+            ],
+            log_every_n_steps=10,
+            max_epochs=1000,
+            # overfit_batches=2,
         )
-        for var in to_plot_vars
-    ]).cols(1)
-    fig = hv.render(hv_layout, backend='matplotlib')
-    fig
 
-    v = 'dobs_25_10'
-    # to_plot_ds[v].T.plot(figsize=(15,3))
-    to_plot_ds[v].T.plot(figsize=(15,3))
-    list(chunk_raw)
+        model_version = 176
 
+        checkpoint = next(Path(f'lightning_logs/version_{model_version}/checkpoints').glob('epoch*.ckpt'))
+        if model_version == 178:
+            ds_kwargs = dict(
+                sigmas_obs=(0,*[(i+1)*8 for i in range(20)]),
+                sigmas_xb=tuple(),
+                sigmas_gt=(0,),
+                gt_var='ssh_model',
+                ref_var='pred',
+                xb_var='oi',
+            )
+        if model_version == 174:
+            ds_kwargs = dict(
+                sigmas_obs=(0,*[(i+1)*8 for i in range(20)]),
+                sigmas_xb=(0,*[(i+1)*8 for i in range(20)]),
+                sigmas_gt=(0,),
+                gt_var='gt_res',
+                ref_var='ref_res',
+                xb_var='pred',
+            )
+        if model_version == 176:
+            ds_kwargs = dict(
+                sigmas_obs=(0,*[(i+1)*8 for i in range(20)]),
+                sigmas_xb=(0,*[(i+1)*8 for i in range(20)]),
+                sigmas_gt=(0,),
+                gt_var='gt_res',
+                ref_var='ref_res',
+                xb_var='oi',
+            )
+        train_ds = SmoothSwathDataset(swath_data, **ds_kwargs) 
+        val_ds = SmoothSwathDataset(val_swath_data, norm_stats=train_ds.stats, **ds_kwargs) 
+        
+        net = build_net(
+                in_channels=len(train_ds.pp_vars),
+                out_channels=len(train_ds.gt_vars),
+                nhidden = 128,
+                depth = 3,
+                kernel_size = 3,
+                num_repeat = 1,
+                residual = True,
+                norm_type = 'lrn',
+                act_type = 'silu',
+                mix = True,
+                mix_residual = False,
+                mix_act_type = 'none',
+                mix_norm_type = 'none',
+        )
+        lit_mod = LitDirectCNN(
+                net,
+                gt_var_stats=[s[train_ds.gt_vars].to_array().data for s in train_ds.stats],
+                lr_init=2e-3,
+                wd=1e-2,
+                loss_w={
+                    'tot':(5., 3., 3.),
+                    'rec':(0., 0., 0.,)
+                    # 'tot':(1., 1., 1.), 'rec':(0., 0., 0.,)
+                },
+            )
+
+        lit_mod.load_state_dict(torch.load(checkpoint)['state_dict'])
+
+        print(pl.utilities.model_summary.summarize(lit_mod, max_depth=3))
+        # trainer.fit(lit_mod,
+        #     train_dataloaders=train_dl,
+        #     val_dataloaders=val_dl
+        # )
+         
+
+
+        def generate_cal_xrds(ds, lit_mod, trainer, var_name='cal'):
+            pred_dl = torch.utils.data.DataLoader(ds, batch_size=1, shuffle=False)
+            predictions = [p for pred in trainer.predict(lit_mod,pred_dl) for p in pred]
+            ds = pred_dl.dataset
+            with ds.get_coords():
+                coords = [
+                   ds[i]
+                   for i in range(len(ds))
+                ]
+
+            return xr.concat(
+                    [
+                        coord.assign({var_name: lambda ds: (ds.ssh_model.dims, pred)})
+                        for pred, coord in zip(predictions, coords)
+                    ], dim='time'
+            )
+        val_data = generate_cal_xrds(val_ds, lit_mod, trainer)[list(swath_data) + ['cal', 'contiguous_chunk']]   
+        val_data.lon 
+        p = lambda da: da.T.plot(figsize=(15,3))
+        add_inter_sw = lambda ds:(
+                    ds
+                .assign_coords(x_ac=lambda ds: ('nC', ds.x_ac.isel(time=0).data))
+                .swap_dims(nC='x_ac')
+                .reindex(x_ac=np.arange(-60, 62, 2), fill_value=np.nan)
+        )
+        gf = lambda ds: (
+                ds
+                .pipe(lambda dds: dds.isel(time=dds.lat_nadir >33))
+                .pipe(lambda dds: dds.isel(time=dds.lat_nadir <43))
+                .pipe(lambda dds: dds.isel(time=dds.lon_nadir <305))
+                .pipe(lambda dds: dds.isel(time=dds.lon_nadir >295))
+            )
+        strip = lambda ds, n=2: (
+                ds.isel(nC=list(np.arange(0 + n, 26 -n)) + list(np.arange(26 + n, 52 -n)))
+            )
+        chunk = lambda ds, n=2: (
+                ds.isel(time=ds.contiguous_chunk==n)
+            )
+        gf_val_data = (
+                val_data
+                .pipe(chunk)
+                .pipe(add_inter_sw)
+                # .pipe(strip)
+        ) #strip(gf(val_data), 2)
+        rms = lambda da: np.sqrt(np.mean(da**2))
+
+        
+        if model_version == 174:
+        
+            cal_fn = lambda ds :(ds.cal + ds.pred)
+        elif model_version == 176:
+            cal_fn = lambda ds :(ds.cal + ds.oi)
+        else:
+
+            cal_fn = (lambda ds :ds.cal)
+
+        # print(model_version, rms(val_data.oi - val_data.ssh_model))
+        # print(model_version, rms(val_data.pred - val_data.ssh_model))
+        print(model_version, rms(cal_fn(val_data) - val_data.ssh_model))
+                 
+        cal = cal_fn(gf_val_data)
+        gt = (gf_val_data.ssh_model)
+        rms(gf_val_data.pred - gt)
+        rms(gf_val_data.oi - gt)
+        val_data.contiguous_chunk
+        
+        def sobel(da):
+            dx_ac = xr.apply_ufunc(lambda _da: ndi.sobel(_da, 0), da) /2
+            dx_al = xr.apply_ufunc(lambda _da: ndi.sobel(_da, 1), da) /2
+            return np.hypot(dx_ac, dx_al)
+
+        def med(da):
+            return xr.apply_ufunc(lambda _da: ndi.median_filter(_da, 5), da)
+
+        def lap(da):
+            return xr.apply_ufunc(lambda _da: ndi.laplace(_da, mode='nearest'), da)
+
+        p(sobel(gf_val_data.oi))
+
+        rms(med(cal) - gt)
+        p(cal)
+        p(gf_val_data.wet_tropo_res)
+        p(gf_val_data.syst_error_uncalibrated)
+        p(sobel(cal))
+        p(lap(cal))
+
+        p(sobel(cal))
+        p(lap(cal))
+        xrgf = lambda da, sig: da if sig==0 else xr.apply_ufunc(lambda nda: ndi.gaussian_filter1d(nda, axis=0, sigma=sig, order=0, mode='mirror', truncate=3.0), da)
+        rms(xrgf(cal_fn(val_data), 0) - val_data.ssh_model)
+        rms(val_data.syst_error_uncalibrated + val_data.wet_tropo_res)
+        p(gt)
+        p(sobel(gt))
+        p(lap(cal))
+        val_data.cal.plot()
+        # to_plot_vars = [
+        #     # 'dobs_1_0', # pp_vars
+        #     # 'dobs_2_1',
+        #     # 'dobs_5_2',
+        #     # 'dobs_10_5',
+        #     # 'dobs_25_10',
+        #     # 'dobs_30_25',
+        #     # 'dobs_35_30',
+        #     # 'dobs_40_35',
+        #     # 'dobs_50_40',
+        #     # 'dobs_75_50',
+        #     # 'dobs_100_75',
+        #     # 'obs_100',
+        #     'dxb_1_0',
+        #     'dxb_2_1',
+        #     'dxb_5_2',
+        #     'dxb_10_5',
+        #     'dxb_50_10',
+        #     # 'lat',  # raw vars
+        #     # 'lat_nadir',
+        #     # 'lon',
+        #     # 'lon_nadir',
+        #     # 'ssh_model',
+        #     # 'ssh_obs',
+        #     # 'syst_error_uncalibrated',
+        #     # 'wet_tropo_res',
+        #     # 'x_ac',
+        #     # 'x_al',
+        #     # 'gt',
+        #     # 'oi',
+        #     # 'pred',
+        #     # 'obs_gt',
+        #     # 'obs_pred',
+        #     # 'obs_inp',
+        # ]
+        # to_plot_ds = (
+        #         # chunk_raw
+        #         chunk_pp
+        #         .assign_coords(x_ac=lambda ds: ('nC', chunk_raw.x_ac.isel(time=0).data))
+        #         .swap_dims(nC='x_ac')
+        #         # .assign_coords(x_ac=lambda ds: chunk_raw.x_ac.isel(time=0).data)
+        #         .reindex(x_ac=np.arange(-60, 62, 2), fill_value=np.nan)
+        # )
+        # hv.core.options.Store.set_current_backend('matplotlib')
+
+        # hv_layout = hv.Layout([
+        #     hv.Dataset(
+        #         to_plot_ds, ['time', 'x_ac'], var
+        #     ).to(
+        #         hv.QuadMesh, kdims=['time', 'x_ac']
+        #     ).relabel(
+        #         f'{var}'
+        #     ).options(
+        #         colorbar=True,
+        #         cmap='PiYG',
+        #         clim=(to_plot_ds[to_plot_vars].min().to_array().min().item(), to_plot_ds[to_plot_vars].max().to_array().max().item()),
+        #         aspect=3.5,
+        #         fig_size=500,
+        #     )
+        #     for var in to_plot_vars
+        # ]).cols(1)
+        # fig = hv.render(hv_layout, backend='matplotlib')
+        # fig
+
+        # v = 'dobs_25_10'
+        # # to_plot_ds[v].T.plot(figsize=(15,3))
+        # to_plot_ds[v].T.plot(figsize=(15,3))
+        # list(chunk_raw)
+
+    except Exception as e:
+        print('I am here')
+        print(traceback.format_exc()) 
+    finally:
+        return locals()
 def main():
     try:
         ...
         # fn = fn1
-        # fn = generate_data
+        fn = generate_data
         # fn = calib_test
-        fn = prepro
+        # fn = prepro
+        # fn = make_plots
 
-        
         locals().update(fn())
     except Exception as e:
         print('I am here')
@@ -687,8 +1037,8 @@ def main():
 
 
 
-def bst_ckpt(dirpath, glob='*'):
-    return min(Path(dirpath).glob('version_*/checkpoints/*'), key=lambda p: float(re.match('.+val_loss=(.+)\.ckpt', str(p)).group(1)))
+def bst_ckpt(dirpath, glob='version_*/checkpoints/*', ckpt_fmt='.+val_loss=(.+)\.ckpt'):
+    return min(Path(dirpath).glob(glob), key=lambda p: float(re.match(ckpt_fmt, str(p)).group(1)))
 
 
 def get_cfg(xp_cfg, overrides=None):
