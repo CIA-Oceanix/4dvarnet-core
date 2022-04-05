@@ -162,8 +162,8 @@ def plot(ax, lon, lat, data, title, cmap, norm, extent=[-65, -55, 30, 40], gridd
     gl = ax.gridlines(alpha=0.5, zorder=200)#,draw_labels=True)
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
-    gl.xlabels_bottom = False
-    gl.ylabels_right = False
+    gl.bottom_labels = False
+    gl.right_labels = False
     gl.xlabel_style = {'fontsize': 10, 'rotation' : 45}
     gl.ylabel_style = {'fontsize': 10}
 
@@ -198,10 +198,10 @@ def plot_maps(gt,obs,oi,pred,lon,lat,resfile,grad=False,
     central_lat = np.mean(extent[2:])
 
     if orthographic:
-        #crs = ccrs.Orthographic(central_lon,central_lat)
-        crs = ccrs.Orthographic(-30,45)
+        crs = ccrs.Orthographic(central_lon,central_lat)
+        #crs = ccrs.Orthographic(-30,45)
     else:
-        crs = ccrs.PlateCarree(central_longitude=0.0)
+        crs = ccrs.PlateCarree(central_longitude=central_lon)
 
     if grad:
         vmax = np.nanmax(np.abs(gradient(oi, 2)))
@@ -332,10 +332,10 @@ def animate_maps(gt, obs, oi, pred, lon, lat, resfile,
     gs = gridspec.GridSpec(2, 4)
     gs.update(wspace=0.1)
     if orthographic:
-        #crs = ccrs.Orthographic(central_lon,central_lat)
-        crs = ccrs.Orthographic(-30,45)
+        crs = ccrs.Orthographic(central_lon,central_lat)
+        #crs = ccrs.Orthographic(-30,45)
     else:
-        crs = ccrs.PlateCarree(central_longitude=0.0)
+        crs = ccrs.PlateCarree(central_longitude=central_lon)
     if supervised:
         ax1 = fig.add_subplot(gs[0, :2], projection=crs)
         ax2 = fig.add_subplot(gs[0, 2:], projection=crs)
@@ -386,10 +386,10 @@ def plot_ensemble(pred,lon,lat,resfile,crop=None,
     central_lat = np.mean(extent[2:])
 
     if orthographic:
-        #crs = ccrs.Orthographic(central_lon,central_lat)
-        crs = ccrs.Orthographic(-30,45)
+        crs = ccrs.Orthographic(central_lon,central_lat)
+        #crs = ccrs.Orthographic(-30,45)
     else:
-        crs = ccrs.PlateCarree(central_longitude=0.0)
+        crs = ccrs.PlateCarree(central_longitude=central_lon)
 
     n_members = pred.shape[-1]
     fig, ax = plt.subplots(2,n_members,figsize=(5*n_members,15),squeeze=False,
@@ -405,18 +405,22 @@ def maps_score(resfile, ds, lon, lat):
     mesh_lat, mesh_lon = np.meshgrid(lat, lon)
     mesh_lat = mesh_lat.T
     mesh_lon = mesh_lon.T
-    cor_map_oi = xr.corr(ds['GT'],ds['OI'], dim='time')
-    rmse_map_oi = (((ds['GT'] - ds['OI'])**2).mean(dim=('time')))**0.5
-    cor_map_pred = xr.corr(ds['GT'],ds['4DVarNet'], dim='time')
-    rmse_map_pred = (((ds['GT'] - ds['4DVarNet'])**2).mean(dim=('time')))**0.5
+    cor_map_oi = xr.corr(ds['GT'],ds['OI'], dim='Time')
+    rmse_map_oi = (((ds['GT'] - ds['OI'])**2).mean(dim=('Time')))**0.5
+    cor_map_pred = xr.corr(ds['GT'],ds['4DVarNet'], dim='Time')
+    rmse_map_pred = (((ds['GT'] - ds['4DVarNet'])**2).mean(dim=('Time')))**0.5
 
+    lat = ds.latitude.values
+    lon = ds.longitude.values
     extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
+    central_lon = np.mean(extent[:2])
+    central_lat = np.mean(extent[2:])
 
     fig = plt.figure(figsize=(20,20))
-    ax1 = fig.add_subplot(221,projection=ccrs.PlateCarree(central_longitude=0.0))
-    ax2 = fig.add_subplot(222,projection=ccrs.PlateCarree(central_longitude=0.0))
-    ax3 = fig.add_subplot(223,projection=ccrs.PlateCarree(central_longitude=0.0))
-    ax4 = fig.add_subplot(224,projection=ccrs.PlateCarree(central_longitude=0.0))
+    ax1 = fig.add_subplot(221,projection=ccrs.PlateCarree(central_longitude=central_lon))
+    ax2 = fig.add_subplot(222,projection=ccrs.PlateCarree(central_longitude=central_lon))
+    ax3 = fig.add_subplot(223,projection=ccrs.PlateCarree(central_longitude=central_lon))
+    ax4 = fig.add_subplot(224,projection=ccrs.PlateCarree(central_longitude=central_lon))
 
     vmax = cor_map_oi.max()
     vmin = cor_map_oi.min()
@@ -436,31 +440,43 @@ def maps_score(resfile, ds, lon, lat):
     plt.close()                        
     return fig
 
-def save_netcdf(saved_path1, gt, oi, pred, lon, lat, time,
-                time_units='days since 2012-10-01 00:00:00'):
-    '''
-    saved_path1: string 
-    pred: 3d numpy array (4DVarNet-based predictions)
-    lon: 1d numpy array 
-    lat: 1d numpy array
-    time: 1d array-like of time corresponding to the experiment
-    '''
+def save_netcdf(saved_path1, ds_test):
+    ds_test = ds_test.rename({
+        'lat': 'latitude',
+        'lon': 'longitude',
+        'time': 'Time',
+        'gt': 'GT',
+        'oi': 'OI',
+        'pred': '4DVarNet'
+    })
+    ds_test = ds_test.drop(['obs'])
+    ds_test.to_netcdf(path=saved_path1, mode='w')
 
-    mesh_lat, mesh_lon = np.meshgrid(lat, lon)
-    mesh_lat = mesh_lat.T
-    mesh_lon = mesh_lon.T
+# def save_netcdf(saved_path1, gt, oi, pred, lon, lat, time,
+#                 time_units='days since 2012-10-01 00:00:00'):
+#     '''
+#     saved_path1: string 
+#     pred: 3d numpy array (4DVarNet-based predictions)
+#     lon: 1d numpy array 
+#     lat: 1d numpy array
+#     time: 1d array-like of time corresponding to the experiment
+#     '''
 
-    dt = pred.shape[1]
-    xrdata = xr.Dataset( \
-        data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
-                   'latitude': (('lat', 'lon'), mesh_lat), \
-                   'Time': (('time'), time), \
-                   'GT': (('time', 'lat', 'lon'), gt),
-                   'OI': (('time', 'lat', 'lon'), oi),
-                   '4DVarNet': (('time', 'lat', 'lon'), pred)}, \
-        coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred))})
-    xrdata.time.attrs['units'] = time_units
-    xrdata.to_netcdf(path=saved_path1, mode='w')
+#     mesh_lat, mesh_lon = np.meshgrid(lat, lon)
+#     mesh_lat = mesh_lat.T
+#     mesh_lon = mesh_lon.T
+
+#     dt = pred.shape[1]
+#     xrdata = xr.Dataset( \
+#         data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
+#                    'latitude': (('lat', 'lon'), mesh_lat), \
+#                    'Time': (('time'), time), \
+#                    'GT': (('time', 'lat', 'lon'), gt),
+#                    'OI': (('time', 'lat', 'lon'), oi),
+#                    '4DVarNet': (('time', 'lat', 'lon'), pred)}, \
+#         coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred))})
+#     xrdata.time.attrs['units'] = time_units
+#     xrdata.to_netcdf(path=saved_path1, mode='w')
 
 def nrmse(ref, pred):
     '''

@@ -33,6 +33,7 @@ datamodule:
   obs_mask_var: ssh_mod
   gt_path: ${file_paths.natl_ssh}
   gt_var: ssh
+  resolution: 1/20
   dl_kwargs:
     batch_size: 2
     num_workers: 2

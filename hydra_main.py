@@ -57,6 +57,8 @@ class FourDVarNetHydraRunner:
         w_[int(self.cfg.dT / 2)] = 1.
         self.wLoss = torch.Tensor(w_)
         self.resolution = datamodule.resolution
+        self.original_coords = datamodule.get_original_coords()
+        self.padded_coords = datamodule.get_padded_coords()
 
     def run(self, ckpt_path=None, dataloader="test", **trainer_kwargs):
         """
@@ -96,6 +98,8 @@ class FourDVarNetHydraRunner:
                                                     coord_ext={'lon_ext': self.lon,
                                                                'lat_ext': self.lat},
                                                     resolution=self.resolution,
+                                                    original_coords=self.original_coords,
+                                                    padded_coords=self.padded_coords
                                                     )
 
         else:
@@ -118,6 +122,8 @@ class FourDVarNetHydraRunner:
                                coord_ext = {'lon_ext': self.lon,
                                             'lat_ext': self.lat},
                                resolution=self.resolution,
+                               original_coords=self.original_coords,
+                               padded_coords=self.padded_coords
                                )
         return mod
 

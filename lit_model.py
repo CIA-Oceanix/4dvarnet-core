@@ -5,7 +5,7 @@ class LitModel(pl.LightningModule):
     def __init__(self, hparam, *args, **kwargs):
         super().__init__()
         hparams = hparam if isinstance(hparam, dict) else OmegaConf.to_container(hparam, resolve=True)
-        self.save_hyperparameters(hparams)
+        self.save_hyperparameters(hparams, ignore=["original_coords", "padded_coords"])
         self.var_Val = kwargs['var_Val']
         self.var_Tr = kwargs['var_Tr']
         self.var_Tt = kwargs['var_Tt']
@@ -39,6 +39,9 @@ class LitModel(pl.LightningModule):
         self.mean_Val = kwargs['mean_Val']
         self.mean_Tr = kwargs['mean_Tr']
         self.mean_Tt = kwargs['mean_Tt']
+
+        self.original_coords = kwargs['original_coords']
+        self.padded_coords = kwargs['padded_coords']
 
         # main model
         '''
@@ -155,11 +158,12 @@ class LitModel(pl.LightningModule):
 
     def test_epoch_end(self, outputs):
 
-        gt = torch.cat([chunk['gt'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs]).numpy()
-        obs = torch.cat([chunk['obs'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs]).numpy()
-        obs = np.where(obs==self.mean_Tr,np.nan,obs)
-        oi = torch.cat([chunk['oi'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs]).numpy()
-        pred = torch.cat([chunk['preds'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs]).numpy()
+        test_idx = self.hparams.dT // 2
+        # concatenate data
+        gt = torch.cat([chunk['gt'][:, test_idx, :, :] for chunk in outputs]).numpy()
+        obs = torch.cat([chunk['obs'][:, test_idx, :, :] for chunk in outputs]).numpy()
+        oi = torch.cat([chunk['oi'][:, test_idx, :, :] for chunk in outputs]).numpy()
+        pred = torch.cat([chunk['preds'][:, test_idx, :, :] for chunk in outputs]).numpy()
 
         ds_size = {'time': self.ds_size_time,
                    'lon': self.ds_size_lon,
@@ -176,18 +180,48 @@ class LitModel(pl.LightningModule):
             ),
             [gt, obs, oi, pred])
 
-        # keep only points of the original domain
-        iX = np.where( (self.lon_ext>=self.xmin) & (self.lon_ext<=self.xmax) )[0]
-        iY = np.where( (self.lat_ext>=self.ymin) & (self.lat_ext<=self.ymax) )[0]
-        gt = (gt[:,iY,:])[:,:,iX]
-        obs = (obs[:,iY,:])[:,:,iX]
-        oi = (oi[:,iY,:])[:,:,iX]
-        pred = (pred[:,iY,:])[:,:,iX]
+        # old way: keep only points of the original domain
+        # iX = np.where( (self.lon_ext>=self.xmin) & (self.lon_ext<=self.xmax) )[0]
+        # iY = np.where( (self.lat_ext>=self.ymin) & (self.lat_ext<=self.ymax) )[0]
+        # gt = (gt[:,iY,:])[:,:,iX]
+        # obs = (obs[:,iY,:])[:,:,iX]
+        # oi = (oi[:,iY,:])[:,:,iX]
+        # pred = (pred[:,iY,:])[:,:,iX]
 
-        self.x_gt = gt
-        self.x_obs = obs
-        self.x_oi = oi
-        self.x_rec = pred
+        # self.x_gt = gt
+        # self.x_obs = obs
+        # self.x_oi = oi
+        # self.x_rec = pred
+
+        # new way: construct output test xr dataset
+        self.ds_test = xr.Dataset(
+            data_vars={
+                'gt': (('time', 'lat', 'lon'), gt),
+                'oi': (('time', 'lat', 'lon'), oi),
+                'pred': (('time', 'lat', 'lon'), pred),
+                'obs': (('time', 'lat', 'lon'), obs),
+            },
+            coords={
+                'time': self.time['time_test'],
+                'lat': self.padded_coords['lat'],
+                'lon': self.padded_coords['lon'],
+            }
+        ).sel(
+            lat=slice(
+                self.original_coords['lat'].values[0],
+                self.original_coords['lat'].values[-1]
+            ),
+            lon=slice(
+                self.original_coords['lon'].values[0],
+                self.original_coords['lon'].values[-1]
+            ),
+        )
+
+        # get underlying data array
+        self.x_gt = self.ds_test.gt.values
+        self.x_obs = self.ds_test.obs.values
+        self.x_oi = self.ds_test.oi.values
+        self.x_rec = self.ds_test.pred.values
 
         # display map
         path_save0 = self.logger.log_dir + '/maps.png'
@@ -196,7 +230,7 @@ class LitModel(pl.LightningModule):
                   self.x_obs[0],
                   self.x_oi[0],
                   self.x_rec[0],
-                  self.lon, self.lat, path_save0,
+                  self.ds_test.lon, self.ds_test.lat, path_save0,
                   supervised=self.hparams.supervised)
         path_save0 = self.logger.log_dir + '/maps_Grad.png'
         fig_maps_grad = plot_maps(
@@ -204,7 +238,7 @@ class LitModel(pl.LightningModule):
                   self.x_obs[0],
                   self.x_oi[0],
                   self.x_rec[0],
-                  self.lon, self.lat, path_save0,
+                  self.ds_test.lon, self.ds_test.lat, path_save0,
                   grad=True, supervised=self.hparams.supervised)
         self.test_figs['maps'] = fig_maps
         self.test_figs['maps_grad'] = fig_maps_grad
@@ -215,8 +249,9 @@ class LitModel(pl.LightningModule):
                          self.x_obs,
                          self.x_oi,
                          self.x_rec,
-                         self.lon, self.lat, path_save0, dw=2, 
+                         self.ds_test.lon, self.ds_test.lat, path_save0, dw=2, 
                          grad=True, supervised=self.hparams.supervised)
+        
         # compute nRMSE
         path_save2 = self.logger.log_dir + '/nRMSE.txt'
         tab_scores = nrmse_scores(gt, oi, pred, path_save2)
@@ -249,14 +284,13 @@ class LitModel(pl.LightningModule):
         self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
         # save NetCDF
         path_save1 = self.logger.log_dir + '/maps.nc'
-        save_netcdf(saved_path1=path_save1, gt=gt, oi=oi, pred=pred,
-                    lon=self.lon, lat=self.lat, time=self.time['time_test'],
-                    time_units='days since 2017-01-01 00:00:00')
+        # TODO: change hard-coded time units
+        save_netcdf(saved_path1=path_save1, ds_test=self.ds_test)
 
         # maps score
         if self.hparams.supervised==True:
             path_save = self.logger.log_dir + '/maps_score.png'
-            maps_score(path_save,xr.open_dataset(path_save1),lon=self.lon, lat=self.lat)
+            maps_score(path_save,xr.open_dataset(path_save1),lon=self.ds_test.lon, lat=self.ds_test.lat)
 
     def compute_loss(self, batch, phase):
 
