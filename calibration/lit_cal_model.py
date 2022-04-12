@@ -360,6 +360,9 @@ class LitCalModel(pl.LightningModule):
 
         return loss
 
+    def predict_step(self, batch, batch_idx):
+        return self.diag_step(batch, batch_idx, log_pref=None)
+
     def diag_step(self, batch, batch_idx, log_pref='test'):
         if not self.use_sst:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, obs_target_item = batch
@@ -368,7 +371,7 @@ class LitCalModel(pl.LightningModule):
         losses, outs, metrics = self(batch, phase='test')
         _, out, out_pred = self.get_outputs(batch, outs)
         loss = losses[-1]
-        if loss is not None:
+        if loss is not None and log_pref is not None:
             self.log(f'{log_pref}_loss', loss)
             self.log(f'{log_pref}_mse', metrics[-1]["mse"] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
@@ -398,7 +401,7 @@ class LitCalModel(pl.LightningModule):
             return self.diag_epoch_end(outputs, log_pref='val')
 
     def diag_epoch_end(self, outputs, log_pref='test'):
-        data_path = Path(f'{self.logger.log_dir}/{log_pref}_data')
+        data_path = Path(self.logger.log_dir if self.logger is not None else 'tmp') / f'{log_pref}_data'
         data_path.mkdir(exist_ok=True, parents=True)
         print(len(outputs))
         torch.save(outputs, data_path / f'{self.global_rank}.t')
@@ -488,7 +491,9 @@ class LitCalModel(pl.LightningModule):
         self.test_lat = self.test_coords['lat'].data
         self.test_lon = self.test_coords['lon'].data
         self.test_dates = self.test_coords['time'].data
-
+        
+        if self.logger is None:
+            return
         Path(self.logger.log_dir).mkdir(exist_ok=True)
         # display map
         path_save0 = self.logger.log_dir + f'/{log_pref} maps.png'
@@ -622,11 +627,12 @@ class LitCalModel(pl.LightningModule):
         return [pl.callbacks.LambdaCallback(on_save_checkpoint=save_ckpt_metrics)]
 
     def teardown(self, stage='test'):
-        
+        if self.logger is None:
+            return
         self.logger.log_hyperparams(
                 {**self.hparams},
                 self.latest_metrics
-    )
+        )
 
     def get_init_state(self, batch, state):
         if state is not None:
@@ -852,9 +858,7 @@ if  __name__ == '__main__':
 
     def main():
         try:
-            fn = test_models_on_diff_noises
-
-            locals().update(fn())
+            ...
         except Exception as e:
             print('I am here')
             print(traceback.format_exc()) 

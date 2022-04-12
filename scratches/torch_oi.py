@@ -461,7 +461,45 @@ def scratch():
                 ]:
             full_outs[obs_var] = xr.open_dataset(f'{obs_var}_oi.nc')
 
+
+    list(full_outs.keys())
+    date = '2012-10-27'
+    from scipy import ndimage
+    def sobel_grid(da):
+        dlat = da.pipe(lambda da:  da.groupby('time').apply(lambda da: ndimage.sobel(da, da.dims.index('lat')))) / 5
+        dlon = da.pipe(lambda da:  da.groupby('time').apply(lambda da: ndimage.sobel(da, da.dims.index('lon')))) / 5
+        return np.hypot(dlat, dlon)
+    full_outs['four_nadirs'].ssh.sel(time=date).plot(figsize=(10,7))
+
+    (full_outs['four_nadirs'].ssh.sel(time=date) - ref_daily.ssh.sel(time=date).compute().values).plot(figsize=(10,7))
+    (full_outs['swot_nadirs_old_errors'].ssh.sel(time=date) - ref_daily.ssh.sel(time=date).compute().values).plot(figsize=(10,7))
+    ref_daily.ssh.sel(time=date).plot(figsize=(10,7))
+    ref_daily.ssh.sel(time=slice(date, date)).pipe(sobel_grid).sel(time=date).plot(figsize=(10,7))
+    ref_daily_ds.ssh.sel(time=slice(date, date), **ds_oi_grid.pipe(lambda d: {'lat':slice(d.lat.min(), d.lat.max()), 'lon':slice(d.lon.min(), d.lon.max())})).pipe(sobel_grid).sel(time=date).plot(figsize=(10,7))
+    ref_daily_ds.ssh.sel(time=slice(date, date), **ds_oi_grid.pipe(lambda d: {'lat':slice(d.lat.min(), d.lat.max()), 'lon':slice(d.lon.min(), d.lon.max())})).sel(time=date).plot(figsize=(10,7))
+    full_outs['swot_nadirs_old_errors'].ssh.sel(time=date).plot(figsize=(10,7))
+    full_outs['four_nadirs'].ssh.pipe(sobel_grid).sel(time=date).plot(figsize=(10,7))
+    full_outs['swot_nadirs_old_errors'].ssh.pipe(sobel_grid).sel(time=date).plot(figsize=(10,7))
+
+    inputs = '../sla-data-registry/CalData/cal_data_new_errs.nc'
+    ds_obs = (
+            xr.open_dataset(inputs)
+            .sel(lat=slice(lat_min - 2*Ly, lat_max + 2*Ly))
+            .sel(lon=slice(lon_min - 2*Lx, lon_max + 2*Lx))
+            .sel(time=slice(time_min - 2*Lt*dt, time_max + 2*Lt * dt))
+    )
+
+    ds_obs['four_nadirs'].isel(time=19).plot(figsize=(10,7))
+    ds_obs['swot_nadirs_old_errors'].isel(time=19).plot(figsize=(10,7))
+    ds_obs['swot_nadirs_old_errors'].isel(time=19).plot(figsize=(10,7))
     path_oi_4nadir = '../sla-data-registry/NATL60/NATL/oi/ssh_NATL60_4nadir.nc'
+
+    (
+            ds_obs
+            .pipe(lambda ds: ds.swot_nadirs_old_errors - ds.swot_no_noise)
+            .pipe(lambda da: da.where(np.isfinite(ds_obs.swot_no_noise.values), np.full_like(da,np.nan)))
+            .sel(time=date).plot(figsize=(10,7))
+    )
     for k, v in full_outs.items():
         print(k, v[1].item(), v[2].item())
 
@@ -539,7 +577,7 @@ def scratch():
     ref_daily_ds.time.attrs['units'] = 'seconds since 2012-10-01'
     ref_daily_ds= xr.decode_cf(ref_daily_ds)
     duacs = oi_ds.interp(ds_oi1_grid[['time', 'lat', 'lon']].coords).isel(time=0).ssh_mod
-    ref_daily = ref_daily_ds.interp(ds_oi1_grid[['time', 'lat', 'lon']].coords).isel(time=0).ssh_mod
+    ref_daily = ref_daily_ds.interp(ds_oi_grid[['time', 'lat', 'lon']].coords)
     new_oi = ds_oi1_grid.isel(time=0).gssh
     new_oi.plot()
     (new_oi - duacs).pipe(lambda da: np.sqrt(np.mean(da**2))).compute()
