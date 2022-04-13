@@ -58,6 +58,7 @@ Xps
 
 """
 
+pl.seed_everything(0)
 display(Markdown(s))
 
 cs = ConfigStore.instance()
@@ -175,12 +176,12 @@ oi_res_cfg = OmegaConf.create(dict(
     ),
 ))
 
-xp = 'qxp12_aug1_dp240_5nad_map_no_sst_ng5x3cas_l1_dp025_00'
+xp_no_sst = 'qxp12_aug1_dp240_5nad_map_no_sst_ng5x3cas_l1_dp025_00'
 no_sst1_cfg = OmegaConf.create(dict(
-    fourdvar_cfg=xp,
-    pred_var=xp,
-    fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp12/{xp}')),
-    cal_mod_ckpt=str(next(Path(f'lightning_logs/1_{xp}/version_0/checkpoints').glob('epoch*.ckpt'))),
+    fourdvar_cfg=xp_no_sst,
+    pred_var=xp_no_sst,
+    fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp12/{xp_no_sst}')),
+    cal_mod_ckpt=str(next(Path(f'lightning_logs/1_{xp_no_sst}/version_0/checkpoints').glob('epoch*.ckpt'))),
     swath_ds_cfg=dict(
         sigmas_obs=(0,*[(i+1)*8 for i in range(40)]),
         sigmas_xb=(0,*[(i+1)*8 for i in range(40)]),
@@ -191,12 +192,12 @@ no_sst1_cfg = OmegaConf.create(dict(
     ),
 ))
 
-xp = 'qxp12_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l1_dp025_00'
+xp_sst = 'qxp12_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l1_dp025_00'
 no_sst_cal1_cfg = OmegaConf.create(dict(
-    fourdvar_cfg=xp,
-    pred_var=xp,
-    fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp12/{xp}')),
-    cal_mod_ckpt=str(next(Path(f'lightning_logs/1_{xp}/version_0/checkpoints').glob('epoch*.ckpt'))),
+    fourdvar_cfg=xp_sst,
+    pred_var=xp_sst,
+    fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp12/{xp_sst}')),
+    cal_mod_ckpt=str(next(Path(f'lightning_logs/1_{xp_sst}/version_0/checkpoints').glob('epoch*.ckpt'))),
     swath_ds_cfg=dict(
         sigmas_obs=(0,*[(i+1)*8 for i in range(40)]),
         sigmas_xb=(0,*[(i+1)*8 for i in range(40)]),
@@ -226,6 +227,7 @@ sst1_cfg = OmegaConf.create(dict(
 overrides_cfg = dict(
     direct_obs=OmegaConf.create(
         dict(swath_ds_cfg=dict(
+            sigmas_obs=(0,*[(i+1)*6 for i in range(30)]),
             sigmas_xb=tuple(),
             gt_var='ssh_model',
             ref_var='pred',
@@ -521,7 +523,7 @@ class ConvSamePad(torch.nn.Module):
             kernel_shape['w'],
             self.conv.stride,
         )
-        return self.conv(F.pad(inp, (same_pad['top'], same_pad['bottom'], same_pad['left'], same_pad['right'])))
+        return self.conv(F.pad(inp, (same_pad['top'], same_pad['bottom'], same_pad['left'], same_pad['right']), mode='reflect'))
 
     def forward(self, x):
         if self.apply_per_side:
@@ -756,12 +758,13 @@ def generate_cal_xrds(ds, lit_mod, trainer, var_name='cal'):
 
 def new_train_cal():
     try:
-        XP_NUM = 4 
+        XP_NUM = 6 
         for xp_name, cfgs in [
-                ('direct_obs',  [no_sst1_cfg, overrides_cfg['direct_obs']]),
-                ('base_duacs',  [no_sst1_cfg, overrides_cfg['duacs_base']]),
-                ('base_no_sst',  [no_sst1_cfg]),
-                ('base_sst',  [sst1_cfg]),
+                ('direct_obs',  [sst1_cfg, *[overrides_cfg[o] for o in ['non_residual', 'no_norm', 'no_mix', 'direct_obs']]]),
+                ('direct_obs_bis',  [sst1_cfg, *[overrides_cfg[o] for o in ['non_residual', 'no_norm', 'no_mix', 'direct_obs']]]),
+                # ('base_duacs',  [sst1_cfg, overrides_cfg['duacs_base']]),
+                # ('base_no_sst',  [no_sst1_cfg]),
+                # ('base_sst',  [sst1_cfg]),
             ]:
 
             cfg = OmegaConf.merge(common_cfg, *cfgs)
@@ -815,7 +818,7 @@ def new_train_cal():
                     VersioningCallback()
                 ],
                 log_every_n_steps=10,
-                max_epochs=600,
+                max_epochs=250,
             )
 
             print(pl.utilities.model_summary.summarize(cal_mod, max_depth=3))
