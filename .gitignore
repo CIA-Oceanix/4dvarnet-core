@@ -1,6 +1,6 @@
 lightning_logs
 data
-__pycache__
+**__pycache__**
 .idea
 results
 tb_profile
@@ -25,7 +25,6 @@ hydra_config/training/4DEnVar_osse_wuc.yaml
 hydra_config/params/fourdvarnet_osse_wuc.yaml
 hydra_config/params/fourdvarnet_stoch_osse.yaml
 checkpoints
-__pycache__
 tmp
 outputs
 .hydra
@@ -39,5 +38,8 @@ multirun.yaml
 icassp_code
 archive_dash
 icassp_code_bis
-notebooks
+notebooks/*
 tags
+
+# exceptions
+!notebooks/visualize_exp.ipynb
