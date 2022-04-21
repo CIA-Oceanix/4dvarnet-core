@@ -135,7 +135,7 @@ direct_obs_cfg = OmegaConf.create(dict(
     fourdvar_cfg='qxp2_aug2_dp240_5nad_map_sst_ng5x3cas_w1.0',
     pred_var='pred',
     fourdvar_mod_ckpt=str(bst_ckpt('results/xpfeb_train/newaug_5nad_1.0_map_sst')),
-    cal_mod_ckpt=str(next(Path(f'lightning_logs/baseline_obs_direct/checkpoints').glob('epoch*.ckpt'))),
+    cal_mod_ckpt=str(next(Path(f'lightning_logs/baseline_obs_direct/checkpoints').glob('epoch*.ckpt'), None)),
     swath_ds_cfg=dict(
         sigmas_obs=(0,*[(i+1)*8 for i in range(20)]),
         sigmas_xb=tuple(),
@@ -150,7 +150,7 @@ fivenad_sst_res_cfg = OmegaConf.create(dict(
     fourdvar_cfg='qxp2_aug2_dp240_5nad_map_sst_ng5x3cas_w1.0',
     pred_var='pred',
     fourdvar_mod_ckpt=str(bst_ckpt('results/xpfeb_train/newaug_5nad_1.0_map_sst')),
-    cal_mod_ckpt=str(next(Path(f'lightning_logs/baseline_5nad_sst_res/checkpoints').glob('epoch*.ckpt'))),
+    cal_mod_ckpt=str(next(Path(f'lightning_logs/baseline_5nad_sst_res/checkpoints').glob('epoch*.ckpt'), None)),
     swath_ds_cfg=dict(
         sigmas_obs=(0,*[(i+1)*8 for i in range(20)]),
         sigmas_xb=(0,*[(i+1)*8 for i in range(20)]),
@@ -165,7 +165,7 @@ oi_res_cfg = OmegaConf.create(dict(
     fourdvar_cfg='qxp2_aug2_dp240_5nad_map_sst_ng5x3cas_w1.0',
     pred_var='pred',
     fourdvar_mod_ckpt=str(bst_ckpt('results/xpfeb_train/newaug_5nad_1.0_map_sst')),
-    cal_mod_ckpt=str(next(Path(f'lightning_logs/baseline_duacs4nad_res/checkpoints').glob('epoch*.ckpt'))),
+    cal_mod_ckpt=str(next(Path(f'lightning_logs/baseline_duacs4nad_res/checkpoints').glob('epoch*.ckpt'), None)),
     swath_ds_cfg=dict(
         sigmas_obs=(0,*[(i+1)*8 for i in range(20)]),
         sigmas_xb=(0,*[(i+1)*8 for i in range(20)]),
@@ -181,10 +181,8 @@ no_sst1_cfg = OmegaConf.create(dict(
     fourdvar_cfg=xp_no_sst,
     pred_var=xp_no_sst,
     fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp12/{xp_no_sst}')),
-    cal_mod_ckpt=str(next(Path(f'lightning_logs/1_{xp_no_sst}/version_0/checkpoints').glob('epoch*.ckpt'))),
+    cal_mod_ckpt=str(next(Path(f'lightning_logs/1_{xp_no_sst}/version_0/checkpoints').glob('epoch*.ckpt'), None)),
     swath_ds_cfg=dict(
-        sigmas_obs=(0,*[(i+1)*8 for i in range(40)]),
-        sigmas_xb=(0,*[(i+1)*8 for i in range(40)]),
         sigmas_gt=(0,),
         gt_var='gt_res',
         ref_var='ref_res',
@@ -192,15 +190,13 @@ no_sst1_cfg = OmegaConf.create(dict(
     ),
 ))
 
-xp_sst = 'qxp12_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l1_dp025_00'
-no_sst_cal1_cfg = OmegaConf.create(dict(
+xp_sst = 'qxp12_aug1_dp240_5nad_map_sst_ng5x3cas_l1_dp025_00'
+sst1_cfg = OmegaConf.create(dict(
     fourdvar_cfg=xp_sst,
     pred_var=xp_sst,
     fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp12/{xp_sst}')),
-    cal_mod_ckpt=str(next(Path(f'lightning_logs/1_{xp_sst}/version_0/checkpoints').glob('epoch*.ckpt'))),
+    cal_mod_ckpt=str(next(Path(f'lightning_logs/1_{xp_sst}/version_0/checkpoints').glob('epoch*.ckpt'), None)),
     swath_ds_cfg=dict(
-        sigmas_obs=(0,*[(i+1)*8 for i in range(40)]),
-        sigmas_xb=(0,*[(i+1)*8 for i in range(40)]),
         sigmas_gt=(0,),
         gt_var='gt_res',
         ref_var='ref_res',
@@ -208,34 +204,39 @@ no_sst_cal1_cfg = OmegaConf.create(dict(
     ),
 ))
 
-xp = 'qxp12_aug1_dp240_5nad_map_sst_ng5x3cas_l1_dp025_00'
-sst1_cfg = OmegaConf.create(dict(
-    fourdvar_cfg=xp,
-    pred_var=xp,
-    fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp12/{xp}')),
-    cal_mod_ckpt=str(next(Path(f'lightning_logs/1_{xp}/version_0/checkpoints').glob('epoch*.ckpt'))),
-    swath_ds_cfg=dict(
+size_overrides_cfg = dict(
+    no_pp=OmegaConf.create(dict(swath_ds_cfg=dict(
+        sigmas_obs=(0,),
+        sigmas_xb=(0,),
+    ))),
+    pp10x5=OmegaConf.create(dict(swath_ds_cfg=dict(
+        sigmas_obs=(0,*[(i+1)*5 for i in range(10)]),
+        sigmas_xb=(0,*[(i+1)*5 for i in range(10)]),
+    ))),
+    pp40x8=OmegaConf.create(dict(swath_ds_cfg=dict(
         sigmas_obs=(0,*[(i+1)*8 for i in range(40)]),
         sigmas_xb=(0,*[(i+1)*8 for i in range(40)]),
-        sigmas_gt=(0,),
-        gt_var='gt_res',
-        ref_var='ref_res',
-        xb_var='pred',
-    ),
-))
-
+    ))),
+    pp20x8=OmegaConf.create(dict(swath_ds_cfg=dict(
+        sigmas_obs=(0,*[(i+1)*8 for i in range(20)]),
+        sigmas_xb=(0,*[(i+1)*8 for i in range(20)]),
+    ))),
+    pp20x5=OmegaConf.create(dict(swath_ds_cfg=dict(
+        sigmas_obs=(0,*[(i+1)*5 for i in range(20)]),
+        sigmas_xb=(0,*[(i+1)*5 for i in range(20)]),
+    ))),
+)
 overrides_cfg = dict(
     direct_obs=OmegaConf.create(
         dict(swath_ds_cfg=dict(
-            sigmas_obs=(0,*[(i+1)*6 for i in range(30)]),
             sigmas_xb=tuple(),
             gt_var='ssh_model',
             ref_var='pred',
             xb_var='zeros',
         ))),
     duacs_base=OmegaConf.create(
-        dict(swath_ds_cfg=dict(
-            sigmas_xb=tuple(),
+        dict(
+            swath_ds_cfg=dict(
             xb_var='oi',
         ))),
     non_residual=OmegaConf.create(dict(net_cfg=dict(residual=False,))),
@@ -386,8 +387,8 @@ class SmoothSwathDataset(torch.utils.data.Dataset):
                         obs = lambda _g:  _g.ssh_model + _g.err
                     ).assign(
                         obs_res = lambda _g: _g.obs - _g.xb,
-                        **{'gt_res': lambda ds: ds.ssh_model - ds.xb},
-                        **{'ref_res': lambda ds: ds.pred - ds.xb}
+                        gt_res= lambda ds: ds.ssh_model - ds.xb,
+                        ref_res= lambda ds: ds.pred - ds.xb
                     ).assign(
                         **{f'obs_{sig}' : lambda _g, sig=sig: xrgf(_g.obs, sig) for sig in sigmas_obs},
                         **({} if len(sigmas_xb)==0 else {f'xb_{sig}' : lambda _g, sig=sig: xrgf(_g.xb, sig) for sig in sigmas_xb}),
@@ -439,7 +440,11 @@ class SmoothSwathDataset(torch.utils.data.Dataset):
 
         min_timestep = 300
         self.stats  = mean, std
-        self.chunks = list(pp_ds.groupby('contiguous_chunk').count().isel(nC=0).pipe(lambda ds: ds.isel(contiguous_chunk=ds[pp_vars[0]] > min_timestep)).contiguous_chunk.values)
+        self.chunks = list(
+                pp_ds.groupby('contiguous_chunk').count()
+                .isel(nC=0).pipe(lambda ds: ds.isel(contiguous_chunk=ds[pp_vars[0]] > min_timestep))
+                .contiguous_chunk.values
+        )
 
         self.pp_vars = pp_vars 
         self.gt_vars = gt_vars
@@ -452,17 +457,6 @@ class SmoothSwathDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.chunks)
-
-    def update_stats(self, lit_mod):
-        all_vars = self.gt_vars + self.pp_vars
-        mean, std = self.stats
-        cc = self.pp_ds.contiguous_chunk
-        _pp_ds = self.pp_ds.drop_vars('contiguous_chunk') * std + mean
-
-        for v, m, s in zip(all_vars, lit_mod.gt_means.squeeze(), lit_mod.gt_stds.squeeze()):
-            mean[v] = m
-            std[v] = s
-        self.pp_ds = ((_pp_ds - mean) / std).assign(contiguous_chunk=cc)
 
     @contextlib.contextmanager
     def get_coords(self):
@@ -756,45 +750,80 @@ def generate_cal_xrds(ds, lit_mod, trainer, var_name='cal'):
             ], dim='time'
     )
 
+
+def register_configs():
+    from hydra.core.config_store import ConfigStore
+    from omegaconf import OmegaConf
+    from pathlib import Path
+    from itertools import product
+
+    cs = ConfigStore.instance()
+
+    XP_NUM = 12 
+    cfgs = []
+    simple_overrides = [overrides_cfg[o] for o in ['no_norm', 'no_mix']]
+    basic_overrides = [overrides_cfg[o] for o in ['no_norm', 'no_mix']]
+    for xp_name, cfg in [
+            # ('base_duacs_simple',  [sst1_cfg, size_overrides_cfg['pp20x8'], overrides_cfg['duacs_base'],  *simple_overrides]),
+            # ('direct_obs_simple',  [sst1_cfg, size_overrides_cfg['pp20x8'], overrides_cfg['direct_obs'],  *simple_overrides]),
+            # ('base_no_sst_simple',  [no_sst1_cfg, size_overrides_cfg['pp20x8'],  *simple_overrides]),
+            # ('base_sst_simple',  [sst1_cfg, size_overrides_cfg['pp20x8'], *simple_overrides]),
+            # ('no_sst_no_mix',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides, overrides_cfg['no_mix']]),
+            ('no_sst_non_residual',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides, overrides_cfg['non_residual']]),
+            ('no_sst_relu',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides, overrides_cfg['relu_act']]),
+            ('no_sst_no_pp',  [no_sst1_cfg, size_overrides_cfg['no_pp'], *basic_overrides]),
+            ('no_sst_small_pp',  [no_sst1_cfg, size_overrides_cfg['pp10x5'], *basic_overrides]),
+            ('base_duacs',  [sst1_cfg, size_overrides_cfg['pp20x8'], overrides_cfg['duacs_base'], *basic_overrides]),
+            ('direct_obs',  [sst1_cfg, size_overrides_cfg['pp20x8'], overrides_cfg['direct_obs'], *basic_overrides]),
+            ('base_no_sst',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides]),
+            ('base_sst',  [sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides]),
+            # ('base_duacs_big',  [sst1_cfg, size_overrides_cfg['pp40x8'], overrides_cfg['duacs_base'], *basic_overrides]),
+            # ('direct_obs_big',  [sst1_cfg, size_overrides_cfg['pp40x8'], overrides_cfg['direct_obs'], *basic_overrides]),
+            # ('base_no_sst_big',  [no_sst1_cfg, size_overrides_cfg['pp40x8'], *basic_overrides]),
+            # ('base_sst_big',  [sst1_cfg, size_overrides_cfg['pp40x8'], *basic_overrides]),
+        ]:
+        cfgs.append(f'{XP_NUM}_' + xp_name)
+        cs.store(name=cfgs[-1], node=OmegaConf.merge(common_cfg, *cfg), group='xp', package='_global_')
+    return XP_NUM, cfgs
+
+
 def new_train_cal():
     try:
-        XP_NUM = 6 
-        for xp_name, cfgs in [
-                ('direct_obs',  [sst1_cfg, *[overrides_cfg[o] for o in ['non_residual', 'no_norm', 'no_mix', 'direct_obs']]]),
-                ('direct_obs_bis',  [sst1_cfg, *[overrides_cfg[o] for o in ['non_residual', 'no_norm', 'no_mix', 'direct_obs']]]),
-                # ('base_duacs',  [sst1_cfg, overrides_cfg['duacs_base']]),
-                # ('base_no_sst',  [no_sst1_cfg]),
-                # ('base_sst',  [sst1_cfg]),
-            ]:
 
-            cfg = OmegaConf.merge(common_cfg, *cfgs)
-
-            # First estim from 4dvar on grid        
-            overrides = ['+datamodule.dl_kwargs.shuffle=False']
-            fourdvar_dm = get_dm(cfg.fourdvar_cfg, add_overrides=overrides)
-
-            # Get grid model
-            fourdvar_model = get_model(cfg.fourdvar_cfg, cfg.fourdvar_mod_ckpt, dm=fourdvar_dm, add_overrides=overrides)
-
+        XP_NUM, cfgs = register_configs()
+        for cfgn in cfgs:
+            with hydra.initialize():
+                cfg = hydra.compose(overrides=[f'+xp={cfgn}'])
+            print(OmegaConf.to_yaml(cfg))
 
             # Get swath model
             swath_data = xr.open_dataset('data/swath_train_data.nc')
-            preds_data = xr.open_dataset('data/train_swath_data_xp_12.nc') 
-            tr_swath_data = (
-                swath_data.assign(pred=preds_data[cfg.pred_var])
-            )
+            if cfg.pred_var not in swath_data:
+                preds_data = xr.open_dataset('data/train_swath_data_xp_12.nc') 
+                tr_swath_data = (
+                        swath_data.assign(
+                            pred=preds_data[cfg.pred_var]
+                                .pipe(lambda da: (da.dims, da.values))
+                        )
+                )
+                val_preds_data = xr.open_dataset('data/val_swath_data_xp_12.nc') 
+                val_swath_data = (
+                    xr.open_dataset('data/swath_val_data.nc')
+                    .assign(
+                        pred=val_preds_data[cfg.pred_var]
+                            .pipe(lambda da: (da.dims, da.values))
+                    )
+                )
+            else:
+                tr_swath_data = swath_data
+                val_swath_data = xr.open_dataset('data/swath_val_data.nc')
 
-            val_preds_data = xr.open_dataset('data/val_swath_data_xp_12.nc') 
-            val_swath_data = (
-                xr.open_dataset('data/swath_val_data.nc')
-                .assign(pred=val_preds_data[cfg.pred_var])
-            )
             train_ds = SmoothSwathDataset(tr_swath_data, **cfg.swath_ds_cfg) 
-            val_ds = SmoothSwathDataset(val_swath_data, **cfg.swath_ds_cfg) 
+            val_ds = SmoothSwathDataset(val_swath_data, **cfg.swath_ds_cfg, norm_stats=train_ds.stats) 
 
             train_dl = torch.utils.data.DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=3)
             val_dl = torch.utils.data.DataLoader(val_ds, batch_size=1, shuffle=False, num_workers=3)
-
+            
             net = build_net(
                     in_channels=len(train_ds.pp_vars),
                     out_channels=len(train_ds.gt_vars),
@@ -805,7 +834,7 @@ def new_train_cal():
                     gt_var_stats=[s[train_ds.gt_vars].to_array().data for s in train_ds.stats],
                     **cfg.lit_cfg
                 )
-            logger = pl.loggers.TensorBoardLogger('lightning_logs', name=f'{XP_NUM}_{xp_name}')
+            logger = pl.loggers.TensorBoardLogger('lightning_logs', name=cfgn, version='')
             trainer = pl.Trainer(
                 gpus=[5],
                 logger=logger,
@@ -1018,136 +1047,133 @@ def test_chain_4dvar_cal():
         swath_metrics = []
         rms = lambda da: np.sqrt((da**2).mean())
 
+        XP_NUM, cfgs = register_configs()
+        for cfgn in cfgs:
+            with hydra.initialize():
+                cfg = hydra.compose(overrides=[
+                    f'+xp={cfgn}',
+                    '+cal_mod_ckpt=' + str(next((Path('lightning_logs') / cfgn / 'checkpoints').glob('*.ckpt')))
+                ])
         
 
-        cfg = OmegaConf.merge(
-                common_cfg,
-                # direct_obs_cfg,
-                # fivenad_sst_res_cfg,
-                # oi_res_cfg,
-                # no_sst1_cfg,
-                # no_sst_cal1_cfg,
-                sst1_cfg,
-        )
+            # First estim from 4dvar on grid        
+            overrides = ['+datamodule.dl_kwargs.shuffle=False']
+            fourdvar_dm = get_dm(cfg.fourdvar_cfg, add_overrides=overrides)
 
-        # First estim from 4dvar on grid        
-        overrides = ['+datamodule.dl_kwargs.shuffle=False']
-        fourdvar_dm = get_dm(cfg.fourdvar_cfg, add_overrides=overrides)
-
-        # Get grid model
-        fourdvar_model = get_model(cfg.fourdvar_cfg, cfg.fourdvar_mod_ckpt, dm=fourdvar_dm, add_overrides=overrides)
+            # Get grid model
+            fourdvar_model = get_model(cfg.fourdvar_cfg, cfg.fourdvar_mod_ckpt, dm=fourdvar_dm, add_overrides=overrides)
 
 
-        # Get swath model
-        swath_data = xr.open_dataset('data/swath_train_data.nc')
-        preds_data = xr.open_dataset('data/train_swath_data_xp_12.nc') 
+            # Get swath model
+            swath_data = xr.open_dataset('data/swath_train_data.nc')
+            preds_data = xr.open_dataset('data/train_swath_data_xp_12.nc') 
 
-        tr_swath_data = (
-            swath_data.assign(pred=preds_data[cfg.pred_var])
-        )
-        train_ds = SmoothSwathDataset(tr_swath_data, **cfg.swath_ds_cfg) 
-
-        net = build_net(
-                in_channels=len(train_ds.pp_vars),
-                out_channels=len(train_ds.gt_vars),
-                **cfg.net_cfg
-        )
-        cal_mod = LitDirectCNN(
-                net,
-                gt_var_stats=[s[train_ds.gt_vars].to_array().data for s in train_ds.stats],
-                **cfg.lit_cfg
+            tr_swath_data = (
+                swath_data.assign(pred=preds_data[cfg.pred_var])
             )
+            train_ds = SmoothSwathDataset(tr_swath_data, **cfg.swath_ds_cfg) 
 
-        trainer = pl.Trainer(gpus=[5], logger=False)
+            net = build_net(
+                    in_channels=len(train_ds.pp_vars),
+                    out_channels=len(train_ds.gt_vars),
+                    **cfg.net_cfg
+            )
+            cal_mod = LitDirectCNN(
+                    net,
+                    gt_var_stats=[s[train_ds.gt_vars].to_array().data for s in train_ds.stats],
+                    **cfg.lit_cfg
+                )
+
+            trainer = pl.Trainer(gpus=[5], logger=False)
 
 
 
-        for _ in range(1):
-            grid_metrics = grid_metrics + trainer.test(fourdvar_model, fourdvar_dm.test_dataloader())
-            print(pd.DataFrame(grid_metrics).to_markdown())
+            for _ in range(1):
+                grid_metrics = grid_metrics + trainer.test(fourdvar_model, fourdvar_dm.test_dataloader())
+                print(pd.DataFrame(grid_metrics).to_markdown())
 
-            # Convert grid estim to swath
-            sw_data = to_swath_data(fourdvar_model.test_xr_ds).pipe(lambda ds: ds.isel(time=np.isfinite(ds.pred).all('nC')))
+                # Convert grid estim to swath
+                sw_data = to_swath_data(fourdvar_model.test_xr_ds).pipe(lambda ds: ds.isel(time=np.isfinite(ds.pred).all('nC')))
 
-            # Convert grid estim to swath
-            cal_ds = SmoothSwathDataset(sw_data, norm_stats=train_ds.stats, **cfg.swath_ds_cfg) 
+                # Convert grid estim to swath
+                cal_ds = SmoothSwathDataset(sw_data, norm_stats=train_ds.stats, **cfg.swath_ds_cfg) 
 
-            # Estimate on swath using cal model
-            print(cal_mod.load_state_dict(torch.load(cfg.cal_mod_ckpt)['state_dict']))
-            cal_data = generate_cal_xrds(cal_ds, cal_mod, trainer)[list(sw_data) + ['cal', 'contiguous_chunk']]
+                # Estimate on swath using cal model
+                print(cal_mod.load_state_dict(torch.load(cfg.cal_mod_ckpt)['state_dict']))
+                cal_data = generate_cal_xrds(cal_ds, cal_mod, trainer)[list(sw_data) + ['cal', 'contiguous_chunk']]
 
-            def sobel(da):
-                dx_ac = xr.apply_ufunc(lambda _da: ndi.sobel(_da, 0), da) /2
-                dx_al = xr.apply_ufunc(lambda _da: ndi.sobel(_da, 1), da) /2
-                return np.hypot(dx_ac, dx_al)
-           
-            swath_metrics = swath_metrics + [{
-                'rmse': rms(cal_data.cal - cal_data.ssh_model),
-                'rmse_pred': rms(cal_data.pred - cal_data.ssh_model),
-                'grad_rmse': cal_data.groupby('contiguous_chunk').apply(lambda g: sobel(g.cal) - sobel(g.ssh_model)).pipe(rms),
-                'grad_rmse_pred': cal_data.groupby('contiguous_chunk').apply(lambda g: sobel(g.pred) - sobel(g.ssh_model)).pipe(rms),
-            }]
-            
-            print(pd.DataFrame(swath_metrics).to_markdown())
-            # Grid calibrated swath estimation
-            obs_ds = fourdvar_dm.test_ds.datasets[0].obs_mask_ds.ds
-            tgt_ds = to_grid(cal_data, obs_ds)
+                def sobel(da):
+                    dx_ac = xr.apply_ufunc(lambda _da: ndi.sobel(_da, 0), da) /2
+                    dx_al = xr.apply_ufunc(lambda _da: ndi.sobel(_da, 1), da) /2
+                    return np.hypot(dx_ac, dx_al)
+               
+                swath_metrics = swath_metrics + [{
+                    'rmse': rms(cal_data.cal - cal_data.ssh_model),
+                    'rmse_pred': rms(cal_data.pred - cal_data.ssh_model),
+                    'grad_rmse': cal_data.groupby('contiguous_chunk').apply(lambda g: sobel(g.cal) - sobel(g.ssh_model)).pipe(rms),
+                    'grad_rmse_pred': cal_data.groupby('contiguous_chunk').apply(lambda g: sobel(g.pred) - sobel(g.ssh_model)).pipe(rms),
+                }]
+                
+                print(pd.DataFrame(swath_metrics).to_markdown())
+                # Grid calibrated swath estimation
+                obs_ds = fourdvar_dm.test_ds.datasets[0].obs_mask_ds.ds
+                tgt_ds = to_grid(cal_data, obs_ds)
 
-            # Generate new obs on grid with calibrated data
-            new_obs = (
-                    xr.merge([obs_ds[['five_nadirs']],
-                        # obs_ds[['swot_no_noise']],
-                        tgt_ds.reindex_like(obs_ds, method='nearest', tolerance=1e-6)
-                        ]
-                    )
+                # Generate new obs on grid with calibrated data
+                new_obs = (
+                        xr.merge([obs_ds[['five_nadirs']],
+                            # obs_ds[['swot_no_noise']],
+                            tgt_ds.reindex_like(obs_ds, method='nearest', tolerance=1e-6)
+                            ]
+                        )
+                        .to_array()
+                        .mean('variable')
+                )
+
+                # TODO: Do inference 
+                fourdvar_dm.test_ds.datasets[0].obs_mask_ds.ds = obs_ds.assign(cal=new_obs)
+                fourdvar_dm.test_ds.datasets[0].obs_mask_ds.var = 'cal'
+
+            pd.DataFrame(swath_metrics).to_csv(f'{cfg.fourdvar_cfg}_sw_chain_metrics.csv')
+            pd.DataFrame(grid_metrics).to_csv(f'{cfg.fourdvar_cfg}_grid_chain_metrics.csv')
+
+            add_inter_sw = lambda ds:(
+                        ds
+                    .assign_coords(x_ac=lambda ds: ('nC', ds.x_ac.isel(time=0).data))
+                    .swap_dims(nC='x_ac')
+                    .reindex(x_ac=np.arange(-60, 62, 2), fill_value=np.nan)
+            )
+            v = 'cal'
+            chunk=2
+            (
+                    cal_data.pipe(add_inter_sw).pipe(lambda d: d.isel(time=d.contiguous_chunk==chunk))
+                    .assign(err=lambda d: d[v] - d.ssh_model)
+                    .assign(pred_err=lambda d: d.pred - d.ssh_model)
+                    [['err', 'pred_err']] 
                     .to_array()
-                    .mean('variable')
+                    .plot.pcolormesh('time', 'x_ac', col='variable', col_wrap=1, figsize=(15, 7))
             )
-
-            # TODO: Do inference 
-            fourdvar_dm.test_ds.datasets[0].obs_mask_ds.ds = obs_ds.assign(cal=new_obs)
-            fourdvar_dm.test_ds.datasets[0].obs_mask_ds.var = 'cal'
-
-        pd.DataFrame(swath_metrics).to_csv(f'{cfg.fourdvar_cfg}_sw_chain_metrics.csv')
-        pd.DataFrame(grid_metrics).to_csv(f'{cfg.fourdvar_cfg}_grid_chain_metrics.csv')
-
-        add_inter_sw = lambda ds:(
-                    ds
+            (
+                    cal_data.pipe(add_inter_sw).pipe(lambda d: d.isel(time=d.contiguous_chunk==2))
+                    [[ 'ssh_model', 'cal', 'pred']] 
+                    .to_array()
+                    .pipe(sobel)
+                    .plot.pcolormesh('time', 'x_ac', col='variable', col_wrap=1, figsize=(15, 11))
+            )
+            spat_res_df = get_spat_reses(
+                cal_data
+                .assign(contiguous_chunk=lambda _df: (_df.x_al.diff('time').pipe(np.abs) > 3).cumsum())
+                .assign(
+                    syst=lambda d: d.ssh_model + d.syst_error_uncalibrated,
+                    tropo=lambda d: d.ssh_model + d.wet_tropo_res,
+                    obs=lambda d: d.ssh_model + d.wet_tropo_res + d.syst_error_uncalibrated,
+                )
                 .assign_coords(x_ac=lambda ds: ('nC', ds.x_ac.isel(time=0).data))
-                .swap_dims(nC='x_ac')
-                .reindex(x_ac=np.arange(-60, 62, 2), fill_value=np.nan)
-        )
-        v = 'cal'
-        chunk=2
-        (
-                cal_data.pipe(add_inter_sw).pipe(lambda d: d.isel(time=d.contiguous_chunk==chunk))
-                .assign(err=lambda d: d[v] - d.ssh_model)
-                .assign(pred_err=lambda d: d.pred - d.ssh_model)
-                [['err', 'pred_err']] 
-                .to_array()
-                .plot.pcolormesh('time', 'x_ac', col='variable', col_wrap=1, figsize=(15, 7))
-        )
-        (
-                cal_data.pipe(add_inter_sw).pipe(lambda d: d.isel(time=d.contiguous_chunk==2))
-                [[ 'ssh_model', 'cal', 'pred']] 
-                .to_array()
-                .pipe(sobel)
-                .plot.pcolormesh('time', 'x_ac', col='variable', col_wrap=1, figsize=(15, 11))
-        )
-        spat_res_df = get_spat_reses(
-            cal_data
-            .assign(contiguous_chunk=lambda _df: (_df.x_al.diff('time').pipe(np.abs) > 3).cumsum())
-            .assign(
-                syst=lambda d: d.ssh_model + d.syst_error_uncalibrated,
-                tropo=lambda d: d.ssh_model + d.wet_tropo_res,
-                obs=lambda d: d.ssh_model + d.wet_tropo_res + d.syst_error_uncalibrated,
+                .swap_dims(time='x_al', nC='x_ac').drop('time')
             )
-            .assign_coords(x_ac=lambda ds: ('nC', ds.x_ac.isel(time=0).data))
-            .swap_dims(time='x_al', nC='x_ac').drop('time')
-        )
 
-        sns.violinplot(data=spat_res_df, x='xp_long', y='spat_res')
-        print(spat_res_df.groupby('xp_long').spat_res.agg(['mean', 'std']).to_markdown())
+            sns.violinplot(data=spat_res_df, x='xp_long', y='spat_res')
+            print(spat_res_df.groupby('xp_long').spat_res.agg(['mean', 'std']).to_markdown())
     except Exception as e:
         print('I am here')
         print(traceback.format_exc()) 
