@@ -37,5 +37,6 @@ version_*
 instab
 *.nc
 *.csv
-
+*.pk
 lightning_logs_archives
+report

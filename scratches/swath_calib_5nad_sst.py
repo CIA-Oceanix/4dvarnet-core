@@ -1,4 +1,5 @@
 import hydra
+import pickle
 import seaborn as sns
 import xrft
 
@@ -68,43 +69,47 @@ def bst_ckpt(dirpath, glob='version_*/checkpoints/*', ckpt_fmt='.+val_loss=(.+)\
     return min(Path(dirpath).glob(glob), key=lambda p: float(re.match(ckpt_fmt, str(p)).group(1)))
 
 cfgs =  [
-    'qxp2_aug2_dp240_5nad_map_sst_ng5x3cas_w1.0',
-    'qxp8_5nad_sst_l1_dp01_01.yaml',
-    'qxp8_5nad_sst_l1_dp025_00.yaml',
-    'qxp8_5nad_sst_l2_dp01_01.yaml',
-    'qxp8_5nad_sst_l2_dp025_00.yaml',
-    'qxp12_aug1_dp240_5nad_cal_no_sst_ng5x3cas_l1_dp01_01',
-    'qxp12_aug1_dp240_5nad_cal_no_sst_ng5x3cas_l1_dp025_00',
-    'qxp12_aug1_dp240_5nad_cal_no_sst_ng5x3cas_l2_dp01_01',
-    'qxp12_aug1_dp240_5nad_cal_no_sst_ng5x3cas_l2_dp025_00',
-    'qxp12_aug1_dp240_5nad_cal_sst_ng5x3cas_l1_dp01_01',
-    'qxp12_aug1_dp240_5nad_cal_sst_ng5x3cas_l1_dp025_00',
-    'qxp12_aug1_dp240_5nad_cal_sst_ng5x3cas_l2_dp01_01',
-    'qxp12_aug1_dp240_5nad_cal_sst_ng5x3cas_l2_dp025_00',
-    'qxp12_aug1_dp240_5nad_map_no_sst_ng5x3cas_l1_dp01_01',
+    # 'qxp2_aug2_dp240_5nad_map_sst_ng5x3cas_w1.0',
+    # 'qxp12_aug1_dp240_5nad_cal_no_sst_ng5x3cas_l1_dp01_01',
+    # 'qxp12_aug1_dp240_5nad_cal_no_sst_ng5x3cas_l1_dp025_00',
+    # 'qxp12_aug1_dp240_5nad_cal_no_sst_ng5x3cas_l2_dp01_01',
+    # 'qxp12_aug1_dp240_5nad_cal_no_sst_ng5x3cas_l2_dp025_00',
+    # 'qxp12_aug1_dp240_5nad_cal_sst_ng5x3cas_l1_dp01_01',
+    # 'qxp12_aug1_dp240_5nad_cal_sst_ng5x3cas_l1_dp025_00',
+    # 'qxp12_aug1_dp240_5nad_cal_sst_ng5x3cas_l2_dp01_01',
+    # 'qxp12_aug1_dp240_5nad_cal_sst_ng5x3cas_l2_dp025_00',
+    # 'qxp12_aug1_dp240_5nad_map_no_sst_ng5x3cas_l1_dp01_01',
     'qxp12_aug1_dp240_5nad_map_no_sst_ng5x3cas_l1_dp025_00',
-    'qxp12_aug1_dp240_5nad_map_no_sst_ng5x3cas_l2_dp01_01',
-    'qxp12_aug1_dp240_5nad_map_no_sst_ng5x3cas_l2_dp025_00',
-    'qxp12_aug1_dp240_5nad_map_sst_ng5x3cas_l1_dp01_01',
+    # 'qxp12_aug1_dp240_5nad_map_no_sst_ng5x3cas_l2_dp01_01',
+    # 'qxp12_aug1_dp240_5nad_map_no_sst_ng5x3cas_l2_dp025_00',
+    # 'qxp12_aug1_dp240_5nad_map_sst_ng5x3cas_l1_dp01_01',
     'qxp12_aug1_dp240_5nad_map_sst_ng5x3cas_l1_dp025_00',
-    'qxp12_aug1_dp240_5nad_map_sst_ng5x3cas_l2_dp01_01',
-    'qxp12_aug1_dp240_5nad_map_sst_ng5x3cas_l2_dp025_00',
-    'qxp12_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l1_dp01_01',
-    'qxp12_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l1_dp025_00',
-    'qxp12_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l2_dp01_01',
-    'qxp12_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l2_dp025_00',
-    'qxp12_aug2_dp240_5nad_cal_sst_ng5x3cas_l1_dp01_01',
-    'qxp12_aug2_dp240_5nad_cal_sst_ng5x3cas_l1_dp025_00',
-    'qxp12_aug2_dp240_5nad_cal_sst_ng5x3cas_l2_dp01_01',
-    'qxp12_aug2_dp240_5nad_cal_sst_ng5x3cas_l2_dp025_00',
-    'qxp12_aug2_dp240_5nad_map_no_sst_ng5x3cas_l1_dp01_01',
-    'qxp12_aug2_dp240_5nad_map_no_sst_ng5x3cas_l1_dp025_00',
-    'qxp12_aug2_dp240_5nad_map_no_sst_ng5x3cas_l2_dp01_01',
-    'qxp12_aug2_dp240_5nad_map_no_sst_ng5x3cas_l2_dp025_00',
-    'qxp12_aug2_dp240_5nad_map_sst_ng5x3cas_l1_dp01_01',
-    'qxp12_aug2_dp240_5nad_map_sst_ng5x3cas_l1_dp025_00',
-    'qxp12_aug2_dp240_5nad_map_sst_ng5x3cas_l2_dp01_01',
-    'qxp12_aug2_dp240_5nad_map_sst_ng5x3cas_l2_dp025_00',
+    # 'qxp12_aug1_dp240_5nad_map_sst_ng5x3cas_l2_dp01_01',
+    # 'qxp12_aug1_dp240_5nad_map_sst_ng5x3cas_l2_dp025_00',
+    # 'qxp12_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l1_dp01_01',
+    # 'qxp12_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l1_dp025_00',
+    # 'qxp12_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l2_dp01_01',
+    # 'qxp12_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l2_dp025_00',
+    # 'qxp12_aug2_dp240_5nad_cal_sst_ng5x3cas_l1_dp01_01',
+    # 'qxp12_aug2_dp240_5nad_cal_sst_ng5x3cas_l1_dp025_00',
+    # 'qxp12_aug2_dp240_5nad_cal_sst_ng5x3cas_l2_dp01_01',
+    # 'qxp12_aug2_dp240_5nad_cal_sst_ng5x3cas_l2_dp025_00',
+    # 'qxp12_aug2_dp240_5nad_map_no_sst_ng5x3cas_l1_dp01_01',
+    # 'qxp12_aug2_dp240_5nad_map_no_sst_ng5x3cas_l1_dp025_00',
+    # 'qxp12_aug2_dp240_5nad_map_no_sst_ng5x3cas_l2_dp01_01',
+    # 'qxp12_aug2_dp240_5nad_map_no_sst_ng5x3cas_l2_dp025_00',
+    # 'qxp12_aug2_dp240_5nad_map_sst_ng5x3cas_l1_dp01_01',
+    # 'qxp12_aug2_dp240_5nad_map_sst_ng5x3cas_l1_dp025_00',
+    # 'qxp12_aug2_dp240_5nad_map_sst_ng5x3cas_l2_dp01_01',
+    # 'qxp12_aug2_dp240_5nad_map_sst_ng5x3cas_l2_dp025_00',
+    # 'qxp13_aug2_dp240_swot_map_sst_ng5x3cas',
+    # 'qxp13_aug2_dp240_swot_cal_no_sst_ng5x3cas',
+    # 'qxp13_aug1_dp240_swot_cal_no_sst_ng5x3cas',
+    # 'qxp13_aug1_dp240_swot_cal_sst_ng5x3cas',
+    # 'qxp13_aug1_dp240_swot_map_sst_ng5x3cas',
+    # 'qxp13_aug1_dp240_swot_map_no_sst_ng5x3cas',
+    # 'qxp13_aug2_dp240_swot_cal_sst_ng5x3cas',
+
 ]
 
 common_cfg = OmegaConf.create(dict(
@@ -205,25 +210,41 @@ sst1_cfg = OmegaConf.create(dict(
 ))
 
 size_overrides_cfg = dict(
-    no_pp=OmegaConf.create(dict(swath_ds_cfg=dict(
-        sigmas_obs=(0,),
-        sigmas_xb=(0,),
+    pp10x2=OmegaConf.create(dict(swath_ds_cfg=dict(
+        sigmas_obs=(0,*[(i+1)*2 for i in range(10)]),
+        sigmas_xb=(0,*[(i+1)*2 for i in range(10)]),
+    ))),
+    pp20x2=OmegaConf.create(dict(swath_ds_cfg=dict(
+        sigmas_obs=(0,*[(i+1)*2 for i in range(20)]),
+        sigmas_xb=(0,*[(i+1)*2 for i in range(20)]),
+    ))),
+    pp40x2=OmegaConf.create(dict(swath_ds_cfg=dict(
+        sigmas_obs=(0,*[(i+1)*2 for i in range(40)]),
+        sigmas_xb=(0,*[(i+1)*2 for i in range(40)]),
     ))),
     pp10x5=OmegaConf.create(dict(swath_ds_cfg=dict(
         sigmas_obs=(0,*[(i+1)*5 for i in range(10)]),
         sigmas_xb=(0,*[(i+1)*5 for i in range(10)]),
     ))),
-    pp40x8=OmegaConf.create(dict(swath_ds_cfg=dict(
-        sigmas_obs=(0,*[(i+1)*8 for i in range(40)]),
-        sigmas_xb=(0,*[(i+1)*8 for i in range(40)]),
+    pp20x5=OmegaConf.create(dict(swath_ds_cfg=dict(
+        sigmas_obs=(0,*[(i+1)*5 for i in range(20)]),
+        sigmas_xb=(0,*[(i+1)*5 for i in range(20)]),
     ))),
     pp20x8=OmegaConf.create(dict(swath_ds_cfg=dict(
         sigmas_obs=(0,*[(i+1)*8 for i in range(20)]),
         sigmas_xb=(0,*[(i+1)*8 for i in range(20)]),
     ))),
-    pp20x5=OmegaConf.create(dict(swath_ds_cfg=dict(
-        sigmas_obs=(0,*[(i+1)*5 for i in range(20)]),
-        sigmas_xb=(0,*[(i+1)*5 for i in range(20)]),
+    pp40x8=OmegaConf.create(dict(swath_ds_cfg=dict(
+        sigmas_obs=(0,*[(i+1)*8 for i in range(40)]),
+        sigmas_xb=(0,*[(i+1)*8 for i in range(40)]),
+    ))),
+    ppcustom=OmegaConf.create(dict(swath_ds_cfg=dict(
+        sigmas_obs=(0, 2, 4, 8, 12, 17, 22, 28, 34, 41, 48, 56, 64, 73, 82, 92, 102, 112, 122, 132, 142),
+        sigmas_xb=(0, 2, 4, 8, 12, 17, 22, 28, 34, 41, 48, 56, 64, 73, 82, 92, 102, 112, 122, 132, 142),
+    ))),
+    no_pp=OmegaConf.create(dict(swath_ds_cfg=dict(
+        sigmas_obs=(0,),
+        sigmas_xb=(0,),
     ))),
 )
 overrides_cfg = dict(
@@ -243,8 +264,36 @@ overrides_cfg = dict(
     no_norm=OmegaConf.create(dict(net_cfg=dict(norm_type='none',))),
     no_mix=OmegaConf.create(dict(net_cfg=dict(mix='False',))),
     relu_act=OmegaConf.create(dict(net_cfg=dict(act_type='relu',))),
+    swot_sst_model1=OmegaConf.create(dict(
+        fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp13/qxp13_aug2_dp240_swot_map_sst_ng5x3cas')),
+    )),
+    swot_sst_model2=OmegaConf.create(dict(
+        fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp13/qxp13_aug1_dp240_swot_cal_sst_ng5x3cas')),
+    )),
+    swot_sst_model3=OmegaConf.create(dict(
+        fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp13/qxp13_aug2_dp240_swot_cal_sst_ng5x3cas')),
+    )),
+    swot_no_sst_model1=OmegaConf.create(dict(
+        fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp13/qxp13_aug2_dp240_swot_map_no_sst_ng5x3cas')),
+    )),
+    swot_no_sst_model2=OmegaConf.create(dict(
+        fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp13/qxp13_aug1_dp240_swot_cal_no_sst_ng5x3cas')),
+    )),
+    swot_no_sst_model3=OmegaConf.create(dict(
+        fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp13/qxp13_aug2_dp240_swot_cal_no_sst_ng5x3cas')),
+    )),
+    swot_no_sst_model4=OmegaConf.create(dict(
+        fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp13/qxp13_aug2_dp240_swot_map_no_sst_ng5x3cas')),
+    )),
 )
 
+    # 'qxp13_aug2_dp240_swot_map_sst_ng5x3cas',
+    # 'qxp13_aug2_dp240_swot_cal_no_sst_ng5x3cas',
+    # 'qxp13_aug1_dp240_swot_cal_no_sst_ng5x3cas',
+    # 'qxp13_aug1_dp240_swot_cal_sst_ng5x3cas',
+    # 'qxp13_aug1_dp240_swot_map_sst_ng5x3cas',
+    # 'qxp13_aug1_dp240_swot_map_no_sst_ng5x3cas',
+    # 'qxp13_aug2_dp240_swot_cal_sst_ng5x3cas',
 # Siren imp
 
 # import importlib
@@ -759,28 +808,38 @@ def register_configs():
 
     cs = ConfigStore.instance()
 
-    XP_NUM = 12 
+    XP_NUM = 15 
     cfgs = []
     simple_overrides = [overrides_cfg[o] for o in ['no_norm', 'no_mix']]
-    basic_overrides = [overrides_cfg[o] for o in ['no_norm', 'no_mix']]
+    basic_overrides = [overrides_cfg[o] for o in ['no_norm', 'no_mix', 'relu_act']]
     for xp_name, cfg in [
             # ('base_duacs_simple',  [sst1_cfg, size_overrides_cfg['pp20x8'], overrides_cfg['duacs_base'],  *simple_overrides]),
             # ('direct_obs_simple',  [sst1_cfg, size_overrides_cfg['pp20x8'], overrides_cfg['direct_obs'],  *simple_overrides]),
             # ('base_no_sst_simple',  [no_sst1_cfg, size_overrides_cfg['pp20x8'],  *simple_overrides]),
             # ('base_sst_simple',  [sst1_cfg, size_overrides_cfg['pp20x8'], *simple_overrides]),
             # ('no_sst_no_mix',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides, overrides_cfg['no_mix']]),
-            ('no_sst_non_residual',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides, overrides_cfg['non_residual']]),
-            ('no_sst_relu',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides, overrides_cfg['relu_act']]),
-            ('no_sst_no_pp',  [no_sst1_cfg, size_overrides_cfg['no_pp'], *basic_overrides]),
-            ('no_sst_small_pp',  [no_sst1_cfg, size_overrides_cfg['pp10x5'], *basic_overrides]),
-            ('base_duacs',  [sst1_cfg, size_overrides_cfg['pp20x8'], overrides_cfg['duacs_base'], *basic_overrides]),
-            ('direct_obs',  [sst1_cfg, size_overrides_cfg['pp20x8'], overrides_cfg['direct_obs'], *basic_overrides]),
-            ('base_no_sst',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides]),
-            ('base_sst',  [sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides]),
+            # ('no_sst_relu',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides, overrides_cfg['relu_act']]),
+            # ('no_sst_non_residual',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides, overrides_cfg['non_residual']]),
+            # ('no_sst_no_pp',  [no_sst1_cfg, size_overrides_cfg['no_pp'], *basic_overrides]),
+            # ('no_sst_small_pp',  [no_sst1_cfg, size_overrides_cfg['pp10x5'], *basic_overrides]),
+            # ('base_duacs',  [sst1_cfg, size_overrides_cfg['pp20x8'], overrides_cfg['duacs_base'], *basic_overrides]),
+            # ('direct_obs',  [sst1_cfg, size_overrides_cfg['pp20x8'], overrides_cfg['direct_obs'], *basic_overrides]),
+            # ('base_no_sst_swot1',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides, overrides_cfg['swot_no_sst_model1']]),
+            # ('base_no_sst_swot3',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides, overrides_cfg['swot_no_sst_model3']]),
+            # ('base_no_sst_swot4',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides, overrides_cfg['swot_no_sst_model4']]),
+            # ('base_no_sst_swot2',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides, overrides_cfg['swot_no_sst_model2']]),
+            # ('base_sst',  [sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides]),
+            # ('base_no_sst',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides]),
+            # ('base_sst_swot1',  [sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides, overrides_cfg['swot_sst_model1']]),
+            # ('base_sst_swot2',  [sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides, overrides_cfg['swot_sst_model2']]),
+            # ('base_sst_swot3',  [sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides, overrides_cfg['swot_sst_model3']]),
             # ('base_duacs_big',  [sst1_cfg, size_overrides_cfg['pp40x8'], overrides_cfg['duacs_base'], *basic_overrides]),
             # ('direct_obs_big',  [sst1_cfg, size_overrides_cfg['pp40x8'], overrides_cfg['direct_obs'], *basic_overrides]),
             # ('base_no_sst_big',  [no_sst1_cfg, size_overrides_cfg['pp40x8'], *basic_overrides]),
             # ('base_sst_big',  [sst1_cfg, size_overrides_cfg['pp40x8'], *basic_overrides]),
+            # *[(f'sst_{pp}',  [sst1_cfg, size_overrides_cfg[pp], *basic_overrides]) for pp in size_overrides_cfg],
+            *[(f'no_sst_{pp}',  [no_sst1_cfg, size_overrides_cfg[pp], *basic_overrides]) for pp in size_overrides_cfg],
+            # ('base_no_sst',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides]),
         ]:
         cfgs.append(f'{XP_NUM}_' + xp_name)
         cs.store(name=cfgs[-1], node=OmegaConf.merge(common_cfg, *cfg), group='xp', package='_global_')
@@ -861,116 +920,75 @@ def new_train_cal():
     finally:
         return locals()
 
-def train_cal():
+def make_report():
     try:
-        p = lambda da: da.T.plot(figsize=(15,3))
-        rms = lambda da: np.sqrt(np.mean(da**2))
+        XP_NUM = 14
+        grid_metrics = pd.read_csv(f'{XP_NUM}_grid_chain_metrics.csv')
+        sw_metrics = pd.read_csv(f'{XP_NUM}_sw_chain_metrics.csv')
+        with open(f'{XP_NUM}_figs.pk', 'rb') as f:
+            figs = pickle.load(f)
+        data = (
+                grid_metrics
+                .set_index(['xp', 'iter'])
+                .drop('Unnamed: 0', axis=1)
+                .join(sw_metrics.set_index(['xp', 'iter'])
+                .assign(
+                    rmse_improvement= lambda df: 1 - df.rmse / df.rmse_pred,
+                    grad_rmse_improvement= lambda df: 1 - df.grad_rmse / df.grad_rmse_pred
+                )
+                .drop('Unnamed: 0', axis=1), rsuffix='_sw')
+                .join(pd.DataFrame(figs).set_index(['xp', 'iter']))
+                .reset_index().loc[lambda df: df.iter == 0]
+                .set_index('xp')
+        )
 
-        pred_configs = [
-            # 'qxp12_aug2_dp240_5nad_map_sst_ng5x3cas_l1_dp01_01',
-            # 'qxp12_aug2_dp240_5nad_cal_sst_ng5x3cas_l2_dp025_00',
-            'qxp12_aug1_dp240_5nad_map_sst_ng5x3cas_l1_dp025_00',
-            # 'qxp12_aug1_dp240_5nad_cal_sst_ng5x3cas_l1_dp025_00',
-            'qxp12_aug1_dp240_5nad_map_no_sst_ng5x3cas_l1_dp025_00',
-            # 'qxp12_aug2_dp240_5nad_map_no_sst_ng5x3cas_l1_dp01_01',
-            # 'qxp12_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l1_dp025_00',
-            # 'qxp12_aug1_dp240_5nad_cal_no_sst_ng5x3cas_l1_dp01_01',
-            # 'qxp12_aug1_dp240_5nad_cal_no_sst_ng5x3cas_l2_dp01_01',
+        metrics = [
+                'rmse', 'rmse_improvement', 'grad_rmse', 'grad_rmse_improvement',
+                'spat_res_mean', 'spat_res_std'
         ]
 
-        swath_data = xr.open_dataset('data/swath_train_data.nc')
-        preds_data = xr.open_dataset('data/train_swath_data_xp_12.nc') 
-        val_preds_data = xr.open_dataset('data/val_swath_data_xp_12.nc') 
-        # for c, p in preds_data.items():
-        for c in pred_configs:
-            print(f'{c} : {rms(swath_data.ssh_model - preds_data[c]).item()=:.2e} m')
-        for b_no_sst, pred_config in enumerate(pred_configs):
-            for xp_n, (RES, MIX, NORM, NBANDS, ACT, XB_VAR) in  enumerate([
-                    (True, True, 'lrn', 40, 'silu', 'pred'),
-                    (True, True, 'lrn', 40, 'silu', 'oi'),
-                    (True, True, 'lrn', 40, 'silu', 'zeros'),
-                    (False, True, 'lrn', 40, 'silu', 'pred'),
-                    (True, False, 'lrn', 40, 'silu', 'pred'),
-                    (True, True, 'none', 40, 'silu', 'pred'),
-                    (True, True, 'lrn', 0, 'silu', 'pred'),
-                    (True, True, 'lrn', 40, 'relu', 'pred'),
-                ]):
-                swath_data = (
-                    swath_data.assign(pred=preds_data[pred_config])
-                )
-                val_swath_data = (
-                    xr.open_dataset('data/swath_val_data.nc')
-                    .assign(pred=val_preds_data[pred_config])
-                )
-                ds_kwargs = dict(
-                    sigmas_obs=(0,*[(i+1)*8 for i in range(NBANDS)]),
-                    sigmas_xb=(0,*[(i+1)*8 for i in range(NBANDS)]),
-                    sigmas_gt=(0,),
-                    gt_var='gt_res',
-                    ref_var='ref_res',
-                    xb_var=XB_VAR,
-                )
-                train_ds = SmoothSwathDataset(swath_data, **ds_kwargs) 
-                val_ds = SmoothSwathDataset(val_swath_data, norm_stats=train_ds.stats, **ds_kwargs) 
-                
-                train_dl = torch.utils.data.DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=3)
-                val_dl = torch.utils.data.DataLoader(val_ds, batch_size=1, shuffle=False, num_workers=3)
+        grid_xp = lambda df: df.loc[[f'{XP_NUM}_base_duacs', f'{XP_NUM}_direct_obs', f'{XP_NUM}_base_no_sst', f'{XP_NUM}_base_sst']]
+        ablation_xp = lambda df: df.loc[[f'{XP_NUM}_base_no_sst', f'{XP_NUM}_no_sst_no_pp', f'{XP_NUM}_no_sst_non_residual']]
+        # data.pipe(ablation_xp)[metrics].plot(kind='bar', subplots=True, figsize=(8, 10), layout=(2, 3), legend=False)
+        # data.pipe(grid_xp)[metrics].plot(kind='bar', subplots=True, figsize=(8, 10), layout=(2, 3), legend=False)
+        with  open('report/violin_all_no_sst.png', 'wb') as f:
+            data.loc[f'{XP_NUM}_base_no_sst'].violin_all.savefig(f)
 
-                
+        with  open('report/violin_diff_no_sst.png', 'wb') as f:
+            data.loc[f'{XP_NUM}_base_no_sst'].violin_diff.savefig(f)
 
-                net = build_net(
-                        in_channels=len(train_ds.pp_vars),
-                        out_channels=len(train_ds.gt_vars),
-                        nhidden = 128,
-                        depth = 3,
-                        kernel_size = 3,
-                        num_repeat = 1,
-                        residual = True,
-                        norm_type = NORM,
-                        act_type = ACT,
-                        mix = True,
-                        mix_residual = False,
-                        mix_act_type = 'none',
-                        mix_norm_type = 'none',
-                )
-                lit_mod = LitDirectCNN(
-                        net,
-                        gt_var_stats=[s[train_ds.gt_vars].to_array().data for s in train_ds.stats],
-                        lr_init=2e-3,
-                        wd=1e-2,
-                        loss_w={
-                            'tot':(5., 3., 3.),
-                            'rec':(0., 0., 0.,)
-                            # 'tot':(1., 1., 1.), 'rec':(0., 0., 0.,)
-                        },
-                    )
-                XP_NUM = 3 
-                logger = pl.loggers.TensorBoardLogger('lightning_logs', name=f'{XP_NUM}_{"sst_" if not b_no_sst else "no_sst_"}_{xp_n}')
-                trainer = pl.Trainer(
-                    gpus=[5],
-                    logger=logger,
-                    callbacks=[
-                        callbacks.LearningRateMonitor(),
-                        # callbacks.TQDMProgressBar(),
-                        callbacks.RichProgressBar(),
-                        callbacks.ModelCheckpoint(monitor='val_loss', save_last=True),
-                        # callbacks.GradientAccumulationScheduler({1: 1, 10: 3, 30: 7, 60: 15, 100: 25, 150: 40}),
-                        # callbacks.GradientAccumulationScheduler({1: 1, 10: 3, 30: 8, 60: 16}),
-                        callbacks.StochasticWeightAveraging(),
-                        # callbacks.GradientAccumulationScheduler({1: 4, 10: 8, 25: 16}),
-                        callbacks.GradientAccumulationScheduler({1: 4, 10: 8, 15: 16, 20: 32, 30: 64}),
-                        VersioningCallback()
-                    ],
-                    log_every_n_steps=10,
-                    max_epochs=1000,
-                    # overfit_batches=2,
-                )
+        with  open('report/grad_ssh_no_sst.png', 'wb') as f:
+            data.loc[f'{XP_NUM}_base_no_sst'].ssh.savefig(f)
 
-                print(pl.utilities.model_summary.summarize(lit_mod, max_depth=3))
-                trainer.fit(lit_mod,
-                    train_dataloaders=train_dl,
-                    val_dataloaders=val_dl
-                )
+        with  open('report/err_no_sst.png', 'wb') as f:
+            data.loc[f'{XP_NUM}_base_no_sst'].err.savefig(f)
+
+
+        report = f"""
+
+        ## Results 4dvarnet 5 nadir no sst + CalCNN 
+        **Ssh gradients**
+        ![](report/grad_ssh_no_sst.png)
+
+        **Residual error after calibration**
+        ![](report/err_no_sst.png)
+
+        {data.loc[f'{XP_NUM}_base_no_sst'][metrics].T.to_markdown()}
+        
+        **Spatial resolution on swath before**
+        ![](report/violin_all_no_sst.png)
+        ![](report/violin_diff_no_sst.png)
+
+        ## Metrics different grids
+        {data.pipe(grid_xp)[metrics].to_markdown()}
+
+        ## Ablation
+        {data.pipe(ablation_xp)[metrics].to_markdown()}
+
+
+        """
+        display(Markdown(report))
+        print(report)
 
     except Exception as e:
         print('I am here')
@@ -1045,16 +1063,18 @@ def test_chain_4dvar_cal():
     try:
         grid_metrics = []
         swath_metrics = []
+        figs = []
         rms = lambda da: np.sqrt((da**2).mean())
 
         XP_NUM, cfgs = register_configs()
         for cfgn in cfgs:
+            print(cfgn)
             with hydra.initialize():
                 cfg = hydra.compose(overrides=[
                     f'+xp={cfgn}',
-                    '+cal_mod_ckpt=' + str(next((Path('lightning_logs') / cfgn / 'checkpoints').glob('*.ckpt')))
+                    '++cal_mod_ckpt=' + str(((Path('lightning_logs') / cfgn / 'checkpoints' / 'last.ckpt')))
+                    # '++cal_mod_ckpt=' + str(((Path('lightning_logs') / '12_base_no_sst' / 'checkpoints' / 'last.ckpt')))
                 ])
-        
 
             # First estim from 4dvar on grid        
             overrides = ['+datamodule.dl_kwargs.shuffle=False']
@@ -1086,10 +1106,12 @@ def test_chain_4dvar_cal():
 
             trainer = pl.Trainer(gpus=[5], logger=False)
 
-
-
-            for _ in range(1):
-                grid_metrics = grid_metrics + trainer.test(fourdvar_model, fourdvar_dm.test_dataloader())
+            for niter in range(1):
+                grid_metrics = grid_metrics + [{
+                        'xp': cfgn,
+                        'iter': niter,
+                        **trainer.test(fourdvar_model, fourdvar_dm.test_dataloader())[0]
+                }]
                 print(pd.DataFrame(grid_metrics).to_markdown())
 
                 # Convert grid estim to swath
@@ -1107,14 +1129,6 @@ def test_chain_4dvar_cal():
                     dx_al = xr.apply_ufunc(lambda _da: ndi.sobel(_da, 1), da) /2
                     return np.hypot(dx_ac, dx_al)
                
-                swath_metrics = swath_metrics + [{
-                    'rmse': rms(cal_data.cal - cal_data.ssh_model),
-                    'rmse_pred': rms(cal_data.pred - cal_data.ssh_model),
-                    'grad_rmse': cal_data.groupby('contiguous_chunk').apply(lambda g: sobel(g.cal) - sobel(g.ssh_model)).pipe(rms),
-                    'grad_rmse_pred': cal_data.groupby('contiguous_chunk').apply(lambda g: sobel(g.pred) - sobel(g.ssh_model)).pipe(rms),
-                }]
-                
-                print(pd.DataFrame(swath_metrics).to_markdown())
                 # Grid calibrated swath estimation
                 obs_ds = fourdvar_dm.test_ds.datasets[0].obs_mask_ds.ds
                 tgt_ds = to_grid(cal_data, obs_ds)
@@ -1133,52 +1147,83 @@ def test_chain_4dvar_cal():
                 # TODO: Do inference 
                 fourdvar_dm.test_ds.datasets[0].obs_mask_ds.ds = obs_ds.assign(cal=new_obs)
                 fourdvar_dm.test_ds.datasets[0].obs_mask_ds.var = 'cal'
+            
 
-            pd.DataFrame(swath_metrics).to_csv(f'{cfg.fourdvar_cfg}_sw_chain_metrics.csv')
-            pd.DataFrame(grid_metrics).to_csv(f'{cfg.fourdvar_cfg}_grid_chain_metrics.csv')
-
-            add_inter_sw = lambda ds:(
-                        ds
-                    .assign_coords(x_ac=lambda ds: ('nC', ds.x_ac.isel(time=0).data))
-                    .swap_dims(nC='x_ac')
-                    .reindex(x_ac=np.arange(-60, 62, 2), fill_value=np.nan)
-            )
-            v = 'cal'
-            chunk=2
-            (
-                    cal_data.pipe(add_inter_sw).pipe(lambda d: d.isel(time=d.contiguous_chunk==chunk))
-                    .assign(err=lambda d: d[v] - d.ssh_model)
-                    .assign(pred_err=lambda d: d.pred - d.ssh_model)
-                    [['err', 'pred_err']] 
-                    .to_array()
-                    .plot.pcolormesh('time', 'x_ac', col='variable', col_wrap=1, figsize=(15, 7))
-            )
-            (
-                    cal_data.pipe(add_inter_sw).pipe(lambda d: d.isel(time=d.contiguous_chunk==2))
-                    [[ 'ssh_model', 'cal', 'pred']] 
-                    .to_array()
-                    .pipe(sobel)
-                    .plot.pcolormesh('time', 'x_ac', col='variable', col_wrap=1, figsize=(15, 11))
-            )
-            spat_res_df = get_spat_reses(
-                cal_data
-                .assign(contiguous_chunk=lambda _df: (_df.x_al.diff('time').pipe(np.abs) > 3).cumsum())
-                .assign(
-                    syst=lambda d: d.ssh_model + d.syst_error_uncalibrated,
-                    tropo=lambda d: d.ssh_model + d.wet_tropo_res,
-                    obs=lambda d: d.ssh_model + d.wet_tropo_res + d.syst_error_uncalibrated,
+                add_inter_sw = lambda ds:(
+                            ds
+                        .assign_coords(x_ac=lambda ds: ('nC', ds.x_ac.isel(time=0).data))
+                        .swap_dims(nC='x_ac')
+                        .reindex(x_ac=np.arange(-60, 62, 2), fill_value=np.nan)
                 )
-                .assign_coords(x_ac=lambda ds: ('nC', ds.x_ac.isel(time=0).data))
-                .swap_dims(time='x_al', nC='x_ac').drop('time')
-            )
+                v = 'cal'
+                chunk=2
+                fig_errs = (
+                        cal_data.pipe(add_inter_sw).pipe(lambda d: d.isel(time=d.contiguous_chunk==chunk))
+                        .assign(err=lambda d: d[v] - d.ssh_model)
+                        .assign(pred_err=lambda d: d.pred - d.ssh_model)
+                        [['err', 'pred_err']] 
+                        .to_array()
+                        .plot.pcolormesh('time', 'x_ac', col='variable', col_wrap=1, figsize=(15, 7))
+                ).fig
+                plt.close(fig_errs)
+                fig_ssh = (
+                        cal_data.pipe(add_inter_sw).pipe(lambda d: d.isel(time=d.contiguous_chunk==2))
+                        [[ 'ssh_model', 'cal', 'pred']] 
+                        .map(lambda da: da.pipe(sobel))
+                        # .pipe(sobel)
+                        .to_array()
+                        .plot.pcolormesh('time', 'x_ac', col='variable', col_wrap=1, figsize=(15, 11))
+                ).fig
+                plt.close(fig_ssh)
+                spat_res_df = get_spat_reses(
+                    cal_data
+                    .assign(contiguous_chunk=lambda _df: (_df.x_al.diff('time').pipe(np.abs) > 3).cumsum())
+                    .assign(
+                        syst=lambda d: d.ssh_model + d.syst_error_uncalibrated,
+                        tropo=lambda d: d.ssh_model + d.wet_tropo_res,
+                        obs=lambda d: d.ssh_model + d.wet_tropo_res + d.syst_error_uncalibrated,
+                    )
+                    .assign_coords(x_ac=lambda ds: ('nC', ds.x_ac.isel(time=0).data))
+                    .swap_dims(time='x_al', nC='x_ac').drop('time')
+                )
 
-            sns.violinplot(data=spat_res_df, x='xp_long', y='spat_res')
-            print(spat_res_df.groupby('xp_long').spat_res.agg(['mean', 'std']).to_markdown())
+                fig_violin_all = sns.violinplot(data=spat_res_df, x='xp_long', y='spat_res').figure
+                plt.close(fig_violin_all)
+                fig_violin_diff = sns.violinplot(data=spat_res_df.loc[lambda df: df.xp_long.isin(['cal', 'pred'])], x='xp_long', y='spat_res').figure
+                plt.close(fig_violin_diff)
+                figs.append({
+                    'xp': cfgn,
+                    'iter': niter,
+                    'err': fig_errs,
+                    'ssh': fig_ssh,
+                    'violin_all': fig_violin_all,
+                    'violin_diff': fig_violin_diff,
+                })
+                print(spat_res_df.groupby('xp_long').spat_res.agg(['mean', 'std']).to_markdown())
+                swath_metrics = swath_metrics + [{
+                    'xp': cfgn,
+                    'iter': niter,
+                    'rmse': rms(cal_data.cal - cal_data.ssh_model).item(),
+                    'rmse_pred': rms(cal_data.pred - cal_data.ssh_model).item(),
+                    'grad_rmse': cal_data.groupby('contiguous_chunk').apply(lambda g: sobel(g.cal) - sobel(g.ssh_model)).pipe(rms).item(),
+                    'grad_rmse_pred': cal_data.groupby('contiguous_chunk').apply(lambda g: sobel(g.pred) - sobel(g.ssh_model)).pipe(rms).item(),
+                **spat_res_df.loc[lambda df: df.xp_long=='cal'].spat_res.agg({'spat_res_mean': 'mean','spat_res_std': 'std'}).to_dict()
+                }]
+                
+                print(pd.DataFrame(swath_metrics).to_markdown())
+            pd.DataFrame(swath_metrics).to_csv(f'{XP_NUM}_sw_chain_metrics.csv')
+            pd.DataFrame(grid_metrics).to_csv(f'{XP_NUM}_grid_chain_metrics.csv')
+            import pickle
+            with open(f'{XP_NUM}_figs.pk', 'wb') as f:
+                pickle.dump(figs, f)
     except Exception as e:
         print('I am here')
         print(traceback.format_exc()) 
     finally:
         return locals()
+
+
+
 
 def get_swath_psd_score(x_t, x, with_fig=False, with_data=False):
     def psd_score(da: xr.DataArray) -> xr.DataArray:
@@ -1201,7 +1246,9 @@ def get_swath_psd_score(x_t, x, with_fig=False, with_data=False):
 
     model_score = psd_score(x)
 
-    model_score = model_score.where(model_score > 0, drop=True).compute()
+    model_score = (
+        model_score.where(model_score.freq_x_al > 0, drop=True).compute()
+    )
 
     psd_plot_data: xr.DataArray = xr.DataArray(
         model_score.data,
@@ -1251,7 +1298,7 @@ def get_spat_reses(trim_ds):
     spat_reses = []
     chunks = trim_ds.groupby('contiguous_chunk')
     for chunk, g in chunks:
-        print(chunk)
+        # print(chunk)
 
         for c in ['cal', 'pred', 'gt', 'syst', 'tropo', 'obs'] :
             spat_reses.append(
@@ -1531,11 +1578,10 @@ def main():
         # fn = fn1
         # fn = generate_data
         # fn = calib_test
-        # fn = train_cal
-        fn = new_train_cal
+        # fn = new_train_cal
         # fn = make_plots
         # fn = regrid_preds
-        # fn = test_chain_4dvar_cal
+        fn = test_chain_4dvar_cal
 
         locals().update(fn())
     except Exception as e:
@@ -1655,5 +1701,8 @@ def get_nadir_slice(path, **slice_args):
     )
 
 
+
+
 if __name__ == '__main__':
     locals().update(main())
+
