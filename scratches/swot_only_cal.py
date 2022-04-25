@@ -299,7 +299,11 @@ class SwotOverlapDataset(torch.utils.data.Dataset):
             **{prev_v: lambda ds: (ds[obs_vars[0]].dims, nad_cs[0][obs_v].values) for prev_v, obs_v in zip(prev_vars, obs_vars)},
             **{next_v: lambda ds: (ds[obs_vars[0]].dims, nad_cs[0][obs_v].values) for next_v, obs_v in zip(next_vars, obs_vars)},
         )
-        return (sw_chunk.ssh_model.values, nad_chunk[pp_vars].to_array().values, sw_chunk[pp_vars].to_array().values)
+        return (
+            sw_chunk.ssh_model.values.astype(np.float32),
+            nad_chunk[pp_vars].to_array().values.astype(np.float32),
+            sw_chunk[pp_vars].to_array().values.astype(np.float32),
+        )
 
 def get_same_pad(h, w, kh, kw, s):
     # The total padding applied along the height and width is computed as:
