@@ -571,7 +571,7 @@ def full_swot_training():
                **spat_domain,
         )
         min_timestep = 500
-        sigmas = (0,*[(i+1)*6 for i in range(15)]) 
+        sigmas = (0,*[(i+1)*6 for i in range(25)]) 
         ds = SwotOverlapDataset(train_domain, min_timestep, sigmas)
         train_dl = torch.utils.data.DataLoader(ds)
         val_ds = SwotOverlapDataset(val_domain, min_timestep, sigmas, stats=ds.stats)
@@ -584,8 +584,8 @@ def full_swot_training():
         val_dl = torch.utils.data.DataLoader(val_ds)
         nad_embed=16
         net_kwargs = dict(
-            nhidden = 512,
-            depth = 12,
+            nhidden = 128,
+            depth = 3,
             kernel_size = 3,
             num_repeat = 1,
             residual = True,
@@ -606,8 +606,8 @@ def full_swot_training():
                 callbacks.LearningRateMonitor(),
                 callbacks.RichProgressBar(),
                 callbacks.ModelCheckpoint(monitor='val_loss', save_last=True),
-                callbacks.StochasticWeightAveraging(),
-                callbacks.GradientAccumulationScheduler({1: 4, 10: 8, 15: 16}),#, 20: 32, 30: 64}),
+                # callbacks.StochasticWeightAveraging(),
+                callbacks.GradientAccumulationScheduler({1: 4, 10: 8, 15: 16, 20: 32}),#, 30: 64}),
                 VersioningCallback()
             ],
             log_every_n_steps=10,
@@ -616,6 +616,7 @@ def full_swot_training():
 
         lit_mod = LitDirectCNN(net_kwargs=net_kwargs,
                 nad_embed=nad_embed, len_pp=len(ds.pp_vars), gt_stats=gt_stats,
+                loss_w=(.5, .10, .1),
                 stats=ds.stats)
         trainer.fit(lit_mod,
             train_dataloaders=train_dl,
