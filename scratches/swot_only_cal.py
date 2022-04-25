@@ -235,9 +235,9 @@ class SwotOverlapDataset(torch.utils.data.Dataset):
         if stats is not None:
             sw_stats, nad_stats, gt_stats = stats
         else:
-            sw_stats =  sw_data_w_aug[obs_vars].pipe(lambda ds: (ds.mean(), ds.std().map(lambda s: np.maximum(s, 1e-2))))
-            nad_stats =  nad_data_w_aug[obs_vars].pipe(lambda ds: (ds.mean(), ds.std().map(lambda s: np.maximum(s, 1e-2))))
-            gt_stats =  sw_data_w_aug[['ssh_model']].pipe(lambda ds: (ds.mean(), ds.std().map(lambda s: np.maximum(s, 1e-2))))
+            sw_stats =  sw_data_w_aug[obs_vars].pipe(lambda ds: (ds.mean(), ds.std()))#.map(lambda s: np.maximum(s, 1e-2))))
+            nad_stats =  nad_data_w_aug[obs_vars].pipe(lambda ds: (ds.mean(), ds.std()))#.map(lambda s: np.maximum(s, 1e-2))))
+            gt_stats =  sw_data_w_aug[['ssh_model']].pipe(lambda ds: (ds.mean(), ds.std()))#.map(lambda s: np.maximum(s, 1e-2))))
 
         self.stats = (sw_stats, nad_stats, gt_stats)
 
@@ -571,7 +571,7 @@ def full_swot_training():
                **spat_domain,
         )
         min_timestep = 500
-        sigmas = (0,*[(i+1)*9 for i in range(5)]) 
+        sigmas = (0,*[(i+1)*6 for i in range(15)]) 
         ds = SwotOverlapDataset(train_domain, min_timestep, sigmas)
         train_dl = torch.utils.data.DataLoader(ds)
         val_ds = SwotOverlapDataset(val_domain, min_timestep, sigmas, stats=ds.stats)
