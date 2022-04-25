@@ -3,7 +3,7 @@ from einops.layers.torch import Rearrange, Reduce
 import pickle
 import seaborn as sns
 import xrft
-
+from functools import cache
 from omegaconf import OmegaConf
 import holoviews as hv
 import holoviews.plotting.mpl  # noqa
@@ -258,6 +258,7 @@ class SwotOverlapDataset(torch.utils.data.Dataset):
     def __len__(self):
         return self._len
 
+    @cache
     def __getitem__(self, item):
         nad_stats = self.nad_stats
         gt_stats = self.gt_stats
@@ -544,10 +545,10 @@ class LitDirectCNN(pl.LightningModule):
                         lr=self.lr_init, weight_decay=self.wd)
                 return {
                     'optimizer': opt,
-                    'lr_scheduler':
-                    torch.optim.lr_scheduler.CyclicLR(
-                        opt, base_lr=5e-5, max_lr=5e-3,  step_size_up=25, step_size_down=25, cycle_momentum=False, mode='triangular2'),
-                    'monitor': 'val_loss'
+                    # 'lr_scheduler':
+                    # torch.optim.lr_scheduler.CyclicLR(
+                    #     opt, base_lr=9e-5, max_lr=2e-3,  step_size_up=25, step_size_down=25, cycle_momentum=False, mode='triangular2'),
+                    # 'monitor': 'val_loss'
                 }
 
 def full_swot_training():
@@ -571,7 +572,7 @@ def full_swot_training():
                **spat_domain,
         )
         min_timestep = 500
-        sigmas = (0,*[(i+1)*6 for i in range(100)]) 
+        sigmas = (0,*[(i+1)*30 for i in range(30)]) 
         ds = SwotOverlapDataset(train_domain, min_timestep, sigmas)
         train_dl = torch.utils.data.DataLoader(ds)
         val_ds = SwotOverlapDataset(val_domain, min_timestep, sigmas, stats=ds.stats)
@@ -584,7 +585,7 @@ def full_swot_training():
         val_dl = torch.utils.data.DataLoader(val_ds)
         nad_embed=32
         net_kwargs = dict(
-            nhidden = 128,
+            nhidden = 256,
             depth = 3,
             kernel_size = 3,
             num_repeat = 1,
@@ -600,7 +601,7 @@ def full_swot_training():
         gt_stats=(ds.gt_stats[0].to_array().values,  ds.gt_stats[1].to_array().values)
         logger = pl.loggers.TensorBoardLogger('lightning_logs', name='swot_only')#, version='')
         trainer = pl.Trainer(
-            gpus=[4],
+            gpus=[3],
             logger=logger,
             callbacks=[
                 callbacks.LearningRateMonitor(),
@@ -617,6 +618,7 @@ def full_swot_training():
         lit_mod = LitDirectCNN(net_kwargs=net_kwargs,
                 nad_embed=nad_embed, len_pp=len(ds.pp_vars), gt_stats=gt_stats,
                 loss_w=(.15, .10, .1),
+                lr_init=1e-3,
                 stats=ds.stats)
         trainer.fit(lit_mod,
             train_dataloaders=train_dl,
