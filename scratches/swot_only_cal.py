@@ -559,22 +559,22 @@ def full_swot_training():
                lon_max=-54 + 360,
         )
         train_domain = dict(
-               time_min='2013-07-01', 
-               # time_min='2013-03-01', 
+               # time_min='2013-07-01', 
+               time_min='2013-03-01', 
                time_max='2013-09-30',
                **spat_domain,
         )
         val_domain = dict(
                time_min='2012-12-09', 
-               time_max='2013-01-28',
-               # time_max='2013-02-28',
+               # time_max='2013-01-28',
+               time_max='2013-02-28',
                **spat_domain,
         )
         min_timestep = 500
         sigmas = (0,*[(i+1)*9 for i in range(5)]) 
         ds = SwotOverlapDataset(train_domain, min_timestep, sigmas)
         train_dl = torch.utils.data.DataLoader(ds)
-        val_ds = SwotOverlapDataset(train_domain, min_timestep, sigmas, stats=ds.stats)
+        val_ds = SwotOverlapDataset(val_domain, min_timestep, sigmas, stats=ds.stats)
         val_ds[0]
         for gt, nad, sw in val_ds:
             print(f'{np.sum(np.isnan(gt))=}')
