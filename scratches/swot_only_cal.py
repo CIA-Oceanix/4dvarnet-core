@@ -600,7 +600,7 @@ def full_swot_training():
         gt_stats=(ds.gt_stats[0].to_array().values,  ds.gt_stats[1].to_array().values)
         logger = pl.loggers.TensorBoardLogger('lightning_logs', name='swot_only')#, version='')
         trainer = pl.Trainer(
-            gpus=[2],
+            gpus=[3],
             logger=logger,
             callbacks=[
                 callbacks.LearningRateMonitor(),
