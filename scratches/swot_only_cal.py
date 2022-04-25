@@ -234,9 +234,9 @@ class SwotOverlapDataset(torch.utils.data.Dataset):
         if stats is not None:
             sw_stats, nad_stats, gt_stats = stats
         else:
-            sw_stats =  sw_data_w_aug[obs_vars].pipe(lambda ds: (ds.mean(), ds.std()))
-            nad_stats =  nad_data_w_aug[obs_vars].pipe(lambda ds: (ds.mean(), ds.std()))
-            gt_stats =  sw_data_w_aug[['ssh_model']].pipe(lambda ds: (ds.mean(), ds.std()))
+            sw_stats =  sw_data_w_aug[obs_vars].pipe(lambda ds: (ds.mean(), ds.std().map(lambda s: np.maximum(s, 1e-2))))
+            nad_stats =  nad_data_w_aug[obs_vars].pipe(lambda ds: (ds.mean(), ds.std().map(lambda s: np.maximum(s, 1e-2))))
+            gt_stats =  sw_data_w_aug[['ssh_model']].pipe(lambda ds: (ds.mean(), ds.std().map(lambda s: np.maximum(s, 1e-2))))
 
         self.stats = (sw_stats, nad_stats, gt_stats)
 
