@@ -571,7 +571,7 @@ def full_swot_training():
                **spat_domain,
         )
         min_timestep = 500
-        sigmas = (0,*[(i+1)*6 for i in range(25)]) 
+        sigmas = (0,*[(i+1)*6 for i in range(50)]) 
         ds = SwotOverlapDataset(train_domain, min_timestep, sigmas)
         train_dl = torch.utils.data.DataLoader(ds)
         val_ds = SwotOverlapDataset(val_domain, min_timestep, sigmas, stats=ds.stats)
@@ -582,7 +582,7 @@ def full_swot_training():
             print(f'{np.sum(np.isnan(sw))=}')
 
         val_dl = torch.utils.data.DataLoader(val_ds)
-        nad_embed=16
+        nad_embed=32
         net_kwargs = dict(
             nhidden = 128,
             depth = 3,
@@ -616,7 +616,7 @@ def full_swot_training():
 
         lit_mod = LitDirectCNN(net_kwargs=net_kwargs,
                 nad_embed=nad_embed, len_pp=len(ds.pp_vars), gt_stats=gt_stats,
-                loss_w=(.5, .10, .1),
+                loss_w=(.15, .10, .1),
                 stats=ds.stats)
         trainer.fit(lit_mod,
             train_dataloaders=train_dl,
