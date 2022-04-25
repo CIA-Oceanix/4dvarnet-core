@@ -167,10 +167,6 @@ class SwotOverlapDataset(torch.utils.data.Dataset):
             )
         )
 
-        nadir_data = (
-                get_nadir_slice('../sla-data-registry/sensor_zarr/zarr/nadir/swot', **spat_time_domain)
-                .assign(contiguous_chunk=lambda _df: (_df.x_al.diff('time').pipe(np.abs) > 3).cumsum().bfill('time'))
-        )
         swath_data = get_swot_slice('../sla-data-registry/sensor_zarr/zarr/new_swot', **spat_time_domain, drop_vars=[
             'bd_err', 'karin_noise', 'karin_err', 'phase_err', 'roll_err','timing_err', 'model_index',
             # 'lat', 'lat_nadir', 'lon', 'lon_nadir', 'ssh_model', 'syst_error_uncalibrated', 'wet_tropo_res', 'x_ac', 'x_al'
@@ -178,8 +174,13 @@ class SwotOverlapDataset(torch.utils.data.Dataset):
             err =  lambda _g: _g.syst_error_uncalibrated + _g.wet_tropo_res,
         ).assign(
             obs = lambda _g:  _g.ssh_model + _g.err
+        ).pipe(lambda ds: ds.isel(time=np.isfinite(ds.ssh_model).all('nC')))
+
+        nadir_data = (
+                get_nadir_slice('../sla-data-registry/sensor_zarr/zarr/nadir/swot', **spat_time_domain)
+                .sel(time=swath_data.time, method='nearest')
+                .assign(contiguous_chunk=lambda _df: (_df.x_al.diff('time').pipe(np.abs) > 3).cumsum().bfill('time'))
         )
-                    
         chunks = list(
                 nadir_data
                 .groupby('contiguous_chunk').count()
@@ -575,6 +576,11 @@ def full_swot_training():
         train_dl = torch.utils.data.DataLoader(ds)
         val_ds = SwotOverlapDataset(train_domain, min_timestep, sigmas, stats=ds.stats)
         val_ds[0]
+        for gt, nad, sw in val_ds:
+            print(f'{np.sum(np.isnan(gt))=}')
+            print(f'{np.sum(np.isnan(nad))=}')
+            print(f'{np.sum(np.isnan(sw))=}')
+
         val_dl = torch.utils.data.DataLoader(val_ds)
         nad_embed=8
         net_kwargs = dict()
