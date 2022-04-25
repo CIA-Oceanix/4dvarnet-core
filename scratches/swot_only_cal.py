@@ -582,8 +582,21 @@ def full_swot_training():
             print(f'{np.sum(np.isnan(sw))=}')
 
         val_dl = torch.utils.data.DataLoader(val_ds)
-        nad_embed=8
-        net_kwargs = dict()
+        nad_embed=16
+        net_kwargs = dict(
+            nhidden = 512,
+            depth = 12,
+            kernel_size = 3,
+            num_repeat = 1,
+            residual = True,
+            split_sides =True,
+            norm_type = 'none',
+            act_type = 'relu',
+            mix = False,
+            mix_residual = False,
+            mix_act_type = 'none',
+            mix_norm_type = 'none',
+        )
         gt_stats=(ds.gt_stats[0].to_array().values,  ds.gt_stats[1].to_array().values)
         logger = pl.loggers.TensorBoardLogger('lightning_logs', name='swot_only')#, version='')
         trainer = pl.Trainer(
@@ -594,7 +607,7 @@ def full_swot_training():
                 callbacks.RichProgressBar(),
                 callbacks.ModelCheckpoint(monitor='val_loss', save_last=True),
                 callbacks.StochasticWeightAveraging(),
-                callbacks.GradientAccumulationScheduler({1: 4, 10: 8, 15: 16, 20: 32, 30: 64}),
+                callbacks.GradientAccumulationScheduler({1: 4, 10: 8, 15: 16}),#, 20: 32, 30: 64}),
                 VersioningCallback()
             ],
             log_every_n_steps=10,
