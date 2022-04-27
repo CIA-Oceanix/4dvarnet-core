@@ -7,7 +7,7 @@ params:
     oi_var: ssh_mod
     obs_mask_path: ${file_paths.pseudo_obs}
     obs_mask_var: ssh_mod
-    gt_path: ${file_paths.natl_ssh}
+    gt_path: ${file_paths.natl_ssh_daily}
     gt_var: ssh
   iter_update: ??? # train_strat
   nb_grad_update: ???
