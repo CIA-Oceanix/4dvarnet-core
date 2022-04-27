@@ -4,7 +4,7 @@ datamodule:
   slice_win: 
     lat: 200
     lon: 200
-    time: 5
+    time: ${params.dT}
   strides: 
     lat: 20
     lon: 20
