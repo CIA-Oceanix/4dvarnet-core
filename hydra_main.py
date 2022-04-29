@@ -3,7 +3,6 @@ import os
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import ModelCheckpoint
-
 import hydra
 import pandas as pd
 from datetime import datetime, timedelta
@@ -148,6 +147,7 @@ class FourDVarNetHydraRunner:
                                resolution=self.resolution,
                                original_coords=self.original_coords,
                                padded_coords=self.padded_coords
+                               #diff_only = self.cfg.diff_only
                                )
         return mod
 

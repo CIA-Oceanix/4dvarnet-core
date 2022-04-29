@@ -1,12 +1,11 @@
-from models import *
-import kornia
+from oi.models import *
 import xarray as xr
 
 class LitModel(pl.LightningModule):
     def __init__(self, hparam, *args, **kwargs):
         super().__init__()
         hparams = hparam if isinstance(hparam, dict) else OmegaConf.to_container(hparam, resolve=True)
-        self.save_hyperparameters(hparams, ignore=["original_coords", "padded_coords"])
+        self.save_hyperparameters(hparams)
         self.var_Val = kwargs['var_Val']
         self.var_Tr = kwargs['var_Tr']
         self.var_Tt = kwargs['var_Tt']
@@ -21,12 +20,12 @@ class LitModel(pl.LightningModule):
         self.Ny = int(((self.ymax-self.ymin)/self.resolution)/self.hparams.resize_factor)
         self.lon = np.linspace(self.xmin, self.xmax, self.Nx)
         self.lat = np.linspace(self.ymin, self.ymax, self.Ny)
-        self.shapeData = [self.hparams.dT*2,self.Ny,self.Nx]
+        self.shapeData = [self.hparams.dT,self.Ny,self.Nx]
         self.ds_size_time = kwargs['ds_size_time']
         self.ds_size_lon = kwargs['ds_size_lon']
         self.ds_size_lat = kwargs['ds_size_lat']
 
-        self.time = kwargs['time']
+        self.time = kwargs['time'] 
         self.dX = kwargs['dX']
         self.dY = kwargs['dY']
         self.swX = kwargs['swX']
@@ -41,18 +40,7 @@ class LitModel(pl.LightningModule):
         self.mean_Tr = kwargs['mean_Tr']
         self.mean_Tt = kwargs['mean_Tt']
 
-        self.original_coords = kwargs['original_coords']
-        self.padded_coords = kwargs['padded_coords']
-
         # main model
-        '''
-        self.model = NN_4DVar.Solver_Grad_4DVarNN(
-            Phi_r(self.shapeData, self.hparams.DimAE, self.hparams.stochastic),
-            Model_H(self.shapeData[0]),
-            NN_4DVar.model_GradUpdateLSTM(self.shapeData, self.hparams.UsePriodicBoundary,
-                                          self.hparams.dim_grad_solver, self.hparams.dropout, self.hparams.stochastic),
-            None, None, self.shapeData, self.hparams.n_grad, self.hparams.stochastic)
-        '''
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
             Phi_r(self.shapeData[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
                   self.hparams.nbBlocks, self.hparams.dropout_phi_r, self.hparams.stochastic),
@@ -61,13 +49,11 @@ class LitModel(pl.LightningModule):
                                           self.hparams.dim_grad_solver, self.hparams.dropout, self.hparams.stochastic),
             None, None, self.shapeData, self.hparams.n_grad, self.hparams.stochastic)
         self.model_LR = ModelLR()
-        # self.gradient_img = Gradient_img()
-        self.gradient_img = kornia.filters.sobel
+        self.gradient_img = Gradient_img()
         # loss weghing wrt time
 
         self.w_loss = torch.nn.Parameter(kwargs['w_loss'], requires_grad=False)  # duplicate for automatic upload to gpu
         self.x_gt = None  # variable to store Ground Truth
-        self.x_oi = None  # variable to store OI
         self.x_rec = None  # variable to store output of test method
         self.test_figs = {}
 
@@ -108,13 +94,11 @@ class LitModel(pl.LightningModule):
 
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
 
-        # compute loss and metrics
+        # compute loss and metrics    
         loss, out, metrics = self.compute_loss(train_batch, phase='train')
         if loss is None:
             return loss
-        # log step metric
-        # self.log('train_mse', mse)
-        # self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
+        # log step metric        
         self.log("loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=False)
         self.log("tr_mse", metrics['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True, sync_dist=False)
         self.log("tr_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True,
@@ -146,33 +130,30 @@ class LitModel(pl.LightningModule):
 
     def test_step(self, test_batch, batch_idx):
 
-        targets_OI, inputs_Mask, inputs_obs, targets_GT = test_batch
+        inputs_obs, inputs_mask, targets_gt = test_batch
         loss, out, metrics = self.compute_loss(test_batch, phase='test')
         if loss is not None:
             self.log('test_loss', loss)
             self.log("test_mse", metrics['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
 
-        return {'gt'    : (targets_GT.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
+        return {'gt'    : (targets_gt.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'obs'   : (inputs_obs.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'oi'    : (targets_OI.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'preds' : (out.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def test_epoch_end(self, outputs):
 
-        test_idx = self.hparams.dT // 2
-        # concatenate data
-        gt = torch.cat([chunk['gt'][:, test_idx, :, :] for chunk in outputs]).numpy()
-        obs = torch.cat([chunk['obs'][:, test_idx, :, :] for chunk in outputs]).numpy()
-        oi = torch.cat([chunk['oi'][:, test_idx, :, :] for chunk in outputs]).numpy()
-        pred = torch.cat([chunk['preds'][:, test_idx, :, :] for chunk in outputs]).numpy()
+        gt = torch.cat([chunk['gt'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs]).numpy()
+        obs = torch.cat([chunk['obs'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs]).numpy()
+        obs = np.where(obs==self.mean_Tr,np.nan,obs)
+        pred = torch.cat([chunk['preds'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs]).numpy()
 
         ds_size = {'time': self.ds_size_time,
                    'lon': self.ds_size_lon,
                    'lat': self.ds_size_lat,
                    }
 
-        gt, obs, oi, pred = map(
+        gt, obs, pred = map(
             lambda t: einops.rearrange(
                 t,
                 '(lat_idx lon_idx t_idx )  win_lat win_lon -> t_idx  (lat_idx win_lat) (lon_idx win_lon)',
@@ -180,200 +161,118 @@ class LitModel(pl.LightningModule):
                 lat_idx=ds_size['lat'],
                 lon_idx=ds_size['lon'],
             ),
-            [gt, obs, oi, pred])
+            [gt, obs, pred])
 
-        # old way: keep only points of the original domain
-        # iX = np.where( (self.lon_ext>=self.xmin) & (self.lon_ext<=self.xmax) )[0]
-        # iY = np.where( (self.lat_ext>=self.ymin) & (self.lat_ext<=self.ymax) )[0]
-        # gt = (gt[:,iY,:])[:,:,iX]
-        # obs = (obs[:,iY,:])[:,:,iX]
-        # oi = (oi[:,iY,:])[:,:,iX]
-        # pred = (pred[:,iY,:])[:,:,iX]
+        # keep only points of the original domain
+        iX = np.where( (self.lon_ext>=self.xmin) & (self.lon_ext<=self.xmax) )[0]
+        iY = np.where( (self.lat_ext>=self.ymin) & (self.lat_ext<=self.ymax) )[0]
+        gt = (gt[:,iY,:])[:,:,iX]
+        obs = (obs[:,iY,:])[:,:,iX]
+        pred = (pred[:,iY,:])[:,:,iX]
 
-        # self.x_gt = gt
-        # self.x_obs = obs
-        # self.x_oi = oi
-        # self.x_rec = pred
-
-        # new way: construct output test xr dataset
-        self.ds_test = xr.Dataset(
-            data_vars={
-                'gt': (('time', 'lat', 'lon'), gt),
-                'oi': (('time', 'lat', 'lon'), oi),
-                'pred': (('time', 'lat', 'lon'), pred),
-                'obs': (('time', 'lat', 'lon'), obs),
-            },
-            coords={
-                'time': self.time['time_test'],
-                'lat': self.padded_coords['lat'],
-                'lon': self.padded_coords['lon'],
-            }
-        ).sel(
-            lat=slice(
-                self.original_coords['lat'].values[0],
-                self.original_coords['lat'].values[-1]
-            ),
-            lon=slice(
-                self.original_coords['lon'].values[0],
-                self.original_coords['lon'].values[-1]
-            ),
-        )
-
-        # get underlying data array
-        self.x_gt = self.ds_test.gt.values
-        self.x_obs = self.ds_test.obs.values
-        self.x_oi = self.ds_test.oi.values
-        self.x_rec = self.ds_test.pred.values
+        self.x_gt = gt
+        self.x_obs = obs
+        self.x_rec = pred
 
         # display map
         path_save0 = self.logger.log_dir + '/maps.png'
         fig_maps = plot_maps(
                   self.x_gt[0],
                   self.x_obs[0],
-                  self.x_oi[0],
                   self.x_rec[0],
-                  self.ds_test.lon, self.ds_test.lat, path_save0,
+                  self.lon, self.lat, path_save0,
+                  cartopy=False,
                   supervised=self.hparams.supervised)
         path_save0 = self.logger.log_dir + '/maps_Grad.png'
         fig_maps_grad = plot_maps(
                   self.x_gt[0],
                   self.x_obs[0],
-                  self.x_oi[0],
                   self.x_rec[0],
-                  self.ds_test.lon, self.ds_test.lat, path_save0,
+                  self.lon, self.lat, path_save0,
+                  cartopy=False,
                   grad=True, supervised=self.hparams.supervised)
-        self.test_figs['maps'] = fig_maps
-        self.test_figs['maps_grad'] = fig_maps_grad
-        # animate maps
-        if self.hparams.animate:
-            path_save0 = self.logger.log_dir + '/animation.mp4'
-            animate_maps(self.x_gt,
-                         self.x_obs,
-                         self.x_oi,
-                         self.x_rec,
-                         self.ds_test.lon, self.ds_test.lat, path_save0, dw=2, 
-                         grad=True, supervised=self.hparams.supervised)
-        
         # compute nRMSE
         path_save2 = self.logger.log_dir + '/nRMSE.txt'
-        tab_scores = nrmse_scores(gt, oi, pred, path_save2)
-        print('*** Display nRMSE scores ***')
-        print(tab_scores)
-
+        tab_scores = nrmse_scores(gt, pred, path_save2)
         path_save21 = self.logger.log_dir + '/MSE.txt'
-        tab_scores = mse_scores(gt, oi, pred, path_save21)
-        print('*** Display MSE scores ***')
-        print(tab_scores)
-
+        tab_scores = mse_scores(gt, pred, path_save21)
         # plot nRMSE
         path_save3 = self.logger.log_dir + '/nRMSE.png'
-        nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, time=self.time['time_test'][self.hparams.dT // 2: -self.hparams.dT // 2 +1])
+        nrmse_fig = plot_nrmse(self.x_gt, self.x_rec, path_save3, time=self.time['time_test'])
         self.test_figs['nrmse'] = nrmse_fig
-
         # plot MSE
         path_save31 = self.logger.log_dir + '/MSE.png'
-        mse_fig = plot_mse(self.x_gt, self.x_oi, self.x_rec, path_save31, time=self.time['time_test'][self.hparams.dT // 2: -self.hparams.dT // 2 +1])
+        mse_fig = plot_mse(self.x_gt, self.x_rec, path_save31, time=self.time['time_test'])
         self.test_figs['mse'] = mse_fig
         self.logger.experiment.add_figure('Maps', fig_maps, global_step=self.current_epoch)
         self.logger.experiment.add_figure('NRMSE', nrmse_fig, global_step=self.current_epoch)
         self.logger.experiment.add_figure('MSE', mse_fig, global_step=self.current_epoch)
-
         # plot SNR
         path_save4 = self.logger.log_dir + '/SNR.png'
-        snr_fig = plot_snr(self.x_gt, self.x_oi, self.x_rec, path_save4)
+        snr_fig = plot_snr(self.x_gt, self.x_rec, path_save4)
         self.test_figs['snr'] = snr_fig
-
         self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
         # save NetCDF
         path_save1 = self.logger.log_dir + '/maps.nc'
-        # TODO: change hard-coded time units
-        save_netcdf(saved_path1=path_save1, ds_test=self.ds_test)
-
-        # maps score
-        if self.hparams.supervised==True:
-            path_save = self.logger.log_dir + '/maps_score.png'
-            maps_score(path_save,xr.open_dataset(path_save1),lon=self.ds_test.lon, lat=self.ds_test.lat)
+        save_netcdf(saved_path1=path_save1, gt=gt, obs=obs, pred=pred,
+                    lon=self.lon, lat=self.lat, time=self.time['time_test'],
+                    time_units='days since 2017-01-01 00:00:00')
 
     def compute_loss(self, batch, phase):
 
-        targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
+        inputs_obs, inputs_mask, targets_gt = batch
         # handle patch with no observation
-        if inputs_Mask.sum().item() == 0:
+        if inputs_mask.sum().item() == 0:
             return (
                 None,
-                torch.zeros_like(targets_GT),
-                dict([('mse', 0.), ('mseGrad', 0.), ('meanGrad', 1.), ('mseOI', 0.),
-                      ('mseGOI', 0.)])
+                torch.zeros_like(targets_gt),
+                dict([('mse', 0.), ('mseGrad', 0.), ('meanGrad', 1.)])
             )
-        new_masks = torch.cat((1. + 0. * inputs_Mask, inputs_Mask), dim=1)
-        targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
-        targets_Mask = torch.where(targets_GT!=0.)
-        inputs_init = torch.cat((targets_OI, inputs_obs), dim=1)
-        inputs_missing = torch.cat((targets_OI, inputs_obs), dim=1)
+        new_mask = torch.cat((1. + 0. * inputs_mask, inputs_mask), dim=1)
+        targets_gt_wo_nan = targets_gt.where(~targets_gt.isnan(), torch.zeros_like(targets_gt))
+        targets_mask = torch.where(targets_gt!=0.)
+        inputs_init = inputs_obs
+        inputs_missing = inputs_obs
 
         # gradient norm field
-        g_targets_GT = self.gradient_img(targets_GT)
+        g_targets_gt = self.gradient_img(targets_gt)
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
-            # with torch.set_grad_enabled(phase == 'train'):
             inputs_init = torch.autograd.Variable(inputs_init, requires_grad=True)
-
-            outputs, hidden_new, cell_new, normgrad = self.model(inputs_init, inputs_missing, new_masks)
-
+            outputs, hidden_new, cell_new, normgrad = self.model(inputs_init, inputs_missing, inputs_mask)
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
 
-            outputsSLRHR = outputs
-            outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
-            outputs = outputsSLR + outputs[:, self.hparams.dT:, :, :]
-
             # reconstruction losses
             g_outputs = self.gradient_img(outputs)
-            loss_All = NN_4DVar.compute_WeightedLoss((outputs - targets_GT), self.w_loss)
-
-            loss_GAll = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_GT, self.w_loss)
-            loss_OI = NN_4DVar.compute_WeightedLoss(targets_GT - targets_OI, self.w_loss)
-            loss_GOI = NN_4DVar.compute_WeightedLoss(self.gradient_img(targets_OI) - g_targets_GT, self.w_loss)
-
+            loss_All = NN_4DVar.compute_WeightedLoss((outputs - targets_gt), self.w_loss)
+            loss_GAll = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_gt, self.w_loss)
             # projection losses
-            loss_AE = torch.mean((self.model.phi_r(outputsSLRHR) - outputsSLRHR) ** 2)
-            yGT = torch.cat((targets_GT_wo_nan, outputsSLR - targets_GT_wo_nan), dim=1)
-            # yGT        = torch.cat((targets_OI,targets_GT-targets_OI),dim=1)
-            loss_AE_GT = torch.mean((self.model.phi_r(yGT) - yGT) ** 2)
-
-            # low-resolution loss
-            loss_SR = NN_4DVar.compute_WeightedLoss(outputsSLR - targets_OI, self.w_loss)
-            targets_GTLR = self.model_LR(targets_OI)
-            loss_LR = NN_4DVar.compute_WeightedLoss(self.model_LR(outputs) - targets_GTLR, self.w_loss)
+            #loss_AE = torch.mean((self.model.phi_r(outputs) - outputs) ** 2)
+            loss_AE = 0
 
             # supervised loss
             if self.hparams.supervised==True:
                 loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
-                loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
-                loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
-
+                loss += 0.5 * self.hparams.alpha_proj * loss_AE 
             # unsupervised loss
             else:
-                # MSE
-                mask = (targets_GT_wo_nan!=0.)
+                # MSE
+                mask = (targets_gt_wo_nan!=0.)
                 iT = int(self.hparams.dT / 2)
-                new_tensor = torch.masked_select(outputs[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(targets_GT[:,iT,:,:],mask[:,iT,:,:])
+                new_tensor = torch.masked_select(outputs[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(targets_gt[:,iT,:,:],mask[:,iT,:,:])
                 loss = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
                 # GradMSE
-                mask = (self.gradient_img(targets_GT_wo_nan)!=0.)
+                mask = (self.gradient_img(targets_gt_wo_nan)!=0.)
                 iT = int(self.hparams.dT / 2)
-                new_tensor = torch.masked_select(self.gradient_img(outputs)[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(self.gradient_img(targets_GT)[:,iT,:,:],mask[:,iT,:,:])
+                new_tensor = torch.masked_select(self.gradient_img(outputs)[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(self.gradient_img(targets_gt)[:,iT,:,:],mask[:,iT,:,:])
                 loss_Grad = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
                 loss = self.hparams.alpha_mse_ssh * loss  + 0.5 * self.hparams.alpha_proj * loss_AE + self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
-                #loss = self.hparams.alpha_mse_ssh * loss + self.hparams.alpha_mse_gssh * loss_Grad + 0.5 * self.hparams.alpha_proj * loss_AE + self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
 
             # metrics
-            mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_GT, self.w_loss)
+            mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_gt, self.w_loss)
             mse = loss_All.detach()
             mseGrad = loss_GAll.detach()
-            metrics = dict([('mse', mse), ('mseGrad', mseGrad), ('meanGrad', mean_GAll), ('mseOI', loss_OI.detach()),
-                            ('mseGOI', loss_GOI.detach())])
+            metrics = dict([('mse', mse), ('mseGrad', mseGrad), ('meanGrad', mean_GAll)])
 
         return loss, outputs, metrics
-
-
