@@ -528,6 +528,8 @@ def first_training():
         gt_ds.time.attrs["units"] = "seconds since 2012-10-01"
         gt_ds = xr.decode_cf(gt_ds)
         ref_ds = xr.open_dataset(cfg.file_paths.oi_4nadir).sel(instantiate(cfg.params.test_domain))
+        t_win = '10D'
+        s_win = 2.
         train_ds = NewDataset(
                 tgt_ds=gt_ds.ssh.sel(time=instantiate(cfg.datamodule.train_slices[0])),
                 ref_ds=ref_ds.ssh_mod.sel(time=instantiate(cfg.datamodule.train_slices[0])),
@@ -537,8 +539,8 @@ def first_training():
                     nad: cached_get_nadir_slice(f'../sla-data-registry/sensor_zarr/zarr/nadir/{nad}', **slkw) for nad in [ 'en', 'g2', 'j1', 'tpn', ]
                 },
                 n_coords=256,
-                t_win=pd.to_timedelta('3D'),
-                s_win=1.,
+                t_win=pd.to_timedelta(t_win),
+                s_win=s_win,
         )
 
         val_ds = NewDataset(
@@ -548,8 +550,8 @@ def first_training():
                     nad: cached_get_nadir_slice(f'../sla-data-registry/sensor_zarr/zarr/nadir/{nad}', **slkw) for nad in [ 'en', 'g2', 'j1', 'tpn', ]
                 },
                 n_coords=256,
-                t_win=pd.to_timedelta('3D'),
-                s_win=1.,
+                t_win=pd.to_timedelta(t_win),
+                s_win=s_win,
                 norm_stats=(train_ds.avgs, train_ds.stds)
         )
 
@@ -562,12 +564,12 @@ def first_training():
         net = build_net(
                 in_channels=train_ds.stds.shape[0],
                 out_channels=1,
-                nhidden = 512,
-                depth = 8,
+                nhidden = 128,
+                depth = 3,
                 kernel_size = 3,
                 num_repeat = 1,
                 residual = True,
-                norm_type = 'none',
+                norm_type = 'lrn',
                 act_type = 'relu',
                 mix = False,
                 mix_residual = False,
@@ -576,6 +578,9 @@ def first_training():
         )
         cal_mod = LitDirectCNN(
                 net,
+                lr_init=1e-4,
+                wd=1e-4,
+                loss_w={'rec':(1., 1., 1.,)},
             )
         logger = pl.loggers.TensorBoardLogger('lightning_logs', name=f'{XP_NUM}_{xp_name}')
         trainer = pl.Trainer(

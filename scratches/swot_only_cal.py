@@ -149,8 +149,17 @@ def get_nadir_slice(path, **slice_args):
 
 
 class SwotOverlapDataset(torch.utils.data.Dataset):
+    @contextlib.contextmanager
+    def get_coords(self):
+        try:
+            self.return_coords = True
+            yield
+        finally:
+            self.return_coords = False
+
     def __init__(self, spat_time_domain, min_timestep, sigmas, stats=None):
         super().__init__()
+        self.return_coords = False
         cycle_period = pd.to_timedelta('1814429992676000ns')
         xrgf = lambda da, sig: (
             da if sig==0 else
@@ -296,6 +305,8 @@ class SwotOverlapDataset(torch.utils.data.Dataset):
             **{prev_v: lambda ds: (ds[obs_vars[0]].dims, sw_cs[0][obs_v].values) for prev_v, obs_v in zip(prev_vars, obs_vars)},
             **{next_v: lambda ds: (ds[obs_vars[0]].dims, sw_cs[0][obs_v].values) for next_v, obs_v in zip(next_vars, obs_vars)},
         )
+        if self.return_coords:
+            return sw_chunk
         nad_cs[2]
         nad_chunk = nad_cs[1].assign(
             **{prev_v: lambda ds: (ds[obs_vars[0]].dims, nad_cs[0][obs_v].values) for prev_v, obs_v in zip(prev_vars, obs_vars)},
@@ -459,6 +470,7 @@ class LitDirectCNN(pl.LightningModule):
                     lr_init=2e-3,
                     wd=1e-4,
                     loss_w=(.5, .3, .1),
+                    log_loss=False,
                 ):
                 super().__init__()
                 self.nadnet = nn.Sequential(
@@ -466,6 +478,7 @@ class LitDirectCNN(pl.LightningModule):
                        nn.Linear(len_pp, 52 * nad_embed),
                        Rearrange('b t (c nC) -> b c t nC', c=nad_embed, nC=52),
                 )
+                self.loss_pp = lambda l: (l.log() if log_loss else l)
                 self.net = build_net(in_channels=len_pp+nad_embed, out_channels=1,**net_kwargs)
                 self.lr_init = lr_init
                 self.wd = wd
@@ -520,9 +533,9 @@ class LitDirectCNN(pl.LightningModule):
                     self.log(f'{phase}_{ln}', l)
 
                 loss = (
-                    self.loss_w[0] * losses['err_tot']
-                    + self.loss_w[1] * losses['g_err_tot']
-                    + self.loss_w[2] * losses['l_err_tot']
+                    self.loss_w[0] * self.loss_pp(losses['err_tot'])
+                    + self.loss_w[1] * self.loss_pp(losses['g_err_tot'])
+                    + self.loss_w[2] * self.loss_pp(losses['l_err_tot'])
                 )
                 self.log(f'{phase}_loss', loss, prog_bar=False)
                 return loss
@@ -545,10 +558,10 @@ class LitDirectCNN(pl.LightningModule):
                         lr=self.lr_init, weight_decay=self.wd)
                 return {
                     'optimizer': opt,
-                    # 'lr_scheduler':
-                    # torch.optim.lr_scheduler.CyclicLR(
-                    #     opt, base_lr=9e-5, max_lr=2e-3,  step_size_up=25, step_size_down=25, cycle_momentum=False, mode='triangular2'),
-                    # 'monitor': 'val_loss'
+                    'lr_scheduler':
+                    torch.optim.lr_scheduler.CyclicLR(
+                        opt, base_lr=5e-5, max_lr=2e-3,  step_size_up=30, step_size_down=30, cycle_momentum=False, mode='triangular2'),
+                    'monitor': 'val_loss'
                 }
 
 def full_swot_training():
@@ -572,16 +585,16 @@ def full_swot_training():
                **spat_domain,
         )
         min_timestep = 500
-        sigmas = (0,*[(i+1)*30 for i in range(30)]) 
+        sigmas = (0,*[(i+1)*20 for i in range(30)]) 
         ds = SwotOverlapDataset(train_domain, min_timestep, sigmas)
         val_ds = SwotOverlapDataset(val_domain, min_timestep, sigmas, stats=ds.stats)
         train_dl = torch.utils.data.DataLoader(ds)
         val_dl = torch.utils.data.DataLoader(val_ds)
-        nad_embed=32
+        nad_embed=128
         net_kwargs = dict(
-            nhidden = 256,
+            nhidden = 128,
             depth = 3,
-            kernel_size = 3,
+            kernel_size = 7,
             num_repeat = 1,
             residual = True,
             split_sides =True,
@@ -595,29 +608,32 @@ def full_swot_training():
         gt_stats=(ds.gt_stats[0].to_array().values,  ds.gt_stats[1].to_array().values)
         logger = pl.loggers.TensorBoardLogger('lightning_logs', name='swot_only')#, version='')
         trainer = pl.Trainer(
-            gpus=[3],
+            gpus=[5],
             logger=logger,
             callbacks=[
                 callbacks.LearningRateMonitor(),
                 callbacks.RichProgressBar(),
                 callbacks.ModelCheckpoint(monitor='val_loss', save_last=True),
                 # callbacks.StochasticWeightAveraging(),
-                callbacks.GradientAccumulationScheduler({1: 4, 10: 8, 15: 16, 20: 32}),#, 30: 64}),
+                callbacks.GradientAccumulationScheduler({1: 4, 10: 8, 15: 16, 200: 32}),#, 300: 50}),
                 VersioningCallback()
             ],
             log_every_n_steps=10,
-            max_epochs=250,
+            max_epochs=1500,
         )
 
         lit_mod = LitDirectCNN(net_kwargs=net_kwargs,
                 nad_embed=nad_embed, len_pp=len(ds.pp_vars), gt_stats=gt_stats,
-                loss_w=(.15, .10, .1),
-                lr_init=4e-4,
+                loss_w=(10., 5., 2.),
+                lr_init=2e-4,
+                wd=2e-5,
+                log_loss=True,
                 stats=ds.stats)
         trainer.fit(lit_mod,
             train_dataloaders=train_dl,
             val_dataloaders=val_dl
         )
+
     except Exception as e:
         print('I am here')
         print(traceback.format_exc()) 
@@ -635,6 +651,68 @@ def main():
         print(traceback.format_exc()) 
     finally:
         return locals()
+
+
+def test():
+    spat_domain = dict(
+           lat_min=32,
+           lat_max=44,
+           lon_min=-66 + 360,
+           lon_max=-54 + 360,
+    )
+    # test_domain = dict(
+    #        # time_min='2013-07-01', 
+    #        time_min='2012-10-01', 
+    #        time_max='2012-12-24',
+    #        **spat_domain,
+    # )
+    test_domain = dict( # VAL
+           time_min='2012-12-09', 
+           # time_max='2013-01-28',
+           time_max='2013-02-28',
+           **spat_domain,
+    )
+    ckpt = 'lightning_logs/swot_only/version_1/checkpoints/epoch=798-step=5183.ckpt'
+    # ckpt = 'lightning_logs/swot_only/version_1/checkpoints/last.ckpt'
+    lit_mod = LitDirectCNN.load_from_checkpoint(ckpt)
+    min_timestep = 500
+    sigmas = (0,*[(i+1)*8 for i in range(50)]) 
+    test_ds = SwotOverlapDataset(test_domain, min_timestep, sigmas, stats=lit_mod.stats)
+    test_dl = torch.utils.data.DataLoader(test_ds, shuffle=False)
+    trainer = pl.Trainer(
+        gpus=[7],
+        logger=False,
+        log_every_n_steps=10,
+        max_epochs=1500,
+    )
+    val_pred = [p for pred in trainer.predict(lit_mod, test_dl) for p in pred]
+    with test_ds.get_coords():
+        coords = [
+           test_ds.__getitem__.__wrapped__(test_ds, i)
+           # test_ds[i]
+           for i in range(len(test_ds))
+        ]
+    coords[0]
+    pred_ds =  xr.concat(
+            [
+                coord.assign({'cal': lambda ds: (ds.ssh_model.dims, pred )})
+                for pred, coord in zip(val_pred, coords)
+            ], dim='time'
+    ).assign(gt=lambda ds: (ds[['ssh_model']] * test_ds.gt_stats[1] +test_ds.gt_stats[0]).ssh_model)
+
+    def sobel(da):
+        dx_ac = xr.apply_ufunc(lambda _da: ndi.sobel(_da, 0), da) /2
+        dx_al = xr.apply_ufunc(lambda _da: ndi.sobel(_da, 1), da) /2
+        return np.hypot(dx_ac, dx_al)
+    (
+        pred_ds
+        .pipe(lambda ds: np.sqrt(((ds.gt - ds.cal)**2).mean()))
+    )
+
+    pred_ds.isel(time=slice(0, 600))[['gt', 'cal']].to_array().T.plot.pcolormesh('time', 'nC', col='variable', col_wrap=1, figsize=(15, 7))
+    pred_ds.isel(time=slice(0, 600))[['gt', 'cal']].map(sobel).to_array().T.plot.pcolormesh('time', 'nC', col='variable', col_wrap=1, figsize=(15, 7))
+    type(val_pred[0]), val_pred[0].shape
+    type(val_pred), len(val_pred)
 
 if __name__ == '__main__':
     locals().update(main())

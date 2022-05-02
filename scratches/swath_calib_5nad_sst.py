@@ -808,7 +808,7 @@ def register_configs():
 
     cs = ConfigStore.instance()
 
-    XP_NUM = 15 
+    XP_NUM = 14 
     cfgs = []
     simple_overrides = [overrides_cfg[o] for o in ['no_norm', 'no_mix']]
     basic_overrides = [overrides_cfg[o] for o in ['no_norm', 'no_mix', 'relu_act']]
@@ -829,7 +829,7 @@ def register_configs():
             # ('base_no_sst_swot4',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides, overrides_cfg['swot_no_sst_model4']]),
             # ('base_no_sst_swot2',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides, overrides_cfg['swot_no_sst_model2']]),
             # ('base_sst',  [sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides]),
-            # ('base_no_sst',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides]),
+            ('base_no_sst',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides]),
             # ('base_sst_swot1',  [sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides, overrides_cfg['swot_sst_model1']]),
             # ('base_sst_swot2',  [sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides, overrides_cfg['swot_sst_model2']]),
             # ('base_sst_swot3',  [sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides, overrides_cfg['swot_sst_model3']]),
@@ -838,7 +838,8 @@ def register_configs():
             # ('base_no_sst_big',  [no_sst1_cfg, size_overrides_cfg['pp40x8'], *basic_overrides]),
             # ('base_sst_big',  [sst1_cfg, size_overrides_cfg['pp40x8'], *basic_overrides]),
             # *[(f'sst_{pp}',  [sst1_cfg, size_overrides_cfg[pp], *basic_overrides]) for pp in size_overrides_cfg],
-            *[(f'no_sst_{pp}',  [no_sst1_cfg, size_overrides_cfg[pp], *basic_overrides]) for pp in size_overrides_cfg],
+            # # 15
+            # *[(f'no_sst_{pp}',  [no_sst1_cfg, size_overrides_cfg[pp], *basic_overrides]) for pp in size_overrides_cfg],
             # ('base_no_sst',  [no_sst1_cfg, size_overrides_cfg['pp20x8'], *basic_overrides]),
         ]:
         cfgs.append(f'{XP_NUM}_' + xp_name)
@@ -1300,7 +1301,8 @@ def get_spat_reses(trim_ds):
     for chunk, g in chunks:
         # print(chunk)
 
-        for c in ['cal', 'pred', 'gt', 'syst', 'tropo', 'obs'] :
+        # for c in ['cal', 'pred', 'gt', 'syst', 'tropo', 'obs'] :
+        for c in ['ff_cal', 'cal'] :
             spat_reses.append(
                 {
                     'xp_long': c,
@@ -1498,9 +1500,122 @@ def make_plots():
         p(sobel(gt))
         p(lap(cal))
         val_data.cal.plot()
+
+        ch = (
+                cal_data
+            .isel(time=cal_data.contiguous_chunk==2)
+            # .swap_dims(time='x_al')
+            .pipe(add_inter_sw).cal
+        )
+        ch_gt = (
+                cal_data
+            .isel(time=cal_data.contiguous_chunk==2)
+            # .swap_dims(time='x_al')
+            .pipe(add_inter_sw).ssh_model
+
+        )
+
+        from scipy import fftpack
+        import xrft
+        dat = []
+        for f_th in [0, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.]:
+            for sig in [1, 2, 4, 5, 10, 20]:
+                # rms = (
+                #         xrft.fft(ch.swap_dims(time='x_al').drop('time'), dim='x_al')
+                #         # .isel(x_ac=0)
+                #         .pipe(lambda x: x.where(x.freq_x_al < f_th, ndi.gaussian_filter1d(x, sigma=sig, axis=0)))
+                #         .pipe(lambda da:xrft.ifft( da, dim='freq_x_al'))
+                #         .pipe(np.real)
+                #         .pipe(lambda da: np.sqrt(((da - ch_gt.data)**2).mean()))
+                # )
+                rms = (
+                        ch.pipe(fourier_filter(f_th, sig))
+                    .pipe(lambda da: np.sqrt(((da - ch_gt.data)**2).mean()))
+                )
+                print(rms)
+                dat.append({'f_th': f_th, 'sig': sig, 'rms':rms.item()})
+
+        ch.dims
+        da = ch
+        data.shape
+        def fourier_filter(f_th, sig):
+            def _f(da):
+                data = (
+                        xrft.fft(da.swap_dims(time='x_al').drop('time'), dim='x_al')
+                        # .isel(x_ac=0)
+                        .pipe(lambda x: x.where(x.freq_x_al < f_th, ndi.gaussian_filter1d(x, sigma=sig, axis=0)))
+                        .pipe(lambda da:xrft.ifft( da, dim='freq_x_al'))
+                        .pipe(np.real)
+                        .data
+                )
+                return  xr.DataArray(data, dims=da.dims, coords=da.coords)
+            return _f
+
+        dat = []
+        for f_th in [0, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.]:
+            for sig in [1, 2, 4, 5, 10, 20]:
+                ff_data = (
+                    cal_data
+                    .groupby('contiguous_chunk')
+                    .apply(lambda g: g.assign(ff_cal = fourier_filter(f_th, sig)(g.cal)))
+                )
+                rms = (
+                        ff_data.pipe(lambda ds: np.sqrt(((ds.ff_cal - ds.ssh_model)**2).mean()))
+                )
+                spat_res_df = get_spat_reses(
+                    ff_data
+                    .assign_coords(x_ac=lambda ds: ('nC', ds.x_ac.isel(time=0).data))
+                    .swap_dims(time='x_al', nC='x_ac').drop('time')
+                )
+                dat.append({
+                    'f_th': f_th, 'sig': sig, 'rms':rms.item(),
+                    'spat_res_mean':spat_res_df.spat_res.mean(),
+                    'spat_res_std':spat_res_df.spat_res.std()})
+
+        pd.DataFrame(dat).rms.min()
+        pd.DataFrame(dat).spat_res_mean.min()
+        pd.DataFrame(dat).spat_res_std.min()
+        cal_data.pipe(lambda da: np.sqrt(((da.cal - da.ssh_model)**2).mean()))
+
+        f_th, sig = 0.05, 1
+        ff_data = (
+            cal_data
+            .groupby('contiguous_chunk')
+            .apply(lambda g: g.assign(ff_cal = fourier_filter(f_th, sig)(g.cal)))
+        )
+        rms = (
+                ff_data.pipe(lambda ds: np.sqrt(((ds.ff_cal - ds.ssh_model)**2).mean()))
+        )
+        spat_res_df = get_spat_reses(
+            ff_data
+            .assign_coords(x_ac=lambda ds: ('nC', ds.x_ac.isel(time=0).data))
+            .swap_dims(time='x_al', nC='x_ac').drop('time')
+        )
+        fig_violin_diff = sns.violinplot(data=spat_res_df.loc[lambda df: df.xp_long.isin(['cal', 'ff_cal'])], x='xp_long', y='spat_res').figure
+        pg(ff_data.pipe(add_inter_sw).ff_cal.isel(time=ff_data.contiguous_chunk==3))
+        (
+                ff_data
+                .pipe(add_inter_sw)[['ff_cal', 'cal']]
+                .isel(time=ff_data.contiguous_chunk==2)
+        ).map(sobel).to_array().plot.pcolormesh('time', 'x_ac', col='variable', col_wrap=1, figsize=(15, 7))
+
+        (
+                ff_data
+                .pipe(add_inter_sw)[['ssh_model', 'ff_cal', 'cal']]
+                .isel(time=ff_data.contiguous_chunk==3)
+        ).pipe(lambda ds: ds - ds.ssh_model).drop('ssh_model').to_array().plot.pcolormesh('time', 'x_ac', col='variable', col_wrap=1, figsize=(15, 10))
+        
+        ch.pipe(lambda da: np.sqrt(((da - ch_gt)**2).mean()))
+
+        ch.pipe(sobel).isel(x_ac=1).plot()
+        pg = lambda da: da.pipe(sobel).T.plot(figsize=(15,4))
+        pg(ch)
+        pg(ch_gt)
+        np.unique(ff_data.contiguous_chunk.values)
         #     # 'dobs_2_1',
         #     # 'dobs_5_2',
         #     # 'dobs_10_5',
+
         #     # 'dobs_25_10',
         #     # 'dobs_30_25',
         #     # 'dobs_35_30',
@@ -1703,6 +1818,6 @@ def get_nadir_slice(path, **slice_args):
 
 
 
-if __name__ == '__main__':
-    locals().update(main())
+# if __name__ == '__main__':
+#     locals().update(main())
 
