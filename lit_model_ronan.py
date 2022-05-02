@@ -1,12 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon May 18 17:59:23 2020
-@author: rfablet
-"""
-
-# !/usr/bin/env python3
-# -*- coding: utf-8 -*-
 from pathlib import Path
 import xarray as xr
 import argparse
@@ -18,7 +9,6 @@ import torch
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.optim.lr_scheduler import MultiStepLR
-from netCDF4 import Dataset
 
 import os
 import sys
@@ -37,16 +27,21 @@ import hydra
 from hydra.utils import instantiate, get_class, call
 def get_cfg(xp_cfg, overrides=None):
     overrides = overrides if overrides is not None else []
-    with hydra.initialize_config_dir(str(Path('hydra_config').absolute())):
+    def get():
         cfg = hydra.compose(config_name='main', overrides=
             [
                 f'xp={xp_cfg}',
-                'file_paths=dgx_ifremer',
+                'file_paths=jz',
                 'entrypoint=train',
             ] + overrides
         )
 
-    return cfg
+        return cfg
+    try:
+        with hydra.initialize_config_dir(str(Path('hydra_config').absolute())):
+            return get()
+    except:
+        return get()
 
 def get_model(xp_cfg, ckpt, dm=None, add_overrides=None):
     overrides = []
@@ -76,7 +71,8 @@ from omegaconf import OmegaConf
 OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
 cfg = get_cfg("xp_aug/xp_repro/quentin_repro")
 dm = instantiate(cfg.datamodule)
-dm.setup()
+if __name__=='__main__':
+    dm.setup()
 meanTr, stdTr= dm.norm_stats 
 shapeData = cfg.params.shape_data
 rateDr = cfg.params.dropout_phi_r
@@ -220,11 +216,11 @@ class Phi_r(torch.nn.Module):
         x = self.encoder(x)
         x = self.decoder(x)
         return x
+if __name__ =='__main__':
+    phi_r = Phi_r()
 
-phi_r = Phi_r()
-
-print(phi_r)
-print('Number of trainable parameters = %d' % (sum(p.numel() for p in phi_r.parameters() if p.requires_grad)))
+    print(phi_r)
+    print('Number of trainable parameters = %d' % (sum(p.numel() for p in phi_r.parameters() if p.requires_grad)))
 
 class Model_H(torch.nn.Module):
     def __init__(self):
@@ -368,7 +364,18 @@ print( hparam.obs_model , flush = True)
 EPS_NORM_GRAD = 0. * 1.e-20  
 class LitModel(pl.LightningModule):
     #def __init__(self,conf=hparam,*args, **kwargs):
-    def __init__(self,conf=flag_obs_model,*args, **kwargs):
+    def __init__(self,
+            hparam=hparam,
+            conf=flag_obs_model,
+            mean_Tr=meanTr,
+            val_Tr=stdTr**2,
+            dimGradSolver=dimGradSolver,
+            rateDropout=rateDropout,
+            shapeData=shapeData,
+            padding_mode=padding_mode,
+            flagAutomOptim=flagAutomOptim,
+            *args,
+           **kwargs):
         super().__init__()
         self.save_hyperparameters()
         
@@ -976,7 +983,7 @@ if __name__ == '__main__':
 
         # mod = mod.load_from_checkpoint('results-repro_q/modelSLA-L2-GF-augdata%02dtrue-augstate-repro_q-dT07-igrad05_03-dgrad150-epoch=27-val_loss=2.46.ckpt') 
         # mod = mod.load_from_checkpoint('results-repro_q/modelSLA-L2-GF-augdata%02dtrue-augstate-repro_q-dT07-igrad05_03-dgrad150-epoch=23-val_loss=2.50.ckpt') 
-        mod = mod.load_from_checkpoint('results-repro_q/modelSLA-L2-GF-augdata%02dtrue-augstate-repro_q-dT07-igrad05_03-dgrad150-epoch=13-val_loss=2.47.ckpt') 
+        # mod = mod.load_from_checkpoint('results-repro_q/modelSLA-L2-GF-augdata%02dtrue-augstate-repro_q-dT07-igrad05_03-dgrad150-epoch=13-val_loss=2.47.ckpt') 
 
         mod.hparams.n_grad          = 5
         mod.hparams.k_n_grad        = 3
@@ -1059,11 +1066,10 @@ if __name__ == '__main__':
                                               filename= filename_chkpt + '-{epoch:02d}-{val_loss:.2f}',
                                               save_top_k=3,
                                               mode='min')
-        profiler_kwargs = {'max_epochs': 30 }
 
         #trainer = pl.Trainer(gpus=1, accelerator = "ddp", **profiler_kwargs)
         #trainer = pl.Trainer(gpus=1, accelerator = "ddp", **profiler_kwargs)
-        trainer = pl.Trainer(gpus=[7], max_epochs=10,   callbacks=[checkpoint_callback])
+        trainer = pl.Trainer(gpus=[0], max_epochs=10,   callbacks=[checkpoint_callback])
     
         ## training loop
         trainer.fit(mod, dm.train_dataloader(), dm.val_dataloader() )

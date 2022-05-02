@@ -327,7 +327,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
 
         self.train_slices, self.test_slices, self.val_slices = train_slices, test_slices, val_slices
         self.train_ds, self.val_ds, self.test_ds = None, None, None
-        self.norm_stats = None
+        self.norm_stats = (0, 1)
         self.norm_stats_sst = None
 
     def compute_norm_stats(self, ds):

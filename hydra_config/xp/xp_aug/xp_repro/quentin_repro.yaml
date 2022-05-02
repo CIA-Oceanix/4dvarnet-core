@@ -5,6 +5,7 @@ params:
   dT: 7
 datamodule:
   aug_train_data: true
+lit_mod_cls: lit_model_ronan.LitModel
 defaults:
   - /xp/xp_aug/base_xp
   - /splits/dc_boost_swot@datamodule
