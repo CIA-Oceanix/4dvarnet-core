@@ -35,3 +35,5 @@ report
 trained_cfgs
 trials
 ose
+oi/eval_notebooks/.ipynb_checkpoints
+oi/eval_notebooks/__pycache__
