@@ -1,0 +1,5 @@
+oi_path: /users/local/m19beauc/data/ose/GULFSTREAM/training/oi_OSE_OSSE.nc
+obs_mask_path: /users/local/m19beauc/data/ose/GULFSTREAM/training/data_OSE_OSSE.nc
+gt_path: /users/local/m19beauc/data/ose/GULFSTREAM/training/ref_ssh_OSE_OSSE.nc
+sst_path: /users/local/m19beauc/data/ose/GULFSTREAM/training/ref_sst_OSE_OSSE.nc
+

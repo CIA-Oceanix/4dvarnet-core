@@ -40,6 +40,9 @@ class LitModel(pl.LightningModule):
         self.mean_Tr = kwargs['mean_Tr']
         self.mean_Tt = kwargs['mean_Tt']
 
+        self.original_coords = kwargs['original_coords']
+        self.padded_coords = kwargs['padded_coords']
+
         # main model
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
             Phi_r(self.shapeData[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
@@ -163,7 +166,8 @@ class LitModel(pl.LightningModule):
             ),
             [gt, obs, pred])
 
-        # keep only points of the original domain
+        # old way: keep only points of the original domain
+        '''
         iX = np.where( (self.lon_ext>=self.xmin) & (self.lon_ext<=self.xmax) )[0]
         iY = np.where( (self.lat_ext>=self.ymin) & (self.lat_ext<=self.ymax) )[0]
         gt = (gt[:,iY,:])[:,:,iX]
@@ -173,6 +177,35 @@ class LitModel(pl.LightningModule):
         self.x_gt = gt
         self.x_obs = obs
         self.x_rec = pred
+        '''
+
+        # new way: construct output test xr dataset
+        self.ds_test = xr.Dataset(
+            data_vars={
+                'gt': (('time', 'lat', 'lon'), gt),
+                'pred': (('time', 'lat', 'lon'), pred),
+                'obs': (('time', 'lat', 'lon'), obs),
+            },
+            coords={
+                'time': self.time['time_test'],
+                'lat': self.padded_coords['lat'],
+                'lon': self.padded_coords['lon'],
+            }
+        ).sel(
+            lat=slice(
+                self.original_coords['lat'].values[0],
+                self.original_coords['lat'].values[-1]
+            ),
+            lon=slice(
+                self.original_coords['lon'].values[0],
+                self.original_coords['lon'].values[-1]
+            ),
+        )
+
+        # get underlying data array
+        self.x_gt = self.ds_test.gt.values
+        self.x_obs = self.ds_test.obs.values
+        self.x_rec = self.ds_test.pred.values
 
         # display map
         path_save0 = self.logger.log_dir + '/maps.png'
@@ -180,7 +213,7 @@ class LitModel(pl.LightningModule):
                   self.x_gt[0],
                   self.x_obs[0],
                   self.x_rec[0],
-                  self.lon, self.lat, path_save0,
+                  self.ds_test.lon, self.ds_test.lat, path_save0,
                   cartopy=False,
                   supervised=self.hparams.supervised)
         path_save0 = self.logger.log_dir + '/maps_Grad.png'
@@ -188,7 +221,7 @@ class LitModel(pl.LightningModule):
                   self.x_gt[0],
                   self.x_obs[0],
                   self.x_rec[0],
-                  self.lon, self.lat, path_save0,
+                  self.ds_test.lon, self.ds_test.lat, path_save0,
                   cartopy=False,
                   grad=True, supervised=self.hparams.supervised)
         # compute nRMSE
@@ -214,9 +247,9 @@ class LitModel(pl.LightningModule):
         self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
         # save NetCDF
         path_save1 = self.logger.log_dir + '/maps.nc'
-        save_netcdf(saved_path1=path_save1, gt=gt, obs=obs, pred=pred,
-                    lon=self.lon, lat=self.lat, time=self.time['time_test'],
-                    time_units='days since 2017-01-01 00:00:00')
+        save_netcdf(saved_path1=path_save1, gt=self.x_gt, obs=self.x_obs, pred=self.x_rec,
+                    lon=self.ds_test.lon, lat = self.ds_test.lat, time=self.time['time_test'],
+                    time_units='days since 2012-10-01 00:00:00')
 
     def compute_loss(self, batch, phase):
 

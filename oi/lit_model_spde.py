@@ -40,13 +40,13 @@ class LitModel(pl.LightningModule):
         self.mean_Tr = kwargs['mean_Tr']
         self.mean_Tt = kwargs['mean_Tt']
 
-        self.diff_only = kwargs['diff_only']
+        self.diff_only = self.hparams.diff_only
 
         self.estim_parameters = self.hparams.estim_parameters
         if self.estim_parameters == True:
             # model 1 Prior SPDE (unknown) + Solver LSTM
             self.model = NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r2(self.shapeData,diff_only=True),
+                Phi_r(self.shapeData,diff_only=True),
                 Model_H(self.shapeData[0]),
                 NN_4DVar.model_GradUpdateLSTM(self.shapeData, self.hparams.UsePriodicBoundary,
                                           self.hparams.dim_grad_solver, self.hparams.dropout, self.hparams.stochastic),

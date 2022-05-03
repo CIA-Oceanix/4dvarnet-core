@@ -1,6 +1,6 @@
 from models import *
 import xarray as xr
-from lit_model import LitModel
+from ..lit_model import LitModel
 import solver_4DEnVar as NN_4DVar
 
 class LitModel4DEnVar(LitModel):

@@ -147,7 +147,6 @@ class FourDVarNetHydraRunner:
                                resolution=self.resolution,
                                original_coords=self.original_coords,
                                padded_coords=self.padded_coords
-                               #diff_only = self.cfg.diff_only
                                )
         return mod
 
@@ -226,9 +225,15 @@ class FourDVarNetHydraRunner:
             }
         )
 
+<<<<<<< HEAD
 def _main(cfg):
     print(OmegaConf.to_yaml(cfg))
+=======
+@hydra.main(config_path='hydra_config', config_name='main')
+def main(cfg):
+>>>>>>> 612320e... New OI directory + related Notebooks
     pl.seed_everything(seed=cfg.get('seed', None))
+    print(OmegaConf.to_yaml(cfg))
     dm = instantiate(cfg.datamodule)
     if cfg.get('callbacks') is not None:
         callbacks = [instantiate(cb_cfg) for cb_cfg in cfg.callbacks]
@@ -242,7 +247,13 @@ def _main(cfg):
     else:
         logger=True
     lit_mod_cls = get_class(cfg.lit_mod_cls)
+    if cfg.params.resize_factor!=1:
+            cfg.datamodule.slice_win['lat'] =  int(cfg.datamodule.slice_win['lat']/cfg.datamodule.resize_factor)
+            cfg.datamodule.slice_win['lon'] =  int(cfg.datamodule.slice_win['lon']/cfg.datamodule.resize_factor)
+            cfg.datamodule.strides['lat'] =  int(cfg.datamodule.strides['lat']/cfg.datamodule.resize_factor)
+            cfg.datamodule.strides['lon'] =  int(cfg.datamodule.strides['lon']/cfg.datamodule.resize_factor)
     runner = FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls, callbacks=callbacks, logger=logger)
+    
     call(cfg.entrypoint, self=runner)
 
 

@@ -31,6 +31,8 @@ datamodule:
   obs_mask_var: ${params.files_cfg.obs_mask_var}
   gt_path: ${params.files_cfg.gt_path}
   gt_var: ${params.files_cfg.gt_var}
+  resize_factor: ${params.resize_factor}
+  resolution: ${params.resolution}
   dl_kwargs:
     batch_size: 2
     num_workers: 2

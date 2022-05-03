@@ -5,7 +5,7 @@ params:
   norm_prior: 'l2'
 lit_mod_cls: oi.lit_model_oi_ref.LitModel
 datamodule:
-  _target_: oi.dataloading.FourDVarNetDataModule
+  _target_: oi.dataloading_gp.FourDVarNetDataModule
   slice_win:
     lat: 100
     lon: 100

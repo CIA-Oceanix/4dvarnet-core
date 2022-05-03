@@ -1,3 +1,3 @@
-obs_path: /users/local/m19beauc/deep_OI/toy_data/diffusion_dataset.nc
-gt_path: /users/local/m19beauc/deep_OI/toy_data/diffusion_dataset.nc
+obs_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
+gt_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
 

@@ -4,7 +4,7 @@ params:
   norm_obs: 'l2'
   norm_prior: 'l2'
   n_fourdvar_iter: 2
-lit_mod_cls: lit_model_En4DVar.LitModelEn4DVar
+lit_mod_cls: stochastic.lit_model_En4DVar.LitModelEn4DVar
 datamodule:
   _target_: dataloading.FourDVarNetDataModule
   slice_win:

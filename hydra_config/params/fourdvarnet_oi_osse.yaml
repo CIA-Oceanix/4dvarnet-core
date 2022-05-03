@@ -36,7 +36,8 @@ n_grad: 5
 dT: 29
 dx: 1
 W: 100 
-resize_factor: 1
+resize_factor: 4
+resolution: 1/5
 shapeData:
   - 29
   - 200

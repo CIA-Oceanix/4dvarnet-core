@@ -135,7 +135,7 @@ class Prior_SPDE(torch.nn.Module):
         self.nb_nodes = self.n_x*self.n_y
         self.Id = sparse_eye(self.nb_nodes)
         self.Id2 = sparse_eye(self.nb_nodes*self.n_t)
-        self.pow = 2
+        self.pow = 1
         self.alpha   = 2*self.pow
         self.nu      = int(self.alpha -1)
         self.diff_only=diff_only

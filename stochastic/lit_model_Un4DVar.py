@@ -1,5 +1,5 @@
 from models import *
-from lit_model import LitModel
+from ..lit_model import LitModel
 import xarray as xr
 
 class LitModelUn4DVar(LitModel):

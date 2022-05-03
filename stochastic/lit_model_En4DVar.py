@@ -1,6 +1,6 @@
 #from models import *
 from models_spde import *
-from lit_model import LitModel
+from ..lit_model import LitModel
 import xarray as xr
 import torch.nn.functional as F
 import solver_4DEnVar as NN_4DVar

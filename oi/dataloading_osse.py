@@ -73,6 +73,7 @@ class XrDataset(Dataset):
         self.resolution = resolution
         # try/except block for handling both netcdf and zarr files
         try:
+            print(path)
             _ds = xr.open_dataset(path, cache=False)
         except OSError as ex:
             _ds = xr.open_zarr(path)
@@ -91,16 +92,18 @@ class XrDataset(Dataset):
             rename_coords["longitude"] = "lon"
         _ds = _ds.rename(rename_coords)
 
-        # reshape
         if resize_factor!=1:
+            _ds = _ds.sel(**(dim_range or {}))
             _ds = _ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
-            self.resolution = self.resolution*resize_factor
+
         # dimensions
         self.ds = _ds.sel(**(dim_range or {}))
-        self.Nt = self.ds.time.shape[0]
-        self.Nx = self.ds.lon.shape[0]
-        self.Ny = self.ds.lat.shape[0]
-        # I) first padding x and y
+
+        self.Nt, self.Nx, self.Ny = tuple(self.ds.dims[d] for d in ['time', 'lon', 'lat'])
+        # store original input coords for later reconstruction in test pipe
+        self.original_coords = self.ds.coords
+
+        # I) first padding x and y inside available DS coords
         pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
         pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
         # get additional data for patch center based reconstruction
@@ -112,10 +115,9 @@ class XrDataset(Dataset):
           'time': dim_range['time']
         }
         self.ds = _ds.sel(**(dim_range_ or {}))
-        self.Nt = self.ds.time.shape[0]
-        self.Nx = self.ds.lon.shape[0]
-        self.Ny = self.ds.lat.shape[0]
-        # II) second padding x and y
+        self.Nt, self.Nx, self.Ny = tuple(self.ds.dims[d] for d in ['time', 'lon', 'lat'])
+
+        # II) second padding x and y using padding
         pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
         pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
         # pad the dataset
@@ -123,10 +125,35 @@ class XrDataset(Dataset):
         dY = [pad_ *self.resolution for pad_ in pad_y]
         pad_ = {'lon':(pad_x[0],pad_x[1]),
                 'lat':(pad_y[0],pad_y[1])}
-        self.ds = self.ds.pad(pad_,
-                              mode='reflect')
+
+        self.ds_reflected = self.ds.pad(pad_, mode='reflect')
         self.Nx += np.sum(pad_x)
         self.Ny += np.sum(pad_y)
+
+        # compute padded coords end values with linear ramp
+        # and replace reflected ones
+        end_coords = {
+            'lat': (
+                self.ds.lat.values[0]  - pad_['lat'][0] * self.resolution,
+                self.ds.lat.values[-1] + pad_['lat'][1] * self.resolution
+            ),
+            'lon': (
+                self.ds.lon.values[0]  - pad_['lon'][0] * self.resolution,
+                self.ds.lon.values[-1] + pad_['lon'][1] * self.resolution
+            )
+        }
+        self.padded_coords = {
+            c: self.ds[c].pad(pad_, end_values=end_coords, mode="linear_ramp")
+            for c in end_coords.keys()
+        }
+
+        # re-assign correctly padded coords in place of reflected coords
+        self.ds = self.ds_reflected.assign_coords(
+            lon=self.padded_coords['lon'], lat=self.padded_coords['lat']
+        )
+
+        self.slice_win = slice_win
+        self.strides = strides or {}
         # III) get lon-lat for the final reconstruction
         dX = ((slice_win['lon']-strides['lon'])/2)*self.resolution
         dY = ((slice_win['lat']-strides['lat'])/2)*self.resolution
@@ -134,13 +161,9 @@ class XrDataset(Dataset):
           'lon': slice(dim_range_['lon'].start+dX, dim_range_['lon'].stop-dX),
           'lat': slice(dim_range_['lat'].start+dY, dim_range_['lat'].stop-dY),
         }
-        self.lon = np.arange(dim_range_['lon'].start, dim_range_['lon'].stop, self.resolution)
-        self.lat = np.arange(dim_range_['lat'].start, dim_range_['lat'].stop, self.resolution)
-        self.slice_win = slice_win
-        self.strides = strides or {}
         self.ds_size = {
-            dim: max((self.ds.dims[dim] - slice_win[dim]) // self.strides.get(dim, 1) + 1, 0)
-            for dim in slice_win
+            dim: max((self.ds.dims[dim] - self.slice_win[dim]) // self.strides.get(dim, 1) + 1, 0)
+            for dim in self.slice_win
         }
 
         # reorder dimensions, this ensures dims ordering using
@@ -248,7 +271,7 @@ class FourDVarNetDataset(Dataset):
         return min(len(self.gt_ds), len(self.obs_mask_ds))
 
     def coordXY(self):
-        return self.gt_ds.lon, self.gt_ds.lat
+        return self.gt_ds.ds.lon, self.gt_ds.ds.lat
 
     def __getitem__(self, item):
         mean, std = self.norm_stats
@@ -322,6 +345,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
     def compute_norm_stats(self, ds):
         sum = 0
         count = 0
+        print(count)
         for gt in [_it for _ds in ds.datasets for _it in _ds.gt_ds]:
             sum += np.nansum(gt)
             count += np.sum(~np.isnan(gt))
@@ -353,6 +377,12 @@ class FourDVarNetDataModule(pl.LightningDataModule):
 
     def coordXY(self):
         return self.test_ds.datasets[0].coordXY()
+
+    def get_padded_coords(self):
+        return self.test_ds.datasets[0].gt_ds.padded_coords
+
+    def get_original_coords(self):
+        return self.test_ds.datasets[0].gt_ds.original_coords
 
     def get_domain_split(self):
         return self.test_ds.datasets[0].gt_ds.ds_size

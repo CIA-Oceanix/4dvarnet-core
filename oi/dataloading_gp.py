@@ -35,6 +35,9 @@ class XrDataset(Dataset):
         self.strides = strides or {}
         self.lon = np.arange(dim_range['lon'].start, dim_range['lon'].stop, self.resolution)
         self.lat = np.arange(dim_range['lat'].start, dim_range['lat'].stop, self.resolution)
+        self.original_coords = self.ds.coords
+        self.padded_coords = self.ds.coords
+
         self.ds_size = {
             dim: max((self.ds.dims[dim] - slice_win[dim]) // self.strides.get(dim, 1) + 1, 0)
             for dim in slice_win
@@ -169,6 +172,12 @@ class FourDVarNetDataModule(pl.LightningDataModule):
 
     def coordXY(self):
         return self.test_ds.datasets[0].coordXY()
+
+    def get_padded_coords(self):
+        return self.test_ds.datasets[0].gt_ds.padded_coords
+
+    def get_original_coords(self):
+        return self.test_ds.datasets[0].gt_ds.original_coords
 
     def get_domain_split(self):
         return self.test_ds.datasets[0].gt_ds.ds_size
