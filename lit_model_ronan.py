@@ -70,10 +70,11 @@ def get_dm(xp_cfg, setup=True, add_overrides=None):
 from omegaconf import OmegaConf
 OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
 cfg = get_cfg("xp_aug/xp_repro/quentin_repro")
-dm = instantiate(cfg.datamodule)
-if __name__=='__main__':
-    dm.setup()
-meanTr, stdTr= dm.norm_stats 
+# cfg = get_cfg("xp_aug/xp_repro/quentin_repro_w_hugo_lit_240")
+
+# meanTr, stdTr = 0.33536735836788334, 0.3953455251176305
+meanTr, stdTr = (0.33859731777619173, 0.3940880019119805)
+
 shapeData = cfg.params.shape_data
 rateDr = cfg.params.dropout_phi_r
 nbBlocks = cfg.params.nbBlocks
@@ -231,6 +232,8 @@ class Model_H(torch.nn.Module):
         self.dim_obs_channel = np.array([shapeData[0]])
 
     def forward(self, x, y, mask):
+        # print(x)
+        # print(y)
         dyout = (x - y) * mask
         return dyout
 
@@ -297,41 +300,6 @@ w_[int(dT / 2)] = 1.
 wLoss = torch.Tensor(w_)
 
 
-# recompute the MSE for OI on training dataset
-# to define weighing parameters in the training
-
-
-## Laplacian
-def compute_laplacian(x):
-    
-    if len( x.shape ) == 2 :
-        lap = x[1:-1,1:-1] 
-        lap = lap - 0.25 * x[1:-1,0:x.shape[1]-2]
-        lap = lap - 0.25 * x[1:-1,2:x.shape[1]]
-        lap = lap - 0.25 * x[0:x.shape[0]-2,1:-1]
-        lap = lap - 0.25 * x[2:x.shape[0],1:-1]
-    else:
-        lap = x[:,1:-1,1:-1] 
-        lap = lap - 0.25 * x[:,1:-1,0:x.shape[2]-2]
-        lap = lap - 0.25 * x[:,1:-1,2:x.shape[2]]
-        lap = lap - 0.25 * x[:,0:x.shape[1]-2,1:-1]
-        lap = lap - 0.25 * x[:,2:x.shape[1],1:-1]
-
-    
-    return lap
-
-from scipy.ndimage import gaussian_filter
-def compute_laplacian_metrics(x,x_ref,sig_lap=1):
-
-    lap_ref = compute_laplacian( gaussian_filter(x_ref, sigma=sig_lap))
-    lap_rec = compute_laplacian( gaussian_filter(x, sigma=sig_lap))
-
-    mse_lap = np.mean((lap_ref-lap_rec)**2)
-    var_lap = np.var(lap_ref)
-    
-    R2 = np.corrcoef(lap_ref.ravel(), lap_rec.ravel())[0,1]
-    
-    return {'mse':mse_lap,'var_lap': var_lap,'r_square': R2}
 
 ############################################Lightning Module#######################################################################
 class HParam:
@@ -377,15 +345,15 @@ class LitModel(pl.LightningModule):
             *args,
            **kwargs):
         super().__init__()
-        self.save_hyperparameters()
-        
+        self.save_hyperparameters('conf')
+    
         #print( '... %d'%conf.obs_model , flush = True)
         self.hparams.obs_model = conf
 
         # hyperparameters
         self.hparams.iter_update     = [0, 20, 50, 70, 100, 150, 800]  # [0,2,4,6,9,15]
         self.hparams.nb_grad_update  = [5, 5, 10, 10, 15, 15, 20, 20, 20]  # [0,0,1,2,3,3]#[0,2,2,4,5,5]#
-        self.hparams.lr_update       = [1e-3, 1e-4, 1e-4, 1e-5, 1e-4, 1e-5, 1e-5, 1e-6, 1e-7]
+        self.hparams.lr_update       = [1e-4, 1e-4, 1e-4, 1e-5, 1e-4, 1e-5, 1e-5, 1e-6, 1e-7]
         self.hparams.k_batch         = 1
         
         self.hparams.n_grad          = self.hparams.nb_grad_update[0]
@@ -411,10 +379,9 @@ class LitModel(pl.LightningModule):
 
         self.hparams.w_loss          = torch.nn.Parameter(torch.Tensor(w_), requires_grad=False)
         self.hparams.automatic_optimization = flagAutomOptim
-
         # main model        
-        if self.hparams.obs_model == 0:
-            self.model        = NN_4DVar.Solver_Grad_4DVarNN(Phi_r(), 
+        # if self.hparams.obs_model == 0:
+        self.model        = NN_4DVar.Solver_Grad_4DVarNN(Phi_r(), 
                                                              Model_H(), 
                                                              NN_4DVar.model_GradUpdateLSTM(shapeData, UsePriodicBoundary, self.hparams.dim_grad_solver, self.hparams.dropout, padding_mode=padding_mode), 
                                                              None, None, shapeData, self.hparams.n_grad, EPS_NORM_GRAD,k_step_grad = 1. / (self.hparams.n_grad * self.hparams.k_n_grad) )#, self.hparams.eps_norm_grad)
@@ -431,6 +398,29 @@ class LitModel(pl.LightningModule):
 
         self.automatic_optimization = self.hparams.automatic_optimization
         print('Total number of trainable parameters = %d' % (sum(p.numel() for p in self.model.parameters() if p.requires_grad)))
+        self.init_params()
+
+    def init_params(self):
+        self.hparams.n_grad          = 5
+        self.hparams.k_n_grad        = 3
+        self.hparams.iter_update     = [0, 200, 200, 320, 380, 400, 800]  # [0,2,4,6,9,15]
+        self.hparams.nb_grad_update  = [0, 5, 10, 10, 15, 15, 20, 20, 20]  # [0,0,1,2,3,3]#[0,2,2,4,5,5]#
+        self.hparams.lr_update       = [1e-3, 1e-4, 1e-5, 1e-5, 1e-4, 1e-5, 1e-5, 1e-6, 1e-7]
+
+        self.hparams.alpha_proj    = 0.5
+        self.hparams.alpha_sr      = 0.5
+        self.hparams.alpha_lr      = 5  # 1e4
+        self.hparams.alpha_mse_ssh = 5.e1
+        self.hparams.alpha_mse_gssh = 1.e3#1.e4#
+        self.hparams.alpha_4dvarloss_diff = 1.
+        
+        self.hparams.alpha_fft = 0.
+        self.max_rate_fft = 1.5
+        self.hparams.thr_snr_fft = 0.5
+        self.hparams.ifft_max = 15
+
+        self.hparams.median_filter_width = 0
+        self.hparams.dw_loss = 10
         
 
     def forward(self):
@@ -563,7 +553,6 @@ class LitModel(pl.LightningModule):
         print('.. \n')
     
     def test_epoch_end(self, outputs):
-        print('I am here')
         x_test_rec = torch.cat([chunk['preds_ssh'] for chunk in outputs]).numpy()
         x_test_rec = stdTr * x_test_rec + meanTr        
         self.x_rec_ssh = x_test_rec[:,int(dT/2),:,:]
@@ -591,41 +580,15 @@ class LitModel(pl.LightningModule):
     def compute_loss(self, batch, phase, batch_init = None , hidden = None , cell = None , normgrad = 0.0):
 
         if ( self.hparams.obs_model == 0 ) & ( flag_aug_state != 2 ) :
-            targets_OI, inputs_obs, inputs_Mask, targets_GT = batch
+            targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
         else:# self.hparams.obs_model > 0 : #( self.hparams.obs_model== 1 ) | ( self.hparams.obs_model== 2 ) | ( self.hparams.obs_model== 3 ) | ( self.hparams.obs_model== 4 ) :
             targets_OI, inputs_obs, inputs_Mask, inputs_SST, targets_GT = batch
             mask_SST  = 1. + 0. * inputs_SST
-        inputs_Mask = inputs_Mask.float()
-        targets_OI = targets_OI.float()
-        inputs_obs = inputs_obs.float()
         if flag_aug_state == 1 :
             if dim_aug_state == 0 :
                 inputs_init_    = torch.cat((targets_OI, inputs_Mask * (inputs_obs - targets_OI) , inputs_Mask * (inputs_obs - targets_OI)), dim=1)
                 inputs_missing = torch.cat((targets_OI, inputs_Mask * (inputs_obs - targets_OI) , 0. * targets_OI), dim=1)
                 new_masks      = torch.cat((1. + 0. * inputs_Mask, inputs_Mask , 0. * inputs_Mask ), dim=1)
-            else  :
-                init_aug_state = 0. * torch.randn((inputs_obs.size(0),dim_aug_state,inputs_obs.size(2),inputs_obs.size(3))).to(self.device)
-                inputs_aug_state = 0. * init_aug_state
-                inputs_init_    = torch.cat((targets_OI, inputs_Mask * (inputs_obs - targets_OI) , inputs_Mask * (inputs_obs - targets_OI),init_aug_state), dim=1)
-                inputs_missing = torch.cat((targets_OI, inputs_Mask * (inputs_obs - targets_OI) , 0. * targets_OI, inputs_aug_state ), dim=1)
-                new_masks      = torch.cat((1. + 0. * inputs_Mask, inputs_Mask , 0. * inputs_Mask, inputs_aug_state ), dim=1)
-        elif flag_aug_state == 2 :
-            if dim_aug_state == 0 :
-                inputs_init_    = torch.cat((targets_OI, inputs_Mask * (inputs_obs - targets_OI) , inputs_Mask * (inputs_obs - targets_OI),inputs_SST), dim=1)
-                inputs_missing = torch.cat((targets_OI, inputs_Mask * (inputs_obs - targets_OI) , 0. * targets_OI,inputs_SST), dim=1)
-                new_masks      = torch.cat((1. + 0. * inputs_Mask, inputs_Mask , 0. * inputs_Mask ,  1. + 0. * inputs_SST ), dim=1)
-            else  :
-                init_aug_state = 0. * torch.randn((inputs_obs.size(0),dim_aug_state,inputs_obs.size(2),inputs_obs.size(3))).to(self.device)
-                inputs_aug_state = 0. * init_aug_state
-                inputs_init_    = torch.cat((targets_OI, inputs_Mask * (inputs_obs - targets_OI) , inputs_Mask * (inputs_obs - targets_OI),init_aug_state), dim=1)
-                inputs_missing = torch.cat((targets_OI, inputs_Mask * (inputs_obs - targets_OI) , 0. * targets_OI, inputs_aug_state ), dim=1)
-                new_masks      = torch.cat((1. + 0. * inputs_Mask, inputs_Mask , 0. * inputs_Mask, inputs_aug_state ), dim=1)
-        else:
-            inputs_init_    = torch.cat((targets_OI, inputs_Mask * (inputs_obs - targets_OI)), dim=1)
-            inputs_missing = torch.cat((targets_OI, inputs_Mask * (inputs_obs - targets_OI)), dim=1)
-            #inputs_missing = torch.cat((targets_OI, inputs_Mask * (targets_GT - targets_OI)), dim=1)
-            #inputs_init    = torch.cat((targets_OI, inputs_Mask * (targets_GT - targets_OI)), dim=1)
-            new_masks      = torch.cat((1. + 0. * inputs_Mask, inputs_Mask ), dim=1)
 
         if batch_init == None :
             inputs_init = inputs_init_
@@ -659,6 +622,7 @@ class LitModel(pl.LightningModule):
 
                 #if (phase == 'val') or (phase == 'test'):
                 #    outputs = outputs.detach()
+                # print(self.model.n_grad)
     
                 # median filter
                 if self.hparams.median_filter_width > 1 :
@@ -684,15 +648,6 @@ class LitModel(pl.LightningModule):
                 if flag_aug_state == 1 :
                     if dim_aug_state == 0 :
                         yGT         = torch.cat((targets_OI , targets_GT - outputsSLR, targets_GT - outputsSLR ), dim=1)
-                    else:
-                        yGT         = torch.cat((targets_OI , targets_GT - outputsSLR, targets_GT - outputsSLR, outputsSLRHR[:,3*dT:,:] ), dim=1)                        
-                elif flag_aug_state == 2 :
-                    if dim_aug_state == 0 :
-                        yGT         = torch.cat((targets_OI , targets_GT - outputsSLR, targets_GT - outputsSLR, inputs_SST ), dim=1)
-                    else:
-                        yGT         = torch.cat((targets_OI , targets_GT - outputsSLR, targets_GT - outputsSLR, inputs_SST, outputsSLRHR[:,4*dT:,:] ), dim=1)                        
-                else:
-                    yGT         = torch.cat((targets_GT, targets_GT - outputsSLR), dim=1)
                 #yGT        = torch.cat((targets_OI,targets_GT-targets_OI),dim=1)
                 loss_AE_GT = torch.mean((self.model.phi_r(yGT) - yGT) ** 2)
     
@@ -834,44 +789,19 @@ class LitModel(pl.LightningModule):
                     #print( np.mean( (div_rec.detach().cpu().numpy())**2 ), flush=True )
     
                     self.curr += 1
-        if ( self.hparams.obs_model== 1 ) :
-            sst_feat = self.model.model_H.conv21( inputs_SST )
-            sst_feat = torch.cat( (inputs_SST[:,int(dT/2),:,:].view(-1,1,sst_feat.size(2),sst_feat.size(3)),sst_feat) , dim=1)
-        elif ( self.hparams.obs_model== 2 ) :
-            dyout1 = self.model.model_H.compute_dyout1( outputsSLRHR.detach() , inputs_SST )
-            w = self.model.model_H.compute_w( dyout1 )            
-            sst_feat = torch.cat( (self.model.model_H.compute_sst_feat( inputs_SST ) , w ) , dim = 1 )
-            if 1*0 :
-                print(self.model.model_H.thr_obs_sst )
-                print(self.model.model_H.lam_obs_sst )
-                #print(self.model.model_VarCost.WReg )
-                print(self.model.model_H.conv21 )
-        elif ( self.hparams.obs_model== 3 ) :
-            filt_SST = torch.nn.functional.avg_pool2d(inputs_SST, (5,5))
-            filt_SST = torch.nn.functional.interpolate(filt_SST, scale_factor=5, mode='bicubic')            
-            sst_feat = self.model.model_H.conv21( filt_SST )
-            sst_feat = torch.cat( (inputs_SST[:,int(dT/2),:,:].view(-1,1,sst_feat.size(2),sst_feat.size(3)),sst_feat) , dim=1)
-        elif ( self.hparams.obs_model== 4 ) :
-            sst_feat = self.model.model_H.conv21( inputs_SST )
-            sst_feat = torch.cat( (inputs_SST[:,int(dT/2),:,:].view(-1,1,sst_feat.size(2),sst_feat.size(3)),sst_feat) , dim=1)
-        elif ( self.hparams.obs_model== 5 ) :
-            sst_feat = self.model.model_H.convy1( inputs_SST )
-            sst_feat = torch.cat( (inputs_SST[:,int(dT/2),:,:].view(-1,1,sst_feat.size(2),sst_feat.size(3)),sst_feat) , dim=1)
-        elif ( self.hparams.obs_model== 6 ) :
-            sst_feat = self.model.model_H.extract_sst_feature( inputs_SST )
-            sst_feat = torch.cat( (inputs_SST[:,int(dT/2),:,:].view(-1,1,sst_feat.size(2),sst_feat.size(3)),sst_feat) , dim=1)
-        elif ( self.hparams.obs_model== 7 ) :
-            sst_feat = self.model.model_H.convy1( inputs_SST )
-        elif ( self.hparams.obs_model== 8 ) :
-            sst_feat = inputs_SST
-            #dyout1 = self.model.model_H.compute_dyout1( outputsSLRHR.detach() , inputs_SST )
-            #w = self.model.model_H.compute_w( dyout1 )            
-        else:
             sst_feat = 0. * inputs_obs
         outputs = [outputs,inputs_obs,outputsSLRHR,hidden_new, cell_new, normgrad,sst_feat]#inputs_missing[:,dT:2*dT,:,:]]
         
         
         
+        print(f'ronan {loss_All=}, {self.hparams.alpha_mse_ssh * loss_All=}')
+        print(f'ronan {loss_GAll=}, {self.hparams.alpha_mse_gssh * loss_GAll=}')
+        print(f'ronan {loss_AE=}, {0.5 * self.hparams.alpha_proj * loss_AE=} ')
+        print(f'ronan {loss_AE_GT=}, {0.5 * self.hparams.alpha_proj * loss_AE_GT=} ')
+        print(f'ronan {loss_LR=}, { self.hparams.alpha_lr *loss_LR=}')
+        print(f'ronan {loss_SR=}, { self.hparams.alpha_sr *loss_SR=}')
+        print(f'ronan {loss_fft=} {self.hparams.alpha_fft * loss_fft=}')
+        print(f'ronan {loss=} ')
         return loss,outputs, metrics, diff_loss_4dvar_init
 
 def compute_metrics(X_test,X_rec):
@@ -984,77 +914,85 @@ if __name__ == '__main__':
         # mod = mod.load_from_checkpoint('results-repro_q/modelSLA-L2-GF-augdata%02dtrue-augstate-repro_q-dT07-igrad05_03-dgrad150-epoch=27-val_loss=2.46.ckpt') 
         # mod = mod.load_from_checkpoint('results-repro_q/modelSLA-L2-GF-augdata%02dtrue-augstate-repro_q-dT07-igrad05_03-dgrad150-epoch=23-val_loss=2.50.ckpt') 
         # mod = mod.load_from_checkpoint('results-repro_q/modelSLA-L2-GF-augdata%02dtrue-augstate-repro_q-dT07-igrad05_03-dgrad150-epoch=13-val_loss=2.47.ckpt') 
+        # mod = mod.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1565229/checkpoints/modelCalSLAInterpGF-epoch=110-val_loss=2.1087.ckpt') 
+        # mod = mod.load_from_checkpoint('results-repro_q/modelSLA-L2-GF-augdata%02dtrue-augstate-repro_q-dT07-igrad05_03-dgrad150-epoch=33-val_loss=2.56.ckpt') 
+        # mod = mod.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1565038/checkpoints/modelCalSLAInterpGF-epoch=64-val_loss=2.1740.ckpt') 
+        # mod = mod.load_from_checkpoint('results-repro_q/modelSLA-L2-GF-augdata%02dtrue-augstate-repro_q-dT07-igrad05_03-dgrad150-epoch=31-val_loss=2.63.ckpt') 
+        # mod = mod.load_from_checkpoint('results-repro_q/modelSLA-L2-GF-augdata%02dtrue-augstate-repro_q-dT07-igrad05_03-dgrad150-epoch=30-val_loss=2.61.ckpt') 
+        # mod = mod.load_from_checkpoint('modelSLA-L2-GF-FT-augdata01-augstate-SSTobs_03-boost-swot-dT07-igrad05_03-dgrad150-epoch=01-val_loss=0.78.ckpt') 
 
-        mod.hparams.n_grad          = 5
-        mod.hparams.k_n_grad        = 3
-        mod.hparams.iter_update     = [0, 200, 200, 320, 380, 400, 800]  # [0,2,4,6,9,15]
-        mod.hparams.nb_grad_update  = [0, 5, 10, 10, 15, 15, 20, 20, 20]  # [0,0,1,2,3,3]#[0,2,2,4,5,5]#
-        mod.hparams.lr_update       = [1e-4, 1e-4, 1e-5, 1e-5, 1e-4, 1e-5, 1e-5, 1e-6, 1e-7]
+        # mod = LitModel.load_from_checkpoint('modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=23-val_loss=1.79.ckpt') 
+        # mod = LitModel.load_from_checkpoint(' ./SLANATL60new3_ChckPt-boost-swot/modelSLA-L2-GF-FT-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=05-val_loss=2.14.ckpt') 
+        # mod = LitModel.load_from_checkpoint(' ./SLANATL60new3_ChckPt-boost-swot/modelSLA-L2-GF-FT-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=02-val_loss=2.45.ckpt') 
+        # mod = LitModel.load_from_checkpoint(' ./SLANATL60new3_ChckPt-boost-swot/modelSLA-L2-GF-FT-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=06-val_loss=2.20.ckpt') 
+        # mod = LitModel.load_from_checkpoint(' ./SLANATL60new3_ChckPt-boost-swot/modelSLA-L2-GF-FT-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=01-val_loss=1.80.ckpt') 
+        # mod = LitModel.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1607938/checkpoints/modelCalSLAInterpGF-epoch=84-val_loss=1.5017.ckpt') 
+        # mod = LitModel.load_from_checkpoint(' ./SLANATL60new3_ChckPt-boost-swot/modelSLA-L2-GF-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=141-val_loss=1.60.ckpt') 
+        import lit_model_augstate
+        cfg = get_cfg("xp_aug/xp_repro/quentin_repro")
+        # cfg = get_cfg("xp_aug/xp_repro/quentin_repro_w_hugo_lit_240")
+        # mod = lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1607929/checkpoints/modelCalSLAInterpGF-epoch=94-val_loss=0.1822.ckpt') 
+        # mod = lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1610506/checkpoints/modelCalSLAInterpGF-epoch=48-val_loss=0.0650.ckpt') 
+        # mod = lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1612378/checkpoints/modelCalSLAInterpGF-epoch=87-val_loss=1.7760.ckpt') 
+        mod = lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1611944/checkpoints/modelCalSLAInterpGF-epoch=67-val_loss=3.3118.ckpt') 
 
-        mod.hparams.alpha_proj    = 0.5
-        mod.hparams.alpha_sr      = 0.5
-        mod.hparams.alpha_lr      = 5  # 1e4
-        mod.hparams.alpha_mse_ssh = 5.e1
-        mod.hparams.alpha_mse_gssh = 1.e3#1.e4#
-        mod.hparams.alpha_4dvarloss_diff = 1.
-        
-        mod.hparams.alpha_fft = 0.
-        mod.max_rate_fft = 1.5
-        mod.hparams.thr_snr_fft = 0.5
-        mod.hparams.ifft_max = 15
+        # mod = LitModel.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1587713/checkpoints/modelCalSLAInterpGF-epoch=09-val_loss=2.7128.ckpt') 
+        # mod = LitModel.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1587713/checkpoints/modelCalSLAInterpGF-epoch=49-val_loss=2.4647.ckpt') 
+        # mod = LitModel.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1573743/checkpoints/modelCalSLAInterpGF-epoch=90-val_loss=2.1284.ckpt') 
+        # mod.init_params()
 
-        mod.hparams.median_filter_width = 0
-        mod.hparams.dw_loss = 10
-
-        #filename_chkpt = 'modelSLA-L2-GF-norm-grad-eps1e-6-'
-        filename_chkpt = 'modelSLA-L2-GF-'#'FineTuning2-'#'orig9-'#'OptTrue'
-        if loadTrainedModel == True :
-            filename_chkpt = filename_chkpt+'FT-'
+        dm = instantiate(cfg.datamodule)
+        dm.setup()
+        mod.hparams
+        filename_chkpt = 'modelSLA-L2-GF-norm-grad-eps1e-6-'
+        # filename_chkpt = 'modelSLA-L2-GF-'#'FineTuning2-'#'orig9-'#'OptTrue'
+        # if loadTrainedModel == True :
+        #     filename_chkpt = filename_chkpt+'FT-'
             
-        if flagPhiParam > 1 :
-            filename_chkpt = filename_chkpt + 'Unet%d-'%flagPhiParam
-        elif flagPhiParam == 1 :
-            if USE_RND_TRAINING == True :
-                filename_chkpt = filename_chkpt+'RndTr%02d-'%(10.*VAL_RND_TRAINING)
+        # if flagPhiParam > 1 :
+        #     filename_chkpt = filename_chkpt + 'Unet%d-'%flagPhiParam
+        # elif flagPhiParam == 1 :
+        #     if USE_RND_TRAINING == True :
+        #         filename_chkpt = filename_chkpt+'RndTr%02d-'%(10.*VAL_RND_TRAINING)
 
-        if mod.hparams.automatic_optimization == True :
-            filename_chkpt = filename_chkpt + 'AutomOpt-'            
+        # if mod.hparams.automatic_optimization == True :
+        #     filename_chkpt = filename_chkpt + 'AutomOpt-'            
             
-        if flag_augment_training_data == True:
-            filename_chkpt = filename_chkpt + 'augdata%02dtrue-'            
+        # if flag_augment_training_data == True:
+        #     filename_chkpt = filename_chkpt + 'augdata%02dtrue-'            
                        
-        if flag_aug_state == 1 :
-            if dim_aug_state > 0:
-                filename_chkpt = filename_chkpt + 'augstate%02d-'%dim_aug_state            
-            else:               
-                filename_chkpt = filename_chkpt + 'augstate-'
+        # if flag_aug_state == 1 :
+        #     if dim_aug_state > 0:
+        #         filename_chkpt = filename_chkpt + 'augstate%02d-'%dim_aug_state            
+        #     else:               
+        #         filename_chkpt = filename_chkpt + 'augstate-'
                 
-            if scale_dwscaling > 1 :
-                filename_chkpt = filename_chkpt + '%d-'%scale_dwscaling
-        elif flag_aug_state == 2 :
-            if dim_aug_state > 0:
-                filename_chkpt = filename_chkpt + 'augstate_sst%02d-'%dim_aug_state            
-            else:               
-                filename_chkpt = filename_chkpt + 'augstate_sst-'            
+        #     if scale_dwscaling > 1 :
+        #         filename_chkpt = filename_chkpt + '%d-'%scale_dwscaling
+        # elif flag_aug_state == 2 :
+        #     if dim_aug_state > 0:
+        #         filename_chkpt = filename_chkpt + 'augstate_sst%02d-'%dim_aug_state            
+        #     else:               
+        #         filename_chkpt = filename_chkpt + 'augstate_sst-'            
                 
-        if flag_obs_model == 1 :
-            filename_chkpt = filename_chkpt + 'SSTobs_%02d-'%dim_obs_sst           
-        if flagSWOTData == False:
-            filename_chkpt = filename_chkpt + 'nadir-only-'            
+        # if flag_obs_model == 1 :
+        #     filename_chkpt = filename_chkpt + 'SSTobs_%02d-'%dim_obs_sst           
+        # if flagSWOTData == False:
+        #     filename_chkpt = filename_chkpt + 'nadir-only-'            
 
-        if mod.hparams.alpha_fft > 0.:
-            filename_chkpt = filename_chkpt + 'fft%03d-'%(int(mod.hparams.alpha_fft))           
+        # if mod.hparams.alpha_fft > 0.:
+        #     filename_chkpt = filename_chkpt + 'fft%03d-'%(int(mod.hparams.alpha_fft))           
             
-        if mod.hparams.median_filter_width+width_med_filt_spatial+width_med_filt_temp > 3.:
-            filename_chkpt = filename_chkpt + 'median%02d_%02d_%02d-'%(int(mod.hparams.median_filter_width),width_med_filt_spatial,width_med_filt_temp)           
+        # if mod.hparams.median_filter_width+width_med_filt_spatial+width_med_filt_temp > 3.:
+        #     filename_chkpt = filename_chkpt + 'median%02d_%02d_%02d-'%(int(mod.hparams.median_filter_width),width_med_filt_spatial,width_med_filt_temp)           
 
-        filename_chkpt = filename_chkpt + suffix_exp
-        filename_chkpt = filename_chkpt+'-dT%02d'%dT
+        # filename_chkpt = filename_chkpt + suffix_exp
+        # filename_chkpt = filename_chkpt+'-dT%02d'%dT
         
-        if mod.hparams.n_grad > 0.:
-            filename_chkpt = filename_chkpt+'-igrad%02d_%02d'%(mod.hparams.n_grad,mod.hparams.k_n_grad)+'-dgrad%d'%dimGradSolver
-        else:
-            filename_chkpt = filename_chkpt+'-DirectInv'
+        # if mod.hparams.n_grad > 0.:
+        #     filename_chkpt = filename_chkpt+'-igrad%02d_%02d'%(mod.hparams.n_grad,mod.hparams.k_n_grad)+'-dgrad%d'%dimGradSolver
+        # else:
+        #     filename_chkpt = filename_chkpt+'-DirectInv'
 
         #filename_chkpt = filename_chkpt+'-L%.1f_%.1f_%.1fd'%(mod.hparams.p_norm_loss,mod.hparams.q_norm_loss,mod.hparams.r_norm_loss)
         
@@ -1069,25 +1007,37 @@ if __name__ == '__main__':
 
         #trainer = pl.Trainer(gpus=1, accelerator = "ddp", **profiler_kwargs)
         #trainer = pl.Trainer(gpus=1, accelerator = "ddp", **profiler_kwargs)
-        trainer = pl.Trainer(gpus=[0], max_epochs=10,   callbacks=[checkpoint_callback])
+        trainer = pl.Trainer(gpus=[0], max_epochs=50,   callbacks=[checkpoint_callback])
     
         ## training loop
-        trainer.fit(mod, dm.train_dataloader(), dm.val_dataloader() )
+        # trainer.fit(mod, dm.train_dataloader(), dm.val_dataloader() )
         # assert False
-        trainer.test(mod, test_dataloaders=dm.val_dataloader())
-        X_val    = dm.val_ds.datasets[0].gt_ds.ds.ssh.isel(time=slice(dT//2, -dT//2 + 1)).transpose('time', 'lat', 'lon').values
-        X_OI     = dm.val_ds.datasets[0].oi_ds.ds.ssh_mod.isel(time=slice(dT//2, -dT//2 + 1)).transpose('time', 'lat', 'lon').values 
+        trainer.test(mod, dataloaders=dm.val_dataloader())
+        # mod.x_rec_ssh = mod.x_rec
+        # mod.x_rec_ssh = mod.test_xr_ds.pred.data
+        X_val = mod.test_xr_ds.gt.data
+        X_OI = mod.test_xr_ds.oi.data
+        # X_val    = dm.val_ds.datasets[0].gt_ds.ds.ssh.isel(time=slice(dT//2, -dT//2 + 1)).transpose('time', 'lat', 'lon').values
+        # X_OI     = dm.val_ds.datasets[0].oi_ds.ds.ssh_mod.isel(time=slice(dT//2, -dT//2 + 1)).transpose('time', 'lat', 'lon').values 
         val_mseRec = compute_metrics(X_val, mod.x_rec_ssh)     
+        val_mseRec
         val_mseOI  = compute_metrics(X_val,X_OI)     
-        vds = (
-                dm.val_ds.datasets[0]
-                .gt_ds.ds.isel(time=slice(dT//2, -dT//2 + 1))
-                .transpose('time', 'lat', 'lon')
-                .assign(pred=( ('time', 'lat', 'lon'), mod.x_rec_ssh))
-                .assign(oi=( ('time', 'lat', 'lon'), X_OI))
-                .transpose('lon', 'lat', 'time', )
-                # .assign(time=lambda d: (d.time - d.time.min()).astype('float'))
+        c = 10
+        crop = dict(
+            lat=slice(c, -c),
+            lon=slice(c, -c),
         )
+        # vds = (
+        #         dm.val_ds.datasets[0]
+        #         .gt_ds.ds.isel(time=slice(dT//2, -dT//2 + 1))
+        #         .transpose('time', 'lat', 'lon')
+        #         .assign(pred=( ('time', 'lat', 'lon'), mod.x_rec_ssh))
+        #         .assign(oi=( ('time', 'lat', 'lon'), X_OI))
+        #         .transpose('lon', 'lat', 'time', )
+        #         .isel(**crop)
+        #         # .assign(time=lambda d: (d.time - d.time.min()).astype('float'))
+        # )
+        vds = mod.test_xr_ds.transpose('lon', 'lat', 'time', ).assign(ssh=lambda ds: ds.gt)
         vpsd_bs = psd_based_scores(
                 vds[['pred']].assign(sossheig= vds.pred), 
                 vds[['ssh']].assign(sossheig= vds.ssh), 
@@ -1101,29 +1051,30 @@ if __name__ == '__main__':
 
         print('\n\n........................................ ')
         print('........................................\n ')
-        trainer.test(mod, test_dataloaders=dm.test_dataloader())
+        trainer.test(mod, dataloaders=dm.test_dataloader())
         #ncfile = Dataset("results/test.nc","r")
         #X_rec  = ncfile.variables['ssh'][:]
         #ncfile.close()
-        c = 10
-        crop = dict(
-            lat=slice(c, -c),
-            lon=slice(c, -c),
-        )
-        X_OI     = dm.test_ds.datasets[0].oi_ds.ds.ssh_mod.isel(time=slice(dT//2, - dT//2 + 1)).transpose('time', 'lat', 'lon').values 
-        X_test    = dm.test_ds.datasets[0].gt_ds.ds.ssh.isel(time=slice(dT//2, -dT//2 + 1)).transpose('time', 'lat', 'lon').values
+        # mod.x_rec_ssh = mod.x_rec[1:-1,...]
+        # mod.x_rec_ssh = mod.test_xr_ds.pred.data
+        X_test = mod.test_xr_ds.gt.data
+        X_OI = mod.test_xr_ds.oi.data
+        # X_OI     = dm.test_ds.datasets[0].oi_ds.ds.ssh_mod.isel(time=slice(dT//2, - dT//2 + 1)).transpose('time', 'lat', 'lon').values 
+        # X_test    = dm.test_ds.datasets[0].gt_ds.ds.ssh.isel(time=slice(dT//2, -dT//2 + 1)).transpose('time', 'lat', 'lon').values
         test_mseOI  = compute_metrics(X_test,X_OI)     
         test_mseRec = compute_metrics(X_test,mod.x_rec_ssh)     
-        tds = (
-                dm.test_ds.datasets[0]
-                .gt_ds.ds.isel(time=slice(dT//2, -dT//2 + 1))
-                .transpose('time', 'lat', 'lon')
-                .assign(pred=( ('time', 'lat', 'lon'), mod.x_rec_ssh))
-                .assign(oi=( ('time', 'lat', 'lon'), X_OI))
-                .transpose('lon', 'lat', 'time', )
-                .isel(**crop)
-        )
-        (tds - tds.ssh).drop('ssh').pipe(lambda d: np.sqrt((d**2).mean()))
+        # tds = (
+        #         dm.test_ds.datasets[0]
+        #         .gt_ds.ds.isel(time=slice(dT//2, -dT//2 + 1))
+        #         .transpose('time', 'lat', 'lon')
+        #         .assign(pred=( ('time', 'lat', 'lon'), mod.x_rec_ssh))
+        #         .assign(oi=( ('time', 'lat', 'lon'), X_OI))
+        #         .transpose('lon', 'lat', 'time', )
+        #         .isel(**crop)
+        # )
+        tds = mod.test_xr_ds.transpose('lon', 'lat', 'time', ).assign(ssh=lambda ds: ds.gt)
+        # tds = tds.isel(**crop)
+        # (tds - tds.ssh).drop('ssh').pipe(lambda d: np.sqrt((d**2).mean()))
         tpsd_bs = psd_based_scores(
                 tds[['pred']].assign(sossheig= tds.pred), 
                 tds[['ssh']].assign(sossheig= tds.ssh), 
@@ -1133,7 +1084,7 @@ if __name__ == '__main__':
                 tds[['ssh']].assign(sossheig= tds.ssh), 
         )
             
-        
+         
         print(tpsd_bs[1], tpsd_bs[2])
         print(tpsd_bs_oi[1], tpsd_bs_oi[2])
         print(' ')

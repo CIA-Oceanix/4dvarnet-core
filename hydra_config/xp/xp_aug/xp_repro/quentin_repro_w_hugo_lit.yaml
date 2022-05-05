@@ -3,9 +3,23 @@
 xp_name: xp_augstate
 params:
   dT: 7
+  patch_weight:
+    crop:
+      time: 3
+      lat: 10
+      lon: 10
+  model: ronan_4dvarnet
+  k_n_grad: 3
+  n_grad: 5
+  val_diag_freq: 5 
+  padding_mode: reflect
+  alpha_mse_ssh: 50. # loss
+  alpha_mse_gssh: 1000.
+  norm_obs: l2
+  norm_prior: l2
 datamodule:
-  aug_train_data: False
-lit_mod_cls: lit_model_ronan.LitModel
+  aug_train_data: True
+
 defaults:
   - /xp/xp_aug/base_xp
   - /splits/dc_boost_swot@datamodule

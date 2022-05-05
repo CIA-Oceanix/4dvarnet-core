@@ -20,6 +20,8 @@ import metrics
 from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
 from models import Model_H, Model_HwithSST, Phi_r, ModelLR, Gradient_img
 
+
+
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
@@ -38,6 +40,21 @@ def get_4dvarnet_sst(hparams):
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad)
+
+
+def get_ronan_4dvarnet(hparams):
+
+    import solver_ronan
+    import lit_model_ronan
+
+    return solver_ronan.Solver_Grad_4DVarNN(
+        lit_model_ronan.Phi_r(), 
+        lit_model_ronan.Model_H(), 
+        solver_ronan.model_GradUpdateLSTM(hparams.shape_data, hparams.UsePriodicBoundary,
+            hparams.dim_grad_solver, hparams.dropout, padding_mode=hparams.padding_mode), 
+        None, None, hparams.shape_data, hparams.n_grad, 0.*1e-20 ,k_step_grad = 1. / (hparams.n_grad * hparams.k_n_grad) )
+    
+
 
 def get_phi(hparams):
     class PhiPassThrough(torch.nn.Module):
@@ -74,6 +91,7 @@ class LitModelAugstate(pl.LightningModule):
 
     MODELS = {
             '4dvarnet': get_4dvarnet,
+            'ronan_4dvarnet': get_ronan_4dvarnet,
             '4dvarnet_sst': get_4dvarnet_sst,
             'phi': get_phi,
              }
@@ -111,7 +129,8 @@ class LitModelAugstate(pl.LightningModule):
         self.test_lat = None
         self.test_dates = None
 
-        self.patch_weight = call(self.hparams.patch_weight)
+        self.patch_weight = torch.nn.Parameter(
+                torch.from_numpy(call(self.hparams.patch_weight)), requires_grad=False)
 
         self.var_Val = self.hparams.var_Val
         self.var_Tr = self.hparams.var_Tr
@@ -127,10 +146,13 @@ class LitModelAugstate(pl.LightningModule):
         self.aug_state = self.hparams.aug_state if hasattr(self.hparams, 'aug_state') else False
         self.model = self.create_model()
         self.model_LR = ModelLR()
-        self.gradient_img = kornia.filters.sobel
+        self.grad_crop = lambda t: t[...,1:-1, 1:-1]
+        self.gradient_img = lambda t: torch.unbind(
+                self.grad_crop(2.*kornia.filters.spatial_gradient(t, normalized=True)), 2)
         # loss weghing wrt time
 
-        self.w_loss = torch.nn.Parameter(torch.Tensor(self.patch_weight), requires_grad=False)  # duplicate for automatic upload to gpu
+        # self._w_loss = torch.nn.Parameter(torch.Tensor(self.patch_weight), requires_grad=False)  # duplicate for automatic upload to gpu
+        self.w_loss = torch.nn.Parameter(torch.Tensor([0,0,0,1,0,0,0]), requires_grad=False)  # duplicate for automatic upload to gpu
         self.x_gt = None  # variable to store Ground Truth
         self.obs_inp = None
         self.x_oi = None  # variable to store OI
@@ -148,10 +170,10 @@ class LitModelAugstate(pl.LightningModule):
     def forward(self, batch, phase='test'):
         losses = []
         metrics = []
-        state_init = None
+        state_init = [None]
         for _ in range(self.hparams.n_fourdvar_iter):
             _loss, out, state, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
-            state_init = state.detach()
+            state_init = [s.detach() for s in state]
             losses.append(_loss)
             metrics.append(_metrics)
         return losses, out, metrics
@@ -228,27 +250,13 @@ class LitModelAugstate(pl.LightningModule):
 
         opt = self.optimizers()
         # compute loss and metrics
-        if self.hparams.get('rand_mask'):
-            rand = torch.rand_like(train_batch[0])
-            mask_95 = rand > 0.95
-            mask_gt = lambda t, m: t.where(m, torch.zeros_like(t))
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, *rest = train_batch
-            # loss_95, outs_95, metrics_95 = self.compute_loss(
-            #     (targets_OI, mask_95, mask_gt(targets_GT, mask_95), targets_GT, *rest), phase='train'
-            # )
-            loss_95_obs, _, _, metrics_95_obs = self.compute_loss(
-                (targets_OI, inputs_Mask.logical_or(mask_95), inputs_obs.where(inputs_Mask, mask_gt(targets_GT, mask_95)), targets_GT, *rest),
-                phase='train'
-            )
-            opt.zero_grad()
-            self.manual_backward((loss_95_obs) / 2)
-            opt.step()
 
         losses, _, metrics = self(train_batch, phase='train')
         if losses[-1] is None:
             print("None loss")
             return None
-        loss = torch.stack(losses).mean()
+        # loss = torch.stack(losses).sum()
+        loss = 2*torch.stack(losses).sum() - losses[0]
 
         opt.zero_grad()
         self.manual_backward(loss)
@@ -361,7 +369,7 @@ class LitModelAugstate(pl.LightningModule):
 
         for ds in dses:
             ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
-            xr_weight = xr.DataArray(self.patch_weight, ds.coords, dims=ds.gt.dims)
+            xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.gt.dims)
             _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
             fin_ds = fin_ds + _ds
 
@@ -376,6 +384,7 @@ class LitModelAugstate(pl.LightningModule):
         self.obs_inp = self.test_xr_ds.obs_inp.data
         self.x_oi = self.test_xr_ds.oi.data
         self.x_rec = self.test_xr_ds.pred.data
+        self.x_rec_ssh = self.x_rec
 
         self.test_coords = self.test_xr_ds.coords
         self.test_lat = self.test_coords['lat'].data
@@ -500,9 +509,9 @@ class LitModelAugstate(pl.LightningModule):
                 self.latest_metrics
     )
 
-    def get_init_state(self, batch, state):
-        if state is not None:
-            return state
+    def get_init_state(self, batch, state=(None,)):
+        if state[0] is not None:
+            return state[0]
 
         if not self.use_sst:
             targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
@@ -512,7 +521,8 @@ class LitModelAugstate(pl.LightningModule):
         if self.aug_state:
             init_state = torch.cat((targets_OI,
                                     inputs_Mask * (inputs_obs - targets_OI),
-                                    torch.zeros_like(targets_OI)),
+                                    inputs_Mask * (inputs_obs - targets_OI),
+                                    ),
                                    dim=1)
         else:
             init_state = torch.cat((targets_OI,
@@ -523,7 +533,7 @@ class LitModelAugstate(pl.LightningModule):
     def loss_ae(self, state_out):
         return torch.mean((self.model.phi_r(state_out) - state_out) ** 2)
 
-    def compute_loss(self, batch, phase, state_init=None):
+    def compute_loss(self, batch, phase, state_init=(None,)):
 
         if not self.use_sst:
             targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
@@ -552,21 +562,19 @@ class LitModelAugstate(pl.LightningModule):
         #state = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
         if not self.use_sst:
             if self.aug_state:
-                new_masks = torch.cat((torch.ones_like(inputs_Mask),
-                                       inputs_Mask,
-                                       torch.zeros_like(inputs_Mask)),
+                new_masks = torch.cat(
+                    (torch.ones_like(inputs_Mask), inputs_Mask, torch.zeros_like(inputs_Mask)),
                                       dim=1)
-                obs = torch.cat((targets_OI,
-                                 inputs_Mask * (inputs_obs - targets_OI),
-                                 torch.zeros_like(targets_OI)),
-                                dim=1)
+                obs = torch.cat(
+                    (targets_OI, inputs_Mask * (inputs_obs - targets_OI), 0. * targets_OI,)
+                    ,dim=1)
             else:
-                new_masks = torch.cat((torch.ones_like(inputs_Mask),
-                                       inputs_Mask),
-                                      dim=1)
-                obs = torch.cat((targets_OI,
-                                 inputs_Mask * (inputs_obs - targets_OI)),
-                                dim=1)
+                new_masks = torch.cat(
+                    (torch.ones_like(inputs_Mask), inputs_Mask)
+                    , dim=1)
+                obs = torch.cat(
+                    (targets_OI, inputs_Mask * (inputs_obs - targets_OI)),
+                    dim=1)
         else:
             new_masks = [
                     torch.cat((torch.ones_like(inputs_Mask), inputs_Mask), dim=1),
@@ -579,13 +587,16 @@ class LitModelAugstate(pl.LightningModule):
         # PENDING: Add state with zeros
 
         # gradient norm field
-        g_targets_GT = self.gradient_img(targets_GT)
+        g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
 
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
             # with torch.set_grad_enabled(phase == 'train'):
             state = torch.autograd.Variable(state, requires_grad=True)
-            outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks)
+            # print(state.shape)
+            # print(obs.shape)
+            # print(new_masks.shape)
+            outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
 
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
@@ -602,33 +613,46 @@ class LitModelAugstate(pl.LightningModule):
                 outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
 
             # reconstruction losses
-            g_outputs = self.gradient_img(outputs)
+            g_outputs_x, g_outputs_y = self.gradient_img(outputs)
 
             # PENDING: add loss term computed on obs (outputs swath - obs_target)
-            loss_All = NN_4DVar.compute_spatio_temp_weighted_loss((outputs - targets_GT), self.w_loss)
-            loss_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_outputs - g_targets_GT, self.w_loss)
-            loss_OI = NN_4DVar.compute_spatio_temp_weighted_loss(targets_GT - targets_OI, self.w_loss)
-            loss_GOI = NN_4DVar.compute_spatio_temp_weighted_loss(self.gradient_img(targets_OI) - g_targets_GT, self.w_loss)
+            # loss_All = NN_4DVar.compute_spatio_temp_weighted_loss((outputs - targets_GT), self.w_loss)
+            # loss_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_outputs - g_targets_GT, self.w_loss)
+            # loss_OI = NN_4DVar.compute_spatio_temp_weighted_loss(targets_GT - targets_OI, self.w_loss)
+            # loss_GOI = NN_4DVar.compute_spatio_temp_weighted_loss(self.gradient_img(targets_OI) - g_targets_GT, self.w_loss)
 
+            loss_All = NN_4DVar.compute_spatio_temp_weighted_loss((outputs - targets_GT), self.patch_weight)
+            loss_GAll = (
+                    NN_4DVar.compute_spatio_temp_weighted_loss(g_outputs_x - g_targets_GT_x, self.grad_crop(self.patch_weight))
+                +    NN_4DVar.compute_spatio_temp_weighted_loss(g_outputs_y - g_targets_GT_y, self.grad_crop(self.patch_weight))
+            )
+            loss_OI = NN_4DVar.compute_spatio_temp_weighted_loss(targets_GT - targets_OI, self.patch_weight)
+            g_OI_x, g_OI_y = self.gradient_img(targets_OI)
+            loss_GOI = (
+                NN_4DVar.compute_spatio_temp_weighted_loss(g_OI_x - g_targets_GT_x, self.grad_crop(self.patch_weight))
+                + NN_4DVar.compute_spatio_temp_weighted_loss(g_OI_y - g_targets_GT_y, self.grad_crop(self.patch_weight))
+            )
             # projection losses
             loss_AE = self.loss_ae(outputsSLRHR)
 
             if self.aug_state:
                 yGT = torch.cat((targets_OI,
-                                 targets_GT_wo_nan - targets_OI,
-                                 targets_GT_wo_nan - targets_OI),
+                                 targets_GT_wo_nan - outputsSLR,
+                                 targets_GT_wo_nan - outputsSLR),
                                 dim=1)
             else:
                 yGT = torch.cat((targets_OI,
-                                 targets_GT_wo_nan - targets_OI),
+                                 targets_GT_wo_nan - outputsSLR),
                                 dim=1)
             # yGT        = torch.cat((targets_OI,targets_GT-targets_OI),dim=1)
             loss_AE_GT = torch.mean((self.model.phi_r(yGT) - yGT) ** 2)
 
             # low-resolution loss
-            loss_SR = NN_4DVar.compute_spatio_temp_weighted_loss(outputsSLR - targets_OI, self.w_loss)
+            # loss_SR = NN_4DVar.compute_spatio_temp_weighted_loss(outputsSLR - targets_OI, self.w_loss)
+            loss_SR = NN_4DVar.compute_spatio_temp_weighted_loss(outputsSLR - targets_OI, self.patch_weight)
             targets_GTLR = self.model_LR(targets_OI)
-            loss_LR = NN_4DVar.compute_spatio_temp_weighted_loss(self.model_LR(outputs) - targets_GTLR, self.model_LR(self.w_loss))
+            # loss_LR = NN_4DVar.compute_spatio_temp_weighted_loss(self.model_LR(outputs) - targets_GTLR, self.model_LR(self.w_loss))
+            loss_LR = NN_4DVar.compute_spatio_temp_weighted_loss(self.model_LR(outputs) - targets_GTLR, self.model_LR(self.patch_weight))
 
             # total loss
             loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
@@ -636,7 +660,9 @@ class LitModelAugstate(pl.LightningModule):
             loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
 
             # metrics
-            mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
+            # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
+            mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(
+                    torch.hypot(g_targets_GT_x, g_targets_GT_y) , self.grad_crop(self.patch_weight))
             mse = loss_All.detach()
             mseGrad = loss_GAll.detach()
             metrics = dict([
@@ -647,4 +673,176 @@ class LitModelAugstate(pl.LightningModule):
                 ('mseGOI', loss_GOI.detach())])
             # PENDING: Add new loss term to metrics
 
-        return loss, outputs, outputsSLRHR, metrics
+        # print(f'hugo {loss_All=}, {self.hparams.alpha_mse_ssh * loss_All=}')
+        # print(f'hugo {loss_GAll=}, {self.hparams.alpha_mse_gssh * loss_GAll=}')
+        # print(f'hugo {loss_AE=}, {0.5 * self.hparams.alpha_proj * loss_AE=} ')
+        # print(f'hugo {loss_AE_GT=}, {0.5 * self.hparams.alpha_proj * loss_AE_GT=} ')
+        # print(f'hugo {loss_LR=}, { self.hparams.alpha_lr *loss_LR=}')
+        # print(f'hugo {loss_SR=}, { self.hparams.alpha_sr *loss_SR=}')
+        # print(f'hugo {loss=}')
+        return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
+
+
+if __name__ =='__main__':
+    
+    import hydra
+    import importlib
+    from hydra.utils import instantiate, get_class, call
+    import hydra_main 
+    import lit_model_augstate 
+    
+    importlib.reload(lit_model_augstate)
+    importlib.reload(hydra_main)
+
+    def get_cfg(xp_cfg, overrides=None):
+        overrides = overrides if overrides is not None else []
+        def get():
+            cfg = hydra.compose(config_name='main', overrides=
+                [
+                    f'xp={xp_cfg}',
+                    'file_paths=jz',
+                    'entrypoint=train',
+                ] + overrides
+            )
+
+            return cfg
+        try:
+            with hydra.initialize_config_dir(str(Path('hydra_config').absolute())):
+                return get()
+        except:
+            return get()
+
+    def get_model(xp_cfg, ckpt, dm=None, add_overrides=None):
+        overrides = []
+        if add_overrides is not None:
+            overrides =  overrides + add_overrides
+        cfg = get_cfg(xp_cfg, overrides)
+        lit_mod_cls = get_class(cfg.lit_mod_cls)
+        if dm is None:
+            dm = instantiate(cfg.datamodule)
+        runner = hydra_main.FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls)
+        mod = runner._get_model(ckpt)
+        return mod
+
+    def get_dm(xp_cfg, setup=True, add_overrides=None):
+        overrides = []
+        if add_overrides is not None:
+            overrides = overrides + add_overrides
+        cfg = get_cfg(xp_cfg, overrides)
+        dm = instantiate(cfg.datamodule)
+        if setup:
+            dm.setup()
+        return dm
+    from omegaconf import OmegaConf
+    OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
+    dm = get_dm("xp_aug/xp_repro/quentin_repro_w_hugo_lit", setup=False)
+    mod = get_model(
+            "xp_aug/xp_repro/quentin_repro_w_hugo_lit",
+            'modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt',
+            dm=dm)
+    cfg = get_cfg("xp_aug/xp_repro/quentin_repro_w_hugo_lit")
+    # cfg = get_cfg("xp_aug/xp_repro/quentin_repro")
+    print(OmegaConf.to_yaml(cfg))
+    lit_mod_cls = get_class(cfg.lit_mod_cls)
+    # runner = hydra_main.FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls)
+    # runner.test('modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt')
+
+    # import data_ronan
+    # rmod = data_ronan.LitModel.load_from_checkpoint(
+    #         'modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt')
+    import lit_model_ronan
+    rmod = lit_model_ronan.LitModel.load_from_checkpoint(
+            'modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt')
+
+    mod = mod.to('cuda:0')
+    rmod = rmod.to('cuda:0')
+    bumod = rmod.model
+    rmod.model = mod.model
+    batch = mod.transfer_batch_to_device(next(iter(dm.test_dataloader())), mod.device, 0)
+    targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
+    new_masks = torch.cat(
+        (torch.ones_like(inputs_Mask), inputs_Mask, torch.zeros_like(inputs_Mask)),
+                          dim=1)
+    obs = torch.cat(
+        (targets_OI, inputs_Mask * (inputs_obs - targets_OI), 0. * targets_OI,)
+        ,dim=1)
+    mod.train(False)
+    rmod.train(False)
+    rmod.model.k_step_grad=1/15
+    # mod.hparams.alpha_mse_gssh = 1000.
+    # rl, [rout, _, _, rh, rc, rng, _], rm,_ = rmod.compute_loss(batch, phase='test')
+    # # mod.hparams.alpha_mse_ssh=10
+    # # mod.hparams.loss_r=10
+    # l, out,  [ _, h, c, ng], m = mod.compute_loss(batch, phase='test')
+   
+    # import solver as s
+    # import solver_ronan as rs
+    # print(f'{torch.allclose(rng, ng)=}')
+    # atol=1e-2
+    # print(f'{torch.allclose(h, rh, atol=atol)=}')
+    # print(f'{torch.allclose(c, rc, atol=atol)=}')
+    # print(f'{torch.allclose(out, rout, atol=atol)=}')
+    # print(f'{torch.allclose(l, rl, atol=atol)=}')
+    # print((out-rout).abs().max())
+    # mod.hparams.norm_prior
+    # print(l, rl)
+    # print(m, rm)
+    # print()
+
+    # compute loss and metrics
+
+    losses,*_ = mod(batch)
+    loss = 2*torch.stack(losses).sum() - losses[0]
+
+    self = rmod
+    rlosses = []
+    loss, out, metrics,diff_loss_4dvar_init = self.compute_loss(batch, phase='test')
+    rlosses.append(loss)
+    if self.hparams.k_n_grad > 1 :
+        loss_all = loss + self.hparams.alpha_4dvarloss_diff * diff_loss_4dvar_init
+
+        for kk in range(0,self.hparams.k_n_grad-1):
+            loss1, out, metrics,diff_loss_4dvar_init = self.compute_loss(batch, phase='train',batch_init=out[2],hidden=out[3],cell=out[4],normgrad=out[5])
+
+            rlosses.append(loss1)
+            dloss = F.relu(loss1 - loss)
+            loss = 1. * loss1                 
+            loss_all = loss_all + loss1 +  dloss + self.hparams.alpha_4dvarloss_diff * diff_loss_4dvar_init
+            # loss_all = loss_all + loss1 + self.hparams.alpha_4dvarloss_diff * diff_loss_4dvar_init
+
+        rloss =  loss_all
+
+    # rg, rgx, rgy = rmod.gradient_img(out)
+    # rgt, rgtx, rgty = rmod.gradient_img(targets_GT)
+    # gx, gy = mod.gradient_img(out)
+    # gtx, gty = mod.gradient_img(targets_GT)
+    # rgx -gx
+    # # g = kornia.filters.sobel(targets_GT, normalized=True)
+    # # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(
+    # # kornia.filters.sobel(targets_GT, normalized=True), self.patch_weight)
+    # # torch.hypot(gx, gy)[:,:,1:-1,1:-1]/rg
+    # # g[:,:,1:-1,1:-1]/rg
+    # rgx.shape
+    # rmod.hparams.dw_loss
+    # mod.grad_crop(mod.patch_weight).shape
+    # s.compute_spatio_temp_weighted_loss(rgx - rgtx, mod.grad_crop(mod.patch_weight))
+    # rs.compute_WeightedLoss(gx -gtx, torch.tensor([0,0,0,1.,0,0,0]))
+    # s.compute_spatio_temp_weighted_loss(out, mod.patch_weight)
+    # rs.compute_WeightedLoss(out, torch.tensor([0,0,0,1.,0,0,0]))
+
+    # x2, w = rgx, mod.grad_crop(mod.patch_weight)
+    # x2_w = (x2 * w[None, ...])
+    # non_zeros = (torch.ones_like(x2) * w[None, ...]) == 0.
+    # x2_num = ~x2_w.isnan() & ~x2_w.isinf() & ~non_zeros
+    # # if x2_num.sum() == 0:
+    # #     return torch.scalar_tensor(0., device=x2_num.device)
+    # loss = F.mse_loss(x2_w[x2_num], torch.zeros_like(x2_w[x2_num]))
+
+    # x2, w = rgx, torch.tensor([0,0,0,1.,0,0,0])
+    # x2_msk = x2[:, w==1, ...]
+    # x2_num = ~x2_msk.isnan() & ~x2_msk.isinf()
+    # loss2 = F.mse_loss(x2_msk[x2_num], torch.zeros_like(x2_msk[x2_num]))
+    # loss2 = loss2 *  w.sum()
+    # # 2*gx[:,:,1:-1,1:-1] / rgx
+    # # for (n1, p1), (n2,p2) in zip(mod.model.named_parameters(), rmod.model.named_parameters()):
+    # #     print(n1, n2, torch.allclose(p1, p2))

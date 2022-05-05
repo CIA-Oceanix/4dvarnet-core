@@ -164,7 +164,8 @@ def compute_WeightedLoss(x2,w):
 def compute_spatio_temp_weighted_loss(x2, w):
     # print(x2.shape)
     x2_w = (x2 * w[None, ...])
-    x2_num = ~x2_w.isnan() & ~x2_w.isinf()
+    non_zeros = (torch.ones_like(x2) * w[None, ...]) == 0.
+    x2_num = ~x2_w.isnan() & ~x2_w.isinf() & ~non_zeros
     if x2_num.sum() == 0:
         return torch.scalar_tensor(0., device=x2_num.device)
     loss = F.mse_loss(x2_w[x2_num], torch.zeros_like(x2_w[x2_num]))

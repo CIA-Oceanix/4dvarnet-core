@@ -80,6 +80,7 @@ class FourDVarNetHydraRunner:
         print('get_model: ', ckpt_path)
         if ckpt_path:
             mod = self.lit_cls.load_from_checkpoint(ckpt_path,
+                                                    hparam=self.cfg,
                                                     w_loss=self.wLoss,
                                                     strict=False,
                                                     mean_Tr=self.mean_Tr,
@@ -161,7 +162,7 @@ class FourDVarNetHydraRunner:
         mod = _mod or self._get_model(ckpt_path=ckpt_path)
 
         trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs)
-        trainer.test(mod, test_dataloaders=self.dataloaders[dataloader])
+        trainer.test(mod, dataloaders=self.dataloaders[dataloader])
 
     def profile(self):
         """
