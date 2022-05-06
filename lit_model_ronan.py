@@ -69,7 +69,7 @@ def get_dm(xp_cfg, setup=True, add_overrides=None):
 
 from omegaconf import OmegaConf
 OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
-cfg = get_cfg("xp_aug/xp_repro/quentin_repro")
+cfg = get_cfg("xp_aug/xp_repro/quentin_repro_w_hugo_lit")
 # cfg = get_cfg("xp_aug/xp_repro/quentin_repro_w_hugo_lit_240")
 
 # meanTr, stdTr = 0.33536735836788334, 0.3953455251176305
@@ -946,19 +946,23 @@ if __name__ == '__main__':
 
         # mod =    lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1623331/checkpoints/modelCalSLAInterpGF-epoch=57-val_loss=1.4680.ckpt')
 
-        # cfg = get_cfg("xp_aug/xp_repro/quentin_repro_w_hugo_lit_240")
+        cfg = get_cfg("xp_aug/xp_repro/quentin_repro_w_hugo_lit_240")
         # mod =    lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1623331/checkpoints/modelCalSLAInterpGF-epoch=58-val_loss=1.4424.ckpt')
 
         # mod =    lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1623331/checkpoints/modelCalSLAInterpGF-epoch=74-val_loss=1.4471.ckpt')
 
-        cfg = get_cfg("xp_aug/xp_repro/dT5_240")
-        mod =    lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1622798/checkpoints/modelCalSLAInterpGF-epoch=54-val_loss=1.5282.ckpt')
+#         cfg = get_cfg("xp_aug/xp_repro/dT5_240")
+#         mod =    lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1622798/checkpoints/modelCalSLAInterpGF-epoch=54-val_loss=1.5282.ckpt')
         # mod =    lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1622798/checkpoints/modelCalSLAInterpGF-epoch=67-val_loss=1.5100.ckpt')
         # mod =    lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1622798/checkpoints/modelCalSLAInterpGF-epoch=71-val_loss=1.4877.ckpt')
 
         # mod = LitModel.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1587713/checkpoints/modelCalSLAInterpGF-epoch=09-val_loss=2.7128.ckpt') 
         # mod = LitModel.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1587713/checkpoints/modelCalSLAInterpGF-epoch=49-val_loss=2.4647.ckpt') 
         # mod = LitModel.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1573743/checkpoints/modelCalSLAInterpGF-epoch=90-val_loss=2.1284.ckpt') 
+
+        # mod = LitModel.load_from_checkpoint('modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt')
+        # mod = LitModel.load_from_checkpoint('modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt')
+        mod = lit_model_augstate.LitModelAugstate.load_from_checkpoint('modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt')
         # mod.init_params()
 
         dm = instantiate(cfg.datamodule)
@@ -1017,7 +1021,7 @@ if __name__ == '__main__':
         #filename_chkpt = filename_chkpt+'-L%.1f_%.1f_%.1fd'%(mod.hparams.p_norm_loss,mod.hparams.q_norm_loss,mod.hparams.r_norm_loss)
         
         print('..... Filename chkpt: '+filename_chkpt)        
-        print(mod.hparams)
+        print(mod.model.k_step_grad)
         print('n_grad = %d'%mod.hparams.n_grad)
         checkpoint_callback = ModelCheckpoint(monitor='val_loss',
                                               dirpath= dirSAVE+'-'+suffix_exp,
@@ -1033,31 +1037,31 @@ if __name__ == '__main__':
         # trainer.fit(mod, dm.train_dataloader(), dm.val_dataloader() )
         # assert False
         trainer.test(mod, dataloaders=dm.val_dataloader())
-        # mod.x_rec_ssh = mod.x_rec
-        # mod.x_rec_ssh = mod.test_xr_ds.pred.data
-        X_val = mod.test_xr_ds.gt.data
-        X_OI = mod.test_xr_ds.oi.data
-        # X_val    = dm.val_ds.datasets[0].gt_ds.ds.ssh.isel(time=slice(dT//2, -dT//2 + 1)).transpose('time', 'lat', 'lon').values
-        # X_OI     = dm.val_ds.datasets[0].oi_ds.ds.ssh_mod.isel(time=slice(dT//2, -dT//2 + 1)).transpose('time', 'lat', 'lon').values 
-        val_mseRec = compute_metrics(X_val, mod.x_rec_ssh)     
-        val_mseRec
-        val_mseOI  = compute_metrics(X_val,X_OI)     
-        c = 10
+        c = 20
         crop = dict(
             lat=slice(c, -c),
             lon=slice(c, -c),
         )
-        # vds = (
-        #         dm.val_ds.datasets[0]
-        #         .gt_ds.ds.isel(time=slice(dT//2, -dT//2 + 1))
-        #         .transpose('time', 'lat', 'lon')
-        #         .assign(pred=( ('time', 'lat', 'lon'), mod.x_rec_ssh))
-        #         .assign(oi=( ('time', 'lat', 'lon'), X_OI))
-        #         .transpose('lon', 'lat', 'time', )
-        #         .isel(**crop)
-        #         # .assign(time=lambda d: (d.time - d.time.min()).astype('float'))
-        # )
-        vds = mod.test_xr_ds.transpose('lon', 'lat', 'time', ).assign(ssh=lambda ds: ds.gt)
+        if mod.__class__ is not LitModel:
+            X_val = mod.test_xr_ds.gt.data
+            X_OI = mod.test_xr_ds.oi.data
+
+            vds = mod.test_xr_ds.transpose('lon', 'lat', 'time', ).assign(ssh=lambda ds: ds.gt)
+        else:
+            X_val    = dm.val_ds.datasets[0].gt_ds.ds.ssh.isel(time=slice(dT//2, -dT//2 + 1)).transpose('time', 'lat', 'lon').values
+            X_OI     = dm.val_ds.datasets[0].oi_ds.ds.ssh_mod.isel(time=slice(dT//2, -dT//2 + 1)).transpose('time', 'lat', 'lon').values 
+            vds = (
+                    dm.val_ds.datasets[0]
+                    .gt_ds.ds.isel(time=slice(dT//2, -dT//2 + 1))
+                    .transpose('time', 'lat', 'lon')
+                    .assign(pred=( ('time', 'lat', 'lon'), mod.x_rec_ssh))
+                    .assign(oi=( ('time', 'lat', 'lon'), X_OI))
+                    .transpose('lon', 'lat', 'time', )
+                    .isel(**crop)
+                    # .assign(time=lambda d: (d.time - d.time.min()).astype('float'))
+            )
+        val_mseRec = compute_metrics(X_val, mod.x_rec_ssh)     
+        val_mseOI  = compute_metrics(X_val,X_OI)     
         vpsd_bs = psd_based_scores(
                 vds[['pred']].assign(sossheig= vds.pred), 
                 vds[['ssh']].assign(sossheig= vds.ssh), 
@@ -1086,24 +1090,26 @@ if __name__ == '__main__':
         #ncfile.close()
         # mod.x_rec_ssh = mod.x_rec[1:-1,...]
         # mod.x_rec_ssh = mod.test_xr_ds.pred.data
-        X_test = mod.test_xr_ds.gt.data
-        X_OI = mod.test_xr_ds.oi.data
-        # X_OI     = dm.test_ds.datasets[0].oi_ds.ds.ssh_mod.isel(time=slice(dT//2, - dT//2 + 1)).transpose('time', 'lat', 'lon').values 
-        # X_test    = dm.test_ds.datasets[0].gt_ds.ds.ssh.isel(time=slice(dT//2, -dT//2 + 1)).transpose('time', 'lat', 'lon').values
+        if mod.__class__ is not LitModel:
+            X_test = mod.test_xr_ds.gt.data
+            X_OI = mod.test_xr_ds.oi.data
+            tds = mod.test_xr_ds.transpose('lon', 'lat', 'time', ).assign(ssh=lambda ds: ds.gt)
+        else:
+            X_OI     = dm.test_ds.datasets[0].oi_ds.ds.ssh_mod.isel(time=slice(dT//2, - dT//2 + 1)).transpose('time', 'lat', 'lon').values 
+            X_test    = dm.test_ds.datasets[0].gt_ds.ds.ssh.isel(time=slice(dT//2, -dT//2 + 1)).transpose('time', 'lat', 'lon').values
+            tds = (
+                    dm.test_ds.datasets[0]
+                    .gt_ds.ds.isel(time=slice(dT//2, -dT//2 + 1))
+                    .transpose('time', 'lat', 'lon')
+                    .assign(pred=( ('time', 'lat', 'lon'), mod.x_rec_ssh))
+                    .assign(oi=( ('time', 'lat', 'lon'), X_OI))
+                    .transpose('lon', 'lat', 'time', )
+                    .isel(**crop)
+            )
         test_mseOI  = compute_metrics(X_test,X_OI)     
         test_mseRec = compute_metrics(X_test,mod.x_rec_ssh)     
-        # tds = (
-        #         dm.test_ds.datasets[0]
-        #         .gt_ds.ds.isel(time=slice(dT//2, -dT//2 + 1))
-        #         .transpose('time', 'lat', 'lon')
-        #         .assign(pred=( ('time', 'lat', 'lon'), mod.x_rec_ssh))
-        #         .assign(oi=( ('time', 'lat', 'lon'), X_OI))
-        #         .transpose('lon', 'lat', 'time', )
-        #         .isel(**crop)
-        # )
-        tds = mod.test_xr_ds.transpose('lon', 'lat', 'time', ).assign(ssh=lambda ds: ds.gt)
         # tds = tds.isel(**crop)
-        # (tds - tds.ssh).drop('ssh').pipe(lambda d: np.sqrt((d**2).mean()))
+        (tds - tds.ssh).drop('ssh').pipe(lambda d: np.sqrt((d**2).mean()))
         tpsd_bs = psd_based_scores(
                 tds[['pred']].assign(sossheig= tds.pred), 
                 tds[['ssh']].assign(sossheig= tds.ssh), 
@@ -1121,8 +1127,8 @@ if __name__ == '__main__':
                 tds[['oi']].assign(sossheig= tds.oi), 
                 tds[['ssh']].assign(sossheig= tds.ssh), 
         )
-        print(tpsd_bs[1], tpsd_bs[2])
-        print(tpsd_bs_oi[1], tpsd_bs_oi[2])
+        np.isnan(tds).any()
+
         print(' ')
         print('....................................')
         print('....... Validation dataset')

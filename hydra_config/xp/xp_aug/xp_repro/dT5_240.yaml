@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: xp_augstate
+xp_name: xp_interp_dt5_240_h
 params:
   model: 4dvarnet
   k_n_grad: 3

@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: xp_augstate
+xp_name: xp_interp_dt7_240_r
 params:
   dT: 7
   patch_weight:

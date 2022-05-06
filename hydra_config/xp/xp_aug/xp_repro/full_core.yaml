@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: xp_augstate
+xp_name: xp_interp_dt7_240_h
 params:
   dT: 7
   patch_weight:
@@ -16,7 +16,7 @@ params:
   norm_obs: l2
   norm_prior: l2
 datamodule:
-  aug_train_data: False
+  aug_train_data: True
 
 defaults:
   - /xp/xp_aug/base_xp

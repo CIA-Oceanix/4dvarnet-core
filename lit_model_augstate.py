@@ -36,10 +36,10 @@ def get_4dvarnet_sst(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                     hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
-                Model_HwithSST(hparams.shape_state[0]),
+                Model_HwithSST(hparams.shape_state[0], dT=hparams.dT),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
-                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad)
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
 
 def get_ronan_4dvarnet(hparams):
@@ -520,8 +520,7 @@ class LitModelAugstate(pl.LightningModule):
         if self.aug_state:
             init_state = torch.cat((targets_OI,
                                     inputs_Mask * (inputs_obs - targets_OI),
-                                    inputs_Mask * (inputs_obs - targets_OI),
-                                    ),
+                                    inputs_Mask * (inputs_obs - targets_OI),),
                                    dim=1)
         else:
             init_state = torch.cat((targets_OI,
@@ -559,31 +558,17 @@ class LitModelAugstate(pl.LightningModule):
         state = self.get_init_state(batch, state_init)
 
         #state = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
-        if not self.use_sst:
-            if self.aug_state:
-                new_masks = torch.cat(
-                    (torch.ones_like(inputs_Mask), inputs_Mask, torch.zeros_like(inputs_Mask)),
-                                      dim=1)
-                obs = torch.cat(
-                    (targets_OI, inputs_Mask * (inputs_obs - targets_OI), 0. * targets_OI,)
-                    ,dim=1)
-            else:
-                new_masks = torch.cat(
-                    (torch.ones_like(inputs_Mask), inputs_Mask)
-                    , dim=1)
-                obs = torch.cat(
-                    (targets_OI, inputs_Mask * (inputs_obs - targets_OI)),
-                    dim=1)
-        else:
-            new_masks = [
-                    torch.cat((torch.ones_like(inputs_Mask), inputs_Mask), dim=1),
-                    torch.ones_like(sst_gt)
-            ]
-            obs = [
-                    torch.cat((targets_OI, inputs_obs), dim=1),
-                    sst_gt
-            ]
-        # PENDING: Add state with zeros
+
+        obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI)) ,dim=1)
+        new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask) , dim=1)
+
+        if self.aug_state:
+            obs = torch.cat( (obs, 0. * targets_OI,) ,dim=1)
+            new_masks = torch.cat( (new_masks, torch.zeros_like(inputs_Mask)), dim=1)
+
+        if self.use_sst:
+            new_masks = [ new_masks, torch.ones_like(sst_gt) ]
+            obs = [ obs, sst_gt ]
 
         # gradient norm field
         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
@@ -681,6 +666,18 @@ class LitModelAugstate(pl.LightningModule):
         # print(f'hugo {loss=}')
         return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
 
+class LitModelCycleLR(LitModelAugstate):
+    def configure_optimizers(self):
+        opt = super().configure_optimizers()
+        if type(opt) is dict:
+            opt = opt['optimizer']
+
+        return {
+            'optimizer': opt,
+        'lr_scheduler': torch.optim.lr_scheduler.CyclicLR(
+            opt, **self.hparams.cycle_lr_kwargs),
+        'monitor': 'val_loss'
+    }
 
 if __name__ =='__main__':
     
@@ -734,142 +731,148 @@ if __name__ =='__main__':
         return dm
     from omegaconf import OmegaConf
     OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
-    dm = get_dm("xp_aug/xp_repro/quentin_repro_w_hugo_lit", setup=False)
+    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638612/checkpoints/modelCalSLAInterpGF-epoch=30-val_loss=1.5786.ckpt'
+    cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=13-val_loss=1.4913.ckpt'
+    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=11-val_loss=1.5495.ckpt'
+    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=11-val_loss=1.5495.ckpt'
+    # cfg_n, ckpt = 'dT5_240_sst', None
+    dm = get_dm(f"xp_aug/xp_repro/{cfg_n}", setup=False)
     mod = get_model(
-            "xp_aug/xp_repro/quentin_repro_w_hugo_lit",
-            'modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt',
+            f"xp_aug/xp_repro/{cfg_n}",
+            ckpt,
             dm=dm)
-    cfg = get_cfg("xp_aug/xp_repro/quentin_repro_w_hugo_lit")
+    mod.hparams
+    cfg = get_cfg(f"xp_aug/xp_repro/{cfg_n}")
     # cfg = get_cfg("xp_aug/xp_repro/quentin_repro")
     print(OmegaConf.to_yaml(cfg))
     lit_mod_cls = get_class(cfg.lit_mod_cls)
-    # runner = hydra_main.FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls)
-    # runner.test('modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt')
+    runner = hydra_main.FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls)
+    runner.test(ckpt)
 
-    import data_ronan
-    rmod = data_ronan.LitModel.load_from_checkpoint(
-            'modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt')
-    # import lit_model_ronan
-    # rmod = lit_model_ronan.LitModel.load_from_checkpoint(
+    # import data_ronan
+    # rmod = data_ronan.LitModel.load_from_checkpoint(
     #         'modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt')
+    # # import lit_model_ronan
+    # # rmod = lit_model_ronan.LitModel.load_from_checkpoint(
+    # #         'modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt')
 
-    mod = mod.to('cuda:0')
-    rmod = rmod.to('cuda:0')
-    bumod = rmod.model
-    rmod.model = mod.model
-    batch = mod.transfer_batch_to_device(next(iter(dm.test_dataloader())), mod.device, 0)
-    targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
-    new_masks = torch.cat(
-        (torch.ones_like(inputs_Mask), inputs_Mask, torch.zeros_like(inputs_Mask)),
-                          dim=1)
-    obs = torch.cat(
-        (targets_OI, inputs_Mask * (inputs_obs - targets_OI), 0. * targets_OI,)
-        ,dim=1)
-    mod.train(False)
-    rmod.train(False)
-    rmod.model.k_step_grad=1/15
-    self = rmod
-    self.hparams.n_grad          = 5
-    self.hparams.k_n_grad        = 3
-    self.hparams.iter_update     = [0, 200, 200, 320, 380, 400, 800]  # [0,2,4,6,9,15]
-    self.hparams.nb_grad_update  = [0, 5, 10, 10, 15, 15, 20, 20, 20]  # [0,0,1,2,3,3]#[0,2,2,4,5,5]#
-    self.hparams.lr_update       = [1e-3, 1e-4, 1e-5, 1e-5, 1e-4, 1e-5, 1e-5, 1e-6, 1e-7]
-
-    self.hparams.alpha_proj    = 0.5
-    self.hparams.alpha_sr      = 0.5
-    self.hparams.alpha_lr      = 5  # 1e4
-    self.hparams.alpha_mse_ssh = 5.e1
-    self.hparams.alpha_mse_gssh = 1.e3#1.e4#
-    self.hparams.alpha_4dvarloss_diff = 1.
-    
-    self.hparams.alpha_fft = 0.
-    self.max_rate_fft = 1.5
-    self.hparams.thr_snr_fft = 0.5
-    self.hparams.ifft_max = 15
-
-    self.hparams.median_filter_width = 0
-    self.hparams.dw_loss = 10
-    rl, [rout, _, _, rh, rc, rng, _], rm,_ = rmod.compute_loss(batch, phase='test')
-    # mod.hparams.alpha_mse_ssh=10
-    l, out,  [ _, h, c, ng], m = mod.compute_loss(batch, phase='test')
-   
-    import solver as s
-    import solver_ronan as rs
-    print(f'{torch.allclose(rng, ng)=}')
-    atol=1e-2
-    print(f'{torch.allclose(h, rh, atol=atol)=}')
-    print(f'{torch.allclose(c, rc, atol=atol)=}')
-    print(f'{torch.allclose(out, rout, atol=atol)=}')
-    print(f'{torch.allclose(l, rl, atol=atol)=}')
-    print((out-rout).abs().max())
-    mod.hparams.norm_prior
-    print(l, rl)
-    print(m, rm)
-    print()
-
-    len(dm.train_ds)
-    targets_OI, inputs_Mask, inputs_obs, targets_GT  = dm.train_ds[-1]
-    import matplotlib.pyplot as plt
-    plt.imshow(targets_OI[0])
-    plt.imshow(inputs_Mask[0])
-    plt.imshow(inputs_obs[0])
-    plt.imshow(targets_GT[0] - inputs_obs[0])
-    nobs = np.where(inputs_Mask, targets_GT, np.nan)
-    plt.imshow(nobs[0]- targets_GT[0])
-    # compute loss and metrics
-
-    # losses,*_ = mod(batch)
-    # loss = 2*torch.stack(losses).sum() - losses[0]
-
+    # mod = mod.to('cuda:0')
+    # rmod = rmod.to('cuda:0')
+    # bumod = rmod.model
+    # rmod.model = mod.model
+    # batch = mod.transfer_batch_to_device(next(iter(dm.test_dataloader())), mod.device, 0)
+    # targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
+    # new_masks = torch.cat(
+    #     (torch.ones_like(inputs_Mask), inputs_Mask, torch.zeros_like(inputs_Mask)),
+    #                       dim=1)
+    # obs = torch.cat(
+    #     (targets_OI, inputs_Mask * (inputs_obs - targets_OI), 0. * targets_OI,)
+    #     ,dim=1)
+    # mod.train(False)
+    # rmod.train(False)
+    # rmod.model.k_step_grad=1/15
     # self = rmod
-    # rlosses = []
-    # loss, out, metrics,diff_loss_4dvar_init = self.compute_loss(batch, phase='test')
-    # rlosses.append(loss)
-    # if self.hparams.k_n_grad > 1 :
-    #     loss_all = loss + self.hparams.alpha_4dvarloss_diff * diff_loss_4dvar_init
+    # self.hparams.n_grad          = 5
+    # self.hparams.k_n_grad        = 3
+    # self.hparams.iter_update     = [0, 200, 200, 320, 380, 400, 800]  # [0,2,4,6,9,15]
+    # self.hparams.nb_grad_update  = [0, 5, 10, 10, 15, 15, 20, 20, 20]  # [0,0,1,2,3,3]#[0,2,2,4,5,5]#
+    # self.hparams.lr_update       = [1e-3, 1e-4, 1e-5, 1e-5, 1e-4, 1e-5, 1e-5, 1e-6, 1e-7]
 
-    #     for kk in range(0,self.hparams.k_n_grad-1):
-    #         loss1, out, metrics,diff_loss_4dvar_init = self.compute_loss(batch, phase='train',batch_init=out[2],hidden=out[3],cell=out[4],normgrad=out[5])
+    # self.hparams.alpha_proj    = 0.5
+    # self.hparams.alpha_sr      = 0.5
+    # self.hparams.alpha_lr      = 5  # 1e4
+    # self.hparams.alpha_mse_ssh = 5.e1
+    # self.hparams.alpha_mse_gssh = 1.e3#1.e4#
+    # self.hparams.alpha_4dvarloss_diff = 1.
+    
+    # self.hparams.alpha_fft = 0.
+    # self.max_rate_fft = 1.5
+    # self.hparams.thr_snr_fft = 0.5
+    # self.hparams.ifft_max = 15
 
-    #         rlosses.append(loss1)
-    #         dloss = F.relu(loss1 - loss)
-    #         loss = 1. * loss1                 
-    #         loss_all = loss_all + loss1 +  dloss + self.hparams.alpha_4dvarloss_diff * diff_loss_4dvar_init
-    #         # loss_all = loss_all + loss1 + self.hparams.alpha_4dvarloss_diff * diff_loss_4dvar_init
+    # self.hparams.median_filter_width = 0
+    # self.hparams.dw_loss = 10
+    # rl, [rout, _, _, rh, rc, rng, _], rm,_ = rmod.compute_loss(batch, phase='test')
+    # # mod.hparams.alpha_mse_ssh=10
+    # l, out,  [ _, h, c, ng], m = mod.compute_loss(batch, phase='test')
+   
+    # import solver as s
+    # import solver_ronan as rs
+    # print(f'{torch.allclose(rng, ng)=}')
+    # atol=1e-2
+    # print(f'{torch.allclose(h, rh, atol=atol)=}')
+    # print(f'{torch.allclose(c, rc, atol=atol)=}')
+    # print(f'{torch.allclose(out, rout, atol=atol)=}')
+    # print(f'{torch.allclose(l, rl, atol=atol)=}')
+    # print((out-rout).abs().max())
+    # mod.hparams.norm_prior
+    # print(l, rl)
+    # print(m, rm)
+    # print()
 
-    #     rloss =  loss_all
+    # len(dm.train_ds)
+    # targets_OI, inputs_Mask, inputs_obs, targets_GT  = dm.train_ds[-1]
+    # import matplotlib.pyplot as plt
+    # plt.imshow(targets_OI[0])
+    # plt.imshow(inputs_Mask[0])
+    # plt.imshow(inputs_obs[0])
+    # plt.imshow(targets_GT[0] - inputs_obs[0])
+    # nobs = np.where(inputs_Mask, targets_GT, np.nan)
+    # plt.imshow(nobs[0]- targets_GT[0])
+    # # compute loss and metrics
 
-    # rg, rgx, rgy = rmod.gradient_img(out)
-    # rgt, rgtx, rgty = rmod.gradient_img(targets_GT)
-    # gx, gy = mod.gradient_img(out)
-    # gtx, gty = mod.gradient_img(targets_GT)
-    # rgx -gx
-    # # g = kornia.filters.sobel(targets_GT, normalized=True)
-    # # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(
-    # # kornia.filters.sobel(targets_GT, normalized=True), self.patch_weight)
-    # # torch.hypot(gx, gy)[:,:,1:-1,1:-1]/rg
-    # # g[:,:,1:-1,1:-1]/rg
-    # rgx.shape
-    # rmod.hparams.dw_loss
-    # mod.grad_crop(mod.patch_weight).shape
-    # s.compute_spatio_temp_weighted_loss(rgx - rgtx, mod.grad_crop(mod.patch_weight))
-    # rs.compute_WeightedLoss(gx -gtx, torch.tensor([0,0,0,1.,0,0,0]))
-    # s.compute_spatio_temp_weighted_loss(out, mod.patch_weight)
-    # rs.compute_WeightedLoss(out, torch.tensor([0,0,0,1.,0,0,0]))
+    # # losses,*_ = mod(batch)
+    # # loss = 2*torch.stack(losses).sum() - losses[0]
 
-    # x2, w = rgx, mod.grad_crop(mod.patch_weight)
-    # x2_w = (x2 * w[None, ...])
-    # non_zeros = (torch.ones_like(x2) * w[None, ...]) == 0.
-    # x2_num = ~x2_w.isnan() & ~x2_w.isinf() & ~non_zeros
-    # # if x2_num.sum() == 0:
-    # #     return torch.scalar_tensor(0., device=x2_num.device)
-    # loss = F.mse_loss(x2_w[x2_num], torch.zeros_like(x2_w[x2_num]))
+    # # self = rmod
+    # # rlosses = []
+    # # loss, out, metrics,diff_loss_4dvar_init = self.compute_loss(batch, phase='test')
+    # # rlosses.append(loss)
+    # # if self.hparams.k_n_grad > 1 :
+    # #     loss_all = loss + self.hparams.alpha_4dvarloss_diff * diff_loss_4dvar_init
 
-    # x2, w = rgx, torch.tensor([0,0,0,1.,0,0,0])
-    # x2_msk = x2[:, w==1, ...]
-    # x2_num = ~x2_msk.isnan() & ~x2_msk.isinf()
-    # loss2 = F.mse_loss(x2_msk[x2_num], torch.zeros_like(x2_msk[x2_num]))
-    # loss2 = loss2 *  w.sum()
-    # # 2*gx[:,:,1:-1,1:-1] / rgx
-    # # for (n1, p1), (n2,p2) in zip(mod.model.named_parameters(), rmod.model.named_parameters()):
-    # #     print(n1, n2, torch.allclose(p1, p2))
+    # #     for kk in range(0,self.hparams.k_n_grad-1):
+    # #         loss1, out, metrics,diff_loss_4dvar_init = self.compute_loss(batch, phase='train',batch_init=out[2],hidden=out[3],cell=out[4],normgrad=out[5])
+
+    # #         rlosses.append(loss1)
+    # #         dloss = F.relu(loss1 - loss)
+    # #         loss = 1. * loss1                 
+    # #         loss_all = loss_all + loss1 +  dloss + self.hparams.alpha_4dvarloss_diff * diff_loss_4dvar_init
+    # #         # loss_all = loss_all + loss1 + self.hparams.alpha_4dvarloss_diff * diff_loss_4dvar_init
+
+    # #     rloss =  loss_all
+
+    # # rg, rgx, rgy = rmod.gradient_img(out)
+    # # rgt, rgtx, rgty = rmod.gradient_img(targets_GT)
+    # # gx, gy = mod.gradient_img(out)
+    # # gtx, gty = mod.gradient_img(targets_GT)
+    # # rgx -gx
+    # # # g = kornia.filters.sobel(targets_GT, normalized=True)
+    # # # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(
+    # # # kornia.filters.sobel(targets_GT, normalized=True), self.patch_weight)
+    # # # torch.hypot(gx, gy)[:,:,1:-1,1:-1]/rg
+    # # # g[:,:,1:-1,1:-1]/rg
+    # # rgx.shape
+    # # rmod.hparams.dw_loss
+    # # mod.grad_crop(mod.patch_weight).shape
+    # # s.compute_spatio_temp_weighted_loss(rgx - rgtx, mod.grad_crop(mod.patch_weight))
+    # # rs.compute_WeightedLoss(gx -gtx, torch.tensor([0,0,0,1.,0,0,0]))
+    # # s.compute_spatio_temp_weighted_loss(out, mod.patch_weight)
+    # # rs.compute_WeightedLoss(out, torch.tensor([0,0,0,1.,0,0,0]))
+
+    # # x2, w = rgx, mod.grad_crop(mod.patch_weight)
+    # # x2_w = (x2 * w[None, ...])
+    # # non_zeros = (torch.ones_like(x2) * w[None, ...]) == 0.
+    # # x2_num = ~x2_w.isnan() & ~x2_w.isinf() & ~non_zeros
+    # # # if x2_num.sum() == 0:
+    # # #     return torch.scalar_tensor(0., device=x2_num.device)
+    # # loss = F.mse_loss(x2_w[x2_num], torch.zeros_like(x2_w[x2_num]))
+
+    # # x2, w = rgx, torch.tensor([0,0,0,1.,0,0,0])
+    # # x2_msk = x2[:, w==1, ...]
+    # # x2_num = ~x2_msk.isnan() & ~x2_msk.isinf()
+    # # loss2 = F.mse_loss(x2_msk[x2_num], torch.zeros_like(x2_msk[x2_num]))
+    # # loss2 = loss2 *  w.sum()
+    # # # 2*gx[:,:,1:-1,1:-1] / rgx
+    # # # for (n1, p1), (n2,p2) in zip(mod.model.named_parameters(), rmod.model.named_parameters()):
+    # # #     print(n1, n2, torch.allclose(p1, p2))
