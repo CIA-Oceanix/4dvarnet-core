@@ -247,7 +247,7 @@ class FourDVarNetDataset(Dataset):
             _gt_item = (self.gt_ds[item - length] - mean) / std
             _obs_mask_item = self.obs_mask_ds[self.perm[item - length]]
             obs_mask_item = ~np.isnan(_obs_mask_item)
-            _obs_item = (np.where(obs_mask_item, _gt_item, np.nan) - mean) / std
+            _obs_item = np.where(obs_mask_item, _gt_item, np.full_like(_gt_item,np.nan))
 
         _oi_item = (np.where(
             np.abs(_oi_item) < 10,

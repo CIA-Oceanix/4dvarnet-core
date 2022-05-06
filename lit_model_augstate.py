@@ -29,7 +29,7 @@ def get_4dvarnet(hparams):
                 Model_H(hparams.shape_state[0]),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
-                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad)
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
 
 def get_4dvarnet_sst(hparams):
@@ -288,7 +288,7 @@ class LitModelAugstate(pl.LightningModule):
 
         return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'oi'    : (targets_OI.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'inp_obs'    : (inputs_obs.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'inp_obs'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'preds' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def test_step(self, test_batch, batch_idx):
@@ -468,7 +468,6 @@ class LitModelAugstate(pl.LightningModule):
         self.test_figs['snr'] = snr_fig
 
         self.logger.experiment.add_figure(f'{log_pref} SNR', snr_fig, global_step=self.current_epoch)
-
         psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
         fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt, self.test_xr_ds.pred, self.test_xr_ds.oi, with_fig=True)
         self.test_figs['res'] = fig
@@ -747,12 +746,12 @@ if __name__ =='__main__':
     # runner = hydra_main.FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls)
     # runner.test('modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt')
 
-    # import data_ronan
-    # rmod = data_ronan.LitModel.load_from_checkpoint(
-    #         'modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt')
-    import lit_model_ronan
-    rmod = lit_model_ronan.LitModel.load_from_checkpoint(
+    import data_ronan
+    rmod = data_ronan.LitModel.load_from_checkpoint(
             'modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt')
+    # import lit_model_ronan
+    # rmod = lit_model_ronan.LitModel.load_from_checkpoint(
+    #         'modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt')
 
     mod = mod.to('cuda:0')
     rmod = rmod.to('cuda:0')
@@ -769,48 +768,76 @@ if __name__ =='__main__':
     mod.train(False)
     rmod.train(False)
     rmod.model.k_step_grad=1/15
-    # mod.hparams.alpha_mse_gssh = 1000.
-    # rl, [rout, _, _, rh, rc, rng, _], rm,_ = rmod.compute_loss(batch, phase='test')
-    # # mod.hparams.alpha_mse_ssh=10
-    # # mod.hparams.loss_r=10
-    # l, out,  [ _, h, c, ng], m = mod.compute_loss(batch, phase='test')
-   
-    # import solver as s
-    # import solver_ronan as rs
-    # print(f'{torch.allclose(rng, ng)=}')
-    # atol=1e-2
-    # print(f'{torch.allclose(h, rh, atol=atol)=}')
-    # print(f'{torch.allclose(c, rc, atol=atol)=}')
-    # print(f'{torch.allclose(out, rout, atol=atol)=}')
-    # print(f'{torch.allclose(l, rl, atol=atol)=}')
-    # print((out-rout).abs().max())
-    # mod.hparams.norm_prior
-    # print(l, rl)
-    # print(m, rm)
-    # print()
+    self = rmod
+    self.hparams.n_grad          = 5
+    self.hparams.k_n_grad        = 3
+    self.hparams.iter_update     = [0, 200, 200, 320, 380, 400, 800]  # [0,2,4,6,9,15]
+    self.hparams.nb_grad_update  = [0, 5, 10, 10, 15, 15, 20, 20, 20]  # [0,0,1,2,3,3]#[0,2,2,4,5,5]#
+    self.hparams.lr_update       = [1e-3, 1e-4, 1e-5, 1e-5, 1e-4, 1e-5, 1e-5, 1e-6, 1e-7]
 
+    self.hparams.alpha_proj    = 0.5
+    self.hparams.alpha_sr      = 0.5
+    self.hparams.alpha_lr      = 5  # 1e4
+    self.hparams.alpha_mse_ssh = 5.e1
+    self.hparams.alpha_mse_gssh = 1.e3#1.e4#
+    self.hparams.alpha_4dvarloss_diff = 1.
+    
+    self.hparams.alpha_fft = 0.
+    self.max_rate_fft = 1.5
+    self.hparams.thr_snr_fft = 0.5
+    self.hparams.ifft_max = 15
+
+    self.hparams.median_filter_width = 0
+    self.hparams.dw_loss = 10
+    rl, [rout, _, _, rh, rc, rng, _], rm,_ = rmod.compute_loss(batch, phase='test')
+    # mod.hparams.alpha_mse_ssh=10
+    l, out,  [ _, h, c, ng], m = mod.compute_loss(batch, phase='test')
+   
+    import solver as s
+    import solver_ronan as rs
+    print(f'{torch.allclose(rng, ng)=}')
+    atol=1e-2
+    print(f'{torch.allclose(h, rh, atol=atol)=}')
+    print(f'{torch.allclose(c, rc, atol=atol)=}')
+    print(f'{torch.allclose(out, rout, atol=atol)=}')
+    print(f'{torch.allclose(l, rl, atol=atol)=}')
+    print((out-rout).abs().max())
+    mod.hparams.norm_prior
+    print(l, rl)
+    print(m, rm)
+    print()
+
+    len(dm.train_ds)
+    targets_OI, inputs_Mask, inputs_obs, targets_GT  = dm.train_ds[-1]
+    import matplotlib.pyplot as plt
+    plt.imshow(targets_OI[0])
+    plt.imshow(inputs_Mask[0])
+    plt.imshow(inputs_obs[0])
+    plt.imshow(targets_GT[0] - inputs_obs[0])
+    nobs = np.where(inputs_Mask, targets_GT, np.nan)
+    plt.imshow(nobs[0]- targets_GT[0])
     # compute loss and metrics
 
-    losses,*_ = mod(batch)
-    loss = 2*torch.stack(losses).sum() - losses[0]
+    # losses,*_ = mod(batch)
+    # loss = 2*torch.stack(losses).sum() - losses[0]
 
-    self = rmod
-    rlosses = []
-    loss, out, metrics,diff_loss_4dvar_init = self.compute_loss(batch, phase='test')
-    rlosses.append(loss)
-    if self.hparams.k_n_grad > 1 :
-        loss_all = loss + self.hparams.alpha_4dvarloss_diff * diff_loss_4dvar_init
+    # self = rmod
+    # rlosses = []
+    # loss, out, metrics,diff_loss_4dvar_init = self.compute_loss(batch, phase='test')
+    # rlosses.append(loss)
+    # if self.hparams.k_n_grad > 1 :
+    #     loss_all = loss + self.hparams.alpha_4dvarloss_diff * diff_loss_4dvar_init
 
-        for kk in range(0,self.hparams.k_n_grad-1):
-            loss1, out, metrics,diff_loss_4dvar_init = self.compute_loss(batch, phase='train',batch_init=out[2],hidden=out[3],cell=out[4],normgrad=out[5])
+    #     for kk in range(0,self.hparams.k_n_grad-1):
+    #         loss1, out, metrics,diff_loss_4dvar_init = self.compute_loss(batch, phase='train',batch_init=out[2],hidden=out[3],cell=out[4],normgrad=out[5])
 
-            rlosses.append(loss1)
-            dloss = F.relu(loss1 - loss)
-            loss = 1. * loss1                 
-            loss_all = loss_all + loss1 +  dloss + self.hparams.alpha_4dvarloss_diff * diff_loss_4dvar_init
-            # loss_all = loss_all + loss1 + self.hparams.alpha_4dvarloss_diff * diff_loss_4dvar_init
+    #         rlosses.append(loss1)
+    #         dloss = F.relu(loss1 - loss)
+    #         loss = 1. * loss1                 
+    #         loss_all = loss_all + loss1 +  dloss + self.hparams.alpha_4dvarloss_diff * diff_loss_4dvar_init
+    #         # loss_all = loss_all + loss1 + self.hparams.alpha_4dvarloss_diff * diff_loss_4dvar_init
 
-        rloss =  loss_all
+    #     rloss =  loss_all
 
     # rg, rgx, rgy = rmod.gradient_img(out)
     # rgt, rgtx, rgty = rmod.gradient_img(targets_GT)

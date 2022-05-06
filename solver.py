@@ -390,17 +390,11 @@ class Solver_Grad_4DVarNN(nn.Module):
         with torch.no_grad():
             self.n_grad = int(n_iter_grad)
 
-    def forward(self, x, yobs, mask):
-        return self.solve(
-            x_0=x,
-            obs=yobs,
-            mask = mask)
+    def forward(self, x, yobs, mask, *internal_state):
+        return self.solve(x, yobs, mask, *internal_state)
 
-    def solve(self, x_0, obs, mask):
+    def solve(self, x_0, obs, mask, hidden=None, cell=None, normgrad_=0.):
         x_k = torch.mul(x_0,1.)
-        hidden = None
-        cell = None
-        normgrad_ = 0.
         x_k_plus_1 = None
         for _ in range(self.n_grad):
             x_k_plus_1, hidden, cell, normgrad_ = self.solver_step(x_k, obs, mask,hidden, cell, normgrad_)

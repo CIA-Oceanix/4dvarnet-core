@@ -2,6 +2,7 @@
 
 xp_name: xp_augstate
 params:
+  dT: 7
   patch_weight:
     crop:
       time: 3
@@ -14,7 +15,6 @@ params:
   alpha_mse_gssh: 1000.
   norm_obs: l2
   norm_prior: l2
-  dT: 7
 datamodule:
   aug_train_data: True
 

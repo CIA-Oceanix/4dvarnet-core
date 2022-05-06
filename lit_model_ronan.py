@@ -929,12 +929,32 @@ if __name__ == '__main__':
         # mod = LitModel.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1607938/checkpoints/modelCalSLAInterpGF-epoch=84-val_loss=1.5017.ckpt') 
         # mod = LitModel.load_from_checkpoint(' ./SLANATL60new3_ChckPt-boost-swot/modelSLA-L2-GF-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=141-val_loss=1.60.ckpt') 
         import lit_model_augstate
-        cfg = get_cfg("xp_aug/xp_repro/quentin_repro")
-        # cfg = get_cfg("xp_aug/xp_repro/quentin_repro_w_hugo_lit_240")
+        # cfg = get_cfg("xp_aug/xp_repro/quentin_repro")
         # mod = lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1607929/checkpoints/modelCalSLAInterpGF-epoch=94-val_loss=0.1822.ckpt') 
         # mod = lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1610506/checkpoints/modelCalSLAInterpGF-epoch=48-val_loss=0.0650.ckpt') 
         # mod = lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1612378/checkpoints/modelCalSLAInterpGF-epoch=87-val_loss=1.7760.ckpt') 
-        mod = lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1611944/checkpoints/modelCalSLAInterpGF-epoch=67-val_loss=3.3118.ckpt') 
+        # mod = lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1611944/checkpoints/modelCalSLAInterpGF-epoch=67-val_loss=3.3118.ckpt') 
+        # mod = lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1616962/checkpoints/modelCalSLAInterpGF-epoch=31-val_loss=1.9009.ckpt') 
+        # mod = lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1616961/checkpoints/modelCalSLAInterpGF-epoch=18-val_loss=2.5763.ckpt') 
+        # mod = lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1617415/checkpoints/modelCalSLAInterpGF-epoch=53-val_loss=2.0276.ckpt') 
+        # mod = lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1618427/checkpoints/modelCalSLAInterpGF-epoch=85-val_loss=1.6763.ckpt') 
+        # mod = lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1618433/checkpoints/modelCalSLAInterpGF-epoch=62-val_loss=1.5931.ckpt') 
+
+        # mod = lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1618427/checkpoints/modelCalSLAInterpGF-epoch=83-val_loss=1.7332.ckpt')
+        # mod = lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1618427/checkpoints/modelCalSLAInterpGF-epoch=85-val_loss=1.6763.ckpt')
+        # mod = lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1618427/checkpoints/modelCalSLAInterpGF-epoch=93-val_loss=1.7306.ckpt')
+
+        # mod =    lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1623331/checkpoints/modelCalSLAInterpGF-epoch=57-val_loss=1.4680.ckpt')
+
+        # cfg = get_cfg("xp_aug/xp_repro/quentin_repro_w_hugo_lit_240")
+        # mod =    lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1623331/checkpoints/modelCalSLAInterpGF-epoch=58-val_loss=1.4424.ckpt')
+
+        # mod =    lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1623331/checkpoints/modelCalSLAInterpGF-epoch=74-val_loss=1.4471.ckpt')
+
+        cfg = get_cfg("xp_aug/xp_repro/dT5_240")
+        mod =    lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1622798/checkpoints/modelCalSLAInterpGF-epoch=54-val_loss=1.5282.ckpt')
+        # mod =    lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1622798/checkpoints/modelCalSLAInterpGF-epoch=67-val_loss=1.5100.ckpt')
+        # mod =    lit_model_augstate.LitModelAugstate.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1622798/checkpoints/modelCalSLAInterpGF-epoch=71-val_loss=1.4877.ckpt')
 
         # mod = LitModel.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1587713/checkpoints/modelCalSLAInterpGF-epoch=09-val_loss=2.7128.ckpt') 
         # mod = LitModel.load_from_checkpoint('dashboard/xp_augstate/lightning_logs/version_1587713/checkpoints/modelCalSLAInterpGF-epoch=49-val_loss=2.4647.ckpt') 
@@ -1046,6 +1066,15 @@ if __name__ == '__main__':
                 vds[['oi']].assign(sossheig= vds.oi), 
                 vds[['ssh']].assign(sossheig= vds.ssh), 
         )
+        vrms = rmse_based_scores(
+                vds[['pred']].assign(sossheig= vds.pred), 
+                vds[['ssh']].assign(sossheig= vds.ssh), 
+        )
+         
+        vrms_oi = rmse_based_scores(
+                vds[['oi']].assign(sossheig= vds.oi), 
+                vds[['ssh']].assign(sossheig= vds.ssh), 
+        )
         print(vpsd_bs[1], vpsd_bs[2])
         print(vpsd_bs_oi[1], vpsd_bs_oi[2])
 
@@ -1083,8 +1112,15 @@ if __name__ == '__main__':
                 tds[['oi']].assign(sossheig= tds.oi), 
                 tds[['ssh']].assign(sossheig= tds.ssh), 
         )
-            
+        trms = rmse_based_scores(
+                tds[['pred']].assign(sossheig= tds.pred), 
+                tds[['ssh']].assign(sossheig= tds.ssh), 
+        )
          
+        trms_oi = rmse_based_scores(
+                tds[['oi']].assign(sossheig= tds.oi), 
+                tds[['ssh']].assign(sossheig= tds.ssh), 
+        )
         print(tpsd_bs[1], tpsd_bs[2])
         print(tpsd_bs_oi[1], tpsd_bs_oi[2])
         print(' ')
@@ -1093,7 +1129,25 @@ if __name__ == '__main__':
         print('....... MSE Val dataset (SSH) : OI = %.3e -- 4DVarNN = %.3e / %.2f %%'%(val_mseOI['mse'],val_mseRec['mse'],100. * (1.-val_mseRec['mse']/val_mseOI['mse'])))
         print('....... MSE Val dataset (gSSH): OI = %.3e -- 4DVarNN = %.3e / %.2f / %.2f %%'%(val_mseOI['mseGrad'],val_mseRec['mseGrad'],100. * (1.-val_mseRec['mseGrad']/val_mseOI['meanGrad']),100. * (1.-val_mseRec['mseGrad']/val_mseOI['mseGrad'])))
         print(' ')
+        print('.... Boost swot RMSE scores ......')
+        print('.... OI mse scores       : mu = %f  --  sigma = %f '%(vrms_oi[2],vrms_oi[3]) )
+        print('.... 4DVarNet mse scores : mu = %f  --  sigma = %f '%(vrms[2],vrms[3]) )
+        print(' ')
+        print('.... Boost swot PSD scores ......')
+        print('.... OI mse scores       : lambda_x = %f  --  lambda_t = %f '%(vpsd_bs_oi[1],vpsd_bs_oi[2]) )
+        print('.... 4DVarNet mse scores : lambda_x = %f  --  lambda_t = %f '%(vpsd_bs[1],vpsd_bs[2]) )
+        print(' ')
+        print('....................................')
         print('....... Test dataset')
         print('....... MSE Test dataset (SSH) : OI = %.3e -- 4DVarNN = %.3e / %.2f %%'%(test_mseOI['mse'],test_mseRec['mse'],100. * (1.-test_mseRec['mse']/test_mseOI['mse'])))
         print('....... MSE Test dataset (gSSH): OI = %.3e -- 4DVarNN = %.3e / %.2f / %.2f %%'%(test_mseOI['mseGrad'],test_mseRec['mseGrad'],100. * (1.-test_mseRec['mseGrad']/test_mseOI['meanGrad']),100. * (1.-test_mseRec['mseGrad']/test_mseOI['mseGrad'])))
     
+        print(' ')
+        print('.... Boost swot RMSE scores ......')
+        print('.... OI mse scores       : mu = %f  --  sigma = %f '%(trms_oi[2],trms_oi[3]) )
+        print('.... 4DVarNet mse scores : mu = %f  --  sigma = %f '%(trms[2],trms[3]) )
+
+        print(' ')
+        print('.... Boost swot PSD scores ......')
+        print('.... OI mse scores       : lambda_x = %f  --  lambda_t = %f '%(tpsd_bs_oi[1],tpsd_bs_oi[2]) )
+        print('.... 4DVarNet mse scores : lambda_x = %f  --  lambda_t = %f '%(tpsd_bs[1],tpsd_bs[2]) )
