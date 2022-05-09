@@ -1,7 +1,6 @@
 # @package _global_
 
-xp_name: xp_cycle_lr
-lit_mod_cls: lit_model_augstate.LitModelCycleLR
+xp_name: xp_interp_dt7_240_h_amp
 params:
   dT: 7
   patch_weight:
@@ -16,17 +15,15 @@ params:
   alpha_mse_gssh: 1000.
   norm_obs: l2
   norm_prior: l2
-  automatic_optimization: true
-  cycle_lr_kwargs:
-    base_lr: 0.0005
-    max_lr: 0.002
-    step_size_up: 10
-    step_size_down: 10
-    cycle_momentum: False
-    mode: triangular2
 datamodule:
   aug_train_data: True
+  dl_kwargs:
+    batch_size: 5
 
+entrypoint:
+  precision: 16
+  max_epochs: 300
+  
 defaults:
   - /xp/xp_aug/base_xp
   - /splits/dc_boost_swot@datamodule

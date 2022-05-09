@@ -30,6 +30,16 @@ def parse_resolution_to_float(frac):
     if n is None: i, n = 0, i
     return float(i) + float(n) / float(d)
 
+
+def interpolate_na_2D(da, max_value=10.):
+    return (
+            da.where(np.abs(da) < max_value, np.nan)
+            .pipe(lambda da: da)
+            .to_dataframe()
+            .interpolate()
+            .pipe(xr.Dataset.from_dataframe)
+    )
+
 class XrDataset(Dataset):
     """
     torch Dataset based on an xarray file with on the fly slicing.
@@ -45,7 +55,8 @@ class XrDataset(Dataset):
         strides=None,
         decode=False,
         resize_factor=1,
-        compute=False
+        compute=False,
+        interp_na=False,
     ):
         """
         :param path: xarray file
@@ -61,6 +72,7 @@ class XrDataset(Dataset):
         self.return_coords = False
         self.var = var
         self.resolution = resolution
+        self.interp_na = interp_na
         # try/except block for handling both netcdf and zarr files
         try:
             _ds = xr.open_dataset(path, cache=False)
@@ -84,6 +96,9 @@ class XrDataset(Dataset):
         # reshape
         # dimensions
         self.ds = _ds.sel(**(dim_range or {}))
+        if self.interp_na:
+            self.ds = interpolate_na_2D(self.ds)
+
         self.slice_win = slice_win
         self.strides = strides or {}
         self.ds_size = {
@@ -166,7 +181,8 @@ class FourDVarNetDataset(Dataset):
             strides=strides,
             decode=oi_decode,
             resize_factor=resize_factor,
-            compute=compute
+            compute=compute,
+            interp_na=True,
         )
         self.gt_ds = XrDataset(
             gt_path, gt_var,
@@ -201,7 +217,8 @@ class FourDVarNetDataset(Dataset):
                 strides=strides,
                 decode=sst_decode,
                 resize_factor=resize_factor,
-                compute=compute
+                compute=compute,
+                interp_na=True,
             )
         else:
             self.sst_ds = None
@@ -268,7 +285,7 @@ class FourDVarNetDataset(Dataset):
             return oi_item, obs_mask_item, obs_item, gt_item
         else:
             mean, std = self.norm_stats_sst
-            _sst_item = (self.sst_ds[item] - mean) / std
+            _sst_item = (self.sst_ds[item % length] - mean) / std
             sst_item = np.where(~np.isnan(_sst_item), _sst_item, 0.)
 
             return oi_item, obs_mask_item, obs_item, gt_item, sst_item
@@ -488,3 +505,18 @@ if __name__ == '__main__':
     trainer = pl.Trainer(gpus=1)
     # dm.setup()
     trainer.fit(lit_mod, datamodule=dm)
+
+    oi_ds = dm.val_ds.datasets[0].oi_ds
+
+    oi_ds.ds.ssh_mod.isel(time=0).plot()
+
+    interpolate_na_2D(oi_ds.ds).ssh_mod.isel(time=0).plot()
+
+
+    obs_ds = dm.val_ds.datasets[0].obs_mask_ds
+
+    obs_ds.ds.ssh_mod.isel(time=0).plot()
+
+    interpolate_na_2D(obs_ds.ds).ssh_mod.isel(time=0).plot()
+
+

@@ -140,14 +140,14 @@ class Model_H(torch.nn.Module):
         return dyout
 
 class Model_HwithSST(torch.nn.Module):
-    def __init__(self, shape_data, dim=5):
+    def __init__(self, shape_data, dT=5, dim=5):
         super(Model_HwithSST, self).__init__()
 
         self.dim_obs = 2
         self.dim_obs_channel = np.array([shape_data, dim])
         self.conv11 = torch.nn.Conv2d(shape_data, self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
-        self.conv21 = torch.nn.Conv2d(int(shape_data / 2), self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
-        self.conv_m = torch.nn.Conv2d(int(shape_data / 2), self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
+        self.conv21 = torch.nn.Conv2d(dT, self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
+        self.conv_m = torch.nn.Conv2d(dT, self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
         self.sigmoid = torch.nn.Sigmoid()  # torch.nn.Softmax(dim=1)
 
     def forward(self, x, y, mask):

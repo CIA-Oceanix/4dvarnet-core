@@ -353,7 +353,7 @@ class LitModel(pl.LightningModule):
         # hyperparameters
         self.hparams.iter_update     = [0, 20, 50, 70, 100, 150, 800]  # [0,2,4,6,9,15]
         self.hparams.nb_grad_update  = [5, 5, 10, 10, 15, 15, 20, 20, 20]  # [0,0,1,2,3,3]#[0,2,2,4,5,5]#
-        self.hparams.lr_update       = [1e-4, 1e-4, 1e-4, 1e-5, 1e-4, 1e-5, 1e-5, 1e-6, 1e-7]
+        self.hparams.lr_update       = [1e-3, 1e-4, 1e-4, 1e-5, 1e-4, 1e-5, 1e-5, 1e-6, 1e-7]
         self.hparams.k_batch         = 1
         
         self.hparams.n_grad          = self.hparams.nb_grad_update[0]

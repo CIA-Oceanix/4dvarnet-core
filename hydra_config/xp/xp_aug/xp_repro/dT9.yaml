@@ -1,12 +1,11 @@
 # @package _global_
 
-xp_name: xp_cycle_lr
-lit_mod_cls: lit_model_augstate.LitModelCycleLR
+xp_name: xp_interp_dt9_240_h
 params:
-  dT: 7
+  dT: 9
   patch_weight:
     crop:
-      time: 3
+      time: 4
   model: 4dvarnet
   k_n_grad: 3
   n_grad: 5
@@ -16,14 +15,6 @@ params:
   alpha_mse_gssh: 1000.
   norm_obs: l2
   norm_prior: l2
-  automatic_optimization: true
-  cycle_lr_kwargs:
-    base_lr: 0.0005
-    max_lr: 0.002
-    step_size_up: 10
-    step_size_down: 10
-    cycle_momentum: False
-    mode: triangular2
 datamodule:
   aug_train_data: True
 
