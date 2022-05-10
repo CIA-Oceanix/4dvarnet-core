@@ -15,7 +15,7 @@ Discussed in this [HackMd file](https://hackmd.io/@maxbeauchamp/ryVfI3rdu)
 
 - Install environment
 ```
-conda create -n 4dvarnet mamba -c conda-forge
+conda create -n 4dvarnet mamba pytorch=1.11 torchvision cudatoolkit=11.3 -c conda-forge -c pytorch
 conda activate 4dvarnet
 mamba env update -f environment.yaml
 ```
