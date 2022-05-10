@@ -6,7 +6,6 @@ from torch.utils.data import Dataset, ConcatDataset, DataLoader
 import pandas as pd
 import contextlib
 
-
 def parse_resolution_to_float(frac):
     """ Matches a string consting of an integer followed by either a divisor
     ("/" and an integer) or some spaces and a simple fraction (two integers
@@ -40,6 +39,14 @@ def find_pad(sl, st, N):
     else:
         pad = 0
     return int(pad/2), int(pad-int(pad/2))
+def interpolate_na_2D(da, max_value=10.):
+    return (
+            da.where(np.abs(da) < max_value, np.nan)
+            .pipe(lambda da: da)
+            .to_dataframe()
+            .interpolate()
+            .pipe(xr.Dataset.from_dataframe)
+    )
 
 class XrDataset(Dataset):
     """
@@ -57,12 +64,13 @@ class XrDataset(Dataset):
         resize_factor=1,
         compute=False,
         auto_padding=True,
+        interp_na=False,
     ):
         """
         :param path: xarray file
         :param var: data variable to fetch
         :param slice_win: window size for each dimension {<dim>: <win_size>...}
-        :param resolution: input spatial resolution 
+        :param resolution: input spatial resolution
         :param dim_range: Optional dimensions bounds for each dimension {<dim>: slice(<min>, <max>)...}
         :param strides: strides on each dim while scanning the dataset {<dim>: <dim_stride>...}
         :param decode: Whether to decode the time dim xarray (useful for gt dataset)
@@ -73,6 +81,7 @@ class XrDataset(Dataset):
         self.var = var
         self.resolution = resolution
         self.auto_padding = auto_padding
+        self.interp_na = interp_na
         # try/except block for handling both netcdf and zarr files
         try:
             _ds = xr.open_dataset(path, cache=False)
@@ -144,20 +153,16 @@ class XrDataset(Dataset):
             self.lon = np.arange(dim_range_['lon'].start, dim_range_['lon'].stop, self.resolution)
             self.lat = np.arange(dim_range_['lat'].start, dim_range_['lat'].stop, self.resolution)
 
+        if self.interp_na:
+            self.ds = interpolate_na_2D(self.ds)
+        self.ds = self.ds.transpose("time", "lat", "lon")
+
         self.slice_win = slice_win
         self.strides = strides or {}
         self.ds_size = {
-            dim: max((self.ds.dims[dim] - slice_win[dim]) // self.strides.get(dim, 1) + 1, 0)
-            for dim in slice_win
+                dim: max((self.ds.dims[dim] - slice_win[dim]) // self.strides.get(dim, 1) + 1, 0)
+                for dim in slice_win
         }
-
-        # reorder dimensions, this ensures dims ordering using
-        # DataArray.data is consistent in numpy arrays (batch,time,lat,lon)
-        self.ds = self.ds.transpose('time', 'lat', 'lon')
-
-        # convert dask arrays to xr.DataArrays for faster computations
-        if compute:
-            self.ds = self.ds.compute()
 
     def __del__(self):
         self.ds.close()
@@ -171,7 +176,7 @@ class XrDataset(Dataset):
     def __iter__(self):
         for i in range(len(self)):
             yield self[i]
-        
+
     @contextlib.contextmanager
     def get_coords(self):
         try:
@@ -218,12 +223,14 @@ class FourDVarNetDataset(Dataset):
         sst_decode=True,
         resolution=1/20,
         resize_factor=1,
+        use_auto_padding=True,
+        aug_train_data=False,
         compute=False,
-        use_auto_padding=True
     ):
         super().__init__()
-
         self.use_auto_padding=use_auto_padding
+
+        self.aug_train_data = aug_train_data
         self.return_coords = False
 
         self.oi_ds = XrDataset(
@@ -236,6 +243,7 @@ class FourDVarNetDataset(Dataset):
             resize_factor=resize_factor,
             compute=compute,
             auto_padding=use_auto_padding,
+            interp_na=True,
         )
         self.gt_ds = XrDataset(
             gt_path, gt_var,
@@ -247,6 +255,7 @@ class FourDVarNetDataset(Dataset):
             resize_factor=resize_factor,
             compute=compute,
             auto_padding=use_auto_padding,
+            interp_na=True,
         )
         self.obs_mask_ds = XrDataset(
             obs_mask_path, obs_mask_var,
@@ -260,6 +269,9 @@ class FourDVarNetDataset(Dataset):
             auto_padding=use_auto_padding,
         )
 
+        if self.aug_train_data:
+            self.perm = np.random.permutation(len(self.obs_mask_ds))
+
         if sst_var is not None:
             self.sst_ds = XrDataset(
                 sst_path, sst_var,
@@ -271,6 +283,7 @@ class FourDVarNetDataset(Dataset):
                 resize_factor=resize_factor,
                 compute=compute,
                 auto_padding=use_auto_padding,
+                interp_na=True,
             )
         else:
             self.sst_ds = None
@@ -283,7 +296,10 @@ class FourDVarNetDataset(Dataset):
         self.norm_stats_sst = stats_sst
 
     def __len__(self):
-        return min(len(self.oi_ds), len(self.gt_ds), len(self.obs_mask_ds))
+        length = min(len(self.oi_ds), len(self.gt_ds), len(self.obs_mask_ds))
+        if self.aug_train_data:
+            return 2 * length
+        return length
 
     def coordXY(self):
         # return self.gt_ds.lon, self.gt_ds.lat
@@ -303,7 +319,18 @@ class FourDVarNetDataset(Dataset):
                 return self.gt_ds[item]
 
         mean, std = self.norm_stats
-        _oi_item = self.oi_ds[item]
+        length = len(self.obs_mask_ds)
+        if item < length:
+            _oi_item = self.oi_ds[item]
+            _obs_item = (self.obs_mask_ds[item] - mean) / std
+            _gt_item = (self.gt_ds[item] - mean) / std
+        else:
+            _oi_item = self.oi_ds[item - length]
+            _gt_item = (self.gt_ds[item - length] - mean) / std
+            _obs_mask_item = self.obs_mask_ds[self.perm[item - length]]
+            obs_mask_item = ~np.isnan(_obs_mask_item)
+            _obs_item = np.where(obs_mask_item, _gt_item, np.full_like(_gt_item,np.nan))
+
         _oi_item = (np.where(
             np.abs(_oi_item) < 10,
             _oi_item,
@@ -311,20 +338,19 @@ class FourDVarNetDataset(Dataset):
         ) - mean) / std
 
         # glorys model has NaNs on land
-        gt_item = (self.gt_ds[item] - mean) / std
+        gt_item = _gt_item
 
         oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
         # obs_mask_item = self.obs_mask_ds[item].astype(bool) & ~np.isnan(oi_item) & ~np.isnan(_gt_item)
 
-        _obs_item = (self.obs_mask_ds[item] - mean) / std
-        obs_mask_item = np.isfinite(_obs_item)
-        obs_item = np.where(obs_mask_item, _obs_item, np.zeros_like(_obs_item))
+        obs_mask_item = ~np.isnan(_obs_item)
+        obs_item = np.where(~np.isnan(_obs_item), _obs_item, np.zeros_like(_obs_item))
 
         if self.sst_ds == None:
             return oi_item, obs_mask_item, obs_item, gt_item
         else:
             mean, std = self.norm_stats_sst
-            _sst_item = (self.sst_ds[item] - mean) / std
+            _sst_item = (self.sst_ds[item % length] - mean) / std
             sst_item = np.where(~np.isnan(_sst_item), _sst_item, 0.)
 
             return oi_item, obs_mask_item, obs_item, gt_item, sst_item
@@ -351,6 +377,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             sst_var=None,
             sst_decode=True,
             resize_factor=1,
+            aug_train_data=False,
             resolution="1/20",
             dl_kwargs=None,
             compute=False,
@@ -358,6 +385,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
     ):
         super().__init__()
         self.resize_factor = resize_factor
+        self.aug_train_data = aug_train_data
         self.dim_range = dim_range
         self.slice_win = slice_win
         self.strides = strides
@@ -385,7 +413,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
 
         self.train_slices, self.test_slices, self.val_slices = train_slices, test_slices, val_slices
         self.train_ds, self.val_ds, self.test_ds = None, None, None
-        self.norm_stats = None
+        self.norm_stats = (0, 1)
         self.norm_stats_sst = None
 
     def compute_norm_stats(self, ds):
@@ -427,7 +455,31 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         return self.test_ds.datasets[0].gt_ds.ds_size
 
     def setup(self, stage=None):
-        self.train_ds, self.val_ds, self.test_ds = [
+        self.train_ds = ConcatDataset(
+            [FourDVarNetDataset(
+                dim_range={**self.dim_range, **{'time': sl}},
+                strides=self.strides,
+                slice_win=self.slice_win,
+                oi_path=self.oi_path,
+                oi_var=self.oi_var,
+                oi_decode=self.oi_decode,
+                obs_mask_path=self.obs_mask_path,
+                obs_mask_var=self.obs_mask_var,
+                obs_mask_decode=self.obs_mask_decode,
+                gt_path=self.gt_path,
+                gt_var=self.gt_var,
+                gt_decode=self.gt_decode,
+                sst_path=self.sst_path,
+                sst_var=self.sst_var,
+                sst_decode=self.sst_decode,
+                resolution=self.resolution,
+                resize_factor=self.resize_factor,
+                aug_train_data=self.aug_train_data,
+                compute=self.compute
+            ) for sl in self.train_slices])
+
+
+        self.val_ds, self.test_ds = [
             ConcatDataset(
                 [FourDVarNetDataset(
                     dim_range={**self.dim_range, **{'time': sl}},
@@ -451,10 +503,10 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     use_auto_padding=self.use_auto_padding,
                 ) for sl in slices]
             )
-            for slices in (self.train_slices, self.val_slices, self.test_slices)
+            for slices in (self.val_slices, self.test_slices)
         ]
 
-        if self.sst_var == None:
+        if self.sst_var is None:
             self.norm_stats = self.compute_norm_stats(self.train_ds)
             self.set_norm_stats(self.train_ds, self.norm_stats)
             self.set_norm_stats(self.val_ds, self.norm_stats)
@@ -521,3 +573,18 @@ if __name__ == '__main__':
     trainer = pl.Trainer(gpus=1)
     # dm.setup()
     trainer.fit(lit_mod, datamodule=dm)
+
+    oi_ds = dm.val_ds.datasets[0].oi_ds
+
+    oi_ds.ds.ssh_mod.isel(time=0).plot()
+
+    interpolate_na_2D(oi_ds.ds).ssh_mod.isel(time=0).plot()
+
+
+    obs_ds = dm.val_ds.datasets[0].obs_mask_ds
+
+    obs_ds.ds.ssh_mod.isel(time=0).plot()
+
+    interpolate_na_2D(obs_ds.ds).ssh_mod.isel(time=0).plot()
+
+

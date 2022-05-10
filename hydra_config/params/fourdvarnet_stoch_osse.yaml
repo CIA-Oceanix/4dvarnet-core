@@ -11,8 +11,8 @@ files_cfg:
   sst_var: null
 iter_update:
   - 0
-  - 20
-  - 40
+  - 2
+  - 4
   - 60
   - 100
   - 150
@@ -30,7 +30,7 @@ nb_grad_update:
 lr_update:
   - 0.001
   - 0.0001
-  - 0.001
+  - 0.0001
   - 0.0001
   - 0.0001
   - 1.0e-05 
@@ -53,7 +53,7 @@ sS: 4
 nbBlocks: 1 
 Nbpatches: 1
 stochastic: true
-size_ensemble: 1
+size_ensemble: 5
 animate: false 
 supervised: true
 batch_size: 2

@@ -1,0 +1,72 @@
+# @package _global_
+
+xp_name: ???
+params:
+  files_cfg:
+    oi_path: ${file_paths.oi_swot_4nadir}
+    oi_var: ssh_mod
+    obs_mask_path: ${file_paths.pseudo_obs}
+    obs_mask_var: ssh_mod
+    gt_path: ${file_paths.natl_ssh_daily}
+    gt_var: ssh
+  iter_update: ??? # train_strat
+  nb_grad_update: ???
+  lr_update: ???
+  n_fourdvar_iter: ???
+  weight_decay: ???
+  model: ??? # sst
+  sst: ??? 
+  val_diag_freq: 5 
+  n_grad: 5
+  dT: 5
+  aug_state: ??? #aug
+  shape_data: ???
+  shape_state: ??? 
+  dW: 3
+  dW2: 1
+  sS: 4
+  stochastic: false
+  animate: false
+  UsePriodicBoundary: false
+  nbBlocks: 1
+  DimAE: 50
+  dim_grad_solver: 150
+  dropout: 0.25
+  dropout_phi_r: 0.0
+  alpha_mse_ssh: ??? # loss
+  alpha_mse_gssh: ???
+  alpha_proj: 0.5
+  alpha_sr: 0.5
+  alpha_lr: 0.5
+  automatic_optimization: true
+  ckpt_name: 'modelCalSLAInterpGF-{epoch:02d}-{val_loss:.4f}'
+  norm_obs: 'l1'
+  norm_prior: 'l1'
+  patch_weight: ??? # dl
+  median_filter_width: 1
+lit_mod_cls: lit_model_augstate.LitModelAugstate
+datamodule:
+  _target_: dataloading.FourDVarNetDataModule
+  slice_win: ??? # dl
+  strides: ???
+  train_slices: ??? # splits
+  test_slices: ???
+  val_slices: ???
+  oi_path: ${params.files_cfg.oi_path}
+  oi_var: ${params.files_cfg.oi_var}
+  obs_mask_path: ${params.files_cfg.obs_mask_path}
+  obs_mask_var: ${params.files_cfg.obs_mask_var}
+  gt_path: ${params.files_cfg.gt_path}
+  gt_var: ${params.files_cfg.gt_var}
+  sst_path: ??? # sst
+  sst_var: ???
+  aug_train_data: false
+  resolution: 1/20
+  dl_kwargs:
+    batch_size: 2
+    num_workers: 2
+logger:
+  _target_: pytorch_lightning.loggers.TensorBoardLogger
+  save_dir: .
+  name: null
+  default_hp_metric: False

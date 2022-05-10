@@ -26,7 +26,7 @@ class LitModel(pl.LightningModule):
         self.ds_size_lon = kwargs['ds_size_lon']
         self.ds_size_lat = kwargs['ds_size_lat']
 
-        self.time = kwargs['time'] 
+        self.time = kwargs['time']
         self.dX = kwargs['dX']
         self.dY = kwargs['dY']
         self.swX = kwargs['swX']
@@ -42,6 +42,14 @@ class LitModel(pl.LightningModule):
         self.mean_Tt = kwargs['mean_Tt']
 
         # main model
+        '''
+        self.model = NN_4DVar.Solver_Grad_4DVarNN(
+            Phi_r(self.shapeData, self.hparams.DimAE, self.hparams.stochastic),
+            Model_H(self.shapeData[0]),
+            NN_4DVar.model_GradUpdateLSTM(self.shapeData, self.hparams.UsePriodicBoundary,
+                                          self.hparams.dim_grad_solver, self.hparams.dropout, self.hparams.stochastic),
+            None, None, self.shapeData, self.hparams.n_grad, self.hparams.stochastic)
+        '''
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
             Phi_r(self.shapeData[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
                   self.hparams.nbBlocks, self.hparams.dropout_phi_r, self.hparams.stochastic),
@@ -49,7 +57,6 @@ class LitModel(pl.LightningModule):
             NN_4DVar.model_GradUpdateLSTM(self.shapeData, self.hparams.UsePriodicBoundary,
                                           self.hparams.dim_grad_solver, self.hparams.dropout, self.hparams.stochastic),
             None, None, self.shapeData, self.hparams.n_grad, self.hparams.stochastic)
-
         self.model_LR = ModelLR()
         # self.gradient_img = Gradient_img()
         self.gradient_img = kornia.filters.sobel
@@ -98,11 +105,11 @@ class LitModel(pl.LightningModule):
 
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
 
-        # compute loss and metrics    
+        # compute loss and metrics
         loss, out, metrics = self.compute_loss(train_batch, phase='train')
         if loss is None:
             return loss
-        # log step metric        
+        # log step metric
         # self.log('train_mse', mse)
         # self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
         self.log("loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=False)
@@ -150,10 +157,11 @@ class LitModel(pl.LightningModule):
 
     def test_epoch_end(self, outputs):
 
-        gt = torch.cat([chunk['gt'] for chunk in outputs]).numpy()
-        obs = torch.cat([chunk['obs'] for chunk in outputs]).numpy()
-        oi = torch.cat([chunk['oi'] for chunk in outputs]).numpy()
-        pred = torch.cat([chunk['preds'] for chunk in outputs]).numpy()
+        gt = torch.cat([chunk['gt'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs]).numpy()
+        obs = torch.cat([chunk['obs'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs]).numpy()
+        obs = np.where(obs==self.mean_Tr,np.nan,obs)
+        oi = torch.cat([chunk['oi'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs]).numpy()
+        pred = torch.cat([chunk['preds'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs]).numpy()
 
         ds_size = {'time': self.ds_size_time,
                    'lon': self.ds_size_lon,
@@ -163,7 +171,7 @@ class LitModel(pl.LightningModule):
         gt, obs, oi, pred = map(
             lambda t: einops.rearrange(
                 t,
-                '(t_idx lat_idx lon_idx) win_time win_lat win_lon -> t_idx win_time (lat_idx win_lat) (lon_idx win_lon)',
+                '(lat_idx lon_idx t_idx )  win_lat win_lon -> t_idx  (lat_idx win_lat) (lon_idx win_lon)',
                 t_idx=ds_size['time'],
                 lat_idx=ds_size['lat'],
                 lon_idx=ds_size['lon'],
@@ -171,17 +179,17 @@ class LitModel(pl.LightningModule):
             [gt, obs, oi, pred])
 
         # keep only points of the original domain
-        iX = np.where( (self.lon_ext>=self.xmin) & (self.lon_ext<self.xmax) )[0]
-        iY = np.where( (self.lat_ext>=self.ymin) & (self.lat_ext<self.ymax) )[0]
-        gt = (gt[:,:,iY,:])[:,:,:,iX]
-        obs = (obs[:,:,iY,:])[:,:,:,iX]
-        oi = (oi[:,:,iY,:])[:,:,:,iX]        
-        pred = (pred[:,:,iY,:])[:,:,:,iX]
+        iX = np.where( (self.lon_ext>=self.xmin) & (self.lon_ext<=self.xmax) )[0]
+        iY = np.where( (self.lat_ext>=self.ymin) & (self.lat_ext<=self.ymax) )[0]
+        gt = (gt[:,iY,:])[:,:,iX]
+        obs = (obs[:,iY,:])[:,:,iX]
+        oi = (oi[:,iY,:])[:,:,iX]
+        pred = (pred[:,iY,:])[:,:,iX]
 
-        self.x_gt = gt[:, int(self.hparams.dT / 2), :, :]
-        self.x_obs = obs[:, int(self.hparams.dT / 2), :, :]
-        self.x_oi = oi[:, int(self.hparams.dT / 2), :, :]
-        self.x_rec = pred[:, int(self.hparams.dT / 2), :, :]
+        self.x_gt = gt
+        self.x_obs = obs
+        self.x_oi = oi
+        self.x_rec = pred
 
         # display map
         path_save0 = self.logger.log_dir + '/maps.png'
@@ -203,13 +211,13 @@ class LitModel(pl.LightningModule):
         self.test_figs['maps'] = fig_maps
         self.test_figs['maps_grad'] = fig_maps_grad
         # animate maps
-        if self.hparams.animate == True:
+        if self.hparams.animate:
             path_save0 = self.logger.log_dir + '/animation.mp4'
             animate_maps(self.x_gt,
                          self.x_obs,
                          self.x_oi,
                          self.x_rec,
-                         self.lon, self.lat, path_save0, dw=4, 
+                         self.lon, self.lat, path_save0, dw=2,
                          grad=True, supervised=self.hparams.supervised)
         # compute nRMSE
         path_save2 = self.logger.log_dir + '/nRMSE.txt'
@@ -309,7 +317,7 @@ class LitModel(pl.LightningModule):
                 loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
                 loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
                 loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
- 
+
             # unsupervised loss
             else:
                 # MSE

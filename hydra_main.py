@@ -33,6 +33,7 @@ class FourDVarNetHydraRunner:
                       for i in range(len(dm.test_slices))])
         #print(test_dates)
         self.time = {'time_test' : test_dates}
+        OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
 
         self.setup(dm)
 
@@ -79,6 +80,7 @@ class FourDVarNetHydraRunner:
         print('get_model: ', ckpt_path)
         if ckpt_path:
             mod = self.lit_cls.load_from_checkpoint(ckpt_path,
+                                                    hparam=self.cfg,
                                                     w_loss=self.wLoss,
                                                     strict=False,
                                                     mean_Tr=self.mean_Tr,
@@ -97,6 +99,7 @@ class FourDVarNetHydraRunner:
                                                     swX=self.swX, swY=self.swY,
                                                     coord_ext={'lon_ext': self.lon,
                                                                'lat_ext': self.lat},
+                                                    test_domain=self.cfg.test_domain,
                                                     resolution=self.resolution,
                                                     )
 
@@ -119,6 +122,7 @@ class FourDVarNetHydraRunner:
                                swX=self.swX, swY=self.swY,
                                coord_ext = {'lon_ext': self.lon,
                                             'lat_ext': self.lat},
+                               test_domain=self.cfg.test_domain,
                                resolution=self.resolution,
                                )
         return mod
@@ -168,6 +172,7 @@ class FourDVarNetHydraRunner:
 
         trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs)
         trainer.test(mod, dataloaders=self.dataloaders[dataloader])
+        return mod
 
     def profile(self):
         """

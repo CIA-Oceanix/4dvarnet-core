@@ -110,6 +110,7 @@ class Phi_r(torch.nn.Module):
         print(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic)
         self.stochastic = stochastic
         self.encoder = Encoder(shape_data, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
+        #self.encoder = Encoder(shape_data, 2*shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
         self.decoder = Decoder()
         self.correlate_noise = CorrelateNoise(shape_data, 10)
         self.regularize_variance = RegularizeVariance(shape_data, 10)
@@ -118,13 +119,11 @@ class Phi_r(torch.nn.Module):
         white = True
         if self.stochastic == True:
             # pure white noise
-            z = torch.randn([x.shape[0],x.shape[1],x.shape[2],x.shape[3]]).to(device)
+            z = torch.randn([x.shape[0],x.shape[1],x.shape[2],x.shape[3]]).to(device)        
             # correlated noise with regularization of the variance
             # z = torch.mul(self.regularize_variance(x),self.correlate_noise(z))
-            # z = z/torch.std(z)
-            # print(stats.describe(z.detach().cpu().numpy()))
+            z = z/torch.std(x)
             x = self.encoder(x+z)
-            #x = self.encoder(torch.cat([x,z],dim=1))
         else:
             x = self.encoder(x)
         x = self.decoder(x)
@@ -141,14 +140,14 @@ class Model_H(torch.nn.Module):
         return dyout
 
 class Model_HwithSST(torch.nn.Module):
-    def __init__(self, shape_data, dim=5):
+    def __init__(self, shape_data, dT=5, dim=5):
         super(Model_HwithSST, self).__init__()
 
         self.dim_obs = 2
         self.dim_obs_channel = np.array([shape_data, dim])
         self.conv11 = torch.nn.Conv2d(shape_data, self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
-        self.conv21 = torch.nn.Conv2d(int(shape_data / 2), self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
-        self.conv_m = torch.nn.Conv2d(int(shape_data / 2), self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
+        self.conv21 = torch.nn.Conv2d(dT, self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
+        self.conv_m = torch.nn.Conv2d(dT, self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
         self.sigmoid = torch.nn.Sigmoid()  # torch.nn.Softmax(dim=1)
 
     def forward(self, x, y, mask):

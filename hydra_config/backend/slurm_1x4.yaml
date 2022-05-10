@@ -6,7 +6,7 @@ hydra:
     nodes: 1
     additional_parameters:
       signal: SIGUSR1@90
-      account: yrf@gpu
+      account: yrf@v100
       gres: gpu:4
       ntasks_per_node: 4
       time: 06:00:00
