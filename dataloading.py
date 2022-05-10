@@ -98,6 +98,7 @@ class XrDataset(Dataset):
         self.ds = _ds.sel(**(dim_range or {}))
         if self.interp_na:
             self.ds = interpolate_na_2D(self.ds)
+        self.ds = self.ds.transpose("time", "lat", "lon")
 
         self.slice_win = slice_win
         self.strides = strides or {}
