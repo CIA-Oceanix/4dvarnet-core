@@ -1,7 +1,0 @@
-# @package _global_
-xp_name_cal: cal
-defaults:
-  - /xp/xmasxp/loss/calmap
-  - _self_ 
-
-

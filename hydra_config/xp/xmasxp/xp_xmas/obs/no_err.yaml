@@ -1,6 +1,0 @@
-# @package _global_
-xp_name_obs: no_err
-defaults:
-  - /xp/xmasxp/ds/clean_swot_oi_no_swot
-  - _self_ 
-

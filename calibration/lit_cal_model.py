@@ -1,4 +1,5 @@
 import einops
+import shutil
 import torch.distributed as dist
 import kornia
 from hydra.utils import instantiate
@@ -22,6 +23,7 @@ from models import Phi_r, ModelLR, Gradient_img
 
 from calibration.models import get_passthrough, get_vit
 
+
 class Model_H_with_noisy_Swot(torch.nn.Module):
     """
     state: [oi, anom_glob, anom_swath ] or [oi, anom_glob_obs,  anom_swath, anom_glob_rec]
@@ -38,9 +40,13 @@ class Model_H_with_noisy_Swot(torch.nn.Module):
 
 
     def forward(self, x, y, mask):
-        if self.hparams.get('aug_state', False):
-            output_low_res,  output_anom_glob, output_anom_swath, _ = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
-        else:
+        aug_state = self.hparams.get('aug_state', False)
+        if aug_state:
+            if aug_state == 2:
+                output_low_res,  output_anom_glob, output_anom_swath, _, _ = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
+            else:
+                output_low_res,  output_anom_glob, output_anom_swath, _ = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
+        else: 
             output_low_res,  output_anom_glob, output_anom_swath = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
         output_global = output_low_res + output_anom_glob
 
@@ -63,7 +69,7 @@ class Model_H_SST_with_noisy_Swot(torch.nn.Module):
     obs: [[oi, obs], sst]
     mask: [[ones, obs_mask], ones]
     """
-
+    
 
     def __init__(self, shape_data, shape_obs, hparams=None):
         super().__init__()
@@ -80,9 +86,13 @@ class Model_H_SST_with_noisy_Swot(torch.nn.Module):
     def forward(self, x, y, mask):
         y_ssh, y_sst = y
         mask_ssh, mask_sst = mask
-        if self.hparams.get('aug_state', False):
-            output_low_res,  output_anom_glob, output_anom_swath, _ = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
-        else:
+        aug_state = self.hparams.get('aug_state', False)
+        if aug_state:
+            if aug_state == 2:
+                output_low_res,  output_anom_glob, output_anom_swath, _, _ = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
+            else:
+                output_low_res,  output_anom_glob, output_anom_swath, _ = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
+        else: 
             output_low_res,  output_anom_glob, output_anom_swath = torch.split(x, split_size_or_sections=self.hparams.dT, dim=1)
         output_global = output_low_res + output_anom_glob
 
@@ -90,7 +100,7 @@ class Model_H_SST_with_noisy_Swot(torch.nn.Module):
             output_swath = output_low_res + output_anom_swath
         elif self.hparams.swot_anom_wrt == 'high_res':
             output_swath = output_global + output_anom_swath
-
+        
 
         yhat_glob = torch.cat((output_low_res, output_global), dim=1)
         yhat_swath = torch.cat((output_low_res, output_swath), dim=1)
@@ -103,47 +113,25 @@ class Model_H_SST_with_noisy_Swot(torch.nn.Module):
 
         return [dyout, dyout1]
 
-# Aurélie Albert referente données soft
-# Johanna CNN multi modal avec attention prediction chlorophile
-# Batimetrie: profondeur de l'ocean important pour les courants
-
-# Artefacts sst
-# TODO: ref donnée journalière vs snapshot
-# TODO: utiliser la sst uniquement pour la fauchée
-# TODO: etat augmenté
-# TODO: Check 2 termes d'observation SST
-# TODO: apprendre post traitement
-
-
-# Artefacts NATL
-
-# TODO: test prediction tout le domaine
-# TODO: test prediction sur plus gradn domaine
-# TODO: Plusieurs cartes
-
-# Artefacts calib natl
-
-# TODO: chekc plusieurs journées
-# TODO: demander à Clément dans le design des chaine de cross calib est-ce qu'ils ont refléchit à soustraire le dac  ou bien regarde -t il que en ocean ouvert
 
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                Phi_r(hparams.shape_data[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                     hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
-                Model_H_with_noisy_Swot(hparams.shape_state[0], hparams.shape_obs[0], hparams=hparams),
+                Model_H_with_noisy_Swot(hparams.shape_data[0], hparams.shape_obs[0], hparams=hparams),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
-                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad)
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_data, hparams.n_grad)
 
 
 def get_4dvarnet_sst(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                Phi_r(hparams.shape_data[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                     hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
-                Model_H_SST_with_noisy_Swot(hparams.shape_state[0], hparams.shape_obs[0], hparams=hparams),
+                Model_H_SST_with_noisy_Swot(hparams.shape_data[0], hparams.shape_obs[0], hparams=hparams),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
-                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad)
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_data, hparams.n_grad)
 
 def get_phi(hparams):
     class PhiPassThrough(torch.nn.Module):
@@ -162,19 +150,16 @@ def get_phi(hparams):
 
 
 def get_constant_crop(patch_size, crop, dim_order=['time', 'lat', 'lon']):
-    patch_weight = np.zeros([patch_size[d] for d in dim_order], dtype='float32')
-    print(patch_size, crop)
-    mask = tuple(
-            slice(crop[d], -crop[d]) if crop.get(d, 0)>0 else slice(None, None)
-            for d in dim_order
-    )
-    patch_weight[mask] = 1.
-    print(patch_weight.sum())
-    return patch_weight
+        patch_weight = np.zeros([patch_size[d] for d in dim_order], dtype='float32')
+        print(patch_size, crop)
+        mask = tuple(
+                slice(crop[d], -crop[d]) if crop.get(d, 0)>0 else slice(None, None)
+                for d in dim_order
+        )
+        patch_weight[mask] = 1.
+        print(patch_weight.sum())
+        return patch_weight
 
-# msk = get_constant_crop({'lat':200, 'lon':200, 'time':5}, crop={'lat':20, 'lon':20, 'time':2})
-# print(msk.shape)
-# plt.imshow(msk[2, ...])
 ############################################ Lightning Module #######################################################################
 
 class LitCalModel(pl.LightningModule):
@@ -242,7 +227,7 @@ class LitCalModel(pl.LightningModule):
         self.x_oi = None  # variable to store OI
         self.x_rec = None  # variable to store output of test method
         self.test_figs = {}
-
+        
         self.tr_loss_hist = []
         self.automatic_optimization = False
 
@@ -261,10 +246,11 @@ class LitCalModel(pl.LightningModule):
         return losses, outs, metrics
 
     def configure_optimizers(self):
-
+        
         if self.model_name == '4dvarnet':
             optimizer = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                 ]
                 , lr=0., weight_decay=self.hparams.weight_decay)
@@ -279,7 +265,7 @@ class LitCalModel(pl.LightningModule):
                                 ], lr=0., weight_decay=self.hparams.weight_decay)
 
             return optimizer
-        else:
+        else: 
             opt = optim.Adam(self.parameters(), lr=1e-4)
         return {
             'optimizer': opt,
@@ -313,25 +299,26 @@ class LitCalModel(pl.LightningModule):
         if len(best_ckpt_path) > 0:
             def should_reload_ckpt(losses):
                 diffs = losses.diff()
-                if losses.max() > (10 * losses.min()):
-                    print("Reloading because of check", 1)
-                    return True
+                if (losses.argmax() > losses.argmin()):
+                    if (losses.max() > (10 * losses.min())):
+                        print("Reloading because of check", 1)
+                        return True
 
-                if diffs.max() > (100 * diffs.abs().median()):
-                    print("Reloading because of check", 2)
-                    return True
+                    if diffs.max() > (100 * diffs.abs().median()):
+                        print("Reloading because of check", 2)
+                        return True
 
             if should_reload_ckpt(torch.stack([out['loss'] for out in outputs])):
                 print('reloading', best_ckpt_path)
-                ckpt = torch.load(best_ckpt_path)
+                ckpt = torch.load(best_ckpt_path, map_location='cpu')
                 self.load_state_dict(ckpt['state_dict'])
+                
 
-
-
+            
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
 
         opt = self.optimizers()
-        # compute loss and metrics
+        # compute loss and metrics    
         if self.hparams.get('rand_mask'):
             rand = torch.rand_like(train_batch[0])
             mask_95 = rand > 0.95
@@ -357,7 +344,7 @@ class LitCalModel(pl.LightningModule):
         opt.zero_grad()
         self.manual_backward(loss)
         opt.step()
-        # log step metric
+        # log step metric        
         # self.log('train_mse', mse)
         # self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True)
         # self.log("tr_min_nobs", train_batch[1].sum(dim=[1,2,3]).min().item(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
@@ -373,6 +360,9 @@ class LitCalModel(pl.LightningModule):
 
         return loss
 
+    def predict_step(self, batch, batch_idx):
+        return self.diag_step(batch, batch_idx, log_pref=None)
+
     def diag_step(self, batch, batch_idx, log_pref='test'):
         if not self.use_sst:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, obs_target_item = batch
@@ -381,7 +371,7 @@ class LitCalModel(pl.LightningModule):
         losses, outs, metrics = self(batch, phase='test')
         _, out, out_pred = self.get_outputs(batch, outs)
         loss = losses[-1]
-        if loss is not None:
+        if loss is not None and log_pref is not None:
             self.log(f'{log_pref}_loss', loss)
             self.log(f'{log_pref}_mse', metrics[-1]["mse"] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
@@ -404,23 +394,25 @@ class LitCalModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         return self.diag_step(batch, batch_idx, log_pref='val')
 
+
     def validation_epoch_end(self, outputs):
         print(f'epoch end {self.global_rank} {len(outputs)}')
         if (self.current_epoch + 1) % self.hparams.val_diag_freq == 0:
             return self.diag_epoch_end(outputs, log_pref='val')
 
     def diag_epoch_end(self, outputs, log_pref='test'):
-        data_path = Path(f'{self.logger.log_dir}/{log_pref}_data')
+        data_path = Path(self.logger.log_dir if self.logger is not None else 'tmp') / f'{log_pref}_data'
         data_path.mkdir(exist_ok=True, parents=True)
         print(len(outputs))
         torch.save(outputs, data_path / f'{self.global_rank}.t')
         if dist.is_initialized():
-            dist.barrier()
+            dist.barrier() 
         if self.global_rank > 0:
             print(f'Saved data for rank {self.global_rank}')
-            return
+            return 
 
         full_outputs = [torch.load(f) for f in sorted(data_path.glob('*'))]
+        shutil.rmtree(data_path)
 
         print(len(full_outputs))
         if log_pref == 'test':
@@ -451,8 +443,8 @@ class LitCalModel(pl.LightningModule):
                                 outputs[bc][b]['obs_pred'][i],
                                 outputs[bc][b]['inp_obs'][i],
                         )
-
-        dses =[
+            
+        dses =[ 
                 xr.Dataset( {
                     'gt': (('time', 'lat', 'lon'), x_gt),
                     'oi': (('time', 'lat', 'lon'), x_oi),
@@ -477,10 +469,10 @@ class LitCalModel(pl.LightningModule):
 
         for ds in dses:
             ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
-            xr_weight = xr.DataArray(self.patch_weight, ds.coords, dims=ds.gt.dims)
+            xr_weight = xr.DataArray(self.patch_weight, ds.coords, dims=ds.gt.dims) 
             _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
-            fin_ds = fin_ds + _ds
-
+            fin_ds = fin_ds + _ds 
+        
 
         self.test_xr_ds = (
             (fin_ds.drop('weight') / fin_ds.weight)
@@ -494,15 +486,17 @@ class LitCalModel(pl.LightningModule):
         self.obs_pred = self.test_xr_ds.obs_pred.data
         self.x_oi = self.test_xr_ds.oi.data
         self.x_rec = self.test_xr_ds.pred.data
-
+        
         self.test_coords = self.test_xr_ds.coords
         self.test_lat = self.test_coords['lat'].data
         self.test_lon = self.test_coords['lon'].data
         self.test_dates = self.test_coords['time'].data
-
+        
+        if self.logger is None:
+            return
         Path(self.logger.log_dir).mkdir(exist_ok=True)
         # display map
-        path_save0 = self.logger.log_dir + '/maps.png'
+        path_save0 = self.logger.log_dir + f'/{log_pref} maps.png'
         t_idx = 3
         fig_maps = plot_maps(
                   self.x_gt[t_idx],
@@ -510,7 +504,7 @@ class LitCalModel(pl.LightningModule):
                   self.x_oi[t_idx],
                   self.x_rec[t_idx],
                   self.test_lon, self.test_lat, path_save0)
-        path_save01 = self.logger.log_dir + '/maps_Grad.png'
+        path_save01 = self.logger.log_dir + f'/{log_pref} maps_Grad.png'
         fig_maps_grad = plot_maps(
                   self.x_gt[t_idx],
                 self.obs_inp[t_idx],
@@ -522,7 +516,7 @@ class LitCalModel(pl.LightningModule):
         self.logger.experiment.add_figure(f'{log_pref} Maps', fig_maps, global_step=self.current_epoch)
         self.logger.experiment.add_figure(f'{log_pref} Maps Grad', fig_maps_grad, global_step=self.current_epoch)
 
-        path_save02 = self.logger.log_dir + '/maps_obs.png'
+        path_save02 = self.logger.log_dir + f'/{log_pref} maps_obs.png'
         fig_maps = plot_maps(
                 self.obs_gt[t_idx],
                 self.obs_inp[t_idx],
@@ -534,13 +528,13 @@ class LitCalModel(pl.LightningModule):
 
         # animate maps
         if self.hparams.animate == True:
-            path_save0 = self.logger.log_dir + '/animation.mp4'
+            path_save0 = self.logger.log_dir + f'/{log_pref} animation.mp4'
             animate_maps(self.x_gt,
                     self.x_oi,
                     self.x_rec,
                     self.lon, self.lat, path_save0)
             # save NetCDF
-        path_save1 = self.logger.log_dir + f'/test.nc'
+        path_save1 = self.logger.log_dir + f'/{log_pref} data.nc'
         # PENDING: replace hardcoded 60
         self.test_xr_ds.to_netcdf(path_save1)
         # save_netcdf(saved_path1=path_save1, pred=self.x_rec,
@@ -572,41 +566,35 @@ class LitCalModel(pl.LightningModule):
 
         nrmse_df = nrmse_fn('pred', 'oi', 'gt')
         mse_df = mse_fn('pred', 'oi', 'gt')
-        nrmse_df.to_csv(self.logger.log_dir + '/nRMSE.txt')
-        mse_df.to_csv(self.logger.log_dir + '/MSE.txt')
-
-        # compute nRMSE on swath
-        path_save23 = self.logger.log_dir + '/nRMSE_swath.txt'
 
         nrmse_swath_df = nrmse_fn('obs_pred', 'obs_inp', 'obs_gt')
         mse_swath_df = mse_fn('obs_pred', 'obs_inp', 'obs_gt')
-        nrmse_df.to_csv(self.logger.log_dir + '/nRMSE_swath.txt')
-        mse_df.to_csv(self.logger.log_dir + '/MSE_swath.txt')
+        nrmse_swath_df.to_csv(self.logger.log_dir + f'/{log_pref} nRMSE_swath.txt')
+        mse_swath_df.to_csv(self.logger.log_dir + f'/{log_pref} MSE_swath.txt')
         # plot nRMSE
         # PENDING: replace hardcoded 60
-        path_save3 = self.logger.log_dir + '/nRMSE.png'
+        path_save3 = self.logger.log_dir + f'/{log_pref} nRMSE.png'
         nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, time=self.test_dates)
         self.test_figs['nrmse'] = nrmse_fig
-        self.logger.experiment.add_figure(f'{log_pref} NRMSE', nrmse_fig, global_step=self.current_epoch)
+        self.logger.experiment.add_figure(f'/{log_pref} NRMSE', nrmse_fig, global_step=self.current_epoch)
         # plot SNR
-        path_save4 = self.logger.log_dir + '/SNR.png'
+        path_save4 = self.logger.log_dir + f'/{log_pref} SNR.png'
         snr_fig = plot_snr(self.x_gt, self.x_oi, self.x_rec, path_save4)
         self.test_figs['snr'] = snr_fig
 
-        self.logger.experiment.add_figure(f'{log_pref} SNR', snr_fig, global_step=self.current_epoch)
-
-        psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
+        self.logger.experiment.add_figure(f'/{log_pref} SNR', snr_fig, global_step=self.current_epoch)
+        
         fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt, self.test_xr_ds.pred, self.test_xr_ds.oi, with_fig=True)
         self.test_figs['res'] = fig
-        self.logger.experiment.add_figure(f'{log_pref} Spat. Resol', fig, global_step=self.current_epoch)
+        self.logger.experiment.add_figure(f'/{log_pref} Spat. Resol', fig, global_step=self.current_epoch)
         # PENDING: Compute metrics on swath
         psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
         psd_fig = metrics.plot_psd_score(psd_ds)
-        psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
-        self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
+        self.logger.experiment.add_figure(f'/{log_pref} PSD', psd_fig, global_step=self.current_epoch)
+        self.test_figs['psd'] = fig
         _, _, mu, sig = metrics.rmse_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
 
-        mdf = pd.concat([
+        _mdf = pd.concat([
             nrmse_df.rename(columns=lambda c: f'{log_pref}_{c}_glob').loc['pred'].T,
             mse_df.rename(columns=lambda c: f'{log_pref}_{c}_glob').loc['pred'].T,
             nrmse_swath_df.rename(columns=lambda c: f'{log_pref}_{c}_swath').loc['obs_pred'].T,
@@ -619,24 +607,32 @@ class LitCalModel(pl.LightningModule):
             f'{log_pref}_lambda_t': lamb_t,
             f'{log_pref}_mu': mu,
             f'{log_pref}_sigma': sig,
-            **mdf.to_dict(),
+            **_mdf.to_dict(), 
         }
+        mdf = pd.DataFrame([md])
+        metrics_path =Path(self.logger.log_dir).parent / 'metrics'
+        metrics_path.mkdir(exist_ok=True)
+        mdf.to_json(metrics_path / f'{log_pref}.json')
+
         self.latest_metrics.update(md)
-        print(pd.DataFrame([md]).T.to_markdown())
-        self.logger.log_metrics(
-                {
-                    f'{log_pref}_spatial_res': float(spatial_res_model),
-                    f'{log_pref}_spatial_res_imp': float(spatial_res_model / spatial_res_oi),
-                **mdf.to_dict(),
-            },
-        step=self.current_epoch)
+        print(mdf.T.to_markdown())
+        self.logger.log_metrics(md ,step=self.current_epoch)
+
+        
+    def configure_callbacks(self):
+        def save_ckpt_metrics(trainer, pl_module, checkpoint):
+            mdf = pd.DataFrame(pl_module.latest_metrics)
+            metrics_path = Path(pl_module.logger.log_dir).parent / 'metrics'
+            mdf.to_json(metrics_path / f'latest_ckpt.json')                                                                                                                                                       
+        return [pl.callbacks.LambdaCallback(on_save_checkpoint=save_ckpt_metrics)]
 
     def teardown(self, stage='test'):
-
+        if self.logger is None:
+            return
         self.logger.log_hyperparams(
                 {**self.hparams},
                 self.latest_metrics
-    )
+        )
 
     def get_init_state(self, batch, state):
         if state is not None:
@@ -655,7 +651,10 @@ class LitCalModel(pl.LightningModule):
             anomaly_swath = (inputs_obs - targets_OI).detach()
 
         if self.aug_state:
-            init_state = torch.cat((targets_OI, anomaly_global, anomaly_swath, torch.zeros_like(targets_OI)), dim=1)
+            if self.aug_state == 2:
+                init_state = torch.cat((targets_OI, anomaly_global, anomaly_swath, torch.zeros_like(targets_OI), torch.zeros_like(targets_OI)), dim=1)
+            else:
+                init_state = torch.cat((targets_OI, anomaly_global, anomaly_swath, torch.zeros_like(targets_OI)), dim=1)
         else:
             init_state = torch.cat((targets_OI, anomaly_global, anomaly_swath), dim=1)
         return init_state
@@ -669,7 +668,10 @@ class LitCalModel(pl.LightningModule):
         # print(state_out.shape)
         # print(targets_OI.shape)
         if self.aug_state:
-            output_low_res,  _, output_anom_swath, output_anom_glob = torch.split(state_out, split_size_or_sections=targets_OI.size(1), dim=1)
+            if self.aug_state == 2:
+                output_low_res, _,  _, output_anom_swath, output_anom_glob = torch.split(state_out, split_size_or_sections=targets_OI.size(1), dim=1)
+            else:
+                output_low_res,  _, output_anom_swath, output_anom_glob = torch.split(state_out, split_size_or_sections=targets_OI.size(1), dim=1)
         else:
             output_low_res,  output_anom_glob, output_anom_swath = torch.split(state_out, split_size_or_sections=targets_OI.size(1), dim=1)
 
@@ -754,10 +756,10 @@ class LitCalModel(pl.LightningModule):
             g_output_swath = self.gradient_img(output_swath)
             # PENDING: add loss term computed on obs (outputs swath - obs_target)
 
-            _err_swath =(output_swath - target_obs_GT_wo_nan)**2
-            err_swath = torch.where(target_obs_GT.isnan() | target_obs_GT.isinf(), torch.zeros_like(_err_swath), _err_swath)
+            _err_swath =(output_swath - target_obs_GT_wo_nan)**2 
+            err_swath = _err_swath.where(target_obs_GT.isfinite(), torch.zeros_like(_err_swath))
             _err_g_swath =(g_output_swath - g_targets_obs)**2
-            err_g_swath = torch.where(g_targets_obs_mask.isnan() | g_targets_obs_mask.isinf(), torch.zeros_like(_err_g_swath), _err_g_swath)
+            err_g_swath = _err_g_swath.where(g_targets_obs_mask.isfinite(), torch.zeros_like(_err_g_swath))
 
             loss_swath = NN_4DVar.compute_spatio_temp_weighted_loss(err_swath, self.w_loss)
             # print(f"{loss_swath=}")
@@ -774,7 +776,16 @@ class LitCalModel(pl.LightningModule):
 
             if self.aug_state:
 
-                yGT = torch.cat((targets_OI, targets_GT_wo_nan - targets_OI, target_obs_GT_wo_nan - gt_anom_swath, targets_GT_wo_nan - targets_OI), dim=1)
+                if self.aug_state==2:
+                    yGT = torch.cat((
+                        targets_OI,
+                        targets_GT_wo_nan - targets_OI,
+                        (target_obs_GT_wo_nan - gt_anom_swath).where(target_obs_GT.isfinite(), torch.zeros_like(target_obs_GT)),
+                        targets_GT_wo_nan - targets_OI,
+                        (inputs_obs - gt_anom_swath).where(target_obs_GT.isfinite(), torch.zeros_like(target_obs_GT))),
+                        dim=1)
+                else:
+                    yGT = torch.cat((targets_OI, targets_GT_wo_nan - targets_OI, target_obs_GT_wo_nan - gt_anom_swath, targets_GT_wo_nan - targets_OI), dim=1)
             else:
 
                 yGT = torch.cat((targets_OI, targets_GT_wo_nan - targets_OI, target_obs_GT_wo_nan - gt_anom_swath), dim=1)
@@ -818,3 +829,42 @@ class LitCalModel(pl.LightningModule):
             # PENDING: Add new loss term to metrics
 
         return loss, outputs, metrics
+
+
+if  __name__ == '__main__':
+    import hydra
+    import torch
+    import re
+    import matplotlib.pyplot as plt
+    import re
+    from hydra.utils import instantiate, get_class, call
+    from hydra.core.config_store import ConfigStore
+    from hydra_main import FourDVarNetHydraRunner
+    import pytorch_lightning as pl
+    import pandas as pd
+    from pathlib import Path
+    import traceback
+    import hydra_config
+    from IPython.display import display, Markdown, Latex, HTML
+
+    s = """
+    ## TODO
+    - [ ]  Use term without errors in sst comp
+    - [ ]  Use aug state as explicit error terms
+    - [ ]  Add normalization term
+    """
+    display(Markdown(s))
+
+
+    def main():
+        try:
+            ...
+        except Exception as e:
+            print('I am here')
+            print(traceback.format_exc()) 
+        finally:
+            return locals()
+
+        """
+
+        """
