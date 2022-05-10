@@ -82,13 +82,7 @@ def get_constant_crop(patch_size, crop, dim_order=['time', 'lat', 'lon']):
         print(patch_weight.sum())
         return patch_weight
 
-def get_hanning_mask(patch_size, **kwargs):
-        
-    t_msk =kornia.filters.get_hanning_kernel1d(patch_size['time'])
-    s_msk = kornia.filters.get_hanning_kernel2d((patch_size['lat'], patch_size['lon']))
 
-    patch_weight = t_msk[:, None, None] * s_msk[None, :, :]
-    return patch_weight.cpu().numpy()
 
 ############################################ Lightning Module #######################################################################
 
@@ -662,75 +656,9 @@ class LitModelAugstate(pl.LightningModule):
                 ('meanGrad', mean_GAll),
                 ('mseOI', loss_OI.detach()),
                 ('mseGOI', loss_GOI.detach())])
-            # PENDING: Add new loss term to metrics
-            alpha_fft =  self.hparams.get('alpha_fft', 0)
-            if alpha_fft > 0:
-                try:
-                    cp = self.hparams.patch_weight['crop']
-                except:
-                    cp = None
-                
-                # print(f'{cp=}') 
-                crop_fn = lambda x: (x if cp is None else
-                        x[:,cp['time']:-cp['time'],cp['lat']:-cp['lat'],cp['lon']:-cp['lon']])
 
-                targets_GT_wo_nan = crop_fn(targets_GT.where(~targets_GT.isnan(), targets_OI))
-                
-                shape = einops.parse_shape(targets_GT_wo_nan, 'b t lat lon')
-                dim, s = 2, shape['lat']
-                window = einops.repeat(torch.hann_window(s), 'lat -> b t lat lon', **shape)
-
-                window = window.to(self.device)
-                err = crop_fn(outputs) - targets_GT_wo_nan
-                fft_err = torch.fft.rfft(window * err, dim=dim, norm="ortho")
-                fft_gt = torch.fft.rfft( window * targets_GT_wo_nan, dim=dim,norm="ortho")
-                # fft_err = torch.fft.rfft2(cropwindow * err, norm="ortho")
-                # fft_gt = torch.fft.rfft2( window * targets_GT_wo_nan,norm="ortho")
-                psd_err = fft_err * fft_err.conj()
-                psd_gt = fft_gt * fft_gt.conj()
-                psd_score = (psd_err/psd_gt).real
-                ceiled_psd_score = psd_score.minimum(torch.full_like(psd_score, 1.))
-                loss_fft = F.mse_loss(ceiled_psd_score, torch.zeros_like(ceiled_psd_score))
-                # loss_fft = torch.hypot(*self.gradient_img(ceiled_psd_score))
-                loss += alpha_fft * F.mse_loss(loss_fft, torch.zeros_like(loss_fft))
-
-            alpha_temporal_grad =  self.hparams.get('alpha_t_grad', 0)
-            if alpha_temporal_grad > 0:
-                gt_tgrad =  targets_GT_wo_nan[:, 2:]-targets_GT_wo_nan[:, :-2]
-                out_tgrad =  outputs[:, 2:]-outputs[:, :-2]
-                w = self.patch_weight[1:-1]
-                loss += alpha_temporal_grad * NN_4DVar.compute_spatio_temp_weighted_loss(gt_tgrad - out_tgrad, w)
-                # gt_tgrad = kornia.targets_GT_wo_nan
-        # print(f'hugo {loss_All=}, {self.hparams.alpha_mse_ssh * loss_All=}')
-        # print(f'hugo {loss_GAll=}, {self.hparams.alpha_mse_gssh * loss_GAll=}')
-        # print(f'hugo {loss_AE=}, {0.5 * self.hparams.alpha_proj * loss_AE=} ')
-        # print(f'hugo {loss_AE_GT=}, {0.5 * self.hparams.alpha_proj * loss_AE_GT=} ')
-        # print(f'hugo {loss_LR=}, { self.hparams.alpha_lr *loss_LR=}')
-        # print(f'hugo {loss_SR=}, { self.hparams.alpha_sr *loss_SR=}')
-        # print(f'hugo {loss=}')
         return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
 
-class LitModelCycleLR(LitModelAugstate):
-    def configure_optimizers(self):
-        opt = optim.Adam(self.parameters(), lr=1e-3)
-        return {
-            'optimizer': opt,
-        'lr_scheduler': torch.optim.lr_scheduler.CyclicLR(
-            opt, **self.hparams.cycle_lr_kwargs),
-        'monitor': 'val_loss'
-    }
-
-    def on_train_epoch_start(self):
-        if self.model_name in ('4dvarnet', '4dvarnet_sst'):
-            opt = self.optimizers()
-            if (self.current_epoch in self.hparams.iter_update) & (self.current_epoch > 0):
-                indx = self.hparams.iter_update.index(self.current_epoch)
-                print('... Update Iterations number #%d: NGrad = %d -- ' % (
-                    self.current_epoch, self.hparams.nb_grad_update[indx]))
-
-                self.hparams.n_grad = self.hparams.nb_grad_update[indx]
-                self.model.n_grad = self.hparams.n_grad
-                print("ngrad iter", self.model.n_grad)
 
 if __name__ =='__main__':
     
@@ -839,16 +767,4 @@ if __name__ =='__main__':
     lit_mod_cls = get_class(cfg.lit_mod_cls)
     runner = hydra_main.FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls)
     mod = runner.test(ckpt)
-    # 1/0
-    # mod = mod.to('cuda:0')
-    # batch = mod.transfer_batch_to_device(next(iter(dm.test_dataloader())), mod.device, 0)
-
-    # targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
-    # new_masks = torch.cat(
-        # (torch.ones_like(inputs_Mask), inputs_Mask, torch.zeros_like(inputs_Mask)),
-        #                   dim=1)
-    # obs = torch.cat(
-        # (targets_OI, inputs_Mask * (inputs_obs - targets_OI), 0. * targets_OI,)
-        # ,dim=1)
-    # mod.train(False)
-    # l, out,   m = mod(batch, phase='test')
+    mod.test_figs['psd']
