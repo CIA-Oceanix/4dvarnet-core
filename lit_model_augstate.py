@@ -20,6 +20,8 @@ import metrics
 from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
 from models import Model_H, Model_HwithSST, Phi_r, ModelLR, Gradient_img
 
+
+
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
@@ -27,17 +29,32 @@ def get_4dvarnet(hparams):
                 Model_H(hparams.shape_state[0]),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
-                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad)
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
 
 def get_4dvarnet_sst(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                     hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
-                Model_HwithSST(hparams.shape_state[0]),
+                Model_HwithSST(hparams.shape_state[0], dT=hparams.dT),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
-                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad)
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+
+
+def get_ronan_4dvarnet(hparams):
+
+    import solver_ronan
+    import lit_model_ronan
+
+    return solver_ronan.Solver_Grad_4DVarNN(
+        lit_model_ronan.Phi_r(), 
+        lit_model_ronan.Model_H(), 
+        solver_ronan.model_GradUpdateLSTM(hparams.shape_data, hparams.UsePriodicBoundary,
+            hparams.dim_grad_solver, hparams.dropout, padding_mode=hparams.padding_mode), 
+        None, None, hparams.shape_data, hparams.n_grad, 0.*1e-20 ,k_step_grad = 1. / (hparams.n_grad * hparams.k_n_grad) )
+    
+
 
 def get_phi(hparams):
     class PhiPassThrough(torch.nn.Module):
@@ -65,15 +82,15 @@ def get_constant_crop(patch_size, crop, dim_order=['time', 'lat', 'lon']):
         print(patch_weight.sum())
         return patch_weight
 
-# msk = get_constant_crop({'lat':200, 'lon':200, 'time':5}, crop={'lat':20, 'lon':20, 'time':2})
-# print(msk.shape)
-# plt.imshow(msk[2, ...])
+
+
 ############################################ Lightning Module #######################################################################
 
 class LitModelAugstate(pl.LightningModule):
 
     MODELS = {
             '4dvarnet': get_4dvarnet,
+            'ronan_4dvarnet': get_ronan_4dvarnet,
             '4dvarnet_sst': get_4dvarnet_sst,
             'phi': get_phi,
              }
@@ -111,7 +128,8 @@ class LitModelAugstate(pl.LightningModule):
         self.test_lat = None
         self.test_dates = None
 
-        self.patch_weight = call(self.hparams.patch_weight)
+        self.patch_weight = torch.nn.Parameter(
+                torch.from_numpy(call(self.hparams.patch_weight)), requires_grad=False)
 
         self.var_Val = self.hparams.var_Val
         self.var_Tr = self.hparams.var_Tr
@@ -127,10 +145,13 @@ class LitModelAugstate(pl.LightningModule):
         self.aug_state = self.hparams.aug_state if hasattr(self.hparams, 'aug_state') else False
         self.model = self.create_model()
         self.model_LR = ModelLR()
-        self.gradient_img = kornia.filters.sobel
+        self.grad_crop = lambda t: t[...,1:-1, 1:-1]
+        self.gradient_img = lambda t: torch.unbind(
+                self.grad_crop(2.*kornia.filters.spatial_gradient(t, normalized=True)), 2)
         # loss weghing wrt time
 
-        self.w_loss = torch.nn.Parameter(torch.Tensor(self.patch_weight), requires_grad=False)  # duplicate for automatic upload to gpu
+        # self._w_loss = torch.nn.Parameter(torch.Tensor(self.patch_weight), requires_grad=False)  # duplicate for automatic upload to gpu
+        self.w_loss = torch.nn.Parameter(torch.Tensor([0,0,0,1,0,0,0]), requires_grad=False)  # duplicate for automatic upload to gpu
         self.x_gt = None  # variable to store Ground Truth
         self.obs_inp = None
         self.x_oi = None  # variable to store OI
@@ -138,7 +159,7 @@ class LitModelAugstate(pl.LightningModule):
         self.test_figs = {}
 
         self.tr_loss_hist = []
-        self.automatic_optimization = False
+        self.automatic_optimization = self.hparams.automatic_optimization if hasattr(self.hparams, 'automatic_optimization') else False
 
         self.median_filter_width = self.hparams.median_filter_width if hasattr(self.hparams, 'median_filter_width') else 1
 
@@ -148,10 +169,11 @@ class LitModelAugstate(pl.LightningModule):
     def forward(self, batch, phase='test'):
         losses = []
         metrics = []
-        state_init = None
+        state_init = [None]
+        out=None
         for _ in range(self.hparams.n_fourdvar_iter):
             _loss, out, state, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
-            state_init = state.detach()
+            state_init = [s.detach() for s in state]
             losses.append(_loss)
             metrics.append(_metrics)
         return losses, out, metrics
@@ -161,6 +183,7 @@ class LitModelAugstate(pl.LightningModule):
         if self.model_name == '4dvarnet':
             optimizer = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                 ]
                 , lr=0., weight_decay=self.hparams.weight_decay)
@@ -226,33 +249,20 @@ class LitModelAugstate(pl.LightningModule):
 
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
 
-        opt = self.optimizers()
         # compute loss and metrics
-        if self.hparams.get('rand_mask'):
-            rand = torch.rand_like(train_batch[0])
-            mask_95 = rand > 0.95
-            mask_gt = lambda t, m: t.where(m, torch.zeros_like(t))
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, *rest = train_batch
-            # loss_95, outs_95, metrics_95 = self.compute_loss(
-            #     (targets_OI, mask_95, mask_gt(targets_GT, mask_95), targets_GT, *rest), phase='train'
-            # )
-            loss_95_obs, _, _, metrics_95_obs = self.compute_loss(
-                (targets_OI, inputs_Mask.logical_or(mask_95), inputs_obs.where(inputs_Mask, mask_gt(targets_GT, mask_95)), targets_GT, *rest),
-                phase='train'
-            )
-            opt.zero_grad()
-            self.manual_backward((loss_95_obs) / 2)
-            opt.step()
 
         losses, _, metrics = self(train_batch, phase='train')
         if losses[-1] is None:
             print("None loss")
             return None
-        loss = torch.stack(losses).mean()
+        # loss = torch.stack(losses).sum()
+        loss = 2*torch.stack(losses).sum() - losses[0]
 
-        opt.zero_grad()
-        self.manual_backward(loss)
-        opt.step()
+        if not self.automatic_optimization:
+            opt = self.optimizers()
+            opt.zero_grad()
+            self.manual_backward(loss)
+            opt.step()
         # log step metric
         # self.log('train_mse', mse)
         # self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True)
@@ -260,8 +270,6 @@ class LitModelAugstate(pl.LightningModule):
         # self.log("tr_n_nobs", train_batch[1].sum().item(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log("tr_loss", loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log("tr_mse", metrics[-1]['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
-        if self.hparams.get('rand_mask'):
-            self.log("tr_mse_95", metrics_95_obs['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
         self.log("tr_mseG", metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
 
         return loss
@@ -280,7 +288,7 @@ class LitModelAugstate(pl.LightningModule):
 
         return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'oi'    : (targets_OI.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'inp_obs'    : (inputs_obs.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'inp_obs'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'preds' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def test_step(self, test_batch, batch_idx):
@@ -361,7 +369,7 @@ class LitModelAugstate(pl.LightningModule):
 
         for ds in dses:
             ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
-            xr_weight = xr.DataArray(self.patch_weight, ds.coords, dims=ds.gt.dims)
+            xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.gt.dims)
             _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
             fin_ds = fin_ds + _ds
 
@@ -376,6 +384,7 @@ class LitModelAugstate(pl.LightningModule):
         self.obs_inp = self.test_xr_ds.obs_inp.data
         self.x_oi = self.test_xr_ds.oi.data
         self.x_rec = self.test_xr_ds.pred.data
+        self.x_rec_ssh = self.x_rec
 
         self.test_coords = self.test_xr_ds.coords
         self.test_lat = self.test_coords['lat'].data
@@ -459,13 +468,13 @@ class LitModelAugstate(pl.LightningModule):
         self.test_figs['snr'] = snr_fig
 
         self.logger.experiment.add_figure(f'{log_pref} SNR', snr_fig, global_step=self.current_epoch)
-
         psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
         fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt, self.test_xr_ds.pred, self.test_xr_ds.oi, with_fig=True)
         self.test_figs['res'] = fig
         self.logger.experiment.add_figure(f'{log_pref} Spat. Resol', fig, global_step=self.current_epoch)
         psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
         psd_fig = metrics.plot_psd_score(psd_ds)
+        self.test_figs['psd'] = psd_fig
         psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
         self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
         _, _, mu, sig = metrics.rmse_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
@@ -489,7 +498,7 @@ class LitModelAugstate(pl.LightningModule):
                 {
                     f'{log_pref}_spatial_res': float(spatial_res_model),
                     f'{log_pref}_spatial_res_imp': float(spatial_res_model / spatial_res_oi),
-                **mdf.to_dict(),
+                **md,
             },
         step=self.current_epoch)
 
@@ -500,9 +509,9 @@ class LitModelAugstate(pl.LightningModule):
                 self.latest_metrics
     )
 
-    def get_init_state(self, batch, state):
-        if state is not None:
-            return state
+    def get_init_state(self, batch, state=(None,)):
+        if state[0] is not None:
+            return state[0]
 
         if not self.use_sst:
             targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
@@ -512,7 +521,7 @@ class LitModelAugstate(pl.LightningModule):
         if self.aug_state:
             init_state = torch.cat((targets_OI,
                                     inputs_Mask * (inputs_obs - targets_OI),
-                                    torch.zeros_like(targets_OI)),
+                                    inputs_Mask * (inputs_obs - targets_OI),),
                                    dim=1)
         else:
             init_state = torch.cat((targets_OI,
@@ -523,7 +532,7 @@ class LitModelAugstate(pl.LightningModule):
     def loss_ae(self, state_out):
         return torch.mean((self.model.phi_r(state_out) - state_out) ** 2)
 
-    def compute_loss(self, batch, phase, state_init=None):
+    def compute_loss(self, batch, phase, state_init=(None,)):
 
         if not self.use_sst:
             targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
@@ -545,47 +554,34 @@ class LitModelAugstate(pl.LightningModule):
                         ('mseOI', 0.),
                         ('mseGOI', 0.)])
                     )
-        targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
+        targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
 
         state = self.get_init_state(batch, state_init)
 
         #state = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
-        if not self.use_sst:
-            if self.aug_state:
-                new_masks = torch.cat((torch.ones_like(inputs_Mask),
-                                       inputs_Mask,
-                                       torch.zeros_like(inputs_Mask)),
-                                      dim=1)
-                obs = torch.cat((targets_OI,
-                                 inputs_Mask * (inputs_obs - targets_OI),
-                                 torch.zeros_like(targets_OI)),
-                                dim=1)
-            else:
-                new_masks = torch.cat((torch.ones_like(inputs_Mask),
-                                       inputs_Mask),
-                                      dim=1)
-                obs = torch.cat((targets_OI,
-                                 inputs_Mask * (inputs_obs - targets_OI)),
-                                dim=1)
-        else:
-            new_masks = [
-                    torch.cat((torch.ones_like(inputs_Mask), inputs_Mask), dim=1),
-                    torch.ones_like(sst_gt)
-            ]
-            obs = [
-                    torch.cat((targets_OI, inputs_obs), dim=1),
-                    sst_gt
-            ]
-        # PENDING: Add state with zeros
+
+        obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI)) ,dim=1)
+        new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask) , dim=1)
+
+        if self.aug_state:
+            obs = torch.cat( (obs, 0. * targets_OI,) ,dim=1)
+            new_masks = torch.cat( (new_masks, torch.zeros_like(inputs_Mask)), dim=1)
+
+        if self.use_sst:
+            new_masks = [ new_masks, torch.ones_like(sst_gt) ]
+            obs = [ obs, sst_gt ]
 
         # gradient norm field
-        g_targets_GT = self.gradient_img(targets_GT)
+        g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
 
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
             # with torch.set_grad_enabled(phase == 'train'):
             state = torch.autograd.Variable(state, requires_grad=True)
-            outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks)
+            # print(state.shape)
+            # print(obs.shape)
+            # print(new_masks.shape)
+            outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
 
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
@@ -602,33 +598,46 @@ class LitModelAugstate(pl.LightningModule):
                 outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
 
             # reconstruction losses
-            g_outputs = self.gradient_img(outputs)
+            g_outputs_x, g_outputs_y = self.gradient_img(outputs)
 
             # PENDING: add loss term computed on obs (outputs swath - obs_target)
-            loss_All = NN_4DVar.compute_spatio_temp_weighted_loss((outputs - targets_GT), self.w_loss)
-            loss_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_outputs - g_targets_GT, self.w_loss)
-            loss_OI = NN_4DVar.compute_spatio_temp_weighted_loss(targets_GT - targets_OI, self.w_loss)
-            loss_GOI = NN_4DVar.compute_spatio_temp_weighted_loss(self.gradient_img(targets_OI) - g_targets_GT, self.w_loss)
+            # loss_All = NN_4DVar.compute_spatio_temp_weighted_loss((outputs - targets_GT), self.w_loss)
+            # loss_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_outputs - g_targets_GT, self.w_loss)
+            # loss_OI = NN_4DVar.compute_spatio_temp_weighted_loss(targets_GT - targets_OI, self.w_loss)
+            # loss_GOI = NN_4DVar.compute_spatio_temp_weighted_loss(self.gradient_img(targets_OI) - g_targets_GT, self.w_loss)
 
+            loss_All = NN_4DVar.compute_spatio_temp_weighted_loss((outputs - targets_GT), self.patch_weight)
+            loss_GAll = (
+                    NN_4DVar.compute_spatio_temp_weighted_loss(g_outputs_x - g_targets_GT_x, self.grad_crop(self.patch_weight))
+                +    NN_4DVar.compute_spatio_temp_weighted_loss(g_outputs_y - g_targets_GT_y, self.grad_crop(self.patch_weight))
+            )
+            loss_OI = NN_4DVar.compute_spatio_temp_weighted_loss(targets_GT - targets_OI, self.patch_weight)
+            g_OI_x, g_OI_y = self.gradient_img(targets_OI)
+            loss_GOI = (
+                NN_4DVar.compute_spatio_temp_weighted_loss(g_OI_x - g_targets_GT_x, self.grad_crop(self.patch_weight))
+                + NN_4DVar.compute_spatio_temp_weighted_loss(g_OI_y - g_targets_GT_y, self.grad_crop(self.patch_weight))
+            )
             # projection losses
             loss_AE = self.loss_ae(outputsSLRHR)
 
             if self.aug_state:
                 yGT = torch.cat((targets_OI,
-                                 targets_GT_wo_nan - targets_OI,
-                                 targets_GT_wo_nan - targets_OI),
+                                 targets_GT_wo_nan - outputsSLR,
+                                 targets_GT_wo_nan - outputsSLR),
                                 dim=1)
             else:
                 yGT = torch.cat((targets_OI,
-                                 targets_GT_wo_nan - targets_OI),
+                                 targets_GT_wo_nan - outputsSLR),
                                 dim=1)
             # yGT        = torch.cat((targets_OI,targets_GT-targets_OI),dim=1)
             loss_AE_GT = torch.mean((self.model.phi_r(yGT) - yGT) ** 2)
 
             # low-resolution loss
-            loss_SR = NN_4DVar.compute_spatio_temp_weighted_loss(outputsSLR - targets_OI, self.w_loss)
+            # loss_SR = NN_4DVar.compute_spatio_temp_weighted_loss(outputsSLR - targets_OI, self.w_loss)
+            loss_SR = NN_4DVar.compute_spatio_temp_weighted_loss(outputsSLR - targets_OI, self.patch_weight)
             targets_GTLR = self.model_LR(targets_OI)
-            loss_LR = NN_4DVar.compute_spatio_temp_weighted_loss(self.model_LR(outputs) - targets_GTLR, self.model_LR(self.w_loss))
+            # loss_LR = NN_4DVar.compute_spatio_temp_weighted_loss(self.model_LR(outputs) - targets_GTLR, self.model_LR(self.w_loss))
+            loss_LR = NN_4DVar.compute_spatio_temp_weighted_loss(self.model_LR(outputs) - targets_GTLR, self.model_LR(self.patch_weight))
 
             # total loss
             loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
@@ -636,7 +645,9 @@ class LitModelAugstate(pl.LightningModule):
             loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
 
             # metrics
-            mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
+            # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
+            mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(
+                    torch.hypot(g_targets_GT_x, g_targets_GT_y) , self.grad_crop(self.patch_weight))
             mse = loss_All.detach()
             mseGrad = loss_GAll.detach()
             metrics = dict([
@@ -645,6 +656,115 @@ class LitModelAugstate(pl.LightningModule):
                 ('meanGrad', mean_GAll),
                 ('mseOI', loss_OI.detach()),
                 ('mseGOI', loss_GOI.detach())])
-            # PENDING: Add new loss term to metrics
 
-        return loss, outputs, outputsSLRHR, metrics
+        return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
+
+
+if __name__ =='__main__':
+    
+    import hydra
+    import importlib
+    from hydra.utils import instantiate, get_class, call
+    import hydra_main 
+    import lit_model_augstate 
+    
+    importlib.reload(lit_model_augstate)
+    importlib.reload(hydra_main)
+
+    def get_cfg(xp_cfg, overrides=None):
+        overrides = overrides if overrides is not None else []
+        def get():
+            cfg = hydra.compose(config_name='main', overrides=
+                [
+                    f'xp={xp_cfg}',
+                    'file_paths=jz',
+                    'entrypoint=train',
+                ] + overrides
+            )
+
+            return cfg
+        try:
+            with hydra.initialize_config_dir(str(Path('hydra_config').absolute())):
+                return get()
+        except Exception as e:
+            raise e
+            return get()
+
+    def get_model(xp_cfg, ckpt, dm=None, add_overrides=None):
+        overrides = []
+        if add_overrides is not None:
+            overrides =  overrides + add_overrides
+        cfg = get_cfg(xp_cfg, overrides)
+        lit_mod_cls = get_class(cfg.lit_mod_cls)
+        if dm is None:
+            dm = instantiate(cfg.datamodule)
+        runner = hydra_main.FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls)
+        mod = runner._get_model(ckpt)
+        return mod
+
+    def get_dm(xp_cfg, setup=True, add_overrides=None):
+        overrides = []
+        if add_overrides is not None:
+            overrides = overrides + add_overrides
+        cfg = get_cfg(xp_cfg, overrides)
+        dm = instantiate(cfg.datamodule)
+        if setup:
+            dm.setup()
+        return dm
+    from omegaconf import OmegaConf
+    OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
+    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638612/checkpoints/modelCalSLAInterpGF-epoch=30-val_loss=1.5786.ckpt'
+    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=13-val_loss=1.4913.ckpt'
+    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=16-val_loss=1.4879.ckpt'
+    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=19-val_loss=1.4220.ckpt'
+    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=30-val_loss=1.4054.ckpt'
+    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=43-val_loss=1.4010.ckpt'
+
+    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=35-val_loss=1.3944.ckpt'
+    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=59-val_loss=1.3850.ckpt'
+    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=80-val_loss=1.3976.ckpt'
+
+    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=18-val_loss=1.4573.ckpt'
+    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=29-val_loss=1.4368.ckpt'
+
+    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=40-val_loss=1.3377.ckpt'
+
+    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=60-val_loss=1.3481.ckpt'
+    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=72-val_loss=1.3462.ckpt'
+
+    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1714109/checkpoints/modelCalSLAInterpGF-epoch=07-val_loss=1.3174.ckpt'
+    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1714109/checkpoints/modelCalSLAInterpGF-epoch=16-val_loss=1.3098.ckpt'
+
+
+    # cfg_n, ckpt = 'quentin_repro_w_hugo_lit_240', 'dashboard/xp_interp_dt7_240_r/lightning_logs/version_1638608/checkpoints/modelCalSLAInterpGF-epoch=98-val_loss=1.4799.ckpt'
+    # cfg_n, ckpt = 'quentin_repro_w_hugo_lit_240', 'dashboard/xp_interp_dt7_240_r/lightning_logs/version_1638608/checkpoints/modelCalSLAInterpGF-epoch=74-val_loss=1.5486.ckpt'
+    # cfg_n, ckpt = 'quentin_repro_w_hugo_lit_240', 'dashboard/xp_interp_dt7_240_r/lightning_logs/version_1638608/checkpoints/modelCalSLAInterpGF-epoch=85-val_loss=1.5409.ckpt'
+
+    # cfg_n, ckpt = 'quentin_repro_w_hugo_lit_240', 'modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt'
+
+    # cfg_n, ckpt = 'full_core', 'modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt'
+    # cfg_n, ckpt = 'dT9', 'dashboard/xp_interp_dt9_240_h/lightning_logs/version_1715728/checkpoints/modelCalSLAInterpGF-epoch=23-val_loss=1.4065.ckpt'
+    # cfg_n, ckpt = 'dT5_240_sst', None
+    cfg_n, ckpt = 'full_core_hanning_t_grad', 'dashboard/xp_interp_dt7_240_h_hanning/lightning_logs/version_1733027/checkpoints/modelCalSLAInterpGF-epoch=04-val_loss=0.2668.ckpt'
+    dm = get_dm(f"xp_aug/xp_repro/{cfg_n}", setup=False,
+            add_overrides=[
+                # 'params.files_cfg.obs_mask_path=/gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/CalData/cal_data_new_errs.nc',
+                # 'params.files_cfg.obs_mask_path=/gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d.nc',
+                # 'params.files_cfg.obs_mask_var=four_nadirs'
+                # 'params.files_cfg.obs_mask_var=swot_nadirs_no_noise'
+            ]
+
+
+    )
+    mod = get_model(
+            f"xp_aug/xp_repro/{cfg_n}",
+            ckpt,
+            dm=dm)
+    mod.hparams
+    cfg = get_cfg(f"xp_aug/xp_repro/{cfg_n}")
+    # cfg = get_cfg("xp_aug/xp_repro/quentin_repro")
+    print(OmegaConf.to_yaml(cfg))
+    lit_mod_cls = get_class(cfg.lit_mod_cls)
+    runner = hydra_main.FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls)
+    mod = runner.test(ckpt)
+    mod.test_figs['psd']

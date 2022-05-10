@@ -162,15 +162,15 @@ def get_phi(hparams):
 
 
 def get_constant_crop(patch_size, crop, dim_order=['time', 'lat', 'lon']):
-        patch_weight = np.zeros([patch_size[d] for d in dim_order], dtype='float32')
-        print(patch_size, crop)
-        mask = tuple(
-                slice(crop[d], -crop[d]) if crop.get(d, 0)>0 else slice(None, None)
-                for d in dim_order
-        )
-        patch_weight[mask] = 1.
-        print(patch_weight.sum())
-        return patch_weight
+    patch_weight = np.zeros([patch_size[d] for d in dim_order], dtype='float32')
+    print(patch_size, crop)
+    mask = tuple(
+            slice(crop[d], -crop[d]) if crop.get(d, 0)>0 else slice(None, None)
+            for d in dim_order
+    )
+    patch_weight[mask] = 1.
+    print(patch_weight.sum())
+    return patch_weight
 
 # msk = get_constant_crop({'lat':200, 'lon':200, 'time':5}, crop={'lat':20, 'lon':20, 'time':2})
 # print(msk.shape)
