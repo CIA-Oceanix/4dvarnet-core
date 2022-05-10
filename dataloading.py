@@ -85,8 +85,10 @@ class XrDataset(Dataset):
         self.interp_na = interp_na
         # try/except block for handling both netcdf and zarr files
         try:
-            _ds = xr.open_dataset(path, cache=False)
+            print(path)
+            _ds = xr.open_dataset(path)
         except OSError as ex:
+            raise ex
             _ds = xr.open_zarr(path)
         if decode:
             if str(_ds.time.dtype) == 'float64':
@@ -158,6 +160,9 @@ class XrDataset(Dataset):
         self.ds = self.ds.transpose("time", "lat", "lon")
         if self.interp_na:
             self.ds = interpolate_na_2D(self.ds)
+
+        if compute:
+            self.ds = self.ds.compute()
 
         self.slice_win = slice_win
         self.strides = strides or {}
