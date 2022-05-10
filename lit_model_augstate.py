@@ -42,17 +42,6 @@ def get_4dvarnet_sst(hparams):
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
 
-def get_ronan_4dvarnet(hparams):
-
-    import solver_ronan
-    import lit_model_ronan
-
-    return solver_ronan.Solver_Grad_4DVarNN(
-        lit_model_ronan.Phi_r(), 
-        lit_model_ronan.Model_H(), 
-        solver_ronan.model_GradUpdateLSTM(hparams.shape_data, hparams.UsePriodicBoundary,
-            hparams.dim_grad_solver, hparams.dropout, padding_mode=hparams.padding_mode), 
-        None, None, hparams.shape_data, hparams.n_grad, 0.*1e-20 ,k_step_grad = 1. / (hparams.n_grad * hparams.k_n_grad) )
     
 
 
@@ -90,7 +79,6 @@ class LitModelAugstate(pl.LightningModule):
 
     MODELS = {
             '4dvarnet': get_4dvarnet,
-            'ronan_4dvarnet': get_ronan_4dvarnet,
             '4dvarnet_sst': get_4dvarnet_sst,
             'phi': get_phi,
              }
@@ -288,8 +276,8 @@ class LitModelAugstate(pl.LightningModule):
 
         return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'oi'    : (targets_OI.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'inp_obs'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'preds' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
+                'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def test_step(self, test_batch, batch_idx):
         return self.diag_step(test_batch, batch_idx, log_pref='test')
@@ -305,20 +293,24 @@ class LitModelAugstate(pl.LightningModule):
         if (self.current_epoch + 1) % self.hparams.val_diag_freq == 0:
             return self.diag_epoch_end(outputs, log_pref='val')
 
-    def diag_epoch_end(self, outputs, log_pref='test'):
+
+    def gather_outputs(self, outputs, log_pref):
         data_path = Path(f'{self.logger.log_dir}/{log_pref}_data')
         data_path.mkdir(exist_ok=True, parents=True)
         print(len(outputs))
         torch.save(outputs, data_path / f'{self.global_rank}.t')
+
         if dist.is_initialized():
             dist.barrier()
         if self.global_rank > 0:
             print(f'Saved data for rank {self.global_rank}')
             return
 
-        full_outputs = [torch.load(f) for f in sorted(data_path.glob('*'))]
+        return [torch.load(f) for f in sorted(data_path.glob('*'))]
 
-        print(len(full_outputs))
+    def build_test_xr_ds(self, outputs, log_pref):
+
+        outputs_keys = list(outputs[0][0].keys())
         if log_pref == 'test':
             diag_ds = self.trainer.test_dataloaders[0].dataset.datasets[0]
         elif log_pref == 'val':
@@ -330,7 +322,6 @@ class LitModelAugstate(pl.LightningModule):
                diag_ds[i]
                for i in range(len(diag_ds))
             ]
-        self.outputs = full_outputs
 
         def iter_item(outputs):
             n_batch_chunk = len(outputs)
@@ -339,25 +330,18 @@ class LitModelAugstate(pl.LightningModule):
                 bs = outputs[0][b]['gt'].shape[0]
                 for i in range(bs):
                     for bc in range(n_batch_chunk):
-                        yield (
-                                outputs[bc][b]['gt'][i],
-                                outputs[bc][b]['oi'][i],
-                                outputs[bc][b]['preds'][i],
-                                outputs[bc][b]['inp_obs'][i],
+                        yield tuple(
+                                [outputs[bc][b][k][i] for k in outputs_keys]
                         )
 
         dses =[
                 xr.Dataset( {
-                    'gt': (('time', 'lat', 'lon'), x_gt),
-                    'oi': (('time', 'lat', 'lon'), x_oi),
-                    'pred': (('time', 'lat', 'lon'), x_rec),
-                    'obs_inp': (('time', 'lat', 'lon'), obs_inp),
+                    k: (('time', 'lat', 'lon'), x_k) for k, x_k in zip(outputs_keys, xs)
                 }, coords=coords)
-            for  (x_gt, x_oi, x_rec, obs_inp), coords
-            in zip(iter_item(self.outputs), self.test_patch_coords)
+            for  xs, coords
+            in zip(iter_item(outputs), self.test_patch_coords)
         ]
-        import time
-        t0 = time.time()
+
         fin_ds = xr.merge([xr.zeros_like(ds[['time','lat', 'lon']]) for ds in dses])
         fin_ds = fin_ds.assign(
             {'weight': (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
@@ -374,25 +358,39 @@ class LitModelAugstate(pl.LightningModule):
             fin_ds = fin_ds + _ds
 
 
-        self.test_xr_ds = (
+        return (
             (fin_ds.drop('weight') / fin_ds.weight)
             .sel(instantiate(self.test_domain))
             .pipe(lambda ds: ds.sel(time=~(np.isnan(ds.gt).all('lat').all('lon'))))
         ).transpose('time', 'lat', 'lon')
 
-        self.x_gt = self.test_xr_ds.gt.data
-        self.obs_inp = self.test_xr_ds.obs_inp.data
-        self.x_oi = self.test_xr_ds.oi.data
-        self.x_rec = self.test_xr_ds.pred.data
-        self.x_rec_ssh = self.x_rec
 
-        self.test_coords = self.test_xr_ds.coords
-        self.test_lat = self.test_coords['lat'].data
-        self.test_lon = self.test_coords['lon'].data
-        self.test_dates = self.test_coords['time'].data
+    def nrmse_fn(self, pred, ref, gt):
+        return (
+                self.test_xr_ds[[pred, ref]]
+                .pipe(lambda ds: ds - ds.mean())
+                .pipe(lambda ds: ds - (self.test_xr_ds[gt].pipe(lambda da: da - da.mean())))
+                .pipe(lambda ds: ds ** 2 / self.test_xr_ds[gt].std())
+                .to_dataframe()
+                .pipe(lambda ds: np.sqrt(ds.mean()))
+                .to_frame()
+                .rename(columns={0: 'nrmse'})
+                .assign(nrmse_ratio=lambda df: df / df.loc[ref])
+        )
 
-        Path(self.logger.log_dir).mkdir(exist_ok=True)
-        # display map
+    def mse_fn(self, pred, ref, gt):
+            return(
+                self.test_xr_ds[[pred, ref]]
+                .pipe(lambda ds: ds - self.test_xr_ds[gt])
+                .pipe(lambda ds: ds ** 2)
+                .to_dataframe()
+                .pipe(lambda ds: ds.mean())
+                .to_frame()
+                .rename(columns={0: 'mse'})
+                .assign(mse_ratio=lambda df: df / df.loc[ref])
+        )
+
+    def sla_diag(self, t_idx=3, log_pref='test'):
         path_save0 = self.logger.log_dir + '/maps.png'
         t_idx = 3
         fig_maps = plot_maps(
@@ -416,43 +414,17 @@ class LitModelAugstate(pl.LightningModule):
         # animate maps
         if self.hparams.animate == True:
             path_save0 = self.logger.log_dir + '/animation.mp4'
-            animate_maps(self.x_gt,
-                    self.x_oi,
-                    self.x_rec,
-                    self.lon, self.lat, path_save0)
+            animate_maps(self.x_gt, self.obs_inp, self.x_oi, self.x_rec, self.lon, self.lat, path_save0)
             # save NetCDF
-        path_save1 = self.logger.log_dir + f'/test.nc'
         # PENDING: replace hardcoded 60
-        self.test_xr_ds.to_netcdf(path_save1)
         # save_netcdf(saved_path1=path_save1, pred=self.x_rec,
         #         lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
 
         # compute nRMSE
         # np.sqrt(np.nanmean(((ref - np.nanmean(ref)) - (pred - np.nanmean(pred))) ** 2)) / np.nanstd(ref)
-        nrmse_fn = lambda pred, ref, gt: (
-                self.test_xr_ds[[pred, ref]]
-                .pipe(lambda ds: ds - ds.mean())
-                .pipe(lambda ds: ds - (self.test_xr_ds[gt].pipe(lambda da: da - da.mean())))
-                .pipe(lambda ds: ds ** 2 / self.test_xr_ds[gt].std())
-                .to_dataframe()
-                .pipe(lambda ds: np.sqrt(ds.mean()))
-                .to_frame()
-                .rename(columns={0: 'nrmse'})
-                .assign(nrmse_ratio=lambda df: df / df.loc[ref])
-        )
-        mse_fn = lambda pred, ref, gt: (
-                self.test_xr_ds[[pred, ref]]
-                .pipe(lambda ds: ds - self.test_xr_ds[gt])
-                .pipe(lambda ds: ds ** 2)
-                .to_dataframe()
-                .pipe(lambda ds: ds.mean())
-                .to_frame()
-                .rename(columns={0: 'mse'})
-                .assign(mse_ratio=lambda df: df / df.loc[ref])
-        )
 
-        nrmse_df = nrmse_fn('pred', 'oi', 'gt')
-        mse_df = mse_fn('pred', 'oi', 'gt')
+        nrmse_df = self.nrmse_fn('pred', 'oi', 'gt')
+        mse_df = self.mse_fn('pred', 'oi', 'gt')
         nrmse_df.to_csv(self.logger.log_dir + '/nRMSE.txt')
         mse_df.to_csv(self.logger.log_dir + '/MSE.txt')
 
@@ -492,15 +464,32 @@ class LitModelAugstate(pl.LightningModule):
             f'{log_pref}_sigma': sig,
             **mdf.to_dict(),
         }
-        self.latest_metrics.update(md)
         print(pd.DataFrame([md]).T.to_markdown())
-        self.logger.log_metrics(
-                {
-                    f'{log_pref}_spatial_res': float(spatial_res_model),
-                    f'{log_pref}_spatial_res_imp': float(spatial_res_model / spatial_res_oi),
-                **md,
-            },
-        step=self.current_epoch)
+        return md
+
+    def diag_epoch_end(self, outputs, log_pref='test'):
+        full_outputs = self.gather_outputs(outputs, log_pref=log_pref)
+        self.test_xr_ds = self.build_test_xr_ds(full_outputs, log_pref=log_pref)
+
+        Path(self.logger.log_dir).mkdir(exist_ok=True)
+        path_save1 = self.logger.log_dir + f'/test.nc'
+        self.test_xr_ds.to_netcdf(path_save1)
+
+        self.x_gt = self.test_xr_ds.gt.data
+        self.obs_inp = self.test_xr_ds.obs_inp.data
+        self.x_oi = self.test_xr_ds.oi.data
+        self.x_rec = self.test_xr_ds.pred.data
+        self.x_rec_ssh = self.x_rec
+
+        self.test_coords = self.test_xr_ds.coords
+        self.test_lat = self.test_coords['lat'].data
+        self.test_lon = self.test_coords['lon'].data
+        self.test_dates = self.test_coords['time'].data
+
+        # display map
+        md = self.sla_diag(t_idx=3, log_pref=log_pref)
+        self.latest_metrics.update(md)
+        self.logger.log_metrics(md, step=self.current_epoch)
 
     def teardown(self, stage='test'):
 
@@ -531,6 +520,29 @@ class LitModelAugstate(pl.LightningModule):
 
     def loss_ae(self, state_out):
         return torch.mean((self.model.phi_r(state_out) - state_out) ** 2)
+
+    def sla_loss(self, gt, out):
+        g_outputs_x, g_outputs_y = self.gradient_img(out)
+        g_gt_x, g_gt_y = self.gradient_img(gt)
+
+        loss = NN_4DVar.compute_spatio_temp_weighted_loss((out - gt), self.patch_weight)
+        loss_grad = (
+                NN_4DVar.compute_spatio_temp_weighted_loss(g_outputs_x - g_gt_x, self.grad_crop(self.patch_weight))
+            +    NN_4DVar.compute_spatio_temp_weighted_loss(g_outputs_y - g_gt_y, self.grad_crop(self.patch_weight))
+        )
+
+        return loss, loss_grad
+
+    def reg_loss(self, y_gt, oi, out, out_lr, out_lrhr):
+        l_ae = self.loss_ae(out_lrhr)
+        l_ae_gt = self.loss_ae(y_gt)
+        l_sr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr - oi, self.patch_weight)
+
+        gt_lr = self.model_LR(oi)
+        out_lr_bis = self.model_LR(out)
+        l_lr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr_bis - gt_lr, self.model_LR(self.patch_weight))
+
+        return l_ae, l_ae_gt, l_sr, l_lr
 
     def compute_loss(self, batch, phase, state_init=(None,)):
 
@@ -598,46 +610,20 @@ class LitModelAugstate(pl.LightningModule):
                 outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
 
             # reconstruction losses
-            g_outputs_x, g_outputs_y = self.gradient_img(outputs)
-
-            # PENDING: add loss term computed on obs (outputs swath - obs_target)
-            # loss_All = NN_4DVar.compute_spatio_temp_weighted_loss((outputs - targets_GT), self.w_loss)
-            # loss_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_outputs - g_targets_GT, self.w_loss)
-            # loss_OI = NN_4DVar.compute_spatio_temp_weighted_loss(targets_GT - targets_OI, self.w_loss)
-            # loss_GOI = NN_4DVar.compute_spatio_temp_weighted_loss(self.gradient_img(targets_OI) - g_targets_GT, self.w_loss)
-
-            loss_All = NN_4DVar.compute_spatio_temp_weighted_loss((outputs - targets_GT), self.patch_weight)
-            loss_GAll = (
-                    NN_4DVar.compute_spatio_temp_weighted_loss(g_outputs_x - g_targets_GT_x, self.grad_crop(self.patch_weight))
-                +    NN_4DVar.compute_spatio_temp_weighted_loss(g_outputs_y - g_targets_GT_y, self.grad_crop(self.patch_weight))
-            )
-            loss_OI = NN_4DVar.compute_spatio_temp_weighted_loss(targets_GT - targets_OI, self.patch_weight)
-            g_OI_x, g_OI_y = self.gradient_img(targets_OI)
-            loss_GOI = (
-                NN_4DVar.compute_spatio_temp_weighted_loss(g_OI_x - g_targets_GT_x, self.grad_crop(self.patch_weight))
-                + NN_4DVar.compute_spatio_temp_weighted_loss(g_OI_y - g_targets_GT_y, self.grad_crop(self.patch_weight))
-            )
             # projection losses
-            loss_AE = self.loss_ae(outputsSLRHR)
 
+            yGT = torch.cat((targets_OI,
+                             targets_GT_wo_nan - outputsSLR),
+                            dim=1)
             if self.aug_state:
-                yGT = torch.cat((targets_OI,
-                                 targets_GT_wo_nan - outputsSLR,
-                                 targets_GT_wo_nan - outputsSLR),
-                                dim=1)
-            else:
-                yGT = torch.cat((targets_OI,
-                                 targets_GT_wo_nan - outputsSLR),
-                                dim=1)
-            # yGT        = torch.cat((targets_OI,targets_GT-targets_OI),dim=1)
-            loss_AE_GT = torch.mean((self.model.phi_r(yGT) - yGT) ** 2)
+                yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
 
-            # low-resolution loss
-            # loss_SR = NN_4DVar.compute_spatio_temp_weighted_loss(outputsSLR - targets_OI, self.w_loss)
-            loss_SR = NN_4DVar.compute_spatio_temp_weighted_loss(outputsSLR - targets_OI, self.patch_weight)
-            targets_GTLR = self.model_LR(targets_OI)
-            # loss_LR = NN_4DVar.compute_spatio_temp_weighted_loss(self.model_LR(outputs) - targets_GTLR, self.model_LR(self.w_loss))
-            loss_LR = NN_4DVar.compute_spatio_temp_weighted_loss(self.model_LR(outputs) - targets_GTLR, self.model_LR(self.patch_weight))
+            loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
+            loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
+            loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
+                yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
+            ) 
+
 
             # total loss
             loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll

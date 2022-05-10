@@ -1,4 +1,4 @@
-from new_dataloading import FourDVarNetDataset, FourDVarNetDataModule, XrDataset
+from dataloading import FourDVarNetDataset, FourDVarNetDataModule, XrDataset
 from torch.utils.data import ConcatDataset
 import numpy as np
 

@@ -39,6 +39,7 @@ def find_pad(sl, st, N):
     else:
         pad = 0
     return int(pad/2), int(pad-int(pad/2))
+
 def interpolate_na_2D(da, max_value=10.):
     return (
             da.where(np.abs(da) < max_value, np.nan)
@@ -153,9 +154,10 @@ class XrDataset(Dataset):
             self.lon = np.arange(dim_range_['lon'].start, dim_range_['lon'].stop, self.resolution)
             self.lat = np.arange(dim_range_['lat'].start, dim_range_['lat'].stop, self.resolution)
 
+
+        self.ds = self.ds.transpose("time", "lat", "lon")
         if self.interp_na:
             self.ds = interpolate_na_2D(self.ds)
-        self.ds = self.ds.transpose("time", "lat", "lon")
 
         self.slice_win = slice_win
         self.strides = strides or {}
@@ -223,7 +225,7 @@ class FourDVarNetDataset(Dataset):
         sst_decode=True,
         resolution=1/20,
         resize_factor=1,
-        use_auto_padding=True,
+        use_auto_padding=False,
         aug_train_data=False,
         compute=False,
     ):
@@ -381,7 +383,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             resolution="1/20",
             dl_kwargs=None,
             compute=False,
-            use_auto_padding=True,
+            use_auto_padding=False,
     ):
         super().__init__()
         self.resize_factor = resize_factor
