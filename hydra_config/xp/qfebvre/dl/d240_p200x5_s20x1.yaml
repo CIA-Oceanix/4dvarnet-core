@@ -4,14 +4,14 @@ datamodule:
   slice_win: 
     lat: 200
     lon: 200
-    time: 5
+    time: ${params.dT}
   strides: 
     lat: 20
     lon: 20
     time: 1
 params:
   patch_weight:
-    _target_: calibration.lit_cal_model.get_constant_crop
+    _target_: lit_model_augstate.get_constant_crop
     patch_size: ${datamodule.slice_win}
     crop: 
       lat: 20

@@ -34,8 +34,8 @@ params:
   nbBlocks: 1
   DimAE: 50
   dim_grad_solver: 150
-  dropout: 0.1
-  dropout_phi_r: 0.1
+  dropout: 0.25
+  dropout_phi_r: 0.0
   alpha_mse_ssh: ??? # loss
   alpha_mse_gssh: ???
   alpha_loc_mse_ssh: ???
@@ -48,13 +48,12 @@ params:
   loss_proj: 1
   loss_low_res: 1
   automatic_optimization: true
-  swot_anom_wrt: low_res
-  anom_swath_init: zeros
   ckpt_name: 'modelCalSLAInterpGF-{epoch:02d}-{val_loss:.4f}'
   norm_obs: 'l1'
   norm_prior: 'l1'
   patch_weight: ??? # dl
 lit_mod_cls: calibration.lit_cal_model.LitCalModel
+  median_filter_width: 1
 datamodule:
   _target_: calibration.dataset.FourDVarNetCalDataModule
   slice_win: ??? # dl
@@ -73,6 +72,8 @@ datamodule:
   sst_path: ??? # sst
   sst_var: ???
   use_auto_padding: 0
+  aug_train_data: false
+  resolution: 1/20
   dl_kwargs:
     batch_size: 2
     num_workers: 2
@@ -84,5 +85,3 @@ logger:
   save_dir: .
   name: .
   default_hp_metric: False
-
-
