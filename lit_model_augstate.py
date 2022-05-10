@@ -82,9 +82,14 @@ def get_constant_crop(patch_size, crop, dim_order=['time', 'lat', 'lon']):
         print(patch_weight.sum())
         return patch_weight
 
-# msk = get_constant_crop({'lat':200, 'lon':200, 'time':5}, crop={'lat':20, 'lon':20, 'time':2})
-# print(msk.shape)
-# plt.imshow(msk[2, ...])
+def get_hanning_mask(patch_size, **kwargs):
+        
+    t_msk =kornia.filters.get_hanning_kernel1d(patch_size['time'])
+    s_msk = kornia.filters.get_hanning_kernel2d((patch_size['lat'], patch_size['lon']))
+
+    patch_weight = t_msk[:, None, None] * s_msk[None, :, :]
+    return patch_weight.cpu().numpy()
+
 ############################################ Lightning Module #######################################################################
 
 class LitModelAugstate(pl.LightningModule):
@@ -688,6 +693,14 @@ class LitModelAugstate(pl.LightningModule):
                 loss_fft = F.mse_loss(ceiled_psd_score, torch.zeros_like(ceiled_psd_score))
                 # loss_fft = torch.hypot(*self.gradient_img(ceiled_psd_score))
                 loss += alpha_fft * F.mse_loss(loss_fft, torch.zeros_like(loss_fft))
+
+            alpha_temporal_grad =  self.hparams.get('alpha_t_grad', 0)
+            if alpha_temporal_grad > 0:
+                gt_tgrad =  targets_GT_wo_nan[:, 2:]-targets_GT_wo_nan[:, :-2]
+                out_tgrad =  outputs[:, 2:]-outputs[:, :-2]
+                w = self.patch_weight[1:-1]
+                loss += alpha_temporal_grad * NN_4DVar.compute_spatio_temp_weighted_loss(gt_tgrad - out_tgrad, w)
+                # gt_tgrad = kornia.targets_GT_wo_nan
         # print(f'hugo {loss_All=}, {self.hparams.alpha_mse_ssh * loss_All=}')
         # print(f'hugo {loss_GAll=}, {self.hparams.alpha_mse_gssh * loss_GAll=}')
         # print(f'hugo {loss_AE=}, {0.5 * self.hparams.alpha_proj * loss_AE=} ')
@@ -745,7 +758,8 @@ if __name__ =='__main__':
         try:
             with hydra.initialize_config_dir(str(Path('hydra_config').absolute())):
                 return get()
-        except:
+        except Exception as e:
+            raise e
             return get()
 
     def get_model(xp_cfg, ckpt, dm=None, add_overrides=None):
@@ -785,11 +799,13 @@ if __name__ =='__main__':
     # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=18-val_loss=1.4573.ckpt'
     # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=29-val_loss=1.4368.ckpt'
 
-    cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=40-val_loss=1.3377.ckpt'
+    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=40-val_loss=1.3377.ckpt'
 
     # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=60-val_loss=1.3481.ckpt'
     # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=72-val_loss=1.3462.ckpt'
+
     # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1714109/checkpoints/modelCalSLAInterpGF-epoch=07-val_loss=1.3174.ckpt'
+    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1714109/checkpoints/modelCalSLAInterpGF-epoch=16-val_loss=1.3098.ckpt'
 
 
     # cfg_n, ckpt = 'quentin_repro_w_hugo_lit_240', 'dashboard/xp_interp_dt7_240_r/lightning_logs/version_1638608/checkpoints/modelCalSLAInterpGF-epoch=98-val_loss=1.4799.ckpt'
@@ -799,8 +815,19 @@ if __name__ =='__main__':
     # cfg_n, ckpt = 'quentin_repro_w_hugo_lit_240', 'modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt'
 
     # cfg_n, ckpt = 'full_core', 'modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt'
+    # cfg_n, ckpt = 'dT9', 'dashboard/xp_interp_dt9_240_h/lightning_logs/version_1715728/checkpoints/modelCalSLAInterpGF-epoch=23-val_loss=1.4065.ckpt'
     # cfg_n, ckpt = 'dT5_240_sst', None
-    dm = get_dm(f"xp_aug/xp_repro/{cfg_n}", setup=False)
+    cfg_n, ckpt = 'full_core_hanning_t_grad', 'dashboard/xp_interp_dt7_240_h_hanning/lightning_logs/version_1733027/checkpoints/modelCalSLAInterpGF-epoch=04-val_loss=0.2668.ckpt'
+    dm = get_dm(f"xp_aug/xp_repro/{cfg_n}", setup=False,
+            add_overrides=[
+                # 'params.files_cfg.obs_mask_path=/gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/CalData/cal_data_new_errs.nc',
+                # 'params.files_cfg.obs_mask_path=/gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d.nc',
+                # 'params.files_cfg.obs_mask_var=four_nadirs'
+                # 'params.files_cfg.obs_mask_var=swot_nadirs_no_noise'
+            ]
+
+
+    )
     mod = get_model(
             f"xp_aug/xp_repro/{cfg_n}",
             ckpt,

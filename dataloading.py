@@ -192,7 +192,8 @@ class FourDVarNetDataset(Dataset):
             strides=strides,
             decode=gt_decode,
             resize_factor=resize_factor,
-            compute=compute
+            compute=compute,
+            interp_na=True,
         )
         self.obs_mask_ds = XrDataset(
             obs_mask_path, obs_mask_var,

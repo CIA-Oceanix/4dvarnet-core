@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: xp_interp_dt7_240_h
+xp_name: xp_interp_dt7_240_h_sst
 params:
   dT: 7
   patch_weight:
@@ -20,7 +20,7 @@ datamodule:
 defaults:
   - /xp/xp_aug/base_xp
   - /splits/dc_boost_swot@datamodule
-  - /xp/xp_aug/aug/with_aug_state
+  - /xp/xp_aug/aug/without_aug_state
   - /xp/xp_aug/dl/d240_p240x5_s240x1
   - /xp/xp_aug/sst/with_sst
   - /xp/xp_aug/loss/map
