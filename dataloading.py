@@ -180,6 +180,10 @@ class XrDataset(Dataset):
 
 
         self.ds = self.ds.transpose("time", "lat", "lon")
+        if not self.auto_padding:
+            self.original_coords = self.ds.coords
+            self.padded_coords = self.ds.coords
+
         if self.interp_na:
             self.ds = interpolate_na_2D(self.ds)
 
