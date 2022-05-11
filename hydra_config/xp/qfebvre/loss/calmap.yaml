@@ -1,0 +1,8 @@
+# @package _global_
+params:
+  loss_loc: 1
+  alpha_mse_ssh: 1.0
+  alpha_mse_gssh: 10.0
+  alpha_loc_mse_ssh: 1.
+  alpha_loc_mse_gssh: 10.
+

@@ -32,7 +32,6 @@ outputs
 dashboard
 hydra_main.log
 multirun
-scratch.py
 .hydra
 .submitit
 multirun.yaml
@@ -41,3 +40,12 @@ archive_dash
 icassp_code_bis
 notebooks
 tags
+tb_logs
+scratches_logs
+version_*
+instab
+*.nc
+*.csv
+*.pk
+lightning_logs_archives
+report

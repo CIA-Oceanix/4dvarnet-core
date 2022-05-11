@@ -38,8 +38,8 @@ import xarray as xr
 import pickle
 from matplotlib import pyplot as plt
 from tqdm import tqdm
-from src.commons.coords_to_dim import coords_to_dim, reindex
-from src.data_processing.get_slice import get_nadir_slice, get_swot_slice, get_oi_slice, get_natl_slice
+from utils.coords_to_dim import coords_to_dim, reindex
+from calibration.get_slice import get_nadir_slice, get_swot_slice, get_oi_slice, get_natl_slice
 
 dates = pd.date_range("2013-01-01", "2013-01-30", freq='1D')
 # dates = pd.date_range("2012-10-01", "2013-10-01", freq='1D')

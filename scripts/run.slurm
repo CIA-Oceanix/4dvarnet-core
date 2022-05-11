@@ -3,9 +3,9 @@
 # SLURM SUBMIT SCRIPT
 #SBATCH --nodes=1
 #SBATCH --account=yrf@gpu
-#SBATCH --gres=gpu:4
-#SBATCH --ntasks-per-node=4
-#SBATCH --time=04:00:00
+#SBATCH --gres=gpu:1
+#SBATCH --ntasks-per-node=1
+#SBATCH --time=15:00:00
 #SBATCH --cpus-per-task=10
 #SBATCH --hint=nomultithread
 #SBATCH -C v100-32g
@@ -24,6 +24,7 @@ conda activate 4dvarnet
 export PYTHONPATH=${WORK}/4dvarnet-core:${PYTHONPATH}
 
 
-srun python main.py --max_epochs=250 --config=$1 --progress_bar_refresh_rate=5 train
+# srun python lit_model_ronan.py
+srun python data_ronan.py
 
 

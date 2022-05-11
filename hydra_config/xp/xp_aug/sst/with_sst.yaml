@@ -1,0 +1,9 @@
+# @package _global_
+
+params:
+  model: 4dvarnet_sst
+  sst: true
+datamodule:
+  sst_path: ${file_paths.natl_sst_daily}
+  sst_var: sst
+

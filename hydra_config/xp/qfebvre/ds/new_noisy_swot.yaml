@@ -1,0 +1,7 @@
+# @package _global_
+params:
+  files_cfg:
+    obs_mask_path: ${file_paths.new_noisy_swot}
+    obs_mask_var: swot_nadirs_new_errors_w_wet_tropo
+    oi_path: ${file_paths.oi_4nadir}
+    oi_var: ssh_mod

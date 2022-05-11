@@ -83,12 +83,8 @@ dx: 1
 W: 200
 shape_state:
 - 15
-- 200
-- 200
 shape_obs:
 - 10
-- 200
-- 200
 dW: 3
 dW2: 1
 sS: 4

@@ -42,6 +42,7 @@ class Encoder(torch.nn.Module):
         # self.conv1HR  = torch.nn.Conv2d(dim_inp,self.dim_ae,(2*dw+1,2*dw+1),padding=dw,bias=False)
         # self.conv1LR  = torch.nn.Conv2d(dim_inp,self.dim_ae,(2*dw+1,2*dw+1),padding=dw,bias=False)
         self.pool1 = torch.nn.AvgPool2d(ss)
+        print(dim_inp, dim_out, dim_ae, dw, dw2, ss, nb_blocks, rateDropout)
         self.conv_tr = torch.nn.ConvTranspose2d(dim_out, dim_out, (ss, ss), stride=(ss, ss), bias=False)
 
         # self.nn_tlr    = self.__make_ResNet(self.dim_ae,self.nb_blocks,rateDropout)
@@ -106,6 +107,7 @@ class RegularizeVariance(torch.nn.Module):
 class Phi_r(torch.nn.Module):
     def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic=False):
         super().__init__()
+        print(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic)
         self.stochastic = stochastic
         self.encoder = Encoder(shape_data, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
         #self.encoder = Encoder(shape_data, 2*shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
@@ -138,14 +140,14 @@ class Model_H(torch.nn.Module):
         return dyout
 
 class Model_HwithSST(torch.nn.Module):
-    def __init__(self, shape_data, dim=5):
+    def __init__(self, shape_data, dT=5, dim=5):
         super(Model_HwithSST, self).__init__()
 
         self.dim_obs = 2
         self.dim_obs_channel = np.array([shape_data, dim])
         self.conv11 = torch.nn.Conv2d(shape_data, self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
-        self.conv21 = torch.nn.Conv2d(int(shape_data / 2), self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
-        self.conv_m = torch.nn.Conv2d(int(shape_data / 2), self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
+        self.conv21 = torch.nn.Conv2d(dT, self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
+        self.conv_m = torch.nn.Conv2d(dT, self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
         self.sigmoid = torch.nn.Sigmoid()  # torch.nn.Softmax(dim=1)
 
     def forward(self, x, y, mask):
@@ -163,12 +165,12 @@ class Gradient_img(torch.nn.Module):
         super(Gradient_img, self).__init__()
 
         a = np.array([[1., 0., -1.], [2., 0., -2.], [1., 0., -1.]])
-        self.conv_gx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+        self.conv_gx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1, bias=False)
         self.conv_gx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0),
                                                 requires_grad=False)
 
         b = np.array([[1., 2., 1.], [0., 0., 0.], [-1., -2., -1.]])
-        self.conv_gy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+        self.conv_gy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1, bias=False)
         self.conv_gy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0),
                                                 requires_grad=False)
 
@@ -199,7 +201,7 @@ class Gradient_img(torch.nn.Module):
 
 class ModelLR(torch.nn.Module):
     def __init__(self):
-        super(ModelLR, self).__init__()
+        super().__init__()
 
         self.pool = torch.nn.AvgPool2d((16, 16))
 

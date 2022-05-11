@@ -1,0 +1,23 @@
+# @package _global_
+
+datamodule:
+  slice_win: 
+    lat: 240
+    lon: 240
+    time: ${params.dT}
+  strides: 
+    lat: 20
+    lon: 20
+    time: 1
+params:
+  patch_weight:
+    _target_: lit_model_augstate.get_constant_crop
+    patch_size: ${datamodule.slice_win}
+    crop: 
+      lat: 20
+      lon: 20
+      time: 2
+
+defaults:
+  - /domain@datamodule.dim_range: gf2_x
+  - /domain@params.test_domain: gf2
