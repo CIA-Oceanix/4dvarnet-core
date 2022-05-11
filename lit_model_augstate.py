@@ -728,11 +728,18 @@ if __name__ =='__main__':
 
     # cfg_n, ckpt = 'quentin_repro_w_hugo_lit_240', 'modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt'
 
+    # cfg_n, ckpt = 'full_core', 'archive_dash/xp_interp_dt7_240_h/version_2/checkpoints/modelCalSLAInterpGF-epoch=131-val_loss=1.3230.ckpt'
+    # cfg_n, ckpt = 'full_core', 'archive_dash/xp_interp_dt7_240_h/version_2/checkpoints/modelCalSLAInterpGF-epoch=49-val_loss=1.3328.ckpt'
+    # cfg_n, ckpt = 'full_core', 'archive_dash/xp_interp_dt7_240_h/version_2/checkpoints/modelCalSLAInterpGF-epoch=110-val_loss=1.3428.ckpt'
+    import hydra_config
+    cfg_n, ckpt = 'qxp16_aug2_dp240_swot_w_oi_map_no_sst_ng5x3cas_l2_dp025_00', 'archive_dash/qxp16_aug2_dp240_swot_w_oi_map_no_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=170-val_loss=0.0164.ckpt'
     # cfg_n, ckpt = 'full_core', 'modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt'
     # cfg_n, ckpt = 'dT9', 'dashboard/xp_interp_dt9_240_h/lightning_logs/version_1715728/checkpoints/modelCalSLAInterpGF-epoch=23-val_loss=1.4065.ckpt'
     # cfg_n, ckpt = 'dT5_240_sst', None
-    cfg_n, ckpt = 'full_core_hanning_t_grad', 'dashboard/xp_interp_dt7_240_h_hanning/lightning_logs/version_1733027/checkpoints/modelCalSLAInterpGF-epoch=04-val_loss=0.2668.ckpt'
-    dm = get_dm(f"xp_aug/xp_repro/{cfg_n}", setup=False,
+    # cfg_n, ckpt = 'full_core_hanning_t_grad', 'dashboard/xp_interp_dt7_240_h_hanning/lightning_logs/version_1733027/checkpoints/modelCalSLAInterpGF-epoch=04-val_loss=0.2668.ckpt'
+
+    # cfg_n = f"xp_aug/xp_repro/{cfg_n}"
+    dm = get_dm(cfg_n, setup=False,
             add_overrides=[
                 # 'params.files_cfg.obs_mask_path=/gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/CalData/cal_data_new_errs.nc',
                 # 'params.files_cfg.obs_mask_path=/gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d.nc',
@@ -743,11 +750,11 @@ if __name__ =='__main__':
 
     )
     mod = get_model(
-            f"xp_aug/xp_repro/{cfg_n}",
+            cfg_n,
             ckpt,
             dm=dm)
     mod.hparams
-    cfg = get_cfg(f"xp_aug/xp_repro/{cfg_n}")
+    cfg = get_cfg(cfg_n)
     # cfg = get_cfg("xp_aug/xp_repro/quentin_repro")
     print(OmegaConf.to_yaml(cfg))
     lit_mod_cls = get_class(cfg.lit_mod_cls)

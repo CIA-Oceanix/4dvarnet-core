@@ -5,9 +5,7 @@ channels:
   - anaconda
   - pyviz
 dependencies:
-  - zarr
   - jupyterlab
-  - pytorch-lightning
   - python=3.9
   - pip=21.1
   - scikit-learn=0.24.2
@@ -20,7 +18,6 @@ dependencies:
   - pip:
     - xarray[complete]==0.21
     - sparse
-    - omegaconf
     - einops
     - hydra-submitit-launcher
     - opencv-python==4.5.2.52
