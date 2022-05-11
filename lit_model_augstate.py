@@ -588,11 +588,7 @@ class LitModelAugstate(pl.LightningModule):
 
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
-            # with torch.set_grad_enabled(phase == 'train'):
             state = torch.autograd.Variable(state, requires_grad=True)
-            # print(state.shape)
-            # print(obs.shape)
-            # print(new_masks.shape)
             outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
 
             if (phase == 'val') or (phase == 'test'):
@@ -656,47 +652,7 @@ if __name__ =='__main__':
     
     importlib.reload(lit_model_augstate)
     importlib.reload(hydra_main)
-
-    def get_cfg(xp_cfg, overrides=None):
-        overrides = overrides if overrides is not None else []
-        def get():
-            cfg = hydra.compose(config_name='main', overrides=
-                [
-                    f'xp={xp_cfg}',
-                    'file_paths=jz',
-                    'entrypoint=train',
-                ] + overrides
-            )
-
-            return cfg
-        try:
-            with hydra.initialize_config_dir(str(Path('hydra_config').absolute())):
-                return get()
-        except Exception as e:
-            raise e
-            return get()
-
-    def get_model(xp_cfg, ckpt, dm=None, add_overrides=None):
-        overrides = []
-        if add_overrides is not None:
-            overrides =  overrides + add_overrides
-        cfg = get_cfg(xp_cfg, overrides)
-        lit_mod_cls = get_class(cfg.lit_mod_cls)
-        if dm is None:
-            dm = instantiate(cfg.datamodule)
-        runner = hydra_main.FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls)
-        mod = runner._get_model(ckpt)
-        return mod
-
-    def get_dm(xp_cfg, setup=True, add_overrides=None):
-        overrides = []
-        if add_overrides is not None:
-            overrides = overrides + add_overrides
-        cfg = get_cfg(xp_cfg, overrides)
-        dm = instantiate(cfg.datamodule)
-        if setup:
-            dm.setup()
-        return dm
+    from utils import get_cfg, get_dm, get_model
     from omegaconf import OmegaConf
     OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
     # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638612/checkpoints/modelCalSLAInterpGF-epoch=30-val_loss=1.5786.ckpt'

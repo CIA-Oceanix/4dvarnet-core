@@ -40,7 +40,7 @@ def find_pad(sl, st, N):
         pad = 0
     return int(pad/2), int(pad-int(pad/2))
 
-def interpolate_na_2D(da, max_value=10.):
+def interpolate_na_2D(da, max_value=100.):
     return (
             da.where(np.abs(da) < max_value, np.nan)
             .pipe(lambda da: da)
@@ -109,6 +109,8 @@ class XrDataset(Dataset):
         # dimensions
         if not self.auto_padding:
             self.ds = _ds.sel(**(dim_range or {}))
+            self.original_coords = self.ds.coords
+            self.padded_coords = self.ds.coords
 
         if self.auto_padding:
             if resize_factor!=1:
@@ -180,9 +182,6 @@ class XrDataset(Dataset):
 
 
         self.ds = self.ds.transpose("time", "lat", "lon")
-        if not self.auto_padding:
-            self.original_coords = self.ds.coords
-            self.padded_coords = self.ds.coords
 
         if self.interp_na:
             self.ds = interpolate_na_2D(self.ds)
@@ -606,24 +605,30 @@ if __name__ == '__main__':
     oi, mask, gt = batch
 
     # Test fit
-    from main import LitModel
-
-    lit_mod = LitModel()
-    trainer = pl.Trainer(gpus=1)
-    # dm.setup()
-    trainer.fit(lit_mod, datamodule=dm)
-
-    oi_ds = dm.val_ds.datasets[0].oi_ds
-
-    oi_ds.ds.ssh_mod.isel(time=0).plot()
-
-    interpolate_na_2D(oi_ds.ds).ssh_mod.isel(time=0).plot()
-
-
-    obs_ds = dm.val_ds.datasets[0].obs_mask_ds
-
-    obs_ds.ds.ssh_mod.isel(time=0).plot()
-
-    interpolate_na_2D(obs_ds.ds).ssh_mod.isel(time=0).plot()
-
-
+    from utils import get_dm
+    dm = get_dm('xp_aug/xp_repro/full_core_sst', add_overrides=[ 'datamodule.sst_path=${file_paths.natl_sst_daily}'])
+    
+    dl = dm.test_dataloader()
+    ds = dl.dataset.datasets[0]
+    len(ds.perm)
+    batch= next(iter(dl))
+    oi, msk, obs, gt, sst_gt = ds[2]
+    oi_, msk_, obs_, gt_, sst_gt_ = ds[2+ len(ds.perm)]
+    import matplotlib.pyplot as plt
+    ds.sst_ds.ds.isel(time=0).sst.plot()
+    p = lambda t: plt.imshow(t[0])
+    ds.sst_ds.ds.sst.isel(time=0).plot()
+    ds.gt_ds.ds.ssh.isel(time=0).plot()
+    ds.obs_mask_ds.ds.ssh_mod.isel(time=5).plot()
+    ds.obs_mask_ds.ds.ssh_mod.pipe(np.isfinite).mean('time').isel(lat=slice(20, -20), lon=slice(20,-20)).plot()
+    sst_ds = xr.open_dataset(dm.sst_path)
+    dm.dim_range
+    _ds = sst_ds
+    _ds = _ds.sel(**dm.dim_range)
+    _ds.time.attrs["units"] = "seconds since 2012-10-01"
+    _ds = xr.decode_cf(_ds)
+    _ds = interpolate_na_2D(_ds, max_value=10**10)
+    _ds.sel(**dm.dim_range).isel(time=0).sst.plot()
+    p(sst_gt)
+    p(oi)
+    sst_ds.sel(**dm.dim_range).isel(time=0).sst.plot()
