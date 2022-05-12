@@ -204,7 +204,14 @@ class LitCalModel(lit_model_augstate.LitModelAugstate):
 
     def diag_epoch_end(self, outputs, log_pref='test'):
         full_outputs = self.gather_outputs(outputs, log_pref=log_pref)
-        self.test_xr_ds = self.build_test_xr_ds(full_outputs, log_pref=log_pref)
+
+        if log_pref == 'test':
+            diag_ds = self.trainer.test_dataloaders[0].dataset.datasets[0]
+        elif log_pref == 'val':
+            diag_ds = self.trainer.val_dataloaders[0].dataset.datasets[0]
+        else:
+            raise Exception('unknown phase')
+        self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
         Path(self.logger.log_dir).mkdir(exist_ok=True)
         path_save1 = self.logger.log_dir + f'/test.nc'
         self.test_xr_ds.to_netcdf(path_save1)

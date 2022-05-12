@@ -18,6 +18,7 @@ dependencies:
   - pip:
     - xarray[complete]==0.21
     - sparse
+    - GitPython
     - einops
     - hydra-submitit-launcher
     - opencv-python==4.5.2.52

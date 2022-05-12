@@ -308,15 +308,9 @@ class LitModelAugstate(pl.LightningModule):
 
         return [torch.load(f) for f in sorted(data_path.glob('*'))]
 
-    def build_test_xr_ds(self, outputs, log_pref):
+    def build_test_xr_ds(self, outputs, diag_ds):
 
         outputs_keys = list(outputs[0][0].keys())
-        if log_pref == 'test':
-            diag_ds = self.trainer.test_dataloaders[0].dataset.datasets[0]
-        elif log_pref == 'val':
-            diag_ds = self.trainer.val_dataloaders[0].dataset.datasets[0]
-        else:
-            raise Exception('unknown phase')
         with diag_ds.get_coords():
             self.test_patch_coords = [
                diag_ds[i]
@@ -469,7 +463,13 @@ class LitModelAugstate(pl.LightningModule):
 
     def diag_epoch_end(self, outputs, log_pref='test'):
         full_outputs = self.gather_outputs(outputs, log_pref=log_pref)
-        self.test_xr_ds = self.build_test_xr_ds(full_outputs, log_pref=log_pref)
+        if log_pref == 'test':
+            diag_ds = self.trainer.test_dataloaders[0].dataset.datasets[0]
+        elif log_pref == 'val':
+            diag_ds = self.trainer.val_dataloaders[0].dataset.datasets[0]
+        else:
+            raise Exception('unknown phase')
+        self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
 
         Path(self.logger.log_dir).mkdir(exist_ok=True)
         path_save1 = self.logger.log_dir + f'/test.nc'
