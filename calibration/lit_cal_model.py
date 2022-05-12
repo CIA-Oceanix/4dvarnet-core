@@ -282,14 +282,14 @@ class LitCalModel(lit_model_augstate.LitModelAugstate):
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, target_obs_GT = batch
 
-        anomaly_global = torch.zeros_like(targets_OI)
+        anomaly_global = inputs_Mask * (inputs_obs - targets_OI)
+        anomaly_swath = inputs_Mask * (inputs_obs - targets_OI)
 
-        anomaly_swath = torch.zeros_like(targets_OI)
         init_state = torch.cat((targets_OI, anomaly_global, anomaly_swath), dim=1)
         if self.aug_state:
             init_state = torch.cat((init_state, inputs_Mask * (inputs_obs - targets_OI)), dim=1)
             if self.aug_state == 2:
-                init_state = torch.cat((init_state, inputs_Mask * (inputs_obs - targets_OI)), dim=1)
+                init_state = torch.cat((init_state, torch.zeros_like(inputs_obs)), dim=1)
         return init_state
 
     def get_outputs(self, batch, state_out):
@@ -338,7 +338,7 @@ class LitCalModel(lit_model_augstate.LitModelAugstate):
 
         return loss_swath, loss_grad_swath
 
-    def compute_loss(self, batch, phase, state_init=None):
+    def compute_loss(self, batch, phase, state_init=(None,)):
 
         if not self.use_sst:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, target_obs_GT = batch
@@ -361,7 +361,7 @@ class LitCalModel(lit_model_augstate.LitModelAugstate):
                         ('mseGOI', 0.)])
                     )
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
-        target_obs_GT_wo_nan = target_obs_GT.where(~target_obs_GT.isnan(), targets_OI)
+        target_obs_GT_wo_nan = target_obs_GT.where(~target_obs_GT.isnan(), targets_GT_wo_nan)
 
         state = self.get_init_state(batch, state_init)
 
@@ -384,14 +384,8 @@ class LitCalModel(lit_model_augstate.LitModelAugstate):
 
             # PENDING: reconstruct outputs, outputs LowRes and outputSwath MegaRes
 
-            if self.hparams.swot_anom_wrt == 'low_res':
-                gt_anom_swath = targets_OI
-            elif self.hparams.swot_anom_wrt == 'high_res':
-                gt_anom_swath = targets_GT
-
             output_low_res, output_global, output_swath = self.get_outputs(batch, outputs)
             # reconstruction losses
-
 
 
             # projection losses
@@ -441,6 +435,7 @@ class LitCalModel(lit_model_augstate.LitModelAugstate):
                 ('mseOI', loss_OI.detach()),
                 ('mseGOI', loss_GOI.detach())])
             # PENDING: Add new loss term to metrics
+            # print(metrics)
 
         return loss, outputs, [outputs, hidden_new, cell_new, normgrad], metrics
 
@@ -478,6 +473,3 @@ if  __name__ == '__main__':
         finally:
             return locals()
 
-        """
-
-        """

@@ -176,9 +176,9 @@ XP=18
 
 for  defaults in product(
         [
-            ('aug1', '/xp/qfebvre/aug/with_aug_state.yaml'),
+            ('aug1', '/xp/qfebvre/aug/with_aug_state'),
             # ('aug2','/xp/qfebvre/aug/with_double_aug_state.yaml'),
-            ('aug0','/xp/qfebvre/aug/without_aug_state.yaml.yam'),
+            ('aug0','/xp/qfebvre/aug/without_aug_state'),
         ],
         [
             ('dp240','/xp/qfebvre/dl/d240_p240x5_s240x1.yaml'),
