@@ -161,12 +161,22 @@ def compute_WeightedLoss(x2,w):
     loss2 = F.mse_loss(x2_msk[x2_num], torch.zeros_like(x2_msk[x2_num]))
     return loss2
 
+def compute_spatio_temp_weighted_loss(x2, w):
+    # print(x2.shape)
+    x2_w = (x2 * w[None, ...])
+    non_zeros = (torch.ones_like(x2) * w[None, ...]) == 0.
+    x2_num = ~x2_w.isnan() & ~x2_w.isinf() & ~non_zeros
+    if x2_num.sum() == 0:
+        return torch.scalar_tensor(0., device=x2_num.device)
+    loss = F.mse_loss(x2_w[x2_num], torch.zeros_like(x2_w[x2_num]))
+    return loss
+
 # Modules for the definition of the norms for
 # the observation and prior model
 class Model_WeightedL2Norm(torch.nn.Module):
     def __init__(self):
         super(Model_WeightedL2Norm, self).__init__()
- 
+
     def forward(self,x,w,eps=0.):
         loss_ = torch.nansum( x**2 , dim = 3)
         loss_ = torch.nansum( loss_ , dim = 2)
@@ -179,7 +189,7 @@ class Model_WeightedL2Norm(torch.nn.Module):
 class Model_WeightedL1Norm(torch.nn.Module):
     def __init__(self):
         super(Model_WeightedL1Norm, self).__init__()
- 
+
     def forward(self,x,w,eps):
 
         loss_ = torch.nansum( torch.sqrt( eps**2 + x**2 ) , dim = 3)
@@ -193,7 +203,7 @@ class Model_WeightedL1Norm(torch.nn.Module):
 class Model_WeightedLorenzNorm(torch.nn.Module):
     def __init__(self):
         super(Model_WeightedLorenzNorm, self).__init__()
- 
+
     def forward(self,x,w,eps):
 
         loss_ = torch.nansum( torch.log( 1. + eps**2 * x**2 ) , dim = 3)
@@ -207,7 +217,7 @@ class Model_WeightedLorenzNorm(torch.nn.Module):
 class Model_WeightedGMcLNorm(torch.nn.Module):
     def __init__(self):
         super(Model_WeightedL1Norm, self).__init__()
- 
+
     def forward(self,x,w,eps):
 
         loss_ = torch.nansum( 1.0 - torch.exp( - eps**2 * x**2 ) , dim = 3)
@@ -223,7 +233,7 @@ def compute_WeightedL2Norm1D(x2,w):
     loss_ = torch.nansum( loss_ , dim = 0)
     loss_ = torch.nansum( loss_ * w )
     loss_ = loss_ / (torch.sum(~torch.isnan(x2)) / x2.shape[1] )
-    
+
     return loss_
 
 # Gradient-based minimization using a LSTM using a (sub)gradient as inputs
@@ -274,7 +284,6 @@ class model_GradUpdateLSTM(torch.nn.Module):
         return torch.nn.Sequential(*layers)
 
     def forward(self,hidden,cell,grad,gradnorm=1.0):
-
         # compute gradient
         grad  = grad / gradnorm
         grad  = self.dropout( grad )
@@ -314,7 +323,7 @@ class Model_Var_Cost(nn.Module):
             self.dim_state      = dim_state
         else:
             self.dim_state      = ShapeData[0]
-            
+
         # parameters for variational cost
         self.alphaObs    = torch.nn.Parameter(torch.Tensor(1. * np.ones((self.dim_obs,1))))
         self.alphaReg    = torch.nn.Parameter(torch.Tensor([1.]))
@@ -326,20 +335,20 @@ class Model_Var_Cost(nn.Module):
         self.WReg    = torch.nn.Parameter(torch.Tensor(np.ones(self.dim_state,)))
         self.epsObs = torch.nn.Parameter(0.1 * torch.Tensor(np.ones((self.dim_obs,))))
         self.epsReg = torch.nn.Parameter(torch.Tensor([0.1]))
-        
+
         self.normObs   = m_NormObs
         self.normPrior = m_NormPhi
-        
+
     def forward(self, dx, dy):
 
         loss = self.alphaReg**2 * self.normPrior(dx,self.WReg**2,self.epsReg)
-                
+
         if self.dim_obs == 1 :
             loss +=  self.alphaObs[0]**2 * self.normObs(dy,self.WObs[0,:]**2,self.epsObs[0])
         else:
             for kk in range(0,self.dim_obs):
                 loss +=  (
-                    self.alphaObs[kk]**2 
+                    self.alphaObs[kk]**2
                     * self.normObs(
                         dy[kk],
                         self.WObs[kk,0:dy[kk].size(1)]**2,
@@ -351,7 +360,7 @@ class Model_Var_Cost(nn.Module):
 
 # 4DVarNN Solver class using automatic differentiation for the computation of gradient of the variational cost
 # input modules: operator phi_r, gradient-based update model m_Grad
-# modules for the definition of the norm of the observation and prior terms given as input parameters 
+# modules for the definition of the norm of the observation and prior terms given as input parameters
 # (default norm (None) refers to the L2 norm)
 # updated inner modles to account for the variational model module
 class Solver_Grad_4DVarNN(nn.Module):
@@ -362,12 +371,12 @@ class Solver_Grad_4DVarNN(nn.Module):
     def __init__(self ,phi_r,mod_H, m_Grad, m_NormObs, m_NormPhi, shape_data,n_iter_grad, stochastic=False):
         super(Solver_Grad_4DVarNN, self).__init__()
         self.phi_r         = phi_r
-        
+
         if m_NormObs == None:
             m_NormObs =  Model_WeightedL2Norm()
         else:
             m_NormObs = self.NORMS[m_NormObs]()
-        if m_NormPhi == None:    
+        if m_NormPhi == None:
             m_NormPhi = Model_WeightedL2Norm()
         else:
             m_NormPhi = self.NORMS[m_NormPhi]()
@@ -380,19 +389,13 @@ class Solver_Grad_4DVarNN(nn.Module):
 
         with torch.no_grad():
             self.n_grad = int(n_iter_grad)
-        
-    def forward(self, x, yobs, mask):
-        return self.solve(
-            x_0=x,
-            obs=yobs,
-            mask = mask)
 
-    def solve(self, x_0, obs, mask):
-        x_k = torch.mul(x_0,1.) 
-        hidden = None
-        cell = None 
-        normgrad_ = 0.
-        x_k_plus_1 = None 
+    def forward(self, x, yobs, mask, *internal_state):
+        return self.solve(x, yobs, mask, *internal_state)
+
+    def solve(self, x_0, obs, mask, hidden=None, cell=None, normgrad_=0.):
+        x_k = torch.mul(x_0,1.)
+        x_k_plus_1 = None
         for _ in range(self.n_grad):
             x_k_plus_1, hidden, cell, normgrad_ = self.solver_step(x_k, obs, mask,hidden, cell, normgrad_)
 
@@ -416,6 +419,6 @@ class Solver_Grad_4DVarNN(nn.Module):
         dx = x - self.phi_r(x)
 
         loss = self.model_VarCost( dx , dy )
-        
+
         var_cost_grad = torch.autograd.grad(loss, x, create_graph=True)[0]
         return loss, var_cost_grad

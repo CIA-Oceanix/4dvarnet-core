@@ -1,4 +1,5 @@
 from models import *
+import kornia
 import xarray as xr
 
 class LitModel(pl.LightningModule):
@@ -25,7 +26,7 @@ class LitModel(pl.LightningModule):
         self.ds_size_lon = kwargs['ds_size_lon']
         self.ds_size_lat = kwargs['ds_size_lat']
 
-        self.time = kwargs['time'] 
+        self.time = kwargs['time']
         self.dX = kwargs['dX']
         self.dY = kwargs['dY']
         self.swX = kwargs['swX']
@@ -60,7 +61,8 @@ class LitModel(pl.LightningModule):
                                           self.hparams.dim_grad_solver, self.hparams.dropout, self.hparams.stochastic),
             None, None, self.shapeData, self.hparams.n_grad, self.hparams.stochastic)
         self.model_LR = ModelLR()
-        self.gradient_img = Gradient_img()
+        # self.gradient_img = Gradient_img()
+        self.gradient_img = kornia.filters.sobel
         # loss weghing wrt time
 
         self.w_loss = torch.nn.Parameter(kwargs['w_loss'], requires_grad=False)  # duplicate for automatic upload to gpu
@@ -106,11 +108,11 @@ class LitModel(pl.LightningModule):
 
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
 
-        # compute loss and metrics    
+        # compute loss and metrics
         loss, out, metrics = self.compute_loss(train_batch, phase='train')
         if loss is None:
             return loss
-        # log step metric        
+        # log step metric
         # self.log('train_mse', mse)
         # self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
         self.log("loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=False)
@@ -265,12 +267,12 @@ class LitModel(pl.LightningModule):
 
         # plot nRMSE
         path_save3 = self.logger.log_dir + '/nRMSE.png'
-        nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, time=self.time['time_test'])
+        nrmse_fig = plot_nrmse(self.x_gt,  self.x_oi, self.x_rec, path_save3, time=self.time['time_test'][self.hparams.dT // 2: -self.hparams.dT // 2 +1])
         self.test_figs['nrmse'] = nrmse_fig
 
         # plot MSE
         path_save31 = self.logger.log_dir + '/MSE.png'
-        mse_fig = plot_mse(self.x_gt, self.x_oi, self.x_rec, path_save31, time=self.time['time_test'])
+        mse_fig = plot_mse(self.x_gt, self.x_oi, self.x_rec, path_save31, time=self.time['time_test'][self.hparams.dT // 2: -self.hparams.dT // 2 +1])
         self.test_figs['mse'] = mse_fig
         self.logger.experiment.add_figure('Maps', fig_maps, global_step=self.current_epoch)
         self.logger.experiment.add_figure('NRMSE', nrmse_fig, global_step=self.current_epoch)
@@ -349,7 +351,7 @@ class LitModel(pl.LightningModule):
                 loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
                 loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
                 loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
- 
+
             # unsupervised loss
             else:
                 # MSE

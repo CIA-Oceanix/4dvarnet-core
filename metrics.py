@@ -1,4 +1,5 @@
-print(f"Using current {__name__}")
+import logging
+from matplotlib.ticker import ScalarFormatter
 import datetime
 import einops
 import numpy as np
@@ -181,7 +182,7 @@ def gradient(img, order):
     else:
         return sobel_norm
 
-def plot_maps(gt,obs,oi,pred,lon,lat,resfile,grad=False, 
+def plot_maps(gt,obs,oi,pred,lon,lat,resfile,grad=False,
                  crop=None, orthographic=True,supervised=True):
 
     if crop is not None:
@@ -362,7 +363,7 @@ def animate_maps(gt, obs, oi, pred, lon, lat, resfile,
     ani.save(resfile, writer = writer)
     plt.close()
 
-def plot_ensemble(pred,lon,lat,resfile,crop=None, 
+def plot_ensemble(pred,lon,lat,resfile,crop=None,
                    orthographic=True):
 
     vmax = np.nanmax(np.abs(pred))
@@ -437,46 +438,34 @@ def maps_score(resfile, ds, lon, lat):
 
     plt.savefig(resfile)
     fig = plt.gcf()
-    plt.close()                        
+    plt.close()
     return fig
 
-def save_netcdf(saved_path1, ds_test):
-    ds_test = ds_test.rename({
-        'lat': 'latitude',
-        'lon': 'longitude',
-        'time': 'Time',
-        'gt': 'GT',
-        'oi': 'OI',
-        'pred': '4DVarNet'
-    })
-    ds_test = ds_test.drop(['obs'])
-    ds_test.to_netcdf(path=saved_path1, mode='w')
+def save_netcdf(saved_path1, gt, oi, pred, lon, lat, time,
+                time_units='days since 2012-10-01 00:00:00'):
+    '''
+    saved_path1: string
+    pred: 3d numpy array (4DVarNet-based predictions)
+    lon: 1d numpy array
+    lat: 1d numpy array
+    time: 1d array-like of time corresponding to the experiment
+    '''
 
-# def save_netcdf(saved_path1, gt, oi, pred, lon, lat, time,
-#                 time_units='days since 2012-10-01 00:00:00'):
-#     '''
-#     saved_path1: string 
-#     pred: 3d numpy array (4DVarNet-based predictions)
-#     lon: 1d numpy array 
-#     lat: 1d numpy array
-#     time: 1d array-like of time corresponding to the experiment
-#     '''
+    mesh_lat, mesh_lon = np.meshgrid(lat, lon)
+    mesh_lat = mesh_lat.T
+    mesh_lon = mesh_lon.T
 
-#     mesh_lat, mesh_lon = np.meshgrid(lat, lon)
-#     mesh_lat = mesh_lat.T
-#     mesh_lon = mesh_lon.T
-
-#     dt = pred.shape[1]
-#     xrdata = xr.Dataset( \
-#         data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
-#                    'latitude': (('lat', 'lon'), mesh_lat), \
-#                    'Time': (('time'), time), \
-#                    'GT': (('time', 'lat', 'lon'), gt),
-#                    'OI': (('time', 'lat', 'lon'), oi),
-#                    '4DVarNet': (('time', 'lat', 'lon'), pred)}, \
-#         coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred))})
-#     xrdata.time.attrs['units'] = time_units
-#     xrdata.to_netcdf(path=saved_path1, mode='w')
+    dt = pred.shape[1]
+    xrdata = xr.Dataset( \
+        data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
+                   'latitude': (('lat', 'lon'), mesh_lat), \
+                   'Time': (('time'), time), \
+                   'GT': (('time', 'lat', 'lon'), gt),
+                   'OI': (('time', 'lat', 'lon'), oi),
+                   '4DVarNet': (('time', 'lat', 'lon'), pred)}, \
+        coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred))})
+    xrdata.time.attrs['units'] = time_units
+    xrdata.to_netcdf(path=saved_path1, mode='w')
 
 def nrmse(ref, pred):
     '''
@@ -589,31 +578,43 @@ def get_psd_score(x_t, x, ref, with_fig=False):
         name='PSD score',
         dims=('var', 'wl'),
         coords={
-            'wl': ('wl', 20 * 5 * 1 / model_score.freq_r, {'long_name': 'Wavelength', 'units': 'km'}),
+            'wl': ('wl', 20 * 5 * 1 / model_score.freq_r.data, {'long_name': 'Wavelength', 'units': 'km'}),
             'var': ('var', ['model', 'OI'], {}),
         },
     )
 
-    spatial_resolution_model = (
-        xr.DataArray(
-            psd_plot_data.wl,
-            dims=['psd'],
-            coords={'psd': psd_plot_data.sel(var='model').data}
-        ).interp(psd=0.5)
-    )
+    try:
+        print('here')
+        print(psd_plot_data.wl.data)
+        spatial_resolution_model = (
+            xr.DataArray(
+                psd_plot_data.wl.data,
+                dims=['psd'],
+                coords={'psd': psd_plot_data.sel(var='model').data}
+            ).interp(psd=0.5)
+        ).data
+    except (KeyError, ValueError) as e:
+        spatial_resolution_model = -1
 
-    spatial_resolution_ref = (
-        xr.DataArray(
-            psd_plot_data.wl,
-            dims=['psd'],
-            coords={'psd': psd_plot_data.sel(var='OI').data}
-        ).interp(psd=0.5)
-    )
+    try:
+        spatial_resolution_ref = (
+            xr.DataArray(
+                psd_plot_data.wl.data,
+                dims=['psd'],
+                coords={'psd': psd_plot_data.sel(var='OI').data}
+            ).interp(psd=0.5)
+        ).data
+    except (KeyError, ValueError) as e:
+        spatial_resolution_ref = -1
 
     if not with_fig:
         return spatial_resolution_model, spatial_resolution_ref
 
     fig, ax = plt.subplots()
+    if spatial_resolution_model == -1:
+        plt.close()
+        return fig, spatial_resolution_model, spatial_resolution_ref
+
     psd_plot_data.plot.line(x='wl', ax=ax)
 
     # Plot vertical line there
@@ -625,3 +626,120 @@ def get_psd_score(x_t, x, ref, with_fig=False):
 
     plt.close()
     return fig, spatial_resolution_model, spatial_resolution_ref
+
+
+def rmse_based_scores(da_rec, da_ref):
+    # boost swot rmse score
+    logging.info('     Compute RMSE-based scores...')
+
+    # RMSE(t) based score
+    rmse_t = 1.0 - (((da_rec - da_ref)**2).mean(dim=('lon', 'lat')))**0.5/(((da_ref)**2).mean(dim=('lon', 'lat')))**0.5
+    # RMSE(x, y) based score
+    # rmse_xy = 1.0 - (((da_rec - da_ref)**2).mean(dim=('time')))**0.5/(((da_ref)**2).mean(dim=('time')))**0.5
+    rmse_xy = (((da_rec - da_ref)**2).mean(dim=('time')))**0.5
+
+    rmse_t = rmse_t.rename('rmse_t')
+    rmse_xy = rmse_xy.rename('rmse_xy')
+
+    # Temporal stability of the error
+    reconstruction_error_stability_metric = rmse_t.std().values
+
+    # Show leaderboard SSH-RMSE metric (spatially and time averaged normalized RMSE)
+    leaderboard_rmse = 1.0 - (((da_rec - da_ref) ** 2).mean()) ** 0.5 / (
+        ((da_ref) ** 2).mean()) ** 0.5
+
+    logging.info('          => Leaderboard SSH RMSE score = %s', np.round(leaderboard_rmse.values, 2))
+    logging.info('          Error variability = %s (temporal stability of the mapping error)', np.round(reconstruction_error_stability_metric, 2))
+
+    return rmse_t, rmse_xy, np.round(leaderboard_rmse.values, 5), np.round(reconstruction_error_stability_metric, 5)
+
+
+def psd_based_scores(da_rec, da_ref):
+    # boost-swot-psd-score
+    logging.info('     Compute PSD-based scores...')
+
+    # Compute error = SSH_reconstruction - SSH_true
+    err = (da_rec - da_ref)
+    err = err.chunk({"lat":1, 'time': err['time'].size, 'lon': err['lon'].size})
+    # make time vector in days units
+    err['time'] = (err.time - err.time[0]) / np.timedelta64(1, 'D')
+
+    # Rechunk SSH_true
+    signal = da_ref.chunk({"lat":1, 'time': da_ref['time'].size, 'lon': da_ref['lon'].size})
+    # make time vector in days units
+    signal['time'] = (signal.time - signal.time[0]) / np.timedelta64(1, 'D')
+
+    # Compute PSD_err and PSD_signal
+    psd_err = xrft.power_spectrum(err, dim=['time', 'lon'], detrend='constant', window=True).compute()
+    psd_signal = xrft.power_spectrum(signal, dim=['time', 'lon'], detrend='constant', window=True).compute()
+
+    # Averaged over latitude
+    mean_psd_signal = psd_signal.mean(dim='lat').where((psd_signal.freq_lon > 0.) & (psd_signal.freq_time > 0), drop=True)
+    mean_psd_err = psd_err.mean(dim='lat').where((psd_err.freq_lon > 0.) & (psd_err.freq_time > 0), drop=True)
+
+    # return PSD-based score
+    psd_based_score = (1.0 - mean_psd_err/mean_psd_signal)
+
+    # Find the key metrics: shortest temporal & spatial scales resolved based on the 0.5 contour criterion of the PSD_score
+
+
+
+    level = [0.5]
+    cs = plt.contour(1./psd_based_score.freq_lon.values,1./psd_based_score.freq_time.values, psd_based_score, level)
+    x05, y05 = cs.collections[0].get_paths()[0].vertices.T
+    plt.close()
+
+    shortest_spatial_wavelength_resolved = np.min(x05)
+    shortest_temporal_wavelength_resolved = np.min(y05)
+
+    logging.info('          => Leaderboard Spectral score = %s (degree lon)',
+                 np.round(shortest_spatial_wavelength_resolved, 2))
+    logging.info('          => shortest temporal wavelength resolved = %s (days)',
+                 np.round(shortest_temporal_wavelength_resolved, 2))
+    psd_da = (1.0 - mean_psd_err/mean_psd_signal)
+    psd_da.name = 'psd_score'
+    return psd_da.to_dataset(), np.round(shortest_spatial_wavelength_resolved, 3), np.round(shortest_temporal_wavelength_resolved, 3)
+
+
+def plot_psd_score(ds):
+    fig, ax = plt.subplots()
+    #ax.invert_yaxis()
+    #ax.invert_xaxis()
+    c1 = plt.contourf(1./(ds['freq_lon']), 1./ds['freq_time'], ds['psd_score'],
+                      levels=np.arange(0,1.1, 0.1), cmap='RdYlGn', extend='both')
+    cbar = plt.colorbar(pad=0.01)
+    plt.xlabel('spatial wavelenght (degree_lon)', fontweight='bold', fontsize=20)
+    plt.ylabel('temporal wavelenght (days)', fontweight='bold', fontsize=20)
+    #plt.xscale('log')
+    #plt.yscale('log')
+    plt.grid(linestyle='--', lw=1, color='w')
+    plt.xticks(fontsize=18)
+    plt.yticks(fontsize=18)
+    plt.title('PSD-based score', fontweight='bold', fontsize=20)
+    for axis in [ax.xaxis, ax.yaxis]:
+        axis.set_major_formatter(ScalarFormatter())
+    c2 = plt.contour(1./(ds['freq_lon']), 1./ds['freq_time'], ds['psd_score'], levels=[0.5], linewidths=2, colors='k')
+    cbar.add_lines(c2)
+
+    bbox_props = dict(boxstyle="round,pad=0.5", fc="w", ec="k", lw=2)
+    ax.annotate('Resolved scales',
+            xy=(1.15, 0.8),
+            xycoords='axes fraction',
+            xytext=(1.15, 0.55),
+            bbox=bbox_props,
+            arrowprops=
+                dict(facecolor='black', shrink=0.05),
+                horizontalalignment='left',
+                verticalalignment='center')
+
+    ax.annotate('UN-resolved scales',
+            xy=(1.15, 0.2),
+            xycoords='axes fraction',
+            xytext=(1.15, 0.45),
+            bbox=bbox_props,
+            arrowprops=
+                dict(facecolor='black', shrink=0.05),
+                horizontalalignment='left',
+                verticalalignment='center')
+    plt.close()
+    return fig

@@ -1,0 +1,31 @@
+# @package _global_
+logger:
+  version: 'dvc'
+  sub_dir: 'outs'
+dvc:
+  entrypoint: 
+    # _target_: dvc_main.test_xp
+    _target_: hydra_main._main
+  mk_home_symlink: true
+  stage_name: ${aprl:run,--name}
+  deps:
+    - ${aprl:${datamodule.oi_path},-d}
+    - ${aprl:${datamodule.gt_path},-d}
+    - ${aprl:${datamodule.obs_target_path},-d}
+    - ${aprl:${datamodule.obs_mask_path},-d}
+  outs:
+    # - ${aprl:test_xp_out.txt,-o}
+    - ${aprl:dvc/outs,-o}
+    - ${aprl:dvc/checkpoints,-o}
+    - ${aprl:dvc/metrics,-M}
+  params:
+    - ${aprl:xp_config.yaml:params.loss_loc,-p}
+  create_stage_cmd: ${aprl_cmd:}
+  run_cmd: 'PYTHONPATH=${original_cwd:} python -m dvc_main.run && dvc commit'
+  # run_cmd: 'git add  *.yaml && dvc exp run --temp'
+  # run_cmd: 'git add  *.yaml && dvc exp run --queue'
+  # run_cmd: dvc exp run --temp
+  # run_cmd: dvc exp run --temp
+
+
+  

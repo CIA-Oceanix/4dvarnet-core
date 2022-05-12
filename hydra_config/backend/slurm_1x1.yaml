@@ -8,7 +8,7 @@ hydra:
       account: yrf@gpu
       gres: gpu:1
       ntasks_per_node: 1
-      time: 01:00:00
+      time: '20:00:00'
       hint: nomultithread
       qos: qos_gpu-t3
 
@@ -16,4 +16,3 @@ hydra:
 defaults:
   - override /hydra/launcher: submitit_slurm
   - _self_
-

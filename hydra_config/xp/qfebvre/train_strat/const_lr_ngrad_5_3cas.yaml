@@ -1,0 +1,9 @@
+# @package _global_
+params:
+  iter_update: [0, 200, 400, 600, 1000, 1500, 8000]
+  nb_grad_update: [5, 5, 5, 5, 5, 5, 5, 5, 5]
+  lr_update: [0.001, 0.001, 0.001, 0.001, 0.001, 1.0e-03, 1.0e-03, 1.0e-03, 1.0e-03]
+  n_fourdvar_iter: 3
+  weight_decay: 0.
+
+

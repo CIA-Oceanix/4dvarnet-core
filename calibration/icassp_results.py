@@ -18,19 +18,30 @@ import new_dataloading
 importlib.reload(main)
 importlib.reload(models)
 importlib.reload(hydra_main)
+import calibration
+
+# importlib.reload(calibration.lit_cal_model)
+import icassp_code_bis.new_dataloading
+importlib.reload(icassp_code_bis.new_dataloading)
 
 xp_configs = [
-    ('calmap_icassp', 'calmap_gf', 'dashboard/icassp/train/q.xp_icassp.fourdvarnet_calmap'),
-    ('calmap_gf', 'calmap_gf', 'dashboard/current/train/calmap_gf'),
-    ('calmap_sst', 'calmap_gf_sst', 'dashboard/current/train/calmap_gf_sst'),
+    # ('calmap_icassp', 'calmap_gf_icassp', 'dashboard/icassp_rerun1121', None),
+    # ('calmap_casc_gf', 'calmap_cascade', 'dashboard/calmap_gf_cascade/lightning_logs/version_2011266', None),
+    # ('calmap_casc_gf_fine', 'finetune_cascade', 'dashboard/finetune_calmap_gf_dec_lr/lightning_logs/version_2021874', 'modelCalSLAInterpGF-Exp3-epoch=79-val_loss=0.06.ckpt'),
+    # ('calmap_sst', 'calmap_cascade_sst', 'dashboard/calmap_sst_gf_casc34/lightning_logs/version_2059166', None),
+    # ('calmap_sst', 'calmap_gf_sst', 'dashboard/current/train/calmap_gf_sst'),
     # ('calmap_sst_gf', 'q.xp_icassp.direct_vit'),
     # ('icassp', 'q.xp_icassp.fourdvarnet_calmap'),
     # ('icassp', 'q.xp_icassp.fourdvarnet_calmapgrad'),
     # ('icassp', 'q.xp_icassp.fourdvarnet_map'),
+    ('calmap_cascade_natl', 'calmap_cascade_natl', 'dashboard/calmap_natl_2cascade/lightning_logs/version_2018995', None),
+    # ('calmap_natl', 'calmap_natl', 'dashboard/calmap_natl/lightning_logs/version_2011467', None),
 ]
+
+
 default_xp = 'calmap_icassp'
 
-labels, xps, configs = zip(*xp_configs)
+labels, xps, configs, ckpts = zip(*xp_configs)
 labels, xps, configs = list(labels), list(xps), list(configs)
 
 def get_most_recent_ckpt(training_folder):
@@ -40,10 +51,12 @@ def get_most_recent_ckpt(training_folder):
 
 def create_new_ckpt(xp_configs):
 
-    for label, xp, training_folder in xp_configs:
+    for label, xp, training_folder, ckpt in xp_configs:
         print(label, xp, training_folder)
-        ckpt_path = str(get_most_recent_ckpt(training_folder))
-            
+        if ckpt is None:
+            ckpt_path = str(get_most_recent_ckpt(training_folder))
+        else:
+            ckpt_path = Path(f'{training_folder}/checkpoints') / ckpt
         with hydra.initialize_config_dir(str(Path('hydra_config').absolute())):
             cfg = hydra.compose(config_name='main', overrides=
                 [
@@ -63,9 +76,12 @@ def create_new_ckpt(xp_configs):
 
 def get_tested_models(xp_configs):
     mods = {}
-    for label, xp, training_folder in xp_configs:
+    for label, xp, training_folder, ckpt in xp_configs:
         print(label, xp, training_folder)
-        ckpt_path = str(get_most_recent_ckpt(training_folder))
+        if ckpt is None:
+            ckpt_path = str(get_most_recent_ckpt(training_folder))
+        else:
+            ckpt_path = Path(f'{training_folder}/checkpoints') / ckpt
             
         with hydra.initialize_config_dir(str(Path('hydra_config').absolute())):
             cfg = hydra.compose(config_name='main', overrides=
@@ -108,23 +124,26 @@ def sobel_grid(da):
 import holoviews as hv
 from holoviews.plotting import mpl
 metrics_das = {}
+metrics_g_das = {}
 
 for i, (cfg, mod) in enumerate(mods.items()):
 
     metrics_das[cfg] = mod.test_xr_ds.pred
-    metrics_das[f'{cfg}_g'] = sobel_grid(mod.test_xr_ds.pred)
+    metrics_g_das[f'{cfg}'] = sobel_grid(mod.test_xr_ds.pred)
 
 metrics_das['gt'] = mods[ default_xp].test_xr_ds.gt
-metrics_das['gt_g'] = sobel_grid(mods[ default_xp].test_xr_ds.gt)
+metrics_g_das['gt'] = sobel_grid(mods[ default_xp].test_xr_ds.gt)
 
 metrics_das['oi'] = mods[default_xp].test_xr_ds.oi
-metrics_das['oi_g'] = sobel_grid(mods[ default_xp].test_xr_ds.oi)
+metrics_g_das['oi'] = sobel_grid(mods[ default_xp].test_xr_ds.oi)
 
 # metrics_das['oi_swot'] = mods['q.xp_four.swot_oi'].test_xr_ds.oi
 # metrics_das['oi_swot_g'] = sobel_grid(mods['q.xp_four.swot_oi'].test_xr_ds.oi)
 
-metrics_ds = xr.Dataset(metrics_das)
+metrics_ds = xr.Dataset({k: v.assign_coords(metrics_das[default_xp].coords) for k,v in metrics_das.items()})
+metrics_g_ds = xr.Dataset({k: v.assign_coords(metrics_g_das[default_xp].coords) for k,v in metrics_g_das.items()})
 to_plot_ds = metrics_ds.isel(time=t_idx)
+to_plot_g_ds = metrics_g_ds.isel(time=t_idx)
 
 obs_das = {}
 for i, (cfg, mod) in enumerate(mods.items()):
@@ -137,7 +156,21 @@ obs_das['gt_g'] = sobel_grid(mods[default_xp].test_xr_ds.obs_gt)
 obs_das['obs'] = mods[default_xp].test_xr_ds.obs_inp
 obs_das['obs_g'] = sobel_grid(mods[default_xp].test_xr_ds.obs_inp)
 
+## tmp
+metric_ds = mod.test_xr_ds.isel(lat=slice(25, -25))
+metric_grad_ds = xr.Dataset({var: sobel_grid(metric_ds[var]) for var in metric_ds })
 
+to_plot_ds = metric_ds.isel(time=t_idx)
+to_plot_g_ds = metric_grad_ds.isel(time=t_idx)
+
+mse = np.sqrt(np.mean((metric_ds[['pred', 'oi']] - metric_ds.gt).to_dataframe()**2))
+mse_grad = np.sqrt(np.mean((metric_grad_ds[['pred', 'oi']] - metric_grad_ds.gt).to_dataframe()**2))
+
+obsmse = np.sqrt(np.mean((metric_ds[['obs_pred', 'obs_inp']] - metric_ds.obs_gt).to_dataframe()**2))
+obsmse_grad = np.sqrt(np.mean((metric_grad_ds[['obs_pred', 'obs_inp']] - metric_grad_ds.obs_gt).to_dataframe()**2))
+
+pd.concat([mse.to_frame(name='mse'), mse_grad.to_frame(name='mse_grad')])
+## end tmp
 class Clim:
     def __init__(self, ds):
         self.ds = ds
@@ -165,7 +198,7 @@ def get_grid_fig(to_plot_ds):
             colorbar=True,
             cmap='PiYG',
             clim=clims[var],
-            aspect=1
+            aspect=2
         )
         for var in to_plot_ds
     ]).cols(2)
@@ -174,9 +207,12 @@ def get_grid_fig(to_plot_ds):
 
 cur_ds = to_plot_ds
 fig_grid_preview = get_grid_fig(cur_ds)
-cur_ds = to_plot_ds
+cur_ds = to_plot_g_ds
 fig_grad = get_grid_fig(cur_ds)
 
+(to_plot_ds.obs_inp - to_plot_ds.obs_gt).plot(figsize=(15, 8))
+(to_plot_ds.obs_pred - to_plot_ds.obs_gt).plot(figsize=(15, 8))
+cur_ds.obs_gt.plot(figsize=(15, 8))
 # cur_ds = xr.Dataset(obs_das).assign(noise=lambda ds: ds.obs -ds.gt).isel(time=t_idx)
 # fig_obs_preview = get_grid_fig(cur_ds)
 # cur_ds = xr.Dataset(obs_das).isel(time=t_idx)
@@ -184,11 +220,11 @@ fig_grad = get_grid_fig(cur_ds)
 # %% global scores
 
 from metrics import get_psd_score
-mse = np.sqrt(np.mean((metrics_ds[configs + ['oi']] - metrics_ds.gt)**2))
-mse_grad = np.sqrt(np.mean((metrics_ds[[f'{c}_g' for c in configs] + ['oi_g']] - metrics_ds.gt_g)**2))
-spat_res = {c:  get_psd_score(metrics_ds.gt, metrics_ds[c], metrics_ds.oi)[0].item() for c in configs + ['oi']}
+mse = np.sqrt(np.mean((metrics_ds[labels + ['oi']] - metrics_ds.gt)**2))
+mse_grad = np.sqrt(np.mean((metrics_g_ds[labels + ['oi']] - metrics_g_ds.gt)**2))
+spat_res = {c:  get_psd_score(metrics_ds.gt, metrics_ds[c], metrics_ds.oi)[0].item() for c in labels + ['oi']}
 # spat_res_figs = {c:  get_psd_score(metrics_ds.gt, metrics_ds[c], metrics_ds.oi, fig=True)[0] for c in configs }
-spat_res_grad = {c:  get_psd_score(metrics_ds.gt_g, metrics_ds[f'{c}_g'], metrics_ds.oi_g)[0].item()for c in configs + ['oi'] }
+spat_res_grad = {c:  get_psd_score(metrics_g_ds.gt, metrics_g_ds[f'{c}'], metrics_g_ds.oi)[0].item()for c in labels + ['oi'] }
 # spat_res_grad_figs = {c:  get_psd_score(metrics_ds.gt_g, metrics_ds[f'{c}_g'], metrics_ds.oi_g, with_fig=True)[0]for c in configs }
 
 # %% Plots
@@ -266,13 +302,14 @@ slice_args = {
     "lon_max": 305,
 }
 
+importlib.reload(xr.backends.zarr)
 raw_item = {
-    'nadirs': xr.concat([get_nadir_slice(f'../research-quentin/data/zarr/nadir/{name}', **slice_args) for name in
+    'nadirs': xr.concat([get_nadir_slice(f'/gpfswork/rech/yrf/commun/sensor_zarr/zarr/nadir/{name}', **slice_args) for name in
                          ['swot', 'en', 'tpn', 'g2', 'j1']], dim='time'),
-    'swot': get_swot_slice(f'../research-quentin/data/zarr/swot', **slice_args),
-    'swot_nadir': get_nadir_slice(f'../research-quentin/data/zarr/nadir/swot', **slice_args),
-    'oi': get_oi_slice('../research-quentin/data/raw/DUACS-OI_maps/ssh_model/ssh_sla_boost_NATL60_en_j1_tpn_g2.nc', **slice_args),
-    'natl': get_natl_slice('../research-quentin/data/raw/NATL60_regular_grid/1_10/natl60CH_H.nc', **slice_args),
+    'swot': get_swot_slice(f'/gpfswork/rech/yrf/commun/sensor_zarr/zarr/swot', **slice_args),
+    'swot_nadir': get_nadir_slice(f'/gpfswork/rech/yrf/commun/sensor_zarr/zarr/nadir/swot', **slice_args),
+    'oi': get_oi_slice('/gpfswork/rech/yrf/commun/raw/DUACS-OI_maps/ssh_model/ssh_sla_boost_NATL60_en_j1_tpn_g2.nc', **slice_args),
+    'natl': get_natl_slice('/gpfswork/rech/yrf/commun/raw/NATL60_regular_grid/1_10/natl60CH_H.nc', **slice_args),
 }
 
 def clean_oi(ds, var='ssh', thres=10):
@@ -295,7 +332,6 @@ swot_nadir = raw_item['swot_nadir']
 swot_nadir_w_ch = swot_nadir.assign(
     contiguous_chunk=lambda ds: (ds.time.diff('time') / np.timedelta64(1, 's') > 1).cumsum()
 )
-
 oi_ds = reindex(clean_oi(raw_item['oi']), ('time', 'lon', 'lat'))
 natl_ds = reindex(raw_item['natl'], ('time', 'lon', 'lat'))
 
@@ -431,11 +467,12 @@ trim_sw_ds = (
     .pipe(lambda ds: ds.isel(x_al= (~np.isnan(ds.gt)).all('x_ac')))
     .drop(['lat', 'lon'])
 )
-
+fig = get_swath_fig(swath_ds.pipe(lambda ds: ds.isel(x_al=ds.chunk_nb==2)))
+fig = get_swath_fig(sobel(swath_ds.pipe(lambda ds: ds.isel(x_al=ds.chunk_nb==2))))
 trim_grad_sw_ds = sobel(trim_sw_ds)
 
-# ssh_fig = get_swath_fig(trim_sw_ds.reindex(x_ac=np.arange(-50, 52, 2)).pipe(lambda ds: ds.isel(x_al=ds.chunk_nb==2)))
-# grad_fig = get_swath_fig(trim_grad_sw_ds.reindex(x_ac=np.arange(-50, 52, 2)).pipe(lambda ds: ds.isel(x_al= ds.chunk_nb==2)))
+ssh_fig = get_swath_fig(trim_sw_ds.reindex(x_ac=np.arange(-50, 52, 2)).pipe(lambda ds: ds.isel(x_al=ds.chunk_nb==2)))
+grad_fig = get_swath_fig(trim_grad_sw_ds.reindex(x_ac=np.arange(-50, 52, 2)).pipe(lambda ds: ds.isel(x_al= ds.chunk_nb==2)))
 
 def get_spat_reses(trim_ds):
     spat_reses = []

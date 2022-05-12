@@ -1,0 +1,16 @@
+hydra:
+  run:
+    dir: xps/current/${oc.select:xp_name,.}
+  sweep:
+    dir: xps/current
+    subdir: ${oc.select:xp_name,.}
+
+seed: 0
+
+defaults:
+  - file_paths: jz
+  - entrypoint: run
+  - xp: ???
+  - _self_
+  # - override hydra/launcher: joblib
+

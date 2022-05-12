@@ -2,8 +2,8 @@ hydra:
   run:
     dir: dashboard/${oc.select:xp_name,.}
   sweep:
-    dir: .
-    subdir: dashboard/${oc.select:xp_name,.}
+    dir: dashboard
+    subdir: ${oc.select:xp_name,.}
 
 seed: 0
 

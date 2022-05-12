@@ -13,9 +13,11 @@ import hydra_config
 import numpy as np
 
 class FourDVarNetHydraRunner:
-    def __init__(self, params, dm, lit_mod_cls):
+    def __init__(self, params, dm, lit_mod_cls, callbacks=None, logger=None):
         self.cfg = params
         self.filename_chkpt = self.cfg.ckpt_name
+        self.callbacks = callbacks
+        self.logger = logger
         self.dm = dm
         self.lit_cls = lit_mod_cls
         dm.setup()
@@ -31,6 +33,7 @@ class FourDVarNetHydraRunner:
                       for i in range(len(dm.test_slices))])
         #print(test_dates)
         self.time = {'time_test' : test_dates}
+        OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
 
         self.setup(dm)
 
@@ -79,6 +82,7 @@ class FourDVarNetHydraRunner:
         print('get_model: ', ckpt_path)
         if ckpt_path:
             mod = self.lit_cls.load_from_checkpoint(ckpt_path,
+                                                    hparam=self.cfg,
                                                     w_loss=self.wLoss,
                                                     strict=False,
                                                     mean_Tr=self.mean_Tr,
@@ -97,6 +101,7 @@ class FourDVarNetHydraRunner:
                                                     swX=self.swX, swY=self.swY,
                                                     coord_ext={'lon_ext': self.lon,
                                                                'lat_ext': self.lat},
+                                                    test_domain=self.cfg.test_domain,
                                                     resolution=self.resolution,
                                                     original_coords=self.original_coords,
                                                     padded_coords=self.padded_coords
@@ -121,6 +126,7 @@ class FourDVarNetHydraRunner:
                                swX=self.swX, swY=self.swY,
                                coord_ext = {'lon_ext': self.lon,
                                             'lat_ext': self.lat},
+                               test_domain=self.cfg.test_domain,
                                resolution=self.resolution,
                                original_coords=self.original_coords,
                                padded_coords=self.padded_coords
@@ -144,10 +150,15 @@ class FourDVarNetHydraRunner:
         from pytorch_lightning.callbacks import LearningRateMonitor
         lr_monitor = LearningRateMonitor(logging_interval='step')
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
-        num_gpus = torch.cuda.device_count()
+        gpus = trainer_kwargs.get('gpus', torch.cuda.device_count())
+
+        num_gpus = gpus if isinstance(gpus, (int, float)) else  len(gpus) if hasattr(gpus, '__len__') else 0
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
-        trainer = pl.Trainer(num_nodes=num_nodes, gpus=num_gpus, accelerator=accelerator, auto_select_gpus=(num_gpus * num_nodes) > 0,
-                             callbacks=[checkpoint_callback, lr_monitor], **trainer_kwargs)
+        trainer_kwargs_final = {**dict(num_nodes=num_nodes, gpus=gpus, logger=self.logger, strategy=accelerator, auto_select_gpus=(num_gpus * num_nodes) > 0,
+                             callbacks=[checkpoint_callback, lr_monitor]),  **trainer_kwargs}
+        print(trainer_kwargs)
+        print(trainer_kwargs_final)
+        trainer = pl.Trainer(**trainer_kwargs_final)
         trainer.fit(mod, self.dataloaders['train'], self.dataloaders['val'])
         return mod, trainer
 
@@ -158,11 +169,16 @@ class FourDVarNetHydraRunner:
         :param dataloader: Dataloader on which to run the test Checkpoint from which to resume
         :param trainer_kwargs: (Optional)
         """
+    
+        if _trainer is not None:
+            _trainer.test(mod, dataloaders=self.dataloaders[dataloader])
+            return
 
         mod = _mod or self._get_model(ckpt_path=ckpt_path)
 
         trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs)
-        trainer.test(mod, test_dataloaders=self.dataloaders[dataloader])
+        trainer.test(mod, dataloaders=self.dataloaders[dataloader])
+        return mod
 
     def profile(self):
         """
@@ -192,14 +208,27 @@ class FourDVarNetHydraRunner:
             }
         )
 
-@hydra.main(config_path='hydra_config', config_name='main')
-def main(cfg):
+def _main(cfg):
     print(OmegaConf.to_yaml(cfg))
     pl.seed_everything(seed=cfg.get('seed', None))
     dm = instantiate(cfg.datamodule)
+    if cfg.get('callbacks') is not None:
+        callbacks = [instantiate(cb_cfg) for cb_cfg in cfg.callbacks]
+    else:
+        callbacks=[]
+
+    if cfg.get('logger') is not None:
+        print('instantiating logger')
+        print(OmegaConf.to_yaml(cfg.logger))
+        logger = instantiate(cfg.logger)
+    else:
+        logger=True
     lit_mod_cls = get_class(cfg.lit_mod_cls)
-    runner = FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls)
+    runner = FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls, callbacks=callbacks, logger=logger)
     call(cfg.entrypoint, self=runner)
+
+
+main = hydra.main(config_path='hydra_config', config_name='main')(_main)
 
 if __name__ == '__main__':
     main()

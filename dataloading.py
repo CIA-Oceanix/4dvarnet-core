@@ -1,11 +1,10 @@
-print(f"Using current {__name__}")
 import re
 import numpy as np
 import pytorch_lightning as pl
 import xarray as xr
 from torch.utils.data import Dataset, ConcatDataset, DataLoader
 import pandas as pd
-
+import contextlib
 
 def parse_resolution_to_float(frac):
     """ Matches a string consting of an integer followed by either a divisor
@@ -41,11 +40,19 @@ def find_pad(sl, st, N):
         pad = 0
     return int(pad/2), int(pad-int(pad/2))
 
+def interpolate_na_2D(da, max_value=100.):
+    return (
+            da.where(np.abs(da) < max_value, np.nan)
+            .pipe(lambda da: da)
+            .to_dataframe()
+            .interpolate()
+            .pipe(xr.Dataset.from_dataframe)
+    )
+
 class XrDataset(Dataset):
     """
     torch Dataset based on an xarray file with on the fly slicing.
     """
-
     def __init__(
         self,
         path,
@@ -56,25 +63,32 @@ class XrDataset(Dataset):
         strides=None,
         decode=False,
         resize_factor=1,
-        compute=False
+        compute=False,
+        auto_padding=True,
+        interp_na=False,
     ):
         """
         :param path: xarray file
         :param var: data variable to fetch
         :param slice_win: window size for each dimension {<dim>: <win_size>...}
-        :param resolution: input spatial resolution 
+        :param resolution: input spatial resolution
         :param dim_range: Optional dimensions bounds for each dimension {<dim>: slice(<min>, <max>)...}
         :param strides: strides on each dim while scanning the dataset {<dim>: <dim_stride>...}
         :param decode: Whether to decode the time dim xarray (useful for gt dataset)
         :param compute: whether to convert dask arrays to xr.DataArray (caution memory)
         """
         super().__init__()
+        self.return_coords = False
         self.var = var
         self.resolution = resolution
+        self.auto_padding = auto_padding
+        self.interp_na = interp_na
         # try/except block for handling both netcdf and zarr files
         try:
-            _ds = xr.open_dataset(path, cache=False)
+            print(path)
+            _ds = xr.open_dataset(path)
         except OSError as ex:
+            raise ex
             _ds = xr.open_zarr(path)
         if decode:
             if str(_ds.time.dtype) == 'float64':
@@ -92,86 +106,95 @@ class XrDataset(Dataset):
         _ds = _ds.rename(rename_coords)
 
         # reshape
-        if resize_factor!=1:
-            _ds = _ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
-            self.resolution = self.resolution*resize_factor
-        
         # dimensions
-        self.ds = _ds.sel(**(dim_range or {}))
-        self.Nt, self.Nx, self.Ny = tuple(self.ds.dims[d] for d in ['time', 'lon', 'lat'])
-        # store original input coords for later reconstruction in test pipe
-        self.original_coords = self.ds.coords
+        if not self.auto_padding:
+            self.ds = _ds.sel(**(dim_range or {}))
+            self.original_coords = self.ds.coords
+            self.padded_coords = self.ds.coords
 
-        # I) first padding x and y inside available DS coords
-        pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
-        pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
-        # get additional data for patch center based reconstruction
-        dX = [pad_ *self.resolution for pad_ in pad_x]
-        dY = [pad_ *self.resolution for pad_ in pad_y]
-        dim_range_ = {
-          'lon': slice(self.ds.lon.min().item()-dX[0], self.ds.lon.max().item()+dX[1]),
-          'lat': slice(self.ds.lat.min().item()-dY[0], self.ds.lat.max().item()+dY[1]),
-          'time': dim_range['time']
-        }
-        self.ds = _ds.sel(**(dim_range_ or {}))
-        self.Nt, self.Nx, self.Ny = tuple(self.ds.dims[d] for d in ['time', 'lon', 'lat'])
+        if self.auto_padding:
+            if resize_factor!=1:
+                _ds = _ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
+                self.resolution = self.resolution*resize_factor
+            
+            # dimensions
+            self.ds = _ds.sel(**(dim_range or {}))
+            self.Nt, self.Nx, self.Ny = tuple(self.ds.dims[d] for d in ['time', 'lon', 'lat'])
+            # store original input coords for later reconstruction in test pipe
+            self.original_coords = self.ds.coords
 
-        # II) second padding x and y using padding
-        pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
-        pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
-        # pad the dataset
-        dX = [pad_ *self.resolution for pad_ in pad_x]
-        dY = [pad_ *self.resolution for pad_ in pad_y]
-        pad_ = {'lon':(pad_x[0],pad_x[1]),
-                'lat':(pad_y[0],pad_y[1])}
+            # I) first padding x and y inside available DS coords
+            pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
+            pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
+            # get additional data for patch center based reconstruction
+            dX = [pad_ *self.resolution for pad_ in pad_x]
+            dY = [pad_ *self.resolution for pad_ in pad_y]
+            dim_range_ = {
+              'lon': slice(self.ds.lon.min().item()-dX[0], self.ds.lon.max().item()+dX[1]),
+              'lat': slice(self.ds.lat.min().item()-dY[0], self.ds.lat.max().item()+dY[1]),
+              'time': dim_range['time']
+            }
+            self.ds = _ds.sel(**(dim_range_ or {}))
+            self.Nt, self.Nx, self.Ny = tuple(self.ds.dims[d] for d in ['time', 'lon', 'lat'])
 
-        self.ds_reflected = self.ds.pad(pad_, mode='reflect')
-        self.Nx += np.sum(pad_x)
-        self.Ny += np.sum(pad_y)
+            # II) second padding x and y using padding
+            pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
+            pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
+            # pad the dataset
+            dX = [pad_ *self.resolution for pad_ in pad_x]
+            dY = [pad_ *self.resolution for pad_ in pad_y]
+            pad_ = {'lon':(pad_x[0],pad_x[1]),
+                    'lat':(pad_y[0],pad_y[1])}
 
-        # compute padded coords end values with linear ramp
-        # and replace reflected ones
-        end_coords = {
-            'lat': (
-                self.ds.lat.values[0]  - pad_['lat'][0] * self.resolution,
-                self.ds.lat.values[-1] + pad_['lat'][1] * self.resolution
-            ),
-            'lon': (
-                self.ds.lon.values[0]  - pad_['lon'][0] * self.resolution,
-                self.ds.lon.values[-1] + pad_['lon'][1] * self.resolution
+            self.ds_reflected = self.ds.pad(pad_, mode='reflect')
+            self.Nx += np.sum(pad_x)
+            self.Ny += np.sum(pad_y)
+
+            # compute padded coords end values with linear ramp
+            # and replace reflected ones
+            end_coords = {
+                'lat': (
+                    self.ds.lat.values[0]  - pad_['lat'][0] * self.resolution,
+                    self.ds.lat.values[-1] + pad_['lat'][1] * self.resolution
+                ),
+                'lon': (
+                    self.ds.lon.values[0]  - pad_['lon'][0] * self.resolution,
+                    self.ds.lon.values[-1] + pad_['lon'][1] * self.resolution
+                )
+            }
+            self.padded_coords = {
+                c: self.ds[c].pad(pad_, end_values=end_coords, mode="linear_ramp")
+                for c in end_coords.keys()
+            }
+
+            # re-assign correctly padded coords in place of reflected coords
+            self.ds = self.ds_reflected.assign_coords(
+                lon=self.padded_coords['lon'], lat=self.padded_coords['lat']
             )
-        }
-        self.padded_coords = {
-            c: self.ds[c].pad(pad_, end_values=end_coords, mode="linear_ramp")
-            for c in end_coords.keys()
-        }
+        
+            # III) get lon-lat for the final reconstruction
+            dX = ((slice_win['lon']-strides['lon'])/2)*self.resolution
+            dY = ((slice_win['lat']-strides['lat'])/2)*self.resolution
+            dim_range_ = {
+              'lon': slice(dim_range_['lon'].start+dX, dim_range_['lon'].stop-dX),
+              'lat': slice(dim_range_['lat'].start+dY, dim_range_['lat'].stop-dY),
+            }
 
-        # re-assign correctly padded coords in place of reflected coords
-        self.ds = self.ds_reflected.assign_coords(
-            lon=self.padded_coords['lon'], lat=self.padded_coords['lat']
-        )
-    
-        # III) get lon-lat for the final reconstruction
-        dX = ((slice_win['lon']-strides['lon'])/2)*self.resolution
-        dY = ((slice_win['lat']-strides['lat'])/2)*self.resolution
-        dim_range_ = {
-          'lon': slice(dim_range_['lon'].start+dX, dim_range_['lon'].stop-dX),
-          'lat': slice(dim_range_['lat'].start+dY, dim_range_['lat'].stop-dY),
-        }
+
+        self.ds = self.ds.transpose("time", "lat", "lon")
+
+        if self.interp_na:
+            self.ds = interpolate_na_2D(self.ds)
+
+        if compute:
+            self.ds = self.ds.compute()
+
         self.slice_win = slice_win
         self.strides = strides or {}
         self.ds_size = {
-            dim: max((self.ds.dims[dim] - slice_win[dim]) // self.strides.get(dim, 1) + 1, 0)
-            for dim in slice_win
+                dim: max((self.ds.dims[dim] - slice_win[dim]) // self.strides.get(dim, 1) + 1, 0)
+                for dim in slice_win
         }
-
-        # reorder dimensions, this ensures dims ordering using
-        # DataArray.data is consistent in numpy arrays (batch,time,lat,lon)
-        self.ds = self.ds.transpose('time', 'lat', 'lon')
-
-        # convert dask arrays to xr.DataArrays for faster computations
-        if compute:
-            self.ds = self.ds.compute()
 
     def __del__(self):
         self.ds.close()
@@ -185,7 +208,14 @@ class XrDataset(Dataset):
     def __iter__(self):
         for i in range(len(self)):
             yield self[i]
-        
+
+    @contextlib.contextmanager
+    def get_coords(self):
+        try:
+            self.return_coords = True
+            yield
+        finally:
+            self.return_coords = False
 
     def __getitem__(self, item):
         sl = {
@@ -194,6 +224,8 @@ class XrDataset(Dataset):
             for dim, idx in zip(self.ds_size.keys(),
                                 np.unravel_index(item, tuple(self.ds_size.values())))
         }
+        if self.return_coords:
+            return self.ds.isel(**sl).coords
         return self.ds.isel(**sl)[self.var].data.astype(np.float32)
 
 
@@ -223,9 +255,15 @@ class FourDVarNetDataset(Dataset):
         sst_decode=True,
         resolution=1/20,
         resize_factor=1,
-        compute=False
+        use_auto_padding=False,
+        aug_train_data=False,
+        compute=False,
     ):
         super().__init__()
+        self.use_auto_padding=use_auto_padding
+
+        self.aug_train_data = aug_train_data
+        self.return_coords = False
 
         self.oi_ds = XrDataset(
             oi_path, oi_var,
@@ -235,7 +273,9 @@ class FourDVarNetDataset(Dataset):
             strides=strides,
             decode=oi_decode,
             resize_factor=resize_factor,
-            compute=compute
+            compute=compute,
+            auto_padding=use_auto_padding,
+            interp_na=True,
         )
         self.gt_ds = XrDataset(
             gt_path, gt_var,
@@ -245,7 +285,9 @@ class FourDVarNetDataset(Dataset):
             strides=strides,
             decode=gt_decode,
             resize_factor=resize_factor,
-            compute=compute
+            compute=compute,
+            auto_padding=use_auto_padding,
+            interp_na=True,
         )
         self.obs_mask_ds = XrDataset(
             obs_mask_path, obs_mask_var,
@@ -255,8 +297,12 @@ class FourDVarNetDataset(Dataset):
             strides=strides,
             decode=obs_mask_decode,
             resize_factor=resize_factor,
-            compute=compute
+            compute=compute,
+            auto_padding=use_auto_padding,
         )
+
+        if self.aug_train_data:
+            self.perm = np.random.permutation(len(self.obs_mask_ds))
 
         if sst_var is not None:
             self.sst_ds = XrDataset(
@@ -267,7 +313,9 @@ class FourDVarNetDataset(Dataset):
                 strides=strides,
                 decode=sst_decode,
                 resize_factor=resize_factor,
-                compute=compute
+                compute=compute,
+                auto_padding=use_auto_padding,
+                interp_na=True,
             )
         else:
             self.sst_ds = None
@@ -280,15 +328,41 @@ class FourDVarNetDataset(Dataset):
         self.norm_stats_sst = stats_sst
 
     def __len__(self):
-        return min(len(self.oi_ds), len(self.gt_ds), len(self.obs_mask_ds))
+        length = min(len(self.oi_ds), len(self.gt_ds), len(self.obs_mask_ds))
+        if self.aug_train_data:
+            return 2 * length
+        return length
 
     def coordXY(self):
-        return self.gt_ds.ds.lon, self.gt_ds.ds.lat
-        #return self.gt_ds.ds.lon.data, self.gt_ds.ds.lat.data
+        # return self.gt_ds.lon, self.gt_ds.lat
+        return self.gt_ds.ds.lon.data, self.gt_ds.ds.lat.data
+
+    @contextlib.contextmanager
+    def get_coords(self):
+        try:
+            self.return_coords = True
+            yield
+        finally:
+            self.return_coords = False
 
     def __getitem__(self, item):
+        if self.return_coords:
+            with self.gt_ds.get_coords():
+                return self.gt_ds[item]
+
         mean, std = self.norm_stats
-        _oi_item = self.oi_ds[item]
+        length = len(self.obs_mask_ds)
+        if item < length:
+            _oi_item = self.oi_ds[item]
+            _obs_item = (self.obs_mask_ds[item] - mean) / std
+            _gt_item = (self.gt_ds[item] - mean) / std
+        else:
+            _oi_item = self.oi_ds[item - length]
+            _gt_item = (self.gt_ds[item - length] - mean) / std
+            _obs_mask_item = self.obs_mask_ds[self.perm[item - length]]
+            obs_mask_item = ~np.isnan(_obs_mask_item)
+            _obs_item = np.where(obs_mask_item, _gt_item, np.full_like(_gt_item,np.nan))
+
         _oi_item = (np.where(
             np.abs(_oi_item) < 10,
             _oi_item,
@@ -296,12 +370,11 @@ class FourDVarNetDataset(Dataset):
         ) - mean) / std
 
         # glorys model has NaNs on land
-        gt_item = (self.gt_ds[item] - mean) / std
+        gt_item = _gt_item
 
         oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
         # obs_mask_item = self.obs_mask_ds[item].astype(bool) & ~np.isnan(oi_item) & ~np.isnan(_gt_item)
 
-        _obs_item = (self.obs_mask_ds[item] - mean) / std
         obs_mask_item = ~np.isnan(_obs_item)
         obs_item = np.where(~np.isnan(_obs_item), _obs_item, np.zeros_like(_obs_item))
 
@@ -309,7 +382,7 @@ class FourDVarNetDataset(Dataset):
             return oi_item, obs_mask_item, obs_item, gt_item
         else:
             mean, std = self.norm_stats_sst
-            _sst_item = (self.sst_ds[item] - mean) / std
+            _sst_item = (self.sst_ds[item % length] - mean) / std
             sst_item = np.where(~np.isnan(_sst_item), _sst_item, 0.)
 
             return oi_item, obs_mask_item, obs_item, gt_item, sst_item
@@ -336,12 +409,15 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             sst_var=None,
             sst_decode=True,
             resize_factor=1,
+            aug_train_data=False,
             resolution="1/20",
             dl_kwargs=None,
-            compute=False
+            compute=False,
+            use_auto_padding=False,
     ):
         super().__init__()
         self.resize_factor = resize_factor
+        self.aug_train_data = aug_train_data
         self.dim_range = dim_range
         self.slice_win = slice_win
         self.strides = strides
@@ -365,10 +441,11 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.resize_factor = resize_factor
         self.resolution  = parse_resolution_to_float(resolution)
         self.compute = compute
+        self.use_auto_padding = use_auto_padding
 
         self.train_slices, self.test_slices, self.val_slices = train_slices, test_slices, val_slices
         self.train_ds, self.val_ds, self.test_ds = None, None, None
-        self.norm_stats = None
+        self.norm_stats = (0, 1)
         self.norm_stats_sst = None
 
     def compute_norm_stats(self, ds):
@@ -416,7 +493,31 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         return self.test_ds.datasets[0].gt_ds.ds_size
 
     def setup(self, stage=None):
-        self.train_ds, self.val_ds, self.test_ds = [
+        self.train_ds = ConcatDataset(
+            [FourDVarNetDataset(
+                dim_range={**self.dim_range, **{'time': sl}},
+                strides=self.strides,
+                slice_win=self.slice_win,
+                oi_path=self.oi_path,
+                oi_var=self.oi_var,
+                oi_decode=self.oi_decode,
+                obs_mask_path=self.obs_mask_path,
+                obs_mask_var=self.obs_mask_var,
+                obs_mask_decode=self.obs_mask_decode,
+                gt_path=self.gt_path,
+                gt_var=self.gt_var,
+                gt_decode=self.gt_decode,
+                sst_path=self.sst_path,
+                sst_var=self.sst_var,
+                sst_decode=self.sst_decode,
+                resolution=self.resolution,
+                resize_factor=self.resize_factor,
+                aug_train_data=self.aug_train_data,
+                compute=self.compute
+            ) for sl in self.train_slices])
+
+
+        self.val_ds, self.test_ds = [
             ConcatDataset(
                 [FourDVarNetDataset(
                     dim_range={**self.dim_range, **{'time': sl}},
@@ -436,13 +537,14 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     sst_decode=self.sst_decode,
                     resolution=self.resolution,
                     resize_factor=self.resize_factor,
-                    compute=self.compute
+                    compute=self.compute,
+                    use_auto_padding=self.use_auto_padding,
                 ) for sl in slices]
             )
-            for slices in (self.train_slices, self.val_slices, self.test_slices)
+            for slices in (self.val_slices, self.test_slices)
         ]
 
-        if self.sst_var == None:
+        if self.sst_var is None:
             self.norm_stats = self.compute_norm_stats(self.train_ds)
             self.set_norm_stats(self.train_ds, self.norm_stats)
             self.set_norm_stats(self.val_ds, self.norm_stats)
@@ -457,13 +559,13 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.ds_size = self.get_domain_split()
 
     def train_dataloader(self):
-        return DataLoader(self.train_ds, **self.dl_kwargs, shuffle=True)
+        return DataLoader(self.train_ds, **{**dict(shuffle=True), **self.dl_kwargs})
 
     def val_dataloader(self):
-        return DataLoader(self.val_ds, **self.dl_kwargs, shuffle=False)
+        return DataLoader(self.val_ds, **{**dict(shuffle=False), **self.dl_kwargs})
 
     def test_dataloader(self):
-        return DataLoader(self.test_ds, **self.dl_kwargs, shuffle=False)
+        return DataLoader(self.test_ds, **{**dict(shuffle=False), **self.dl_kwargs})
 
 
 if __name__ == '__main__':
@@ -503,9 +605,30 @@ if __name__ == '__main__':
     oi, mask, gt = batch
 
     # Test fit
-    from main import LitModel
-
-    lit_mod = LitModel()
-    trainer = pl.Trainer(gpus=1)
-    # dm.setup()
-    trainer.fit(lit_mod, datamodule=dm)
+    from utils import get_dm
+    dm = get_dm('xp_aug/xp_repro/full_core_sst', add_overrides=[ 'datamodule.sst_path=${file_paths.natl_sst_daily}'])
+    
+    dl = dm.test_dataloader()
+    ds = dl.dataset.datasets[0]
+    len(ds.perm)
+    batch= next(iter(dl))
+    oi, msk, obs, gt, sst_gt = ds[2]
+    oi_, msk_, obs_, gt_, sst_gt_ = ds[2+ len(ds.perm)]
+    import matplotlib.pyplot as plt
+    ds.sst_ds.ds.isel(time=0).sst.plot()
+    p = lambda t: plt.imshow(t[0])
+    ds.sst_ds.ds.sst.isel(time=0).plot()
+    ds.gt_ds.ds.ssh.isel(time=0).plot()
+    ds.obs_mask_ds.ds.ssh_mod.isel(time=5).plot()
+    ds.obs_mask_ds.ds.ssh_mod.pipe(np.isfinite).mean('time').isel(lat=slice(20, -20), lon=slice(20,-20)).plot()
+    sst_ds = xr.open_dataset(dm.sst_path)
+    dm.dim_range
+    _ds = sst_ds
+    _ds = _ds.sel(**dm.dim_range)
+    _ds.time.attrs["units"] = "seconds since 2012-10-01"
+    _ds = xr.decode_cf(_ds)
+    _ds = interpolate_na_2D(_ds, max_value=10**10)
+    _ds.sel(**dm.dim_range).isel(time=0).sst.plot()
+    p(sst_gt)
+    p(oi)
+    sst_ds.sel(**dm.dim_range).isel(time=0).sst.plot()
