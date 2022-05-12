@@ -49,3 +49,4 @@ instab
 *.pk
 lightning_logs_archives
 report
+trained_cfgs
