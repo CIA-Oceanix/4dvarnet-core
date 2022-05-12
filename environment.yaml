@@ -17,6 +17,7 @@ dependencies:
   - pytorch-lightning=1.6.2
   - pip:
     - xarray[complete]==0.21
+    - holoviews[recommended]
     - sparse
     - GitPython
     - einops

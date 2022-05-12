@@ -162,7 +162,6 @@ def compute_WeightedLoss(x2,w):
     return loss2
 
 def compute_spatio_temp_weighted_loss(x2, w):
-    # print(x2.shape)
     x2_w = (x2 * w[None, ...])
     non_zeros = (torch.ones_like(x2) * w[None, ...]) == 0.
     x2_num = ~x2_w.isnan() & ~x2_w.isinf() & ~non_zeros
@@ -342,7 +341,6 @@ class Model_Var_Cost(nn.Module):
     def forward(self, dx, dy):
 
         loss = self.alphaReg**2 * self.normPrior(dx,self.WReg**2,self.epsReg)
-
         if self.dim_obs == 1 :
             loss +=  self.alphaObs[0]**2 * self.normObs(dy,self.WObs[0,:]**2,self.epsObs[0])
         else:

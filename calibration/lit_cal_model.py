@@ -396,8 +396,8 @@ class LitCalModel(lit_model_augstate.LitModelAugstate):
 
             # projection losses
 
-            loc_anom_gt = (target_obs_GT_wo_nan - output_low_res).where(target_obs_GT.isfinite(), torch.zeros_like(target_obs_GT))
             glob_anom_gt = targets_GT_wo_nan - output_low_res
+            loc_anom_gt = (target_obs_GT_wo_nan - output_low_res).where(target_obs_GT.isfinite(), glob_anom_gt)
             yGT = torch.cat((targets_OI,  glob_anom_gt, loc_anom_gt), dim=1)
             if self.aug_state:
                 yGT = torch.cat((yGT, glob_anom_gt), dim=1) 

@@ -649,45 +649,19 @@ if __name__ =='__main__':
     from utils import get_cfg, get_dm, get_model
     from omegaconf import OmegaConf
     OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
-    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638612/checkpoints/modelCalSLAInterpGF-epoch=30-val_loss=1.5786.ckpt'
-    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=13-val_loss=1.4913.ckpt'
-    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=16-val_loss=1.4879.ckpt'
-    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=19-val_loss=1.4220.ckpt'
-    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=30-val_loss=1.4054.ckpt'
-    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=43-val_loss=1.4010.ckpt'
-
-    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=35-val_loss=1.3944.ckpt'
-    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=59-val_loss=1.3850.ckpt'
-    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=80-val_loss=1.3976.ckpt'
-
-    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=18-val_loss=1.4573.ckpt'
-    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=29-val_loss=1.4368.ckpt'
-
-    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=40-val_loss=1.3377.ckpt'
-
-    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=60-val_loss=1.3481.ckpt'
-    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=72-val_loss=1.3462.ckpt'
-
-    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1714109/checkpoints/modelCalSLAInterpGF-epoch=07-val_loss=1.3174.ckpt'
-    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1714109/checkpoints/modelCalSLAInterpGF-epoch=16-val_loss=1.3098.ckpt'
-
-
-    # cfg_n, ckpt = 'quentin_repro_w_hugo_lit_240', 'dashboard/xp_interp_dt7_240_r/lightning_logs/version_1638608/checkpoints/modelCalSLAInterpGF-epoch=98-val_loss=1.4799.ckpt'
-    # cfg_n, ckpt = 'quentin_repro_w_hugo_lit_240', 'dashboard/xp_interp_dt7_240_r/lightning_logs/version_1638608/checkpoints/modelCalSLAInterpGF-epoch=74-val_loss=1.5486.ckpt'
-    # cfg_n, ckpt = 'quentin_repro_w_hugo_lit_240', 'dashboard/xp_interp_dt7_240_r/lightning_logs/version_1638608/checkpoints/modelCalSLAInterpGF-epoch=85-val_loss=1.5409.ckpt'
-
-    # cfg_n, ckpt = 'quentin_repro_w_hugo_lit_240', 'modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt'
-
-    # cfg_n, ckpt = 'full_core', 'archive_dash/xp_interp_dt7_240_h/version_2/checkpoints/modelCalSLAInterpGF-epoch=131-val_loss=1.3230.ckpt'
-    # cfg_n, ckpt = 'full_core', 'archive_dash/xp_interp_dt7_240_h/version_2/checkpoints/modelCalSLAInterpGF-epoch=49-val_loss=1.3328.ckpt'
-    # cfg_n, ckpt = 'full_core', 'archive_dash/xp_interp_dt7_240_h/version_2/checkpoints/modelCalSLAInterpGF-epoch=110-val_loss=1.3428.ckpt'
     import hydra_config
-    cfg_n, ckpt = 'qxp16_aug2_dp240_swot_w_oi_map_no_sst_ng5x3cas_l2_dp025_00', 'archive_dash/qxp16_aug2_dp240_swot_w_oi_map_no_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=170-val_loss=0.0164.ckpt'
-    # cfg_n, ckpt = 'full_core', 'modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt'
-    # cfg_n, ckpt = 'dT9', 'dashboard/xp_interp_dt9_240_h/lightning_logs/version_1715728/checkpoints/modelCalSLAInterpGF-epoch=23-val_loss=1.4065.ckpt'
-    # cfg_n, ckpt = 'dT5_240_sst', None
-    # cfg_n, ckpt = 'full_core_hanning_t_grad', 'dashboard/xp_interp_dt7_240_h_hanning/lightning_logs/version_1733027/checkpoints/modelCalSLAInterpGF-epoch=04-val_loss=0.2668.ckpt'
+    # cfg_n, ckpt = 'qxp16_aug2_dp240_swot_w_oi_map_no_sst_ng5x3cas_l2_dp025_00', 'archive_dash/qxp16_aug2_dp240_swot_w_oi_map_no_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=170-val_loss=0.0164.ckpt'
+    # cfg_n, ckpt = 'full_core', 'archive_dash/xp_interp_dt7_240_h/version_5/checkpoints/modelCalSLAInterpGF-epoch=47-val_loss=1.3773.ckpt'
 
+    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=181-val_loss=0.0101.ckpt'
+    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=191-val_loss=0.0101.ckpt'
+    cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=192-val_loss=0.0102.ckpt'
+
+    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=187-val_loss=0.0105.ckpt'
+    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=198-val_loss=0.0103.ckpt'
+    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=194-val_loss=0.0106.ckpt'
+
+    # cfg_n, ckpt = 'full_core_sst', 'archive_dash/xp_interp_dt7_240_h_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=114-val_loss=0.6698.ckpt'
     # cfg_n = f"xp_aug/xp_repro/{cfg_n}"
     dm = get_dm(cfg_n, setup=False,
             add_overrides=[
