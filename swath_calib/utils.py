@@ -106,19 +106,6 @@ def get_nadir_slice(path, **slice_args):
         dim="time"
     )
 
-def fourier_filter(f_th, sig):
-    def _f(da):
-        data = (
-                xrft.fft(da.swap_dims(time='x_al').drop('time'), dim='x_al')
-                # .isel(x_ac=0)
-                .pipe(lambda x: x.where(x.freq_x_al < f_th, ndi.gaussian_filter1d(x, sigma=sig, axis=0)))
-                .pipe(lambda da:xrft.ifft( da, dim='freq_x_al'))
-                .pipe(np.real)
-                .data
-        )
-        return  xr.DataArray(data, dims=da.dims, coords=da.coords)
-    return _f
-
 def generate_cal_xrds(ds, lit_mod, trainer, var_name='cal'):
     # ds, lit_mod, trainer, var_name=cal_ds, cal_mod, trainer, 'cal'
     pred_dl = torch.utils.data.DataLoader(ds, batch_size=1, shuffle=False)
