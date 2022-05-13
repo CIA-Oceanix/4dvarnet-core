@@ -18,7 +18,8 @@ params:
   norm_prior: l2
 datamodule:
   aug_train_data: True
-  dl_kwargs: 4
+  dl_kwargs: 
+    batch_size: 4
 entrypoint:
   precision: 16
 
