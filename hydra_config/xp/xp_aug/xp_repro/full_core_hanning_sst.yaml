@@ -1,11 +1,13 @@
 # @package _global_
 
-xp_name: xp_interp_dt7_240_h
+xp_name: hanning_sst
 params:
   dT: 7
   patch_weight:
+    _target_: lit_model_augstate.get_cropped_hanning_mask
+    patch_size: ${datamodule.slice_win}
     crop:
-      time: 3
+      time: 1
   k_n_grad: 3
   n_grad: 5
   val_diag_freq: 5 
