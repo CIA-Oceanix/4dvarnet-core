@@ -66,7 +66,21 @@ def get_constant_crop(patch_size, crop, dim_order=['time', 'lat', 'lon']):
         print(patch_weight.sum())
         return patch_weight
 
+def get_hanning_mask(patch_size, **kwargs):
+        
+    t_msk =kornia.filters.get_hanning_kernel1d(patch_size['time'])
+    s_msk = kornia.filters.get_hanning_kernel2d((patch_size['lat'], patch_size['lon']))
 
+    patch_weight = t_msk[:, None, None] * s_msk[None, :, :]
+    return patch_weight.cpu().numpy()
+
+def get_cropped_hanning_mask(patch_size, crop, **kwargs):
+    pw = get_constant_crop(patch_size, crop)
+        
+    t_msk =kornia.filters.get_hanning_kernel1d(patch_size['time'])
+
+    patch_weight = t_msk[:, None, None] * pw
+    return patch_weight.cpu().numpy()
 ############################################ Lightning Module #######################################################################
 
 class LitModelAugstate(pl.LightningModule):
@@ -296,11 +310,9 @@ class LitModelAugstate(pl.LightningModule):
 
         if dist.is_initialized():
             dist.barrier()
-        if self.global_rank > 0:
-            print(f'Saved data for rank {self.global_rank}')
-            return
 
-        return [torch.load(f) for f in sorted(data_path.glob('*'))]
+        if self.global_rank == 0:
+            return [torch.load(f) for f in sorted(data_path.glob('*'))]
 
     def build_test_xr_ds(self, outputs, diag_ds):
 
@@ -457,6 +469,9 @@ class LitModelAugstate(pl.LightningModule):
 
     def diag_epoch_end(self, outputs, log_pref='test'):
         full_outputs = self.gather_outputs(outputs, log_pref=log_pref)
+        if full_outputs is None:
+            print("full_outputs is None on ", self.global_rank)
+            return
         if log_pref == 'test':
             diag_ds = self.trainer.test_dataloaders[0].dataset.datasets[0]
         elif log_pref == 'val':
@@ -633,8 +648,66 @@ class LitModelAugstate(pl.LightningModule):
                 ('mseOI', loss_OI.detach()),
                 ('mseGOI', loss_GOI.detach())])
 
+            alpha_fft =  self.hparams.get('alpha_fft', 0)
+            if alpha_fft > 0:
+                try:
+                    cp = self.hparams.patch_weight['crop']
+                except:
+                    cp = None
+                
+                # print(f'{cp=}') 
+                crop_fn = lambda x: (x if cp is None else
+                        x[:,cp['time']:-cp['time'],cp['lat']:-cp['lat'],cp['lon']:-cp['lon']])
+
+                targets_GT_wo_nan = crop_fn(targets_GT.where(~targets_GT.isnan(), targets_OI))
+                
+                shape = einops.parse_shape(targets_GT_wo_nan, 'b t lat lon')
+                dim, s = 2, shape['lat']
+                window = einops.repeat(torch.hann_window(s), 'lat -> b t lat lon', **shape)
+
+                window = window.to(self.device)
+                err = crop_fn(outputs) - targets_GT_wo_nan
+                fft_err = torch.fft.rfft(window * err, dim=dim, norm="ortho")
+                fft_gt = torch.fft.rfft( window * targets_GT_wo_nan, dim=dim,norm="ortho")
+                # fft_err = torch.fft.rfft2(cropwindow * err, norm="ortho")
+                # fft_gt = torch.fft.rfft2( window * targets_GT_wo_nan,norm="ortho")
+                psd_err = fft_err * fft_err.conj()
+                psd_gt = fft_gt * fft_gt.conj()
+                psd_score = (psd_err/psd_gt).real
+                ceiled_psd_score = psd_score.minimum(torch.full_like(psd_score, 1.))
+                loss_fft = F.mse_loss(ceiled_psd_score, torch.zeros_like(ceiled_psd_score))
+                # loss_fft = torch.hypot(*self.gradient_img(ceiled_psd_score))
+                loss += alpha_fft * F.mse_loss(loss_fft, torch.zeros_like(loss_fft))
+
+            alpha_temporal_grad =  self.hparams.get('alpha_t_grad', 0)
+            if alpha_temporal_grad > 0:
+                gt_tgrad =  targets_GT_wo_nan[:, 2:]-targets_GT_wo_nan[:, :-2]
+                out_tgrad =  outputs[:, 2:]-outputs[:, :-2]
+                w = self.patch_weight[1:-1]
+                loss += alpha_temporal_grad * NN_4DVar.compute_spatio_temp_weighted_loss(gt_tgrad - out_tgrad, w)
         return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
 
+class LitModelCycleLR(LitModelAugstate):
+    def configure_optimizers(self):
+        opt = optim.Adam(self.parameters(), lr=1e-3)
+        return {
+            'optimizer': opt,
+        'lr_scheduler': torch.optim.lr_scheduler.CyclicLR(
+            opt, **self.hparams.cycle_lr_kwargs),
+        'monitor': 'val_loss'
+    }
+
+    def on_train_epoch_start(self):
+        if self.model_name in ('4dvarnet', '4dvarnet_sst'):
+            opt = self.optimizers()
+            if (self.current_epoch in self.hparams.iter_update) & (self.current_epoch > 0):
+                indx = self.hparams.iter_update.index(self.current_epoch)
+                print('... Update Iterations number #%d: NGrad = %d -- ' % (
+                    self.current_epoch, self.hparams.nb_grad_update[indx]))
+
+                self.hparams.n_grad = self.hparams.nb_grad_update[indx]
+                self.model.n_grad = self.hparams.n_grad
+                print("ngrad iter", self.model.n_grad)
 
 if __name__ =='__main__':
 
@@ -655,14 +728,23 @@ if __name__ =='__main__':
 
     # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=181-val_loss=0.0101.ckpt'
     # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=191-val_loss=0.0101.ckpt'
-    cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=192-val_loss=0.0102.ckpt'
+    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=192-val_loss=0.0102.ckpt'
 
     # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=187-val_loss=0.0105.ckpt'
     # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=198-val_loss=0.0103.ckpt'
     # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=194-val_loss=0.0106.ckpt'
 
     # cfg_n, ckpt = 'full_core_sst', 'archive_dash/xp_interp_dt7_240_h_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=114-val_loss=0.6698.ckpt'
-    # cfg_n = f"xp_aug/xp_repro/{cfg_n}"
+    # cfg_n, ckpt = 'full_core_hanning_sst', 'results/xpnew/hanning_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=95-val_loss=0.3419.ckpt'
+    # cfg_n, ckpt = 'full_core_hanning_sst', 'results/xpnew/hanning_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=92-val_loss=0.3393.ckpt'
+    cfg_n, ckpt = 'full_core_hanning_sst', 'results/xpnew/hanning_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=99-val_loss=0.3438.ckpt'
+    # cfg_n, ckpt = 'full_core_sst_fft', 'results/xpnew/sst_fft/version_0/checkpoints/modelCalSLAInterpGF-epoch=59-val_loss=2.0084.ckpt'
+    # cfg_n, ckpt = 'full_core_sst_fft', 'results/xpnew/sst_fft/version_0/checkpoints/modelCalSLAInterpGF-epoch=92-val_loss=2.0447.ckpt'
+    # cfg_n, ckpt = 'cycle_lr_sst', 'results/xpnew/xp_cycle_lr_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=103-val_loss=0.9093.ckpt'
+    cfg_n, ckpt = 'full_core_hanning', 'results/xpnew/hanning/version_0/checkpoints/modelCalSLAInterpGF-epoch=91-val_loss=0.5461.ckpt'
+    # cfg_n, ckpt = 'full_core_hanning', 'results/xpnew/hanning/version_0/checkpoints/modelCalSLAInterpGF-epoch=75-val_loss=0.5547.ckpt'
+    # cfg_n, ckpt = 'full_core_hanning_t_grad', 'results/xpnew/hanning_grad/version_0/checkpoints/modelCalSLAInterpGF-epoch=102-val_loss=3.7019.ckpt'
+    cfg_n = f"xp_aug/xp_repro/{cfg_n}"
     dm = get_dm(cfg_n, setup=False,
             add_overrides=[
                 # 'params.files_cfg.obs_mask_path=/gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/CalData/cal_data_new_errs.nc',

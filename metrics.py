@@ -160,13 +160,18 @@ def plot(ax, lon, lat, data, title, cmap, norm, extent=[-65, -55, 30, 40], gridd
     ax.set_title(title, pad=10, fontsize = 15)
     ax.add_feature(cfeature.LAND.with_scale('10m'), zorder=100,
                    edgecolor='k', facecolor='white')
-    gl = ax.gridlines(alpha=0.5, zorder=200)#,draw_labels=True)
-    gl.xformatter = LONGITUDE_FORMATTER
-    gl.yformatter = LATITUDE_FORMATTER
-    gl.bottom_labels = False
-    gl.right_labels = False
-    gl.xlabel_style = {'fontsize': 10, 'rotation' : 45}
-    gl.ylabel_style = {'fontsize': 10}
+    try:
+        gl = ax.gridlines(alpha=0.5, zorder=200)#,draw_labels=True)
+        gl.xformatter = LONGITUDE_FORMATTER
+        gl.yformatter = LATITUDE_FORMATTER
+        gl.bottom_labels = False
+        gl.right_labels = False
+        gl.xlabel_style = {'fontsize': 10, 'rotation' : 45}
+        gl.ylabel_style = {'fontsize': 10}
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc()) 
+        
 
 def gradient(img, order):
     """ calculate x, y gradient and magnitude """

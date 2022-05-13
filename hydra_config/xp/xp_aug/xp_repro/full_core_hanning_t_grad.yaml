@@ -1,17 +1,20 @@
 # @package _global_
 
-xp_name: xp_interp_dt7_240_h
+xp_name: hanning_grad
 params:
   dT: 7
   patch_weight:
-    crop:
-      time: 3
+    _target_: lit_model_augstate.get_cropped_hanning_mask
+    patch_size: ${datamodule.slice_win}
+    crop: 
+      time: 1
   k_n_grad: 3
   n_grad: 5
   val_diag_freq: 5 
   padding_mode: reflect
   alpha_mse_ssh: 50. # loss
   alpha_mse_gssh: 1000.
+  alpha_t_grad: 1000.
   norm_obs: l2
   norm_prior: l2
 datamodule:
@@ -22,7 +25,7 @@ defaults:
   - /splits/dc_boost_swot@datamodule
   - /xp/xp_aug/aug/with_aug_state
   - /xp/xp_aug/dl/d240_p240x5_s240x1
-  - /xp/xp_aug/sst/with_sst
+  - /xp/xp_aug/sst/without_sst
   - /xp/xp_aug/loss/map
   - /xp/xp_aug/train_strat/const_lr_ngrad_5_3cas
   - _self_ 
