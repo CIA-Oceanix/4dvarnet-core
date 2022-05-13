@@ -25,11 +25,9 @@ importlib.reload(swath_calib.configs)
 importlib.reload(utils)
 importlib.reload(swath_calib.utils)
 
-def full_from_scratch(cfgn='base_no_sst', fp="dgx_ifremer"):
+def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
     try:
-        xp_num=100
-        swath_calib.configs.register_configs(xp_num)
-        cfg = utils.get_cfg(f'{xp_num}_{cfgn}')
+        cfg = utils.get_cfg(f'{cfgn}')
 
         overrides = [
             '+datamodule.dl_kwargs.shuffle=False',
@@ -124,6 +122,7 @@ def full_from_scratch(cfgn='base_no_sst', fp="dgx_ifremer"):
         trained_cfg = OmegaConf.merge(
                     OmegaConf.to_container(cfg),
                     {'cal_mod_ckpt':trainer.checkpoint_callback.best_model_path},
+                    {'xpnum': xpnum},
                     {'uid':uid},
                     {'src_commit': vcb.setup_hash},
                     {'training_data': str(saved_data_path)},
@@ -265,10 +264,17 @@ def full_from_scratch(cfgn='base_no_sst', fp="dgx_ifremer"):
         return locals()
 
 if __name__ == '__main__':
-    for c in [
-        'base_sst',
-        'base_sst_cal',
-        'base_no_sst_cal',
-        'base_no_sst',
+    xp_num=110
+    cfgs = swath_calib.configs.register_configs()
+    for cfgn in [
+        # 'swath_calib_qxp17_aug2_dp240_swot_map_no_sst_ng5x3cas_l2_dp025_00',
+        #  'swath_calib_qxp17_aug2_dp240_swot_cal_no_sst_ng5x3cas_l2_dp025_00',
+        #  'swath_calib_qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00',
+        #  'swath_calib_qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00',
+         'swath_calib_qxp19_aug2_dp240_5nad_map_no_sst_ng5x3cas_l2_dp025_00_dataaug',
+         'swath_calib_qxp19_aug2_dp240_5nad_map_sst_ng5x3cas_l2_dp025_00_dataaug'
+         'swath_calib_qxp19_aug2_dp240_swot_map_no_sst_ng5x3cas_l2_dp025_00_dataaug',
+         'swath_calib_qxp19_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00_dataaug',
+         
     ]:
-        full_from_scratch(c)
+        full_from_scratch(xp_num, cfgn)
