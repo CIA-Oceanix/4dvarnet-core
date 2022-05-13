@@ -20,8 +20,6 @@ import metrics
 from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
 from models import Model_H, Model_HwithSST, Phi_r, ModelLR, Gradient_img
 
-
-
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
@@ -42,9 +40,6 @@ def get_4dvarnet_sst(hparams):
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
 
-    
-
-
 def get_phi(hparams):
     class PhiPassThrough(torch.nn.Module):
         def __init__(self):
@@ -54,7 +49,7 @@ def get_phi(hparams):
             self.phi_r = torch.nn.Identity()
             self.n_grad = 0
 
-        def forward(self, state, obs, masks):
+        def forward(self, state, obs, masks, *internal_state):
             return self.phi(state), None, None, None
 
     return PhiPassThrough()
@@ -70,7 +65,6 @@ def get_constant_crop(patch_size, crop, dim_order=['time', 'lat', 'lon']):
         patch_weight[mask] = 1.
         print(patch_weight.sum())
         return patch_weight
-
 
 
 ############################################ Lightning Module #######################################################################
@@ -161,7 +155,7 @@ class LitModelAugstate(pl.LightningModule):
         out=None
         for _ in range(self.hparams.n_fourdvar_iter):
             _loss, out, state, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
-            state_init = [s.detach() for s in state]
+            state_init = [None is s is None else s.detach() for s in state]
             losses.append(_loss)
             metrics.append(_metrics)
         return losses, out, metrics
@@ -618,7 +612,7 @@ class LitModelAugstate(pl.LightningModule):
             loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
             loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
                 yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
-            ) 
+            )
 
 
             # total loss
@@ -643,13 +637,13 @@ class LitModelAugstate(pl.LightningModule):
 
 
 if __name__ =='__main__':
-    
+
     import hydra
     import importlib
     from hydra.utils import instantiate, get_class, call
-    import hydra_main 
-    import lit_model_augstate 
-    
+    import hydra_main
+    import lit_model_augstate
+
     importlib.reload(lit_model_augstate)
     importlib.reload(hydra_main)
     from utils import get_cfg, get_dm, get_model
