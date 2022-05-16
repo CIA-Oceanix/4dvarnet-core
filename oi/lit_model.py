@@ -261,7 +261,6 @@ class LitModel(pl.LightningModule):
                 torch.zeros_like(targets_gt),
                 dict([('mse', 0.), ('mseGrad', 0.), ('meanGrad', 1.)])
             )
-        new_mask = torch.cat((1. + 0. * inputs_mask, inputs_mask), dim=1)
         targets_gt_wo_nan = targets_gt.where(~targets_gt.isnan(), torch.zeros_like(targets_gt))
         targets_mask = torch.where(targets_gt!=0.)
         inputs_init = inputs_obs

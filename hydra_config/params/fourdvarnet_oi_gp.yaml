@@ -3,6 +3,7 @@ files_cfg:
   obs_var: y
   gt_path: ${file_paths.gt_path}
   gt_var: x
+  spde_params_path: ${file_paths.spde_params_path}
 iter_update:
   - 0
   - 20

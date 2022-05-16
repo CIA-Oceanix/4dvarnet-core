@@ -12,7 +12,7 @@ dependencies:
   - pytorch=1.11
   - torchvision=0.11.1
   - scikit-learn=0.24.2
-  - scikit_sparse
+  - scikit-sparse
   - numpy=1.20.2
   - netcdf4=1.5.6
   - matplotlib=3.4.2
@@ -28,6 +28,10 @@ dependencies:
     - sparse
     - GitPython
     - setuptools==57.0.0
+    - torchmetrics=0.6.0
+    - --find-links https://data.pyg.org/whl/torch-1.10.0+cu113.html
+    - eccodes==1.2.0
+    - pytorch-lightning==1.4.9
     - cupy-cuda113
     - omegaconf
     - einops
@@ -36,3 +40,7 @@ dependencies:
     - hydra-core
     - kornia
     - pyepsg
+    - torch-scatter
+    - torch-sparse
+    - cupy-cuda113
+    - torch_tb_profiler

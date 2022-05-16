@@ -54,7 +54,7 @@ class LitModel(pl.LightningModule):
         else:
             # model 2 Prior SPDE (known) + Solver LSTM
             self.model = NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r2(self.shapeData,diff_only=True),
+                Phi_r2(xr.open_dataset(hparam.files_cfg.spde_params_path), self.shapeData,diff_only=True),
                 Model_H(self.shapeData[0]),
                 NN_4DVar.model_GradUpdateLSTM(self.shapeData, self.hparams.UsePriodicBoundary,
                                           self.hparams.dim_grad_solver, self.hparams.dropout, self.hparams.stochastic),

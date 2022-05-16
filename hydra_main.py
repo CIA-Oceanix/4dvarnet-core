@@ -17,19 +17,32 @@ def get_profiler():
     return PyTorchProfiler(
             "results/profile_report",
             schedule=torch.profiler.schedule(
+<<<<<<< HEAD
                 skip_first=2,
                 wait=2,
                 warmup=2,
                 active=2),
+=======
+                wait=1,
+                warmup=1,
+                active=1),
+>>>>>>> ac1510c... generate first profiles
             activities=[
                 torch.profiler.ProfilerActivity.CPU,
                 torch.profiler.ProfilerActivity.CUDA,
             ],
+<<<<<<< HEAD
             # with_stack=True,
+=======
+>>>>>>> ac1510c... generate first profiles
             on_trace_ready=torch.profiler.tensorboard_trace_handler('./tb_profile'),
             record_shapes=True,
             profile_memory=True,
     )
+<<<<<<< HEAD
+=======
+
+>>>>>>> ac1510c... generate first profiles
 class FourDVarNetHydraRunner:
     def __init__(self, params, dm, lit_mod_cls, callbacks=None, logger=None):
         self.cfg = params
@@ -225,13 +238,8 @@ class FourDVarNetHydraRunner:
             }
         )
 
-<<<<<<< HEAD
 def _main(cfg):
     print(OmegaConf.to_yaml(cfg))
-=======
-@hydra.main(config_path='hydra_config', config_name='main')
-def main(cfg):
->>>>>>> 612320e... New OI directory + related Notebooks
     pl.seed_everything(seed=cfg.get('seed', None))
     print(OmegaConf.to_yaml(cfg))
     dm = instantiate(cfg.datamodule)

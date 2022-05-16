@@ -256,14 +256,13 @@ class Phi_r(torch.nn.Module):
             return x, [H]
 
 class Phi_r2(torch.nn.Module):
-    def __init__(self, shape_data, diff_only=False, square_root=False):
+    def __init__(self, nc,  shape_data, diff_only=False, square_root=False):
         super().__init__()
         self.diff_only = diff_only
         self.operator_spde = Prior_SPDE(shape_data,diff_only=self.diff_only)
         # SPDE diffusion parameters
         nb_nodes = np.prod(shape_data[1:])
         H = torch.empty((2,2,nb_nodes)).to(device)
-        nc = xr.open_dataset("/users/local/m19beauc/deep_OI/toy_data/diffusion_dataset.nc")
         H11 = torch.reshape(torch.transpose(torch.Tensor(nc.H11.values),0,1),(nb_nodes,)).to(device)
         H12 = torch.reshape(torch.transpose(torch.Tensor(nc.H12.values),0,1),(nb_nodes,)).to(device)
         H22 = torch.reshape(torch.transpose(torch.Tensor(nc.H22.values),0,1),(nb_nodes,)).to(device)
