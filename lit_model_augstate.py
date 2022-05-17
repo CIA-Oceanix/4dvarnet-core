@@ -39,6 +39,15 @@ def get_4dvarnet_sst(hparams):
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
+def get_4dvarnet_OI(hparams):
+    return NN_4DVar.Solver_Grad_4DVarNN(
+                Phi_r_OI(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+                Model_H(hparams.shape_state[0]),
+                NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+                    hparams.dim_grad_solver, hparams.dropout),
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+
 
 def get_phi(hparams):
     class PhiPassThrough(torch.nn.Module):
@@ -74,6 +83,7 @@ class LitModelAugstate(pl.LightningModule):
     MODELS = {
             '4dvarnet': get_4dvarnet,
             '4dvarnet_sst': get_4dvarnet_sst,
+            '4get_4dvarnet_OI': get_4dvarnet_OI,
             'phi': get_phi,
              }
 
