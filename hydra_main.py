@@ -12,6 +12,24 @@ from omegaconf import OmegaConf
 import hydra_config
 import numpy as np
 
+def get_profiler():
+    from pytorch_lightning.profiler import PyTorchProfiler
+    print( torch.profiler.ProfilerActivity.CPU,)
+    return PyTorchProfiler(
+            "results/profile_report",
+            schedule=torch.profiler.schedule(
+                wait=2,
+                warmup=2,
+                active=4),
+            activities=[
+                torch.profiler.ProfilerActivity.CPU,
+                torch.profiler.ProfilerActivity.CUDA,
+            ],
+            # with_stack=True,
+            on_trace_ready=torch.profiler.tensorboard_trace_handler('./tb_profile'),
+            record_shapes=True,
+            profile_memory=True,
+    )
 class FourDVarNetHydraRunner:
     def __init__(self, params, dm, lit_mod_cls, callbacks=None, logger=None):
         self.cfg = params
