@@ -82,6 +82,7 @@ def get_cropped_hanning_mask(patch_size, crop, **kwargs):
 
     patch_weight = t_msk[:, None, None] * pw
     return patch_weight.cpu().numpy()
+
 ############################################ Lightning Module #######################################################################
 
 class LitModelAugstate(pl.LightningModule):
@@ -193,6 +194,7 @@ class LitModelAugstate(pl.LightningModule):
                                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
                                 {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                                ])
 
             return optimizer
         else:
@@ -649,43 +651,6 @@ class LitModelAugstate(pl.LightningModule):
                 ('mseOI', loss_OI.detach()),
                 ('mseGOI', loss_GOI.detach())])
 
-            alpha_fft =  self.hparams.get('alpha_fft', 0)
-            if alpha_fft > 0:
-                try:
-                    cp = self.hparams.patch_weight['crop']
-                except:
-                    cp = None
-                
-                # print(f'{cp=}') 
-                crop_fn = lambda x: (x if cp is None else
-                        x[:,cp['time']:-cp['time'],cp['lat']:-cp['lat'],cp['lon']:-cp['lon']])
-
-                targets_GT_wo_nan = crop_fn(targets_GT.where(~targets_GT.isnan(), targets_OI))
-                
-                shape = einops.parse_shape(targets_GT_wo_nan, 'b t lat lon')
-                dim, s = 2, shape['lat']
-                window = einops.repeat(torch.hann_window(s), 'lat -> b t lat lon', **shape)
-
-                window = window.to(self.device)
-                err = crop_fn(outputs) - targets_GT_wo_nan
-                fft_err = torch.fft.rfft(window * err, dim=dim, norm="ortho")
-                fft_gt = torch.fft.rfft( window * targets_GT_wo_nan, dim=dim,norm="ortho")
-                # fft_err = torch.fft.rfft2(cropwindow * err, norm="ortho")
-                # fft_gt = torch.fft.rfft2( window * targets_GT_wo_nan,norm="ortho")
-                psd_err = fft_err * fft_err.conj()
-                psd_gt = fft_gt * fft_gt.conj()
-                psd_score = (psd_err/psd_gt).real
-                ceiled_psd_score = psd_score.minimum(torch.full_like(psd_score, 1.))
-                loss_fft = F.mse_loss(ceiled_psd_score, torch.zeros_like(ceiled_psd_score))
-                # loss_fft = torch.hypot(*self.gradient_img(ceiled_psd_score))
-                loss += alpha_fft * F.mse_loss(loss_fft, torch.zeros_like(loss_fft))
-
-            alpha_temporal_grad =  self.hparams.get('alpha_t_grad', 0)
-            if alpha_temporal_grad > 0:
-                gt_tgrad =  targets_GT_wo_nan[:, 2:]-targets_GT_wo_nan[:, :-2]
-                out_tgrad =  outputs[:, 2:]-outputs[:, :-2]
-                w = self.patch_weight[1:-1]
-                loss += alpha_temporal_grad * NN_4DVar.compute_spatio_temp_weighted_loss(gt_tgrad - out_tgrad, w)
         return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
 
 class LitModelCycleLR(LitModelAugstate):
@@ -725,11 +690,12 @@ if __name__ =='__main__':
     OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
     import hydra_config
     # cfg_n, ckpt = 'qxp16_aug2_dp240_swot_w_oi_map_no_sst_ng5x3cas_l2_dp025_00', 'archive_dash/qxp16_aug2_dp240_swot_w_oi_map_no_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=170-val_loss=0.0164.ckpt'
+    cfg_n, ckpt = 'full_core', 'results/xpmultigpus/xphack4g_augx4/version_0/checkpoints/modelCalSLAInterpGF-epoch=26-val_loss=1.4156.ckpt'
     # cfg_n, ckpt = 'full_core', 'archive_dash/xp_interp_dt7_240_h/version_5/checkpoints/modelCalSLAInterpGF-epoch=47-val_loss=1.3773.ckpt'
 
     # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=181-val_loss=0.0101.ckpt'
     # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=191-val_loss=0.0101.ckpt'
-    cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=192-val_loss=0.0102.ckpt'
+    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=192-val_loss=0.0102.ckpt'
     # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=192-val_loss=0.0102.ckpt'
 
     # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=187-val_loss=0.0105.ckpt'
@@ -740,12 +706,17 @@ if __name__ =='__main__':
     # cfg_n = f"xp_aug/xp_repro/{cfg_n}"
     # cfg_n, ckpt = 'full_core_hanning_sst', 'results/xpnew/hanning_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=95-val_loss=0.3419.ckpt'
     # cfg_n, ckpt = 'full_core_hanning_sst', 'results/xpnew/hanning_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=92-val_loss=0.3393.ckpt'
-    cfg_n, ckpt = 'full_core_hanning_sst', 'results/xpnew/hanning_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=99-val_loss=0.3438.ckpt'
+    # cfg_n, ckpt = 'full_core_hanning_sst', 'results/xpnew/hanning_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=99-val_loss=0.3438.ckpt'
     # cfg_n, ckpt = 'full_core_sst_fft', 'results/xpnew/sst_fft/version_0/checkpoints/modelCalSLAInterpGF-epoch=59-val_loss=2.0084.ckpt'
     # cfg_n, ckpt = 'full_core_sst_fft', 'results/xpnew/sst_fft/version_0/checkpoints/modelCalSLAInterpGF-epoch=92-val_loss=2.0447.ckpt'
     # cfg_n, ckpt = 'cycle_lr_sst', 'results/xpnew/xp_cycle_lr_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=103-val_loss=0.9093.ckpt'
-    cfg_n, ckpt = 'full_core_hanning', 'results/xpnew/hanning/version_0/checkpoints/modelCalSLAInterpGF-epoch=91-val_loss=0.5461.ckpt'
-    # cfg_n, ckpt = 'full_core_hanning', 'results/xpnew/hanning/version_0/checkpoints/modelCalSLAInterpGF-epoch=75-val_loss=0.5547.ckpt'
+    # cfg_n, ckpt = 'full_core_hanning', 'results/xpnew/hanning/version_0/checkpoints/modelCalSLAInterpGF-epoch=91-val_loss=0.5461.ckpt'
+    # cfg_n, ckpt = 'full_core_hanning', 'results/xpnew/hanning/version_2/checkpoints/modelCalSLAInterpGF-epoch=88-val_loss=0.5654.ckpt'
+    # cfg_n, ckpt = 'full_core_hanning', 'results/xpnew/hanning/version_2/checkpoints/modelCalSLAInterpGF-epoch=129-val_loss=0.5692.ckpt'
+    # cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_hannAdamW/version_0/checkpoints/modelCalSLAInterpGF-epoch=129-val_loss=0.5664.ckpt'
+    # cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_daugx3hann/version_1/checkpoints/modelCalSLAInterpGF-epoch=32-val_loss=0.5734.ckpt'
+    # cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_daugx3hann/version_1/checkpoints/modelCalSLAInterpGF-epoch=34-val_loss=0.5793.ckpt'
+    cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_daugx3hann/version_1/checkpoints/modelCalSLAInterpGF-epoch=43-val_loss=0.5658.ckpt'
     # cfg_n, ckpt = 'full_core_hanning_t_grad', 'results/xpnew/hanning_grad/version_0/checkpoints/modelCalSLAInterpGF-epoch=102-val_loss=3.7019.ckpt'
     cfg_n = f"xp_aug/xp_repro/{cfg_n}"
     dm = get_dm(cfg_n, setup=False,

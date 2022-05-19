@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: xp_interp_dt7_240_h
+xp_name: baseline
 params:
   dT: 7
   patch_weight:
@@ -14,8 +14,13 @@ params:
   alpha_mse_gssh: 1000.
   norm_obs: l2
   norm_prior: l2
+
+  opt: 
+    _target_: torch.optim.Adam
+    lr: 0.
 datamodule:
-  aug_train_data: True
+  pp: std
+
 
 defaults:
   - /xp/xp_aug/base_xp
