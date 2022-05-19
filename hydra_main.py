@@ -169,7 +169,7 @@ class FourDVarNetHydraRunner:
         :param dataloader: Dataloader on which to run the test Checkpoint from which to resume
         :param trainer_kwargs: (Optional)
         """
-    
+
         if _trainer is not None:
             _trainer.test(mod, dataloaders=self.dataloaders[dataloader])
             return
@@ -224,6 +224,11 @@ def _main(cfg):
     else:
         logger=True
     lit_mod_cls = get_class(cfg.lit_mod_cls)
+    if cfg.params.resize_factor!=1:
+        cfg.datamodule.slice_win['lat'] =  int(cfg.datamodule.slice_win['lat']/cfg.datamodule.resize_factor)
+        cfg.datamodule.slice_win['lon'] =  int(cfg.datamodule.slice_win['lon']/cfg.datamodule.resize_factor)
+        cfg.datamodule.strides['lat'] =  int(cfg.datamodule.strides['lat']/cfg.datamodule.resize_factor)
+        cfg.datamodule.strides['lon'] =  int(cfg.datamodule.strides['lon']/cfg.datamodule.resize_factor)
     runner = FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls, callbacks=callbacks, logger=logger)
     call(cfg.entrypoint, self=runner)
 
