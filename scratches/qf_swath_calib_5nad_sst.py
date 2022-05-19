@@ -1,4 +1,5 @@
 import numpy as np
+import hashlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 import scipy.ndimage as ndi
@@ -25,11 +26,9 @@ importlib.reload(swath_calib.configs)
 importlib.reload(utils)
 importlib.reload(swath_calib.utils)
 
-def full_from_scratch(cfgn='base_no_sst', fp="dgx_ifremer"):
+def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
     try:
-        xp_num=100
-        swath_calib.configs.register_configs(xp_num)
-        cfg = utils.get_cfg(f'{xp_num}_{cfgn}')
+        cfg = utils.get_cfg(f'{cfgn}')
 
         overrides = [
             '+datamodule.dl_kwargs.shuffle=False',
@@ -42,7 +41,8 @@ def full_from_scratch(cfgn='base_no_sst', fp="dgx_ifremer"):
         # Generate grided product on swath
         cfg_4dvar = utils.get_cfg(cfg.fourdvar_cfg, overrides=overrides)
 
-        saved_data_path = Path('tmp') / f'{hash(OmegaConf.to_yaml(cfg_4dvar))}.pk'
+        cfg_hash = hashlib.md5(OmegaConf.to_yaml(cfg_4dvar).encode()).hexdigest()
+        saved_data_path = Path('tmp') / f'{cfg_hash}.pk'
         print(saved_data_path)
         rms = lambda da: np.sqrt(np.mean(da**2))
         if saved_data_path.exists():
@@ -55,7 +55,7 @@ def full_from_scratch(cfgn='base_no_sst', fp="dgx_ifremer"):
             model = utils.get_model(cfg.fourdvar_cfg, cfg.fourdvar_mod_ckpt, dm=dm, add_overrides=overrides)
 
             
-            trainer = pl.Trainer(gpus=[3])
+            trainer = pl.Trainer(gpus=[7], logger=False)
                 
             swath_data = {}
             for stage, dl in [
@@ -96,10 +96,10 @@ def full_from_scratch(cfgn='base_no_sst', fp="dgx_ifremer"):
                 gt_var_stats=[s[train_ds.gt_vars].to_array().data for s in train_ds.stats],
                 **cfg.lit_cfg
             )
-        logger = pl.loggers.TensorBoardLogger('lightning_logs', name=cfgn, version='')
+        logger = pl.loggers.TensorBoardLogger('lightning_logs', name=f'{xp_num}_{cfgn}', version='')
         vcb = swath_calib.versioning_cb.VersioningCallback()
         trainer = pl.Trainer(
-            gpus=[5],
+            gpus=[7],
             logger=logger,
             callbacks=[
                 pl.callbacks.LearningRateMonitor(),
@@ -108,7 +108,7 @@ def full_from_scratch(cfgn='base_no_sst', fp="dgx_ifremer"):
                 pl.callbacks.GradientAccumulationScheduler({1: 4, 10: 8, 15: 16, 20: 32, 30: 64}),
             ],
             log_every_n_steps=10,
-            max_epochs=250,
+            max_epochs=100,
             # max_epochs=2,
         )
 
@@ -124,7 +124,10 @@ def full_from_scratch(cfgn='base_no_sst', fp="dgx_ifremer"):
         trained_cfg = OmegaConf.merge(
                     OmegaConf.to_container(cfg),
                     {'cal_mod_ckpt':trainer.checkpoint_callback.best_model_path},
+                    {'xpnum': xpnum},
                     {'uid':uid},
+                    {'cfgn':cfgn},
+                    {'xp_num':xp_num},
                     {'src_commit': vcb.setup_hash},
                     {'training_data': str(saved_data_path)},
                 
@@ -132,20 +135,29 @@ def full_from_scratch(cfgn='base_no_sst', fp="dgx_ifremer"):
 
         Path(f'trained_cfgs/{uid}.yaml').write_text(OmegaConf.to_yaml(trained_cfg))
 
-        
+        f_th, sig = 0.01, 1
+        ff_net = torch.nn.Sequential(net, swath_calib.models.FourierFilter(f_th, sig))
+        print(cal_mod.load_state_dict(torch.load(trained_cfg.cal_mod_ckpt)['state_dict']))
+        cal_mod = swath_calib.models.LitDirectCNN(
+                ff_net,
+                gt_var_stats=[s[train_ds.gt_vars].to_array().data for s in train_ds.stats],
+                **cfg.lit_cfg
+            )
         # Testing
         fourdvar_dm = utils.get_dm(cfg.fourdvar_cfg, add_overrides=overrides)
         fourdvar_model = utils.get_model(cfg.fourdvar_cfg, cfg.fourdvar_mod_ckpt, dm=fourdvar_dm, add_overrides=overrides)
         grid_metrics = []
         swath_metrics = []
         figs = []
-        for niter in range(2):
+        for niter in range(3):
+            trainer.test(fourdvar_model, fourdvar_dm.test_dataloader())[0]
+            print(fourdvar_model.latest_metrics)
             grid_metrics = grid_metrics + [{
                     'xp': cfgn,
                     'iter': niter,
-                    **trainer.test(fourdvar_model, fourdvar_dm.test_dataloader())[0]
+                    **fourdvar_model.latest_metrics
             }]
-            print(pd.DataFrame(grid_metrics).to_markdown())
+            print(pd.DataFrame(grid_metrics).T.to_markdown())
 
             # Convert grid estim to swath
             sw_data = swath_calib.utils.to_swath_data(fourdvar_model.test_xr_ds).pipe(lambda ds: ds.isel(time=np.isfinite(ds.pred).all('nC')))
@@ -154,7 +166,6 @@ def full_from_scratch(cfgn='base_no_sst', fp="dgx_ifremer"):
             cal_ds = swath_calib.dataset.SmoothSwathDataset(sw_data, norm_stats=train_ds.stats, **cfg.swath_ds_cfg) 
 
             # Estimate on swath using cal model
-            print(cal_mod.load_state_dict(torch.load(trained_cfg.cal_mod_ckpt)['state_dict']))
             cal_data = swath_calib.utils.generate_cal_xrds(cal_ds, cal_mod, trainer)[list(sw_data) + ['cal', 'contiguous_chunk']]
 
             def sobel(da):
@@ -245,16 +256,18 @@ def full_from_scratch(cfgn='base_no_sst', fp="dgx_ifremer"):
             }]
             
             print(pd.DataFrame(swath_metrics).to_markdown())
-        pd.DataFrame(swath_metrics).to_csv(f'tmp/{uid}_sw_chain_metrics.csv')
-        pd.DataFrame(grid_metrics).to_csv(f'tmp/{uid}_grid_chain_metrics.csv')
+        swm_df = pd.DataFrame(swath_metrics)
+        swm_df.to_csv(f'tmp/{uid}_sw_chain_metrics.csv')
+        gdm_df = pd.DataFrame(grid_metrics)
+        gdm_df.to_csv(f'tmp/{uid}_grid_chain_metrics.csv')
         with open(f'tmp/{uid}_figs.pk', 'wb') as f:
             pickle.dump(figs, f)
 
         
         trained_cfg_w_metrics = OmegaConf.merge(
                 OmegaConf.to_container(trained_cfg),
-                {'swath_metrics': swath_metrics},
-                {'grid_metrics': grid_metrics},
+                {'swath_metrics': swm_df.to_dict('record')},
+                {'grid_metrics': gdm_df.to_dict('record')},
         )
 
         Path(f'trained_cfgs/{uid}-w-metrics.yaml').write_text(OmegaConf.to_yaml(trained_cfg_w_metrics))
@@ -265,10 +278,17 @@ def full_from_scratch(cfgn='base_no_sst', fp="dgx_ifremer"):
         return locals()
 
 if __name__ == '__main__':
-    for c in [
-        'base_sst',
-        'base_sst_cal',
-        'base_no_sst_cal',
-        'base_no_sst',
+    xp_num=110
+    cfgs = swath_calib.configs.register_configs()
+    for cfgn in [
+        # 'swath_calib_qxp17_aug2_dp240_swot_map_no_sst_ng5x3cas_l2_dp025_00',
+        #  'swath_calib_qxp17_aug2_dp240_swot_cal_no_sst_ng5x3cas_l2_dp025_00',
+        #  'swath_calib_qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00',
+        #  'swath_calib_qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00',
+         'swath_calib_qxp19_aug2_dp240_5nad_map_no_sst_ng5x3cas_l2_dp025_00_dataaug',
+         'swath_calib_qxp19_aug2_dp240_5nad_map_sst_ng5x3cas_l2_dp025_00_dataaug'
+         'swath_calib_qxp19_aug2_dp240_swot_map_no_sst_ng5x3cas_l2_dp025_00_dataaug',
+         'swath_calib_qxp19_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00_dataaug',
+         
     ]:
-        full_from_scratch(c)
+        full_from_scratch(xp_num, cfgn)

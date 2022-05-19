@@ -260,3 +260,20 @@ class LitDirectCNN(pl.LightningModule):
                     'monitor': 'val_loss'
                 }
 
+class FourierFilter(torch.nn.Module):
+    def __init__(self, f_th, sig):
+        super().__init__()
+        self.f_th = f_th
+        self.sig = sig
+
+    def forward(self, x):
+        fft_out = torch.fft.rfft(x, dim=2)
+        freqs = torch.fft.rfftfreq(x.size(2), 2).to(x.device)
+        out_hf = torch.fft.irfft(fft_out.where(freqs[None, None,:,None] > self.f_th, torch.zeros_like(fft_out)), dim=2).real
+        out_lf = torch.fft.irfft(fft_out.where(freqs[None, None,:,None] < self.f_th, torch.zeros_like(fft_out)), dim=2).real
+        # ff_out = out_lf + out_hf
+        ff_out = out_lf + kornia.filters.gaussian_blur2d(out_hf, kernel_size=(int(5*self.sig)+1, 1), sigma=(self.sig, 0.001))
+        # ff_out = out_lf + kornia.filters.median_blur(out_hf, kernel_size=(31, 1))
+        diff = x.size(2) - ff_out.size(2)
+        p_ff_out = F.pad(ff_out, [0, 0, 0, diff], mode='reflect')
+        return p_ff_out
