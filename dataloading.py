@@ -116,7 +116,7 @@ class XrDataset(Dataset):
             if resize_factor!=1:
                 _ds = _ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
                 self.resolution = self.resolution*resize_factor
-            
+
             # dimensions
             self.ds = _ds.sel(**(dim_range or {}))
             self.Nt, self.Nx, self.Ny = tuple(self.ds.dims[d] for d in ['time', 'lon', 'lat'])
@@ -171,7 +171,7 @@ class XrDataset(Dataset):
             self.ds = self.ds_reflected.assign_coords(
                 lon=self.padded_coords['lon'], lat=self.padded_coords['lat']
             )
-        
+
             # III) get lon-lat for the final reconstruction
             dX = ((slice_win['lon']-strides['lon'])/2)*self.resolution
             dY = ((slice_win['lat']-strides['lat'])/2)*self.resolution
@@ -265,18 +265,6 @@ class FourDVarNetDataset(Dataset):
         self.aug_train_data = aug_train_data
         self.return_coords = False
 
-        self.oi_ds = XrDataset(
-            oi_path, oi_var,
-            slice_win=slice_win,
-            resolution=resolution,
-            dim_range=dim_range,
-            strides=strides,
-            decode=oi_decode,
-            resize_factor=resize_factor,
-            compute=compute,
-            auto_padding=use_auto_padding,
-            interp_na=True,
-        )
         self.gt_ds = XrDataset(
             gt_path, gt_var,
             slice_win=slice_win,
@@ -301,8 +289,21 @@ class FourDVarNetDataset(Dataset):
             auto_padding=use_auto_padding,
         )
 
-        if self.aug_train_data:
-            self.perm = np.random.permutation(len(self.obs_mask_ds))
+        if oi_var is not None:
+            self.oi_ds = XrDataset(
+                oi_path, oi_var,
+                slice_win=slice_win,
+                resolution=resolution,
+                dim_range=dim_range,
+                strides=strides,
+                decode=oi_decode,
+                resize_factor=resize_factor,
+                compute=compute,
+                auto_padding=use_auto_padding,
+                interp_na=True,
+            )
+        else:
+            self.oi_ds = None
 
         if sst_var is not None:
             self.sst_ds = XrDataset(
@@ -319,6 +320,9 @@ class FourDVarNetDataset(Dataset):
             )
         else:
             self.sst_ds = None
+
+        if self.aug_train_data:
+            self.perm = np.random.permutation(len(self.obs_mask_ds))
 
         self.norm_stats = (0, 1)
         self.norm_stats_sst = (0, 1)
@@ -513,7 +517,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 resolution=self.resolution,
                 resize_factor=self.resize_factor,
                 aug_train_data=self.aug_train_data,
-                compute=self.compute
+                compute=self.compute,
+                use_auto_padding=self.use_auto_padding,
             ) for sl in self.train_slices])
 
 
@@ -607,7 +612,7 @@ if __name__ == '__main__':
     # Test fit
     from utils import get_dm
     dm = get_dm('xp_aug/xp_repro/full_core_sst', add_overrides=[ 'datamodule.sst_path=${file_paths.natl_sst_daily}'])
-    
+
     dl = dm.test_dataloader()
     ds = dl.dataset.datasets[0]
     len(ds.perm)
