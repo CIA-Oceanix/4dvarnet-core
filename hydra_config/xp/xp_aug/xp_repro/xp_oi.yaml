@@ -20,8 +20,6 @@ lit_mod_cls: lit_model_OI.LitModelOI
 datamodule:
   oi_path: null
   oi_var: null
-  use_auto_padding: True
-
 
 defaults:
   - /xp/xp_aug/base_xp
