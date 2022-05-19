@@ -36,6 +36,33 @@ class LitModelOI(LitModelAugstate):
             '4dvarnet_OI': get_4dvarnet_OI,
              }
 
+    def __init__(self,
+                  hparam=None,
+                  min_lon=None, max_lon=None,
+                  min_lat=None, max_lat=None,
+                  ds_size_time=None,
+                  ds_size_lon=None,
+                  ds_size_lat=None,
+                  time=None,
+                  dX = None, dY = None,
+                  swX = None, swY = None,
+                  coord_ext = None,
+                  test_domain=None,
+                  *args, **kwargs):
+         super().__init__(
+                  hparam=None,
+                  min_lon=None, max_lon=None,
+                  min_lat=None, max_lat=None,
+                  ds_size_time=None,
+                  ds_size_lon=None,
+                  ds_size_lat=None,
+                  time=None,
+                  dX = None, dY = None,
+                  swX = None, swY = None,
+                  coord_ext = None,
+                  test_domain=None,
+                  *args, **kwargs)
+
     def diag_step(self, batch, batch_idx, log_pref='test'):
         inputs_Mask, inputs_obs, targets_GT = batch
         losses, out, metrics = self(batch, phase='test')

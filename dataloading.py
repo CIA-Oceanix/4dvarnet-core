@@ -332,7 +332,10 @@ class FourDVarNetDataset(Dataset):
         self.norm_stats_sst = stats_sst
 
     def __len__(self):
-        length = min(len(self.oi_ds), len(self.gt_ds), len(self.obs_mask_ds))
+        if self.oi_ds is not None:
+            length = min(len(self.oi_ds), len(self.gt_ds), len(self.obs_mask_ds))
+        else:
+            length = min(len(self.gt_ds), len(self.obs_mask_ds))
         if self.aug_train_data:
             return 2 * length
         return length
