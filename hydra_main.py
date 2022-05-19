@@ -18,9 +18,10 @@ def get_profiler():
     return PyTorchProfiler(
             "results/profile_report",
             schedule=torch.profiler.schedule(
+                skip_first=2,
                 wait=2,
                 warmup=2,
-                active=4),
+                active=2),
             activities=[
                 torch.profiler.ProfilerActivity.CPU,
                 torch.profiler.ProfilerActivity.CUDA,

@@ -1,4 +1,5 @@
 import einops
+import hydra
 import torch.distributed as dist
 import kornia
 from hydra.utils import instantiate
@@ -175,23 +176,23 @@ class LitModelAugstate(pl.LightningModule):
         return losses, out, metrics
 
     def configure_optimizers(self):
-
+        opt = torch.optim.Adam
+        if hasattr(self.hparams, 'opt'):
+            opt = lambda p: hydra.utils.call(self.hparams.opt, p)
         if self.model_name == '4dvarnet':
-            optimizer = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+            optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
-                ]
-                , lr=0., weight_decay=self.hparams.weight_decay)
+                ])
 
             return optimizer
         elif self.model_name == '4dvarnet_sst':
 
-            optimizer = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+            optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
                                 {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
-                                ], lr=0., weight_decay=self.hparams.weight_decay)
 
             return optimizer
         else:
