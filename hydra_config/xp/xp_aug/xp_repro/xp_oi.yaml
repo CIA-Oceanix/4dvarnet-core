@@ -15,11 +15,11 @@ params:
   alpha_mse_gssh: 1000.
   norm_obs: l2
   norm_prior: l2
-  resize_factor: 4
 lit_mod_cls: lit_model_OI.LitModelOI
 datamodule:
   oi_path: null
   oi_var: null
+  resize_factor: 4
 
 defaults:
   - /xp/xp_aug/base_xp
