@@ -36,35 +36,11 @@ class LitModelOI(LitModelAugstate):
             '4dvarnet_OI': get_4dvarnet_OI,
              }
 
-    def __init__(self,
-                  hparam=None,
-                  min_lon=None, max_lon=None,
-                  min_lat=None, max_lat=None,
-                  ds_size_time=None,
-                  ds_size_lon=None,
-                  ds_size_lat=None,
-                  time=None,
-                  dX = None, dY = None,
-                  swX = None, swY = None,
-                  coord_ext = None,
-                  test_domain=None,
-                  *args, **kwargs):
-         super().__init__(
-                  hparam=None,
-                  min_lon=None, max_lon=None,
-                  min_lat=None, max_lat=None,
-                  ds_size_time=None,
-                  ds_size_lon=None,
-                  ds_size_lat=None,
-                  time=None,
-                  dX = None, dY = None,
-                  swX = None, swY = None,
-                  coord_ext = None,
-                  test_domain=None,
-                  *args, **kwargs)
+    def __init__(self, *args, **kwargs):
+         super().__init__(*args, **kwargs)
 
     def diag_step(self, batch, batch_idx, log_pref='test'):
-        inputs_Mask, inputs_obs, targets_GT = batch
+        _, inputs_Mask, inputs_obs, targets_GT = batch
         losses, out, metrics = self(batch, phase='test')
         loss = losses[-1]
         if loss is not None:
@@ -78,16 +54,16 @@ class LitModelOI(LitModelAugstate):
 
     def sla_diag(self, t_idx=3, log_pref='test'):
 
-        psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
-        psd_fig = metrics.plot_psd_score(psd_ds)
-        self.test_figs['psd'] = psd_fig
-        psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
-        self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
+        # psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
+        # psd_fig = metrics.plot_psd_score(psd_ds)
+        # self.test_figs['psd'] = psd_fig
+        # psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
+        # self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
         _, _, mu, sig = metrics.rmse_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
 
         md = {
-            f'{log_pref}_lambda_x': lamb_x,
-            f'{log_pref}_lambda_t': lamb_t,
+            # f'{log_pref}_lambda_x': lamb_x,
+            # f'{log_pref}_lambda_t': lamb_t,
             f'{log_pref}_mu': mu,
             f'{log_pref}_sigma': sig,
         }
@@ -121,14 +97,14 @@ class LitModelOI(LitModelAugstate):
         if state[0] is not None:
             return state[0]
 
-        inputs_Mask, inputs_obs, _ = batch
+        _, inputs_Mask, inputs_obs, _ = batch
 
-        init_state = torch.cat((inputs_Mask * inputs_obs), dim=1)
+        init_state = inputs_Mask * inputs_obs
         return init_state
 
     def compute_loss(self, batch, phase, state_init=(None,)):
 
-        inputs_Mask, inputs_obs, targets_GT = batch
+        _, inputs_Mask, inputs_obs, targets_GT = batch
 
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:
@@ -143,12 +119,12 @@ class LitModelOI(LitModelAugstate):
                         ('meanGrad', 1.),
                         ])
                     )
-        targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan())
+        targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
 
         state = self.get_init_state(batch, state_init)
 
-        obs = torch.cat( (inputs_Mask * inputs_obs) ,dim=1)
-        new_masks = torch.cat((torch.ones_like(inputs_Mask), inputs_Mask) , dim=1)
+        obs = inputs_Mask * inputs_obs
+        new_masks =  inputs_Mask
 
         # gradient norm field
         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)

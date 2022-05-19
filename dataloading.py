@@ -105,20 +105,19 @@ class XrDataset(Dataset):
             rename_coords["longitude"] = "lon"
         _ds = _ds.rename(rename_coords)
 
+
+        self.ds = _ds.sel(**(dim_range or {}))
+        if resize_factor!=1:
+            self.ds = self.ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
+            self.resolution = self.resolution*resize_factor
         # reshape
         # dimensions
         if not self.auto_padding:
-            self.ds = _ds.sel(**(dim_range or {}))
             self.original_coords = self.ds.coords
             self.padded_coords = self.ds.coords
 
         if self.auto_padding:
-            if resize_factor!=1:
-                _ds = _ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
-                self.resolution = self.resolution*resize_factor
-
             # dimensions
-            self.ds = _ds.sel(**(dim_range or {}))
             self.Nt, self.Nx, self.Ny = tuple(self.ds.dims[d] for d in ['time', 'lon', 'lat'])
             # store original input coords for later reconstruction in test pipe
             self.original_coords = self.ds.coords
@@ -289,21 +288,18 @@ class FourDVarNetDataset(Dataset):
             auto_padding=use_auto_padding,
         )
 
-        if oi_var is not None:
-            self.oi_ds = XrDataset(
-                oi_path, oi_var,
-                slice_win=slice_win,
-                resolution=resolution,
-                dim_range=dim_range,
-                strides=strides,
-                decode=oi_decode,
-                resize_factor=resize_factor,
-                compute=compute,
-                auto_padding=use_auto_padding,
-                interp_na=True,
-            )
-        else:
-            self.oi_ds = None
+        self.oi_ds = XrDataset(
+            oi_path, oi_var,
+            slice_win=slice_win,
+            resolution=resolution,
+            dim_range=dim_range,
+            strides=strides,
+            decode=oi_decode,
+            resize_factor=resize_factor,
+            compute=compute,
+            auto_padding=use_auto_padding,
+            interp_na=True,
+        )
 
         if sst_var is not None:
             self.sst_ds = XrDataset(
@@ -332,10 +328,7 @@ class FourDVarNetDataset(Dataset):
         self.norm_stats_sst = stats_sst
 
     def __len__(self):
-        if self.oi_ds is not None:
-            length = min(len(self.oi_ds), len(self.gt_ds), len(self.obs_mask_ds))
-        else:
-            length = min(len(self.gt_ds), len(self.obs_mask_ds))
+        length = min(len(self.oi_ds), len(self.gt_ds), len(self.obs_mask_ds))
         if self.aug_train_data:
             return 2 * length
         return length

@@ -71,7 +71,7 @@ class Encoder(torch.nn.Module):
 
 class Encoder_OI(torch.nn.Module):
     def __init__(self, dim_inp, dim_out, dim_ae, dw, dw2, ss, nb_blocks, rateDropout=0.):
-        super(Encoder, self).__init__()
+        super().__init__()
         self.nb_blocks = nb_blocks
         self.dim_ae = dim_ae
         self.nn = self.__make_BilinNN(dim_inp, dim_out, self.dim_ae, dw, dw2, self.nb_blocks, rateDropout)

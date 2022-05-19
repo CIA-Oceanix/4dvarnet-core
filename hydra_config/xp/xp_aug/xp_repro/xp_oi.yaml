@@ -5,6 +5,9 @@ params:
   model: 4dvarnet_OI
   dT: 7
   patch_weight:
+    patch_size: 
+      lat: 60
+      lon: 60
     crop:
       time: 3
   k_n_grad: 3
@@ -15,10 +18,17 @@ params:
   alpha_mse_gssh: 1000.
   norm_obs: l2
   norm_prior: l2
+  shape_state:
+    - ${datamodule.slice_win.time}
+    - ${datamodule.slice_win.lon}
+    - ${datamodule.slice_win.lat}
+  shape_data:
+    - ${datamodule.slice_win.time}
+    - ${datamodule.slice_win.lon}
+    - ${datamodule.slice_win.lat}
+
 lit_mod_cls: lit_model_OI.LitModelOI
 datamodule:
-  oi_path: null
-  oi_var: null
   resize_factor: 4
 
 defaults:
