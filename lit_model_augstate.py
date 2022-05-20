@@ -279,7 +279,7 @@ class LitModelAugstate(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
         losses, out, metrics = self(batch, phase='test')
         loss = losses[-1]
-        if loss is not None:
+        if loss is not None and log_pref is not None:
             self.log(f'{log_pref}_loss', loss)
             self.log(f'{log_pref}_mse', metrics[-1]["mse"] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
@@ -504,11 +504,14 @@ class LitModelAugstate(pl.LightningModule):
         self.logger.log_metrics(md, step=self.current_epoch)
 
     def teardown(self, stage='test'):
+        if self.logger is not None:
+            self.logger.log_hyperparams(
+                    {**self.hparams},
+                    self.latest_metrics
+            )
 
-        self.logger.log_hyperparams(
-                {**self.hparams},
-                self.latest_metrics
-    )
+    def predict_step(self, batch, batch_idx):
+        return self.diag_step(batch, batch_idx, log_pref=None)
 
     def get_init_state(self, batch, state=(None,)):
         if state[0] is not None:

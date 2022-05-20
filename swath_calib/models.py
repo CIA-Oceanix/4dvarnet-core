@@ -157,9 +157,14 @@ class LitDirectCNN(pl.LightningModule):
                     wd=1e-4,
                     loss_w={'tot':(.1, .1, .1), 'rec':(1., 1., 1.,)},
                     loss_budget_gt_vars=100,
+                    f_th=0.01,
+                    sig=1,
+                    ff=False,
                 ):
                 super().__init__()
                 self.net = net
+                self.use_ff = ff
+                self.ff = FourierFilter(f_th, sig)
                 self.lr_init = lr_init
                 self.wd = wd
                 self.loss_budget_gt_vars = loss_budget_gt_vars
@@ -170,7 +175,10 @@ class LitDirectCNN(pl.LightningModule):
 
             def forward(self, batch):
                 x, *_ = batch 
-                return self.net(x)
+                out = self.net(x)
+                if self.use_ff:
+                    out = self.ff(out)
+                return out
 
             def loss(self, t1, t2):
                 rmse = ((t1 -t2)**2).mean().sqrt()
@@ -198,7 +206,7 @@ class LitDirectCNN(pl.LightningModule):
 
                 return rmse, rmse_grad, rmse_lap
 
-            def process_batch(self, batch, phase='val'):
+            def process_batch(self, batch, phase='val', ff=False):
                 _, y, raw_gt, raw_ref = batch 
                 out = self.forward(batch)
                 losses = {}
@@ -256,7 +264,7 @@ class LitDirectCNN(pl.LightningModule):
                     # torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt,
                     #     eta_min=5e-5, T_0=15, T_mult=2, last_epoch=-1),
                     torch.optim.lr_scheduler.CyclicLR(
-                        opt, base_lr=5e-5, max_lr=5e-3,  step_size_up=25, step_size_down=25, cycle_momentum=False, mode='triangular2'),
+                        opt, base_lr=5e-5, max_lr=5e-3,  step_size_up=15, step_size_down=25, cycle_momentum=False, mode='triangular2'),
                     'monitor': 'val_loss'
                 }
 
@@ -272,7 +280,7 @@ class FourierFilter(torch.nn.Module):
         out_hf = torch.fft.irfft(fft_out.where(freqs[None, None,:,None] > self.f_th, torch.zeros_like(fft_out)), dim=2).real
         out_lf = torch.fft.irfft(fft_out.where(freqs[None, None,:,None] < self.f_th, torch.zeros_like(fft_out)), dim=2).real
         # ff_out = out_lf + out_hf
-        ff_out = out_lf + kornia.filters.gaussian_blur2d(out_hf, kernel_size=(int(5*self.sig)+1, 1), sigma=(self.sig, 0.001))
+        ff_out = out_lf + kornia.filters.gaussian_blur2d(out_hf, kernel_size=(int(2*(2*self.sig))+1, 1), sigma=(self.sig, 0.001))
         # ff_out = out_lf + kornia.filters.median_blur(out_hf, kernel_size=(31, 1))
         diff = x.size(2) - ff_out.size(2)
         p_ff_out = F.pad(ff_out, [0, 0, 0, diff], mode='reflect')

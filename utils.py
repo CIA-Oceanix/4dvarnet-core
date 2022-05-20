@@ -35,7 +35,7 @@ def get_cfg(xp_cfg, overrides=None):
 
         return cfg
     try:
-        with hydra.initialize_config_dir(str(Path('hydra_config').absolute())):
+        with hydra.initialize_config_dir(str(Path('hydra_config').absolute()),  version_base='1.1'):
             return get()
     except ValueError as e:
         return get()

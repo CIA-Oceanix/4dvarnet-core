@@ -25,9 +25,9 @@ class SmoothSwathDataset(torch.utils.data.Dataset):
                 .groupby('contiguous_chunk')
                 .apply(
                     lambda g: g.assign(
-                        err =  lambda _g: _g.syst_error_uncalibrated + _g.wet_tropo_res,
+                        zeros = lambda _g:  xr.zeros_like(_g.ssh_model)
                     ).assign(
-                        zeros = lambda _g:  xr.zeros_like(_g.err)
+                        err =  lambda _g: _g.syst_error_uncalibrated + _g.wet_tropo_res,
                     ).assign(
                         xb =  lambda _g: _g[xb_var],
                     ).assign(
