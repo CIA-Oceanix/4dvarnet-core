@@ -6,6 +6,10 @@ entrypoint:
    weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/'
 
 # Et là tu charges la config d'où tu veux partir:
+
+params:
+  sst_model: 'linear-bn'
+  ckpt_name: 'modelSLAwSSTGF-linear-bn-{epoch:02d}-{val_loss:.4f}'
 defaults:
 - /xp/xp_aug/xp_ronan/full_core_hanning_sst
 - _self_
