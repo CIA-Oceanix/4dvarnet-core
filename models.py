@@ -176,18 +176,12 @@ class Model_HwithSSTBN(torch.nn.Module):
         self.sigmoid = torch.nn.Sigmoid()  # torch.nn.Softmax(dim=1)
 
     def extract_sst_feature(self,y1):
-        if self.bn_type == 0 :
-            y_feat = self.bn_y( self.conv21(y1) )
-        else:
-            y_feat = self.bn_feat( self.conv21(y1) )
+        y_feat = self.bn_feat( self.conv21(y1) )
        
         return y_feat
         
     def extract_state_feature(self,x):
-        if self.bn_type == 0 :
-            x_feat = self.bn_x( self.conv11(x) )
-        else:
-            x_feat = self.bn_feat( self.conv11(x) )
+        x_feat = self.bn_feat( self.conv11(x) )
         
         return x_feat
 
