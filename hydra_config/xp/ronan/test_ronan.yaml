@@ -1,0 +1,3 @@
+_target_: hydra_main.FourDVarNetHydraRunner.test
+ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_2/checkpoints/modelSLAwSSTGF-linear-bn-epoch=59-val_loss=0.3856.ckpt'
+
