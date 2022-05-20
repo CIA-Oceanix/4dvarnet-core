@@ -19,7 +19,7 @@ from scipy import stats
 import solver as NN_4DVar
 import metrics
 from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
-from models import Model_H, Model_HwithSST, Model_HwithSSTBN,Phi_r, ModelLR, Gradient_img
+from models import Model_H, Model_HwithSST, Model_HwithSSTBN,Phi_r, ModelLR, Gradient_img, Model_HwithSSTBN_nolin_tanh
 
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
@@ -36,7 +36,15 @@ def get_4dvarnet_sst(hparams):
         return NN_4DVar.Solver_Grad_4DVarNN(
                     Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                         hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
-                    Model_HwithSSTBN(hparams.shape_state[0], dT=hparams.dT),
+                    Model_HwithSSTBN(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat),
+                    NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+                        hparams.dim_grad_solver, hparams.dropout),
+                    hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+    elif hparams.sst_model == 'nolinear-tanh-bn' :
+        return NN_4DVar.Solver_Grad_4DVarNN(
+                    Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                        hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+                    Model_HwithSSTBN_nolin_tanh(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat),
                     NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                         hparams.dim_grad_solver, hparams.dropout),
                     hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)

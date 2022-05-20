@@ -1,0 +1,21 @@
+# @package _global_
+
+# Ici tu peux surcharger les parties de la config que tu veux sans impacter les autres, par exemple:
+
+entrypoint:
+   weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/'
+
+# Et là tu charges la config d'où tu veux partir:
+
+params:
+  sst_model: 'nolinear-tanh-bn'
+  k_n_grad: 3
+  n_grad: 5
+  dT: 5
+  DimAE: 50
+  dim_obs_sst_feat: 10
+  dim_grad_solver: 150
+  ckpt_name: 'modelSLAwSSTGF-unet1_50-nolin-tanh-bn_10-grad05_03_150-{epoch:02d}-{val_loss:.4f}'
+defaults:
+- /xp/xp_aug/xp_ronan/full_core_hanning_sst
+- _self_
