@@ -1,0 +1,33 @@
+# @package _global_
+
+xp_name: hanning
+params:
+  dT: 7
+  patch_weight:
+    _target_: lit_model_augstate.get_cropped_hanning_mask
+    patch_size: ${datamodule.slice_win}
+    crop:
+      time: 1
+  k_n_grad: 3
+  n_grad: 5
+  val_diag_freq: 5 
+  padding_mode: reflect
+  alpha_mse_ssh: 50. # loss
+  alpha_mse_gssh: 1000.
+  norm_obs: l2
+  norm_prior: l2
+  opt: 
+    _target_: torch.optim.Adam
+    lr: 0.
+datamodule:
+  aug_train_data: 1
+
+defaults:
+  - /xp/xp_aug/base_xp
+  - /splits/dc_boost_swot@datamodule
+  - /xp/xp_aug/aug/with_aug_state
+  - /xp/xp_aug/dl/d240_p240x5_s240x1
+  - /xp/xp_aug/sst/without_sst
+  - /xp/xp_aug/loss/map
+  - /xp/xp_aug/train_strat/const_lr_ngrad_5_3cas
+  - _self_ 
