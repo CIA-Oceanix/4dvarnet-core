@@ -1,0 +1,9 @@
+
+_target_: hydra_main.FourDVarNetHydraRunner.train
+ckpt_path: null
+max_epochs: 1
+progress_bar_refresh_rate: 5
+limit_train_batches: 9
+limit_val_batches: 9
+profiler: 
+  _target_: hydra_main.get_profiler

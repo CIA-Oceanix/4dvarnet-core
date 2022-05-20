@@ -85,7 +85,6 @@ class XrDataset(Dataset):
         self.interp_na = interp_na
         # try/except block for handling both netcdf and zarr files
         try:
-            print(path)
             _ds = xr.open_dataset(path)
         except OSError as ex:
             raise ex
@@ -258,12 +257,14 @@ class FourDVarNetDataset(Dataset):
         use_auto_padding=False,
         aug_train_data=False,
         compute=False,
+        pp='std',
     ):
         super().__init__()
         self.use_auto_padding=use_auto_padding
 
         self.aug_train_data = aug_train_data
         self.return_coords = False
+        self.pp=pp
 
         self.oi_ds = XrDataset(
             oi_path, oi_var,
@@ -330,7 +331,8 @@ class FourDVarNetDataset(Dataset):
     def __len__(self):
         length = min(len(self.oi_ds), len(self.gt_ds), len(self.obs_mask_ds))
         if self.aug_train_data:
-            return 2 * length
+            factor = int(self.aug_train_data) + 1
+            return factor * length
         return length
 
     def coordXY(self):
@@ -345,29 +347,36 @@ class FourDVarNetDataset(Dataset):
         finally:
             self.return_coords = False
 
+    def get_pp(self, normstats):
+        bias, scale = normstats
+        return lambda t: (t-bias)/scale
+
     def __getitem__(self, item):
         if self.return_coords:
             with self.gt_ds.get_coords():
                 return self.gt_ds[item]
-
-        mean, std = self.norm_stats
+        pp = self.get_pp(self.norm_stats)
         length = len(self.obs_mask_ds)
         if item < length:
             _oi_item = self.oi_ds[item]
-            _obs_item = (self.obs_mask_ds[item] - mean) / std
-            _gt_item = (self.gt_ds[item] - mean) / std
+            _obs_item = pp(self.obs_mask_ds[item])
+            _gt_item = pp(self.gt_ds[item])
         else:
-            _oi_item = self.oi_ds[item - length]
-            _gt_item = (self.gt_ds[item - length] - mean) / std
-            _obs_mask_item = self.obs_mask_ds[self.perm[item - length]]
+            _oi_item = self.oi_ds[item % length]
+            _gt_item = pp(self.gt_ds[item % length])
+            nperm  = item // length
+            pitem = item % length
+            for _ in range(nperm):
+                pitem = self.perm[pitem]
+            _obs_mask_item = self.obs_mask_ds[pitem]
             obs_mask_item = ~np.isnan(_obs_mask_item)
             _obs_item = np.where(obs_mask_item, _gt_item, np.full_like(_gt_item,np.nan))
 
-        _oi_item = (np.where(
+        _oi_item = pp(np.where(
             np.abs(_oi_item) < 10,
             _oi_item,
             np.nan,
-        ) - mean) / std
+        ))
 
         # glorys model has NaNs on land
         gt_item = _gt_item
@@ -381,8 +390,8 @@ class FourDVarNetDataset(Dataset):
         if self.sst_ds == None:
             return oi_item, obs_mask_item, obs_item, gt_item
         else:
-            mean, std = self.norm_stats_sst
-            _sst_item = (self.sst_ds[item % length] - mean) / std
+            pp_sst = self.get_pp(self.norm_stats_sst)
+            _sst_item = pp_sst(self.sst_ds[item % length])
             sst_item = np.where(~np.isnan(_sst_item), _sst_item, 0.)
 
             return oi_item, obs_mask_item, obs_item, gt_item, sst_item
@@ -414,6 +423,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             dl_kwargs=None,
             compute=False,
             use_auto_padding=False,
+            pp='std'
     ):
         super().__init__()
         self.resize_factor = resize_factor
@@ -438,6 +448,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.sst_var = sst_var
         self.sst_decode = sst_decode
 
+        self.pp=pp
         self.resize_factor = resize_factor
         self.resolution  = parse_resolution_to_float(resolution)
         self.compute = compute
@@ -448,7 +459,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.norm_stats = (0, 1)
         self.norm_stats_sst = None
 
-    def compute_norm_stats(self, ds):
+
+    def mean_stds(self, ds):
         sum = 0
         count = 0
         for gt in [_it for _ds in ds.datasets for _it in _ds.gt_ds]:
@@ -468,6 +480,27 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             std_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').std())
 
             return [mean, std], [mean_sst, std_sst]
+
+    def min_max(self, ds):
+        M = -np.inf
+        m = np.inf
+        for gt in [_it for _ds in ds.datasets for _it in _ds.gt_ds]:
+            M =  max(M ,np.nanmax(gt))
+            m =  min(m ,np.nanmin(gt))
+        if self.sst_var == None:
+            return m, M-m
+        else:
+            print('... Use SST data')
+            m_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').min())
+            M_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').max())
+
+            return [m, M-m], [m_sst, M_sst-m_sst]
+
+    def compute_norm_stats(self, ds):
+        if self.pp == 'std':
+            return self.mean_stds(ds)
+        elif self.pp == 'norm':
+            return self.min_max(ds)
 
     def set_norm_stats(self, ds, ns, ns_sst=None):
         for _ds in ds.datasets:
@@ -513,7 +546,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 resolution=self.resolution,
                 resize_factor=self.resize_factor,
                 aug_train_data=self.aug_train_data,
-                compute=self.compute
+                compute=self.compute,
+                pp=self.pp,
             ) for sl in self.train_slices])
 
 
@@ -539,6 +573,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     resize_factor=self.resize_factor,
                     compute=self.compute,
                     use_auto_padding=self.use_auto_padding,
+                    pp=self.pp,
                 ) for sl in slices]
             )
             for slices in (self.val_slices, self.test_slices)

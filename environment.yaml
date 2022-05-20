@@ -17,7 +17,9 @@ dependencies:
   - pytorch-lightning=1.6.2
   - pip:
     - xarray[complete]==0.21
+    - holoviews[recommended]
     - sparse
+    - GitPython
     - einops
     - hydra-submitit-launcher
     - opencv-python==4.5.2.52

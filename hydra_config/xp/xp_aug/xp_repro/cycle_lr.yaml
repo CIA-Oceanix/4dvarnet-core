@@ -1,11 +1,13 @@
 # @package _global_
 
-xp_name: baseline
+xp_name: xp_cycle_lr
+lit_mod_cls: lit_model_augstate.LitModelCycleLR
 params:
   dT: 7
   patch_weight:
     crop:
       time: 3
+  model: 4dvarnet
   k_n_grad: 3
   n_grad: 5
   val_diag_freq: 5 
@@ -14,13 +16,16 @@ params:
   alpha_mse_gssh: 1000.
   norm_obs: l2
   norm_prior: l2
-
-  opt: 
-    _target_: torch.optim.Adam
-    lr: 0.
+  automatic_optimization: true
+  cycle_lr_kwargs:
+    base_lr: 0.0001
+    max_lr: 0.002
+    step_size_up: 10
+    step_size_down: 20
+    cycle_momentum: False
+    mode: triangular2
 datamodule:
-  pp: std
-
+  aug_train_data: True
 
 defaults:
   - /xp/xp_aug/base_xp

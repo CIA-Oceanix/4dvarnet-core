@@ -6,10 +6,11 @@ hydra:
     nodes: 1
     additional_parameters:
       signal: SIGUSR1@90
-      account: yrf@v100
+      reservation: Hackathon2
+      account: ubn@v100
       gres: gpu:4
       ntasks_per_node: 4
-      time: 06:00:00
+      time: '20:00:00'
       hint: nomultithread
       qos: qos_gpu-t3
 
