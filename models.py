@@ -200,7 +200,7 @@ class Model_HwithSSTBN(torch.nn.Module):
 
 class Model_HwithSSTBN_nolin_tanh(torch.nn.Module):
     def __init__(self,shape_data, dT=5,dim=5,width_kernel=3,padding_mode='reflect'):
-        super(Model_HwithSSTBN, self).__init__()
+        super(Model_HwithSSTBN_nolin_tanh, self).__init__()
 
         self.dim_obs = 2
         self.dim_obs_channel = np.array([shape_data, dim])
