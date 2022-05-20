@@ -9,7 +9,11 @@ entrypoint:
 
 params:
   sst_model: 'linear-bn'
-  ckpt_name: 'modelSLAwSSTGF-linear-bn-{epoch:02d}-{val_loss:.4f}'
+  n_grad: 5
+  dT: 5
+  DimAE: 50
+  dim_grad_solver: 150
+  ckpt_name: 'modelSLAwSSTGF-linear-bn-grad%02d_%03d{epoch:02d}-{val_loss:.4f}'%(n_grad,dim_grad_solver)
 defaults:
 - /xp/xp_aug/xp_ronan/full_core_hanning_sst
 - _self_

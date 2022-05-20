@@ -5,5 +5,4 @@ entrypoint :
 defaults:
 - /params: sla_gf_hal
 - /domain@datamodule.dim_range: gf
-- /xp/xp_aug/xp_ronan/full_core_hanning_sst
 - _self_
