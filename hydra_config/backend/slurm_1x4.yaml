@@ -5,9 +5,7 @@ hydra:
     constraint: v100-32g
     nodes: 1
     additional_parameters:
-      signal: SIGUSR1@90
-      reservation: Hackathon2
-      account: ubn@v100
+      account: yrf@gpu
       gres: gpu:4
       ntasks_per_node: 4
       time: '20:00:00'
