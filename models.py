@@ -168,7 +168,7 @@ class Model_HwithSSTBN(torch.nn.Module):
 
         self.w_kernel = width_kernel
 
-        self.bn_feat = torch.nn.BatchNorm2d(self.dimObsChannel[1],track_running_stats=False)
+        self.bn_feat = torch.nn.BatchNorm2d(self.dim_obs_channel[1],track_running_stats=False)
 
         self.conv11 = torch.nn.Conv2d(shape_data, self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
         self.conv21 = torch.nn.Conv2d(dT, self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
