@@ -32,23 +32,45 @@ def bst_ckpt(dirpath, glob='version_*/checkpoints/*', ckpt_fmt='.+val_loss=(.+)\
 
 
 cfgs = {}
-for xp, cfgn in list(zip(
-    [17]*100,
+for xp, cfgn in (
+        # list(zip( [17]*100,
+    # [
+        # 'qxp17_aug2_dp240_swot_map_no_sst_ng5x3cas_l2_dp025_00',
+        # 'qxp17_aug2_dp240_swot_cal_no_sst_ng5x3cas_l2_dp025_00',
+        # 'qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00',
+        # 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00',
+    # ])) +
+    # list(zip(
+    # [19]*100,
+    # [
+    #     'qxp19_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00_dataaug',
+    #     'qxp19_aug2_dp240_swot_map_no_sst_ng5x3cas_l2_dp025_00_no_dataaug',
+    #     'qxp19_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00_no_dataaug',
+    #     'qxp19_aug2_dp240_5nad_map_no_sst_ng5x3cas_l2_dp025_00_dataaug',
+    #     'qxp19_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l2_dp025_00_no_dataaug',
+    #     'qxp19_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00_dataaug',
+    #     'qxp19_aug2_dp240_swot_map_no_sst_ng5x3cas_l2_dp025_00_dataaug',
+    #     'qxp19_aug2_dp240_5nad_cal_sst_ng5x3cas_l2_dp025_00_no_dataaug',
+    #     'qxp19_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l2_dp025_00_dataaug',
+    #     'qxp19_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00_no_dataaug',
+    #     'qxp19_aug2_dp240_5nad_map_sst_ng5x3cas_l2_dp025_00_dataaug',
+    #     'qxp19_aug2_dp240_5nad_map_sst_ng5x3cas_l2_dp025_00_no_dataaug',
+    #     'qxp19_aug2_dp240_5nad_cal_sst_ng5x3cas_l2_dp025_00_dataaug',
+    #     'qxp19_aug2_dp240_swot_cal_no_sst_ng5x3cas_l2_dp025_00_no_dataaug',
+    #     'qxp19_aug2_dp240_5nad_map_no_sst_ng5x3cas_l2_dp025_00_no_dataaug',
+    #     'qxp19_aug2_dp240_swot_cal_no_sst_ng5x3cas_l2_dp025_00_dataaug',
+    # ])) +
+    list(zip(
+    [20]*100,
     [
-        'qxp17_aug2_dp240_swot_map_no_sst_ng5x3cas_l2_dp025_00',
-        'qxp17_aug2_dp240_swot_cal_no_sst_ng5x3cas_l2_dp025_00',
-        'qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00',
-        'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00',
-    ]
-    )) + list(zip(
-    [19]*100,
-    [
-        'qxp19_aug2_dp240_5nad_map_no_sst_ng5x3cas_l2_dp025_00_dataaug',
-        'qxp19_aug2_dp240_swot_map_no_sst_ng5x3cas_l2_dp025_00_dataaug',
-        'qxp19_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00_dataaug',
-        'qxp19_aug2_dp240_5nad_map_sst_ng5x3cas_l2_dp025_00_dataaug',
-    ]
-    )):
+        'qxp20_swot_no_sst',
+        'qxp20_swot_sst',
+        'qxp20_5nad_sst',
+        # 'qxp20_noisy_sst',
+        'qxp20_5nad_no_sst',
+        # 'qxp20_noisy_no_sst',
+]))
+):
     cfgs[cfgn] =  OmegaConf.create(dict(
         fourdvar_cfg=cfgn,
         fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp{xp}/{cfgn}')),
@@ -169,13 +191,16 @@ def register_configs():
     from itertools import product
 
     cs = ConfigStore.instance()
-
+    xpns = []
     basic_overrides = [overrides_cfg[o] for o in ['no_norm', 'no_mix', 'relu_act']]
     for xp_name, cfg in cfgs.items():
-        cs.store(name=f'swath_calib_{xp_name}', node=OmegaConf.merge(
-            common_cfg,
-            cfg,
-            size_overrides_cfg['pp20x8'],
-            *basic_overrides,
-        ), group='xp', package='_global_')
-    return list(map(lambda c: 'swath_calib_' + c, cfgs))
+        for train_with_ff in [True, False]:
+            xpns.append(f'ff{train_with_ff}_swath_calib_{xp_name}')
+            cs.store(name=xpns[-1], node=OmegaConf.merge(
+                common_cfg,
+                cfg,
+                size_overrides_cfg['pp20x8'],
+                *basic_overrides,
+                {'train_with_ff': train_with_ff}
+            ), group='xp', package='_global_')
+    return xpns
