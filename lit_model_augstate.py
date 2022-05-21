@@ -177,6 +177,23 @@ class LitModelAugstate(pl.LightningModule):
 
         self.median_filter_width = self.hparams.median_filter_width if hasattr(self.hparams, 'median_filter_width') else 1
 
+    def update_filename_chkpt(self,filename_chkpt):
+        
+        old_suffix = '-{epoch:02d}-{val_loss:.4f}'
+
+        suffix_chkpt = 'augdata'
+        suffix_chkpt = suffix_chkpt+'-augstate'
+        suffix_chkpt = suffix_chkpt+'-augstate'
+        
+        if hasattr(self.hparams, 'sst') :
+            suffix_chkpt = suffix_chkpt+'sstobs-'+self.hparams.sst_model+'_%02d'%(self.hparams.dim_obs_sst_feat)
+        
+        suffix_chkpt = suffix_chkpt+'-grad_%02d_%02d_%03d'%(self.hparams.n_grad,self.hparams.k_n_grad,self.hparams.dim_grad_solver)    
+        suffix_chkpt = suffix_chkpt+old_suffix
+        
+        print('..... updated ckpt filename '+filename_chkpt.replace(old_suffix,suffix_chkpt))
+        return filename_chkpt.replace(old_suffix,suffix_chkpt)
+    
     def create_model(self):
         return self.MODELS[self.model_name](self.hparams)
 
