@@ -8,14 +8,14 @@ entrypoint:
 # Et là tu charges la config d'où tu veux partir:
 
 params:
-  sst_model: 'linear-bn'#'nolinear-tanh-bn'#
+  sst_model: 'linear-bn'
   k_n_grad: 3
   n_grad: 5
   dT: 5
   DimAE: 50
   dim_obs_sst_feat: 1
   dim_grad_solver: 150
-  ckpt_name: 'modelSLAwSSTGF-unet1-{epoch:02d}-{val_loss:.4f}'#'modelSLAwSSTGF-unet1_50-linear-bn-grad05_03_150-{epoch:02d}-{val_loss:.4f}'
+  ckpt_name: 'modelSLAwSSTGF-unet1-{epoch:02d}-{val_loss:.4f}'
 defaults:
 - /xp/xp_aug/xp_ronan/full_core_hanning_sst
 - _self_
