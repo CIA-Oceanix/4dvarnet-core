@@ -1,4 +1,5 @@
 import einops
+import matplotlib.pyplot as plt
 import hydra
 import torch.distributed as dist
 import kornia
@@ -94,15 +95,6 @@ class LitModelAugstate(pl.LightningModule):
 
     def __init__(self,
                  hparam=None,
-                 min_lon=None, max_lon=None,
-                 min_lat=None, max_lat=None,
-                 ds_size_time=None,
-                 ds_size_lon=None,
-                 ds_size_lat=None,
-                 time=None,
-                 dX = None, dY = None,
-                 swX = None, swY = None,
-                 coord_ext = None,
                  test_domain=None,
                  *args, **kwargs):
         super().__init__()
@@ -443,15 +435,21 @@ class LitModelAugstate(pl.LightningModule):
         self.test_figs['snr'] = snr_fig
 
         self.logger.experiment.add_figure(f'{log_pref} SNR', snr_fig, global_step=self.current_epoch)
-        psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
+        try:
+            psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
+            psd_fig = metrics.plot_psd_score(psd_ds)
+        except Exception as e:
+            print(f'Failed to compute lambdas because of {e}')
+            psd_ds, lamb_x, lamb_t = None, np.nan, np.nan
+            psd_fig, _ = plt.subplots()
+            plt.close()
+
+        self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
+        self.test_figs['psd'] = psd_fig
+
         fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt, self.test_xr_ds.pred, self.test_xr_ds.oi, with_fig=True)
         self.test_figs['res'] = fig
         self.logger.experiment.add_figure(f'{log_pref} Spat. Resol', fig, global_step=self.current_epoch)
-        psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
-        psd_fig = metrics.plot_psd_score(psd_ds)
-        self.test_figs['psd'] = psd_fig
-        psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
-        self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
         _, _, mu, sig = metrics.rmse_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
 
         mdf = pd.concat([

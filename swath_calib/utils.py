@@ -42,8 +42,6 @@ def get_swot_slice(path, drop_vars=('model_index',),
     dt_end = pd.to_datetime(slice_args.get('time_max', "2013-09-30"))
     groups = [f"{dt.year}/{dt.month}" for dt in
               pd.date_range(start=dt_start.date().replace(day=1), end=dt_end, freq='MS')]
-    print(slice_args)
-    print(groups)
 
     dses = []
     for group in groups:
