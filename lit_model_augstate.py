@@ -183,15 +183,13 @@ class LitModelAugstate(pl.LightningModule):
 
         suffix_chkpt = '_%03d-augdata'%self.hparams.DimAE
         suffix_chkpt = suffix_chkpt+'-augstate'
-        suffix_chkpt = suffix_chkpt+'-augstate'
         
         if hasattr(self.hparams, 'sst') :
-            suffix_chkpt = suffix_chkpt+'sstobs-'+self.hparams.sst_model+'_%02d'%(self.hparams.dim_obs_sst_feat)
+            suffix_chkpt = suffix_chkpt+'-sstobs-'+self.hparams.sst_model+'_%02d'%(self.hparams.dim_obs_sst_feat)
         
         suffix_chkpt = suffix_chkpt+'-grad_%02d_%02d_%03d'%(self.hparams.n_grad,self.hparams.k_n_grad,self.hparams.dim_grad_solver)    
         suffix_chkpt = suffix_chkpt+old_suffix
         
-        print('..... updated ckpt filename '+filename_chkpt.replace(old_suffix,suffix_chkpt))
         return filename_chkpt.replace(old_suffix,suffix_chkpt)
     
     def create_model(self):
