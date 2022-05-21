@@ -181,7 +181,7 @@ class LitModelAugstate(pl.LightningModule):
         
         old_suffix = '-{epoch:02d}-{val_loss:.4f}'
 
-        suffix_chkpt = 'augdata'
+        suffix_chkpt = '_%03d-augdata'%self.params.DimAE
         suffix_chkpt = suffix_chkpt+'-augstate'
         suffix_chkpt = suffix_chkpt+'-augstate'
         

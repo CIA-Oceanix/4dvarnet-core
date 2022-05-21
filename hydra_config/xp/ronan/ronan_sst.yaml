@@ -15,7 +15,7 @@ params:
   DimAE: 50
   dim_obs_sst_feat: 10
   dim_grad_solver: 150
-  ckpt_name: 'modelSLAwSSTGF-unet1_50-linear-bn-grad05_03_150-{epoch:02d}-{val_loss:.4f}'
+  ckpt_name: 'modelSLAwSSTGF-unet1-{epoch:02d}-{val_loss:.4f}'#'modelSLAwSSTGF-unet1_50-linear-bn-grad05_03_150-{epoch:02d}-{val_loss:.4f}'
 defaults:
 - /xp/xp_aug/xp_ronan/full_core_hanning_sst
 - _self_
