@@ -322,7 +322,7 @@ class Model_Var_Cost(nn.Module):
             self.dim_state      = dim_state
         else:
             self.dim_state      = ShapeData[0]
-
+        print(self.dim_obs)
         # parameters for variational cost
         self.alphaObs    = torch.nn.Parameter(torch.Tensor(1. * np.ones((self.dim_obs,1))))
         self.alphaReg    = torch.nn.Parameter(torch.Tensor([1.]))
@@ -345,14 +345,14 @@ class Model_Var_Cost(nn.Module):
             loss +=  self.alphaObs[0]**2 * self.normObs(dy,self.WObs[0,:]**2,self.epsObs[0])
         else:
             for kk in range(0,self.dim_obs):
-                loss +=  (
-                    self.alphaObs[kk]**2
-                    * self.normObs(
-                        dy[kk],
-                        self.WObs[kk,0:dy[kk].size(1)]**2,
-                        self.epsObs[kk]
-                    )
-                )
+
+                # print(kk)
+                _dy = dy[kk]
+                # patch_weight=torch.ones_like(_dy)
+                # y_loss = self.alphaObs[kk]**2 * self.normObs(_dy, ]**2, self.epsObs[kk])
+                y_loss = F.mse_loss(_dy, torch.zeros_like(_dy))
+                # print(y_loss)
+                loss +=  y_loss
 
         return loss
 
