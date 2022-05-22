@@ -462,6 +462,8 @@ class LitModelAugstate(pl.LightningModule):
         nrmse_df.to_csv(self.logger.log_dir + '/nRMSE.txt')
         mse_df.to_csv(self.logger.log_dir + '/MSE.txt')
 
+        print(mse_df)
+
         # plot nRMSE
         # PENDING: replace hardcoded 60
         path_save3 = self.logger.log_dir + '/nRMSE.png'
@@ -489,6 +491,20 @@ class LitModelAugstate(pl.LightningModule):
             nrmse_df.rename(columns=lambda c: f'{log_pref}_{c}_glob').loc['pred'].T,
             mse_df.rename(columns=lambda c: f'{log_pref}_{c}_glob').loc['pred'].T,
         ])
+        
+        mse_metrics_pred = metrics.compute_metrics(self.test_xr_ds.gt, self.test_xr_ds.pred)
+        mse_metrics_oi = metrics.compute_metrics(self.test_xr_ds.gt, self.test_xr_ds.oi)
+        
+        var_mse_pred_vs_oi = 100. * ( 1. - mse_metrics_pred['mse'] / mse_metrics_oi['mse'] )
+        var_mse_grad_pred_vs_oi = 100. * ( 1. - mse_metrics_pred['mseGrad'] / mse_metrics_oi['mseGrad'] )
+        
+        sig_lap = 1.
+        mse_metrics_lap_oi = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.pred,sig_lap=sig_lap)
+        mse_metrics_lap_pred = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.oi,sig_lap=sig_lap)        
+
+        var_mse_pred_lap = 100. * (1. - mse_metrics_lap_pred['mse_lap'] / mse_metrics_lap_pred['var_lap'] )
+        var_mse_oi_lap = 100. * (1. - mse_metrics_lap_oi['mse_lap'] / mse_metrics_lap_pred['var_lap'] )
+
         md = {
             f'{log_pref}_spatial_res': float(spatial_res_model),
             f'{log_pref}_spatial_res_imp': float(spatial_res_model / spatial_res_oi),
@@ -497,6 +513,10 @@ class LitModelAugstate(pl.LightningModule):
             f'{log_pref}_mu': mu,
             f'{log_pref}_sigma': sig,
             **mdf.to_dict(),
+            f'{log_pref}_var_mse_vs_oi': float(var_mse_pred_vs_oi),
+            f'{log_pref}_var_mse_grad_vs_oi': float(var_mse_grad_pred_vs_oi),
+            f'{log_pref}_var_mse_lap_pred': float(var_mse_pred_lap),
+            f'{log_pref}_var_mse_lap_pred': float(var_mse_oi_lap),
         }
         print(pd.DataFrame([md]).T.to_markdown())
         return md

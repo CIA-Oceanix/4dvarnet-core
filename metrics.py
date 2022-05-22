@@ -551,6 +551,38 @@ def compute_metrics(x_test, x_rec):
 
     return {'mse': mse, 'mseGrad': gmse, 'meanGrad': ng}
 
+from scipy.ndimage import gaussian_filter
+
+def compute_laplacian(x):
+    
+    if len( x.shape ) == 2 :
+        lap = x[1:-1,1:-1] 
+        lap = lap - 0.25 * x[1:-1,0:x.shape[1]-2]
+        lap = lap - 0.25 * x[1:-1,2:x.shape[1]]
+        lap = lap - 0.25 * x[0:x.shape[0]-2,1:-1]
+        lap = lap - 0.25 * x[2:x.shape[0],1:-1]
+    else:
+        lap = x[:,1:-1,1:-1] 
+        lap = lap - 0.25 * x[:,1:-1,0:x.shape[2]-2]
+        lap = lap - 0.25 * x[:,1:-1,2:x.shape[2]]
+        lap = lap - 0.25 * x[:,0:x.shape[1]-2,1:-1]
+        lap = lap - 0.25 * x[:,2:x.shape[1],1:-1]
+
+    
+    return lap
+
+def compute_laplacian_metrics(x_ref,x,sig_lap=1):
+
+    lap_ref = compute_laplacian( gaussian_filter(x_ref, sigma=sig_lap))
+    lap_rec = compute_laplacian( gaussian_filter(x, sigma=sig_lap))
+
+    mse_lap = np.mean((lap_ref-lap_rec)**2)
+    var_lap = np.var(lap_ref)
+    
+    R2 = np.corrcoef(lap_ref.ravel(), lap_rec.ravel())[0,1]
+    
+    return {'mse':mse_lap,'var_lap': var_lap,'r_square': R2}
+
 
 def get_psd_score(x_t, x, ref, with_fig=False):
     def psd_score(da: xr.DataArray) -> xr.DataArray:
