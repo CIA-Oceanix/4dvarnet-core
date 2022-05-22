@@ -7,7 +7,7 @@ entrypoint:
 # Et là tu charges la config d'où tu veux partir:
 
 params:
-  sst_model: 'linear-bn'
+  sst_model: 'linear' #'linear-bn'
   k_n_grad: 3
   n_grad: 5
   dT: 5
