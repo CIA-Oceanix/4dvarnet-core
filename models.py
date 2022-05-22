@@ -205,6 +205,7 @@ class Model_HwithSSTBN_nolin_tanh(torch.nn.Module):
         self.dim_obs = 2
         self.dim_obs_channel = np.array([shape_data, dim])
 
+        print('..... # im obs sst : %d'%dim)
         self.w_kernel = width_kernel
 
         self.bn_feat = torch.nn.BatchNorm2d(self.dim_obs_channel[1],track_running_stats=False)
