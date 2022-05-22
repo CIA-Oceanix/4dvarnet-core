@@ -1,7 +1,7 @@
 # @package _global_
 
 params:
-  aug_state: 2
+  aug_state: True
   shape_state:
     - ${mul:${datamodule.slice_win.time},4} 
     - ${datamodule.slice_win.lon}
