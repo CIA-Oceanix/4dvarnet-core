@@ -499,8 +499,8 @@ class LitModelAugstate(pl.LightningModule):
         var_mse_grad_pred_vs_oi = 100. * ( 1. - mse_metrics_pred['mseGrad'] / mse_metrics_oi['mseGrad'] )
         
         sig_lap = 1.
-        mse_metrics_lap_oi = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.pred,sig_lap=sig_lap)
-        mse_metrics_lap_pred = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.oi,sig_lap=sig_lap)        
+        mse_metrics_lap_oi = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.oi,sig_lap=sig_lap)
+        mse_metrics_lap_pred = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.pred,sig_lap=sig_lap)        
 
         var_mse_pred_lap = 100. * (1. - mse_metrics_lap_pred['mse_lap'] / mse_metrics_lap_pred['var_lap'] )
         var_mse_oi_lap = 100. * (1. - mse_metrics_lap_oi['mse_lap'] / mse_metrics_lap_pred['var_lap'] )
