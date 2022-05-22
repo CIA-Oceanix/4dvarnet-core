@@ -156,7 +156,7 @@ class LitModelAugstate(pl.LightningModule):
 
         self.model_name = self.hparams.model if hasattr(self.hparams, 'model') else '4dvarnet'
         self.use_sst = self.hparams.sst if hasattr(self.hparams, 'sst') else False
-        self.aug_state = self.hparams.aug_state if hasattr(self.hparams, 'aug_state') else False
+        self.aug_state = self.hparams.aug_state if hasattr(self.hparams, 'aug_state') else 0
         self.model = self.create_model()
         self.model_LR = ModelLR()
         self.grad_crop = lambda t: t[...,1:-1, 1:-1]
@@ -182,7 +182,10 @@ class LitModelAugstate(pl.LightningModule):
         old_suffix = '-{epoch:02d}-{val_loss:.4f}'
 
         suffix_chkpt = '_%03d-augdata'%self.hparams.DimAE
-        suffix_chkpt = suffix_chkpt+'-augstate-dT%02d'%(self.hparams.dT)
+        if self.hparams.aug_state == 1 :
+            suffix_chkpt = suffix_chkpt+'-augstate-dT%02d'%(self.hparams.dT)
+        if self.hparams.aug_state == 2 :
+            suffix_chkpt = suffix_chkpt+'-mmstate-augstate-dT%02d'%(self.hparams.dT)
         
         if hasattr(self.hparams, 'sst') :
             suffix_chkpt = suffix_chkpt+'-sstobs-'+self.hparams.sst_model+'_%02d'%(self.hparams.dim_obs_sst_feat)
@@ -575,10 +578,16 @@ class LitModelAugstate(pl.LightningModule):
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
 
-        if self.aug_state:
+        if self.aug_state == 1 :
             init_state = torch.cat((targets_OI,
                                     inputs_Mask * (inputs_obs - targets_OI),
                                     inputs_Mask * (inputs_obs - targets_OI),),
+                                   dim=1)
+        elif self.aug_state == 2 :
+            init_state = torch.cat((targets_OI,
+                                    inputs_Mask * (inputs_obs - targets_OI),
+                                    inputs_Mask * (inputs_obs - targets_OI),
+                                    sst_gt,),
                                    dim=1)
         else:
             init_state = torch.cat((targets_OI,
@@ -643,9 +652,12 @@ class LitModelAugstate(pl.LightningModule):
         obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI)) ,dim=1)
         new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask) , dim=1)
 
-        if self.aug_state:
+        if self.aug_state == 1 :
             obs = torch.cat( (obs, 0. * targets_OI,) ,dim=1)
             new_masks = torch.cat( (new_masks, torch.zeros_like(inputs_Mask)), dim=1)
+        elif self.aug_state == 2 :
+            obs = torch.cat( (obs, 0. * targets_OI,sst_gt,) ,dim=1)
+            new_masks = torch.cat( (new_masks, torch.zeros_like(inputs_Mask),torch.ones_like(inputs_Mask)), dim=1)
 
         if self.use_sst:
             new_masks = [ new_masks, torch.ones_like(sst_gt) ]
@@ -664,7 +676,9 @@ class LitModelAugstate(pl.LightningModule):
 
             outputsSLRHR = outputs
             outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
-            if self.aug_state:
+            if self.aug_state == 1 :
+                outputs = outputsSLR + outputs[:, 2*self.hparams.dT:, :, :]
+            elif self.aug_state == 2 :
                 outputs = outputsSLR + outputs[:, 2*self.hparams.dT:, :, :]
             else:
                 outputs = outputsSLR + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
@@ -679,8 +693,10 @@ class LitModelAugstate(pl.LightningModule):
             yGT = torch.cat((targets_OI,
                              targets_GT_wo_nan - outputsSLR),
                             dim=1)
-            if self.aug_state:
+            if self.aug_state == 1 :
                 yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
+            elif self.aug_state == 2 :
+                yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR,sst_gt), dim=1)
 
             loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
             loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
