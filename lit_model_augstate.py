@@ -48,11 +48,11 @@ def get_4dvarnet_sst(hparams):
                     NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                         hparams.dim_grad_solver, hparams.dropout),
                     hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
-    else:
+    elif hparams.sst_model == 'linear':
         return NN_4DVar.Solver_Grad_4DVarNN(
                         Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                             hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
-                        Model_HwithSST(hparams.shape_state[0], dT=hparams.dT),
+                        Model_HwithSST(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat),
                         NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                             hparams.dim_grad_solver, hparams.dropout),
                         hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
