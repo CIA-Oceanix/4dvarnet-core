@@ -24,7 +24,7 @@ from models import Model_H, Model_HwithSST, Model_HwithSSTBN,Phi_r, ModelLR, Gra
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
-                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
                 Model_H(hparams.shape_state[0]),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
@@ -36,7 +36,7 @@ def get_4dvarnet_sst(hparams):
         if hparams.sst_model == 'linear-bn' :
             return NN_4DVar.Solver_Grad_4DVarNN(
                         Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
-                            hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+                            hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
                         Model_HwithSSTBN(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat),
                         NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                             hparams.dim_grad_solver, hparams.dropout),
@@ -44,7 +44,7 @@ def get_4dvarnet_sst(hparams):
         elif hparams.sst_model == 'nolinear-tanh-bn' :
             return NN_4DVar.Solver_Grad_4DVarNN(
                         Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
-                            hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+                            hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
                         Model_HwithSSTBN_nolin_tanh(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat),
                         NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                             hparams.dim_grad_solver, hparams.dropout),
@@ -52,7 +52,7 @@ def get_4dvarnet_sst(hparams):
         elif hparams.sst_model == 'linear':
             return NN_4DVar.Solver_Grad_4DVarNN(
                             Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
-                                hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+                                hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
                             Model_HwithSST(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat),
                             NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                                 hparams.dim_grad_solver, hparams.dropout),
@@ -65,7 +65,7 @@ def get_phi(hparams):
         def __init__(self):
             super().__init__()
             self.phi = Phi_r(hparams.shape_data[0], hparams.DimAE, hparams.dW, hparams.dW2,
-                    hparams.sS, hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic)
+                    hparams.sS, hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param)
             self.phi_r = torch.nn.Identity()
             self.n_grad = 0
 
@@ -186,7 +186,8 @@ class LitModelAugstate(pl.LightningModule):
         
         old_suffix = '-{epoch:02d}-{val_loss:.4f}'
 
-        suffix_chkpt = '_%03d-augdata'%self.hparams.DimAE
+        suffix_chkpt = self.hparams.phi_param+'_%03d-augdata'%self.hparams.DimAE
+        
         if self.hparams.aug_state :
             suffix_chkpt = suffix_chkpt+'-augstate-dT%02d'%(self.hparams.dT)
         if self.use_sst_state :

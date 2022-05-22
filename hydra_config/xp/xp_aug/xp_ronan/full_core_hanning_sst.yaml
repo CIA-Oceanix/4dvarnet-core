@@ -16,6 +16,7 @@ params:
   alpha_mse_gssh: 1000.
   norm_obs: l2
   norm_prior: l2
+  phi_param: 'unet1'
   sst_model: 'linear-bn'
   use_sst_obs: True
 datamodule:

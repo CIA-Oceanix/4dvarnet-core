@@ -8,6 +8,7 @@ from omegaconf import OmegaConf
 from scipy import stats
 import solver as NN_4DVar
 from metrics import save_netcdf, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, plot_ensemble, maps_score
+import unet
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -105,11 +106,16 @@ class RegularizeVariance(torch.nn.Module):
         return v
 
 class Phi_r(torch.nn.Module):
-    def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic=False):
+    def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic=False,phi_param='unet1'):
         super().__init__()
         print(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic)
         self.stochastic = stochastic
-        self.encoder = Encoder(shape_data, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
+        
+        if phi_param == 'unet-std' :
+            self.encoder = unet.UNet4(shape_data,shape_data,False)            
+        else :
+            self.encoder = Encoder(shape_data, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
+            
         #self.encoder = Encoder(shape_data, 2*shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
         self.decoder = Decoder()
         self.correlate_noise = CorrelateNoise(shape_data, 10)

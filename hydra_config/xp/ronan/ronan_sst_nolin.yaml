@@ -16,6 +16,7 @@ params:
   DimAE: 50
   dim_obs_sst_feat: ??
   dim_grad_solver: 150
+  phi_param: 'unet-std'
   ckpt_name: 'modelSLAwSSTGF-unet1-{epoch:02d}-{val_loss:.4f}'
 defaults:
 - /xp/xp_aug/xp_ronan/full_core_hanning_sst
