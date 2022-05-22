@@ -182,7 +182,7 @@ class LitModelAugstate(pl.LightningModule):
         old_suffix = '-{epoch:02d}-{val_loss:.4f}'
 
         suffix_chkpt = '_%03d-augdata'%self.hparams.DimAE
-        suffix_chkpt = suffix_chkpt+'-augstate'
+        suffix_chkpt = suffix_chkpt+'-augstate-dT%02d'%(self.hparams.dT)
         
         if hasattr(self.hparams, 'sst') :
             suffix_chkpt = suffix_chkpt+'-sstobs-'+self.hparams.sst_model+'_%02d'%(self.hparams.dim_obs_sst_feat)
