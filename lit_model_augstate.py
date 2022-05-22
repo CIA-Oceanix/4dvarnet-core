@@ -155,7 +155,7 @@ class LitModelAugstate(pl.LightningModule):
         # main model
 
         self.model_name = self.hparams.model if hasattr(self.hparams, 'model') else '4dvarnet'
-        self.use_sst = self.hparams.use_sst if hasattr(self.hparams, 'sst') else False
+        self.use_sst = self.hparams.sst if hasattr(self.hparams, 'sst') else False
         self.use_sst_obs = self.hparams.use_sst_obs if hasattr(self.hparams, 'use_sst_obs') else False
         self.use_sst_state = self.hparams.use_sst_state if hasattr(self.hparams, 'use_sst_state') else False
         self.aug_state = self.hparams.aug_state if hasattr(self.hparams, 'aug_state') else 0
