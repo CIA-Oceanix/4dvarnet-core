@@ -589,7 +589,7 @@ class LitModelAugstate(pl.LightningModule):
                                     inputs_Mask * (inputs_obs - targets_OI),
                                     sst_gt,),
                                    dim=1)
-            print(init_state.siez())
+            print(init_state.size(),flush=True)
         else:
             init_state = torch.cat((targets_OI,
                                     inputs_Mask * (inputs_obs - targets_OI)),
@@ -666,6 +666,8 @@ class LitModelAugstate(pl.LightningModule):
 
         # gradient norm field
         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
+
+        print(new_masks[0].size(),flush=True)
 
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
