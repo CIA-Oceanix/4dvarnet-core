@@ -589,6 +589,7 @@ class LitModelAugstate(pl.LightningModule):
                                     inputs_Mask * (inputs_obs - targets_OI),
                                     sst_gt,),
                                    dim=1)
+            print(init_state.siez())
         else:
             init_state = torch.cat((targets_OI,
                                     inputs_Mask * (inputs_obs - targets_OI)),
