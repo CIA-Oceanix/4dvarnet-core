@@ -12,7 +12,7 @@ params:
   sst_model: 'nolinear-tanh-bn'
   k_n_grad: 3
   n_grad: 5
-  dT: 5
+  dT: 7
   DimAE: 50
   dim_obs_sst_feat: 10
   dim_grad_solver: 150
