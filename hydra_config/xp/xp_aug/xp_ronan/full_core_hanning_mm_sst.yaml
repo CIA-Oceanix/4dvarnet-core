@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: hanning_sst
+xp_name: hanning_mm_sst
 params:
   dT: 7
   patch_weight:
