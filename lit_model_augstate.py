@@ -518,7 +518,7 @@ class LitModelAugstate(pl.LightningModule):
             f'{log_pref}_var_mse_vs_oi': float(var_mse_pred_vs_oi),
             f'{log_pref}_var_mse_grad_vs_oi': float(var_mse_grad_pred_vs_oi),
             f'{log_pref}_var_mse_lap_pred': float(var_mse_pred_lap),
-            f'{log_pref}_var_mse_lap_pred': float(var_mse_oi_lap),
+            f'{log_pref}_var_mse_lap_oi': float(var_mse_oi_lap),
         }
         print(pd.DataFrame([md]).T.to_markdown())
         return md
