@@ -502,8 +502,8 @@ class LitModelAugstate(pl.LightningModule):
         mse_metrics_lap_oi = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.oi,sig_lap=sig_lap)
         mse_metrics_lap_pred = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.pred,sig_lap=sig_lap)        
 
-        var_mse_pred_lap = 100. * (1. - mse_metrics_lap_pred['mse_lap'] / mse_metrics_lap_pred['var_lap'] )
-        var_mse_oi_lap = 100. * (1. - mse_metrics_lap_oi['mse_lap'] / mse_metrics_lap_pred['var_lap'] )
+        var_mse_pred_lap = 100. * (1. - mse_metrics_lap_pred['mse'] / mse_metrics_lap_pred['var_lap'] )
+        var_mse_oi_lap = 100. * (1. - mse_metrics_lap_oi['mse'] / mse_metrics_lap_pred['var_lap'] )
 
         md = {
             f'{log_pref}_spatial_res': float(spatial_res_model),
