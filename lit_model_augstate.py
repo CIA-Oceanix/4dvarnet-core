@@ -18,7 +18,7 @@ from omegaconf import OmegaConf
 from scipy import stats
 import solver as NN_4DVar
 import metrics
-from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
+from metrics import save_netcdf,save_netcdf_with_sst, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
 from models import Model_H, Model_HwithSST, Model_HwithSSTBN,Phi_r, ModelLR, Gradient_img, Model_HwithSSTBN_nolin_tanh
 
 def get_4dvarnet(hparams):
@@ -211,9 +211,14 @@ class LitModelAugstate(pl.LightningModule):
         metrics = []
         state_init = [None]
         out=None
+        
         for _ in range(self.hparams.n_fourdvar_iter):
             _loss, out, state, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
-            state_init = [None if s is None else s.detach() for s in state]
+            if ( phase == 'test ' ) & ( self.use_sst_obs ):
+                state_init = [None if s is None else s.detach() for s in state]
+            else:
+                state_init = [None if s is None else s.detach() for s in state]
+                state_init = state_init[:-1]
             losses.append(_loss)
             metrics.append(_metrics)
         if ( phase == 'test ' ) & ( self.use_sst_obs ):
@@ -477,9 +482,10 @@ class LitModelAugstate(pl.LightningModule):
         if self.hparams.save_rec_netcdf == True :
             path_save1 = self.hparams.weights_save_path.replace('.ckpt','_res.nc')
             print('... Save nc file with all reults : '+path_save1)
-            save_netcdf(saved_path1=path_save1, pred=self.x_rec,
+            #save_netcdf(saved_path1=path_save1, pred=self.x_rec,
+            #         lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
+            save_netcdf_with_sst(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.oi, pred=self.rec, sst_feat=self.sst_feat,
                      lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
-            
             # save NetCDF
         # PENDING: replace hardcoded 60
         # save_netcdf(saved_path1=path_save1, pred=self.x_rec,
