@@ -404,7 +404,11 @@ class LitModelAugstate(pl.LightningModule):
                         yield tuple(
                                 [outputs[bc][b][k][i] for k in outputs_keys]
                         )
-
+                        
+        out_item = iter_item(outputs)
+        print(out_item['gt'])
+        print(out_item['gt'].shape)
+        
         dses =[
                 xr.Dataset( {
                     k: (('time', 'lat', 'lon'), x_k) for k, x_k in zip(outputs_keys, xs)
@@ -631,11 +635,11 @@ class LitModelAugstate(pl.LightningModule):
             print( len(full_outputs[0]) )
             print(full_outputs[0][0].keys())
             
-            print(full_outputs[0]['gt'].shape)
-            print(full_outputs[0]['sst_feat'].shape)
+            #print(full_outputs[0][0]['gt'].shape)
+            #print(full_outputs[0][0]['sst_feat'].shape)
             
             print('create ds (all except sst_feat)',flush=True)
-            self.test_xr_ds = self.build_test_xr_ds(full_outputs[0][:-1], diag_ds=diag_ds)
+            self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
             print('create ds sst_feat',flush=True)
             print(full_outputs[-1].size())
             sst_feat_ds = self.build_test_xr_ds_sst([full_outputs[0][-1]], diag_ds=diag_ds)
