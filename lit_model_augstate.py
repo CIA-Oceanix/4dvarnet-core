@@ -649,21 +649,15 @@ class LitModelAugstate(pl.LightningModule):
             
 
             x_gt = torch.cat([chunk['gt'] for chunk in outputs]).numpy()
-            print(x_gt.shape,flush=True)
-
             x_oi = torch.cat([chunk['oi'] for chunk in outputs]).numpy()
-            print(x_oi.shape,flush=True)
-
             x_obs_inp = torch.cat([chunk['obs_inp'] for chunk in outputs]).numpy()
             sst_feat = torch.cat([chunk['sst_feat'] for chunk in outputs]).numpy()
             x_rec = torch.cat([chunk['pred'] for chunk in outputs]).numpy()
             
-            print(x_rec.shape,flush=True)
-
-            x_rec = x_rec[:,int(self.hparams.dT/2),:,:].squueze()
-            x_gt = x_gt[:,int(self.hparams.dT/2),:,:].squueze()
-            x_oi = x_oi[:,int(self.hparams.dT/2),:,:].squueze()
-            x_obs_inp = x_obs_inp[:,int(self.hparams.dT/2),:,:].squueze()
+            x_rec = x_rec[:,int(self.hparams.dT/2),:,:].squeeze()
+            x_gt = x_gt[:,int(self.hparams.dT/2),:,:].squeeze()
+            x_oi = x_oi[:,int(self.hparams.dT/2),:,:].squeeze()
+            x_obs_inp = x_obs_inp[:,int(self.hparams.dT/2),:,:].squeeze()
             
             self.x_gt = x_gt
             self.obs_inp = x_obs_inp
@@ -672,6 +666,8 @@ class LitModelAugstate(pl.LightningModule):
             self.x_rec_ssh = x_rec
             self.x_sst_feat_ssh = sst_feat
             
+            print(x_rec.shape,flush=True)
+
             print(diag_ds.keys(),flush=True)
             self.test_lat = diag_ds['lat']
             self.test_lon = diag_ds['lon']
