@@ -4,6 +4,7 @@
 
 entrypoint:
    weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-hydra-exp/'
+   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-hydra-exp/version_1/checkpoints/modelCalSLAInterpGF-epoch=142-val_loss=0.5566.ckpt'
 
 # Et là tu charges la config d'où tu veux partir:
 defaults:
