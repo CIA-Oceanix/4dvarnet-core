@@ -566,12 +566,11 @@ class LitModelAugstate(pl.LightningModule):
         self.test_figs['snr'] = snr_fig
 
         self.logger.experiment.add_figure(f'{log_pref} SNR', snr_fig, global_step=self.current_epoch)
-        if False :
-            psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
-            fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt, self.test_xr_ds.pred, self.test_xr_ds.oi, with_fig=True)
-        else:
-            psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred[2:42,:,:], self.test_xr_ds.gt[2:42,:,:])
-            fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt[2:42,:,:], self.test_xr_ds.pred[2:42,:,:], self.test_xr_ds.oi[2:42,:,:], with_fig=True)
+        psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
+        fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt, self.test_xr_ds.pred, self.test_xr_ds.oi, with_fig=True)
+        #else:
+        #    psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred[2:42,:,:], self.test_xr_ds.gt[2:42,:,:])
+        #    fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt[2:42,:,:], self.test_xr_ds.pred[2:42,:,:], self.test_xr_ds.oi[2:42,:,:], with_fig=True)
         
         self.test_figs['res'] = fig
         self.logger.experiment.add_figure(f'{log_pref} Spat. Resol', fig, global_step=self.current_epoch)
@@ -640,10 +639,10 @@ class LitModelAugstate(pl.LightningModule):
         else:
             self.test_xr_ds = self.build_test_xr_ds_sst(full_outputs, diag_ds=diag_ds)
 
-        self.x_gt = self.test_xr_ds.gt.data[2:42,:,:]
-        self.obs_inp = self.test_xr_ds.obs_inp.data[2:42,:,:]
-        self.x_oi = self.test_xr_ds.oi.data[2:42,:,:]
-        self.x_rec = self.test_xr_ds.pred.data[2:42,:,:]
+        self.x_gt = self.test_xr_ds.gt.data
+        self.obs_inp = self.test_xr_ds.obs_inp.data
+        self.x_oi = self.test_xr_ds.oi.data
+        self.x_rec = self.test_xr_ds.pred.data
         self.x_rec_ssh = self.x_rec
         
         self.test_coords = self.test_xr_ds.coords
