@@ -407,8 +407,8 @@ class LitModelAugstate(pl.LightningModule):
         print(outputs[0][0]['gt'].size())         
         print(outputs[0][0]['sst_feat'].size())         
         out_item = iter_item(outputs)
-        print(out_item['gt'])
-        print(out_item['gt'].shape)
+        print(out_item)         
+        print(out_item['gt'].size())         
         
         dses =[
                 xr.Dataset( {
@@ -469,6 +469,10 @@ class LitModelAugstate(pl.LightningModule):
             in zip(iter_item(outputs), self.test_patch_coords)
         ]
 
+        print(dses['gt'])
+        print(dses['oi'])
+        print(dses['sst_feat'])
+                
         fin_ds = xr.merge([xr.zeros_like(ds[['time','feat','lat', 'lon']]) for ds in dses])
         fin_ds = fin_ds.assign(
             {'weight': (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
