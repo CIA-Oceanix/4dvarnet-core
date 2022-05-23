@@ -214,7 +214,7 @@ class LitModelAugstate(pl.LightningModule):
         
         for _ in range(self.hparams.n_fourdvar_iter):
             print('..... iter forward %d'%_,flush=True)
-            if False :#( phase == 'test ' ) & ( self.use_sst_obs ):
+            if ( phase == 'test ' ) & ( self.use_sst_obs ):
                 _loss, out, state, _metrics,sst_feat = self.compute_loss(batch, phase=phase, state_init=state_init)
             else:
                 _loss, out, state, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
@@ -226,7 +226,7 @@ class LitModelAugstate(pl.LightningModule):
         if ( phase == 'test' ) & ( self.use_sst_obs ):
             print('..... end forward step (sst)',flush=True)
 
-            return losses, out, metrics, out
+            return losses, out, metrics, sst_feat
         else:    
             print('..... end forward step (no sst)',flush=True)
             return losses, out, metrics
@@ -767,22 +767,22 @@ class LitModelAugstate(pl.LightningModule):
                 ('mseOI', loss_OI.detach()),
                 ('mseGOI', loss_GOI.detach())])
 
-        if False : #(phase == 'val') or (phase == 'test'):
+        if ( (phase == 'val') or (phase == 'test') ) & ( self.use_sst == True ) :
             print('... create sst_feat',flush=True)
-            if self.use_sst :
-                sst_feat = sst_gt[:,int(self.hparams.dT/2),:,:].view(-1,1,sst_gt.size(2),sst_gt.size(3))
-                
-                if self.use_sst_obs :
-                    #sst_feat = self.model.model_H.conv21( inputs_SST )
-                    sst_feat = torch.cat( (sst_feat,self.model.model_H.extract_sst_feature( sst_gt )) , dim = 1 )
-                    ssh_feat = self.model.model_H.extract_state_feature( outputsSLRHR )
-                    sst_feat = torch.cat( (sst_feat,ssh_feat) , dim=1)
-                
-                print(sst_feat.size(),flush=True)
-                return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics, sst_feat
-            #else:
-        print('end compute_loss ',flush=True)
-        return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
+            sst_feat = sst_gt[:,int(self.hparams.dT/2),:,:].view(-1,1,sst_gt.size(2),sst_gt.size(3))
+            
+            if self.use_sst_obs :
+                #sst_feat = self.model.model_H.conv21( inputs_SST )
+                sst_feat = torch.cat( (sst_feat,self.model.model_H.extract_sst_feature( sst_gt )) , dim = 1 )
+                ssh_feat = self.model.model_H.extract_state_feature( outputsSLRHR )
+                sst_feat = torch.cat( (sst_feat,ssh_feat) , dim=1)
+            
+            print('end compute_loss (with sst feat)',flush=True)
+            return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics, sst_feat
+            
+        else:
+            print('end compute_loss (no sst feat)',flush=True)
+            return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
 
 class LitModelCycleLR(LitModelAugstate):
     def configure_optimizers(self):
