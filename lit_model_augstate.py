@@ -214,7 +214,7 @@ class LitModelAugstate(pl.LightningModule):
         
         for _ in range(self.hparams.n_fourdvar_iter):
             print('..... iter forward %d'%_,flush=True)
-            if ( phase == 'test ' ) & ( self.use_sst_obs ):
+            if False :#( phase == 'test ' ) & ( self.use_sst_obs ):
                 _loss, out, state, _metrics,sst_feat = self.compute_loss(batch, phase=phase, state_init=state_init)
             else:
                 _loss, out, state, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
@@ -222,7 +222,8 @@ class LitModelAugstate(pl.LightningModule):
             state_init = [None if s is None else s.detach() for s in state]
             losses.append(_loss)
             metrics.append(_metrics)
-        if ( phase == 'test ' ) & ( self.use_sst_obs ):
+            
+        if False: #( phase == 'test ' ) & ( self.use_sst_obs ):
             print('..... end forward step',flush=True)
 
             return losses, out, metrics, sst_feat
@@ -763,7 +764,8 @@ class LitModelAugstate(pl.LightningModule):
                 ('mseOI', loss_OI.detach()),
                 ('mseGOI', loss_GOI.detach())])
 
-        if (phase == 'val') or (phase == 'test'):
+        if False : #(phase == 'val') or (phase == 'test'):
+            print('... create sst_feat',flush=True)
             if self.use_sst :
                 sst_feat = sst_gt[:,int(self.hparams.dT/2),:,:].view(-1,1,sst_gt.size(2),sst_gt.size(3))
                 
@@ -773,7 +775,8 @@ class LitModelAugstate(pl.LightningModule):
                     ssh_feat = self.model.model_H.extract_state_feature( outputsSLRHR )
                     sst_feat = torch.cat( (sst_feat,ssh_feat) , dim=1)
                 
-                return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad,sst_feat], metrics
+                print(sst_feat.size(),flush=True)
+                return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics, sst_feat
             else:
                 return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
 
