@@ -223,11 +223,12 @@ class LitModelAugstate(pl.LightningModule):
             losses.append(_loss)
             metrics.append(_metrics)
             
-        if False: #( phase == 'test ' ) & ( self.use_sst_obs ):
+        if ( phase == 'test ' ) & ( self.use_sst_obs ):
             print('..... end forward step',flush=True)
 
-            return losses, out, metrics, sst_feat
-        else:            
+            return losses, out, metrics, out
+        else:    
+            print("end forward step")
             return losses, out, metrics
 
     def configure_optimizers(self):
@@ -335,8 +336,9 @@ class LitModelAugstate(pl.LightningModule):
             
         if ( self.use_sst_obs ) :
           print('..... forward step in',flush=True)
+          #losses, out, metrics = self(batch, phase='test')
           losses, out, metrics, sst_feat = self(batch, phase='test')
-          print('..... gforward step in',flush=True)
+          print('..... forward step out',flush=True)
         else:
             losses, out, metrics = self(batch, phase='test')
         loss = losses[-1]
@@ -345,7 +347,7 @@ class LitModelAugstate(pl.LightningModule):
             self.log(f'{log_pref}_mse', metrics[-1]["mse"] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
 
-        if self.use_sst_obs :
+        if not self.use_sst_obs :
             return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                     'oi'    : (targets_OI.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                     'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
