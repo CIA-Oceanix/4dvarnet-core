@@ -223,12 +223,12 @@ class LitModelAugstate(pl.LightningModule):
             losses.append(_loss)
             metrics.append(_metrics)
             
-        if ( phase == 'test ' ) & ( self.use_sst_obs ):
-            print('..... end forward step',flush=True)
+        if ( phase == 'test' ) & ( self.use_sst_obs ):
+            print('..... end forward step (sst)',flush=True)
 
             return losses, out, metrics, out
         else:    
-            print("end forward step")
+            print('..... end forward step (no sst)',flush=True)
             return losses, out, metrics
 
     def configure_optimizers(self):
