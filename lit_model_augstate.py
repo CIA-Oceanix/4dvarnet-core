@@ -632,17 +632,42 @@ class LitModelAugstate(pl.LightningModule):
 
         if not self.use_sst :
             self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
-        else:
-            self.test_xr_ds = self.build_test_xr_ds_sst(full_outputs, diag_ds=diag_ds)
-            self.x_sst_feat_ssh = torch.cat([chunk['sst_feat'] for chunk in outputs]).numpy()
-            dw = 20
-            self.x_sst_feat_ssh = self.x_sst_feat_ssh[:,:,dw:self.x_sst_feat_ssh.shape[2]-dw,dw:self.x_sst_feat_ssh.shape[2]-dw]
 
-        self.x_gt = self.test_xr_ds.gt.data
-        self.obs_inp = self.test_xr_ds.obs_inp.data
-        self.x_oi = self.test_xr_ds.oi.data
-        self.x_rec = self.test_xr_ds.pred.data
-        self.x_rec_ssh = self.x_rec
+            self.x_gt = self.test_xr_ds.gt.data
+            self.obs_inp = self.test_xr_ds.obs_inp.data
+            self.x_oi = self.test_xr_ds.oi.data
+            self.x_rec = self.test_xr_ds.pred.data
+            self.x_rec_ssh = self.x_rec
+        else:
+            def extract_seq(out,key,dw=20):
+                seq = torch.cat([chunk[key] for chunk in outputs]).numpy()
+                seq = seq[:,:,dw:seq.shape[2]-dw,dw:seq.shape[2]-dw]
+                
+                return seq
+            
+            self.test_xr_ds = self.build_test_xr_ds_sst(full_outputs, diag_ds=diag_ds)
+            self.x_sst_feat_ssh = extract_seq(outputs,'sst_feat',dw=20)
+            print(self.x_sst_feat_ssh.shape)
+
+            self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
+            self.x_gt = self.test_xr_ds.gt.data
+            print(self.x_gt.shape)
+
+            self.x_gt = extract_seq(outputs,'gt',dw=20)
+            self.x_gt = self.x_gt[:,int(self.hparams.dT/2),:,:]
+            print(self.x_gt.shape)
+
+            self.x_oi = extract_seq(outputs,'oi',dw=20)
+            self.x_oi = self.x_oi[:,int(self.hparams.dT/2),:,:]
+
+            self.x_rec = extract_seq(outputs,'pred',dw=20)
+            self.x_rec = self.x_rec[:,int(self.hparams.dT/2),:,:]
+            self.x_rec_ssh = self.x_rec
+            
+            #self.x_sst_feat_ssh = torch.cat([chunk['sst_feat'] for chunk in outputs]).numpy()
+            #dw = 20
+            #self.x_sst_feat_ssh = self.x_sst_feat_ssh[:,:,dw:self.x_sst_feat_ssh.shape[2]-dw,dw:self.x_sst_feat_ssh.shape[2]-dw]
+
 
         self.test_coords = self.test_xr_ds.coords
         self.test_lat = self.test_coords['lat'].data
