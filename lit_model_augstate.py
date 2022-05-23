@@ -623,12 +623,6 @@ class LitModelAugstate(pl.LightningModule):
 
         if not self.use_sst :
             self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
-
-            self.x_gt = self.test_xr_ds.gt.data
-            self.obs_inp = self.test_xr_ds.obs_inp.data
-            self.x_oi = self.test_xr_ds.oi.data
-            self.x_rec = self.test_xr_ds.pred.data
-            self.x_rec_ssh = self.x_rec
         else:
             self.test_xr_ds = self.build_test_xr_ds_sst(full_outputs, diag_ds=diag_ds)
 
@@ -640,9 +634,11 @@ class LitModelAugstate(pl.LightningModule):
         
         print(self.obs_inp,flush=True)
 
+        print('.... compute metrics')
         md = self.sla_diag(t_idx=3, log_pref=log_pref)
         self.latest_metrics.update(md)
         self.logger.log_metrics(md, step=self.current_epoch)
+        print('.... End compute metrics',flush=True)
 
         self.test_coords = self.test_xr_ds.coords
         self.test_lat = self.test_coords['lat'].data
