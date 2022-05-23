@@ -438,13 +438,16 @@ class LitModelAugstate(pl.LightningModule):
 
     def build_test_xr_ds_sst(self, outputs, diag_ds):
 
+        print('.... in')
         outputs_keys = list(outputs[0][0].keys())
         with diag_ds.get_coords():
             self.test_patch_coords = [
                diag_ds[i]
                for i in range(len(diag_ds))
             ]
-        print(outputs[0][0]['gt'].size())         
+        
+        print(outputs_keys,flush=True)
+        print(outputs[0][0]['gt'].size(),flush=True)         
         print(outputs[0][0]['sst_feat'].size(),flush=True)         
 
         def iter_item(outputs):
