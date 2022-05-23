@@ -214,7 +214,6 @@ class LitModelAugstate(pl.LightningModule):
         
         for _ in range(self.hparams.n_fourdvar_iter):
             if ( phase == 'test' ) & ( self.use_sst_obs ):
-                print('..... iter forward %d'%_,flush=True)                
                 _loss, out, state, _metrics,sst_feat = self.compute_loss(batch, phase=phase, state_init=state_init)
             else:
                 _loss, out, state, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
@@ -224,11 +223,8 @@ class LitModelAugstate(pl.LightningModule):
             metrics.append(_metrics)
             
         if ( phase == 'test' ) & ( self.use_sst_obs ):
-            print('..... end forward step (sst)',flush=True)
-
             return losses, out, metrics, sst_feat
         else:    
-            print('..... end forward step (no sst)',flush=True)
             return losses, out, metrics
 
     def configure_optimizers(self):
@@ -664,7 +660,7 @@ class LitModelAugstate(pl.LightningModule):
         self.test_lon = self.test_coords['lon'].data
         self.test_dates = self.test_coords['time'].data
 
-        if self.hparams.save_rec_netcdf == True :
+        if False: # self.hparams.save_rec_netcdf == True :
             path_save1 = self.logger.log_dir + f'/test_res_all.nc'
             if not self.use_sst :
                 save_netcdf(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh,
@@ -748,7 +744,6 @@ class LitModelAugstate(pl.LightningModule):
 
     def compute_loss(self, batch, phase, state_init=(None,)):
 
-        print('test1',flush=True)
         if not self.use_sst:
             targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
         else:
@@ -849,7 +844,6 @@ class LitModelAugstate(pl.LightningModule):
                 ('mseGOI', loss_GOI.detach())])
 
         if ( (phase == 'val') or (phase == 'test') ) & ( self.use_sst == True ) :
-            print('... create sst_feat',flush=True)
             sst_feat = sst_gt[:,int(self.hparams.dT/2),:,:].view(-1,1,sst_gt.size(2),sst_gt.size(3))
             
             if self.use_sst_obs :
@@ -858,11 +852,9 @@ class LitModelAugstate(pl.LightningModule):
                 ssh_feat = self.model.model_H.extract_state_feature( outputsSLRHR )
                 sst_feat = torch.cat( (sst_feat,ssh_feat) , dim=1)
             
-            print('end compute_loss (with sst feat)',flush=True)
             return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics, sst_feat
             
         else:
-            print('end compute_loss (no sst feat)',flush=True)
             return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
 
 class LitModelCycleLR(LitModelAugstate):
