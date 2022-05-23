@@ -667,9 +667,14 @@ class LitModelAugstate(pl.LightningModule):
             self.x_sst_feat_ssh = sst_feat
             
             print(x_rec.shape,flush=True)
-
+            print(diag_ds,flush=True)
+            
             self.test_lat = diag_ds['lat']
+            print(self.test_lat)
+            
             self.test_lon = diag_ds['lon']
+            print(self.test_lon)
+
             self.test_dates = diag_ds['time']
             
             print(self.test_dates)
