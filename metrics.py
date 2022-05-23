@@ -489,26 +489,28 @@ def save_netcdf_with_sst(saved_path1, gt, obs, oi, pred, sst_feat, lon, lat, tim
     time = np.arange(gt.shape[0])
     dt = pred.shape[1]
     
-    
+    if False:
+        xrdata = xr.Dataset( \
+            data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
+                       'latitude': (('lat', 'lon'), mesh_lat), \
+                       'Time': (('time'), time), \
+                       'GT': (('time', 'lat', 'lon'), gt),
+                       'OI': (('time', 'lat', 'lon'), oi),
+                       '4DVarNet': (('time', 'lat', 'lon'), pred)}, \
+            coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred))})
+
+    print(sst_feat.shape,flush=True)
+    print(gt.shape,flush=True)
     xrdata = xr.Dataset( \
         data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
                    'latitude': (('lat', 'lon'), mesh_lat), \
                    'Time': (('time'), time), \
-                   'GT': (('time', 'lat', 'lon'), gt),
-                   'OI': (('time', 'lat', 'lon'), oi),
-                   '4DVarNet': (('time', 'lat', 'lon'), pred)}, \
-        coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred))})
-
-    #xrdata = xr.Dataset( \
-    #    data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
-    #               'latitude': (('lat', 'lon'), mesh_lat), \
-    #               'Time': (('time'), time), \
-    #               'ssh_gt': (('time', 'lat', 'lon'), gt),
-    #               'ssh_oi': (('time', 'lat', 'lon'), oi),
-    #               'ssh_obs': (('time', 'lat', 'lon'), obs), \
-    #               'ssh_rec': (('time', 'lat', 'lon'), pred), \
-    #               'sst_feat': (('time', 'feat', 'lat', 'lon'), sst_feat)}, \
-    #    coords={'lon': lon, 'lat': lat, 'time': time,'feat':np.arange(sst_feat.shape[1])})
+                   'ssh_gt': (('time', 'lat', 'lon'), gt),
+                   'ssh_oi': (('time', 'lat', 'lon'), oi),
+                   'ssh_obs': (('time', 'lat', 'lon'), obs), \
+                   'ssh_rec': (('time', 'lat', 'lon'), pred), \
+                   'sst_feat': (('time', 'feat', 'lat', 'lon'), sst_feat)}, \
+        coords={'lon': lon, 'lat': lat, 'time': time,'feat':np.arange(sst_feat.shape[1])})
     
     xrdata.time.attrs['units'] = time_units
     xrdata.to_netcdf(path=saved_path1, mode='w')
