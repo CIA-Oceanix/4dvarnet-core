@@ -630,103 +630,44 @@ class LitModelAugstate(pl.LightningModule):
         else:
             raise Exception('unknown phase')
 
-        if self.use_sst :
-            
+        if not self.use_sst :
+            self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
+        else:
             self.test_xr_ds = self.build_test_xr_ds_sst(full_outputs, diag_ds=diag_ds)
-            
-            print( self.test_xr_ds )
+            self.x_sst_feat_ssh = torch.cat([chunk['sst_feat'] for chunk in outputs]).numpy()
 
-            x_gt = torch.cat([chunk['gt'] for chunk in outputs]).numpy()
-            x_oi = torch.cat([chunk['oi'] for chunk in outputs]).numpy()
-            x_obs_inp = torch.cat([chunk['obs_inp'] for chunk in outputs]).numpy()
-            sst_feat = torch.cat([chunk['sst_feat'] for chunk in outputs]).numpy()
-            x_rec = torch.cat([chunk['pred'] for chunk in outputs]).numpy()
-            
-            x_rec = x_rec[:,int(self.hparams.dT/2),:,:].squeeze()
-            x_gt = x_gt[:,int(self.hparams.dT/2),:,:].squeeze()
-            x_oi = x_oi[:,int(self.hparams.dT/2),:,:].squeeze()
-            x_obs_inp = x_obs_inp[:,int(self.hparams.dT/2),:,:].squeeze()
-            
-            self.x_gt = x_gt
-            self.obs_inp = x_obs_inp
-            self.x_oi = x_oi
-            self.x_rec = x_rec
-            self.x_rec_ssh = x_rec
-            self.x_sst_feat_ssh = sst_feat
-            
-            with diag_ds.get_coords():
-                self.test_patch_coords = [
-                   diag_ds[i]
-                   for i in range(len(diag_ds))
-                ]
- 
-            if 1*0 :
-                #ds_all =
-        
-                dses =[
-                        xr.Dataset( {
-                            k: (('time', 'feat','lat', 'lon'), x_k) for k, x_k in zip(outputs_keys, xs)
-                        }, coords=coords)
-                    for  xs, coords
-                    in zip(iter_item(outputs), self.test_patch_coords) ]
-            
-            #print( self.test_patch_coords,flush=True )  
-            
-            print('-----')
-            self.test_lat = self.test_patch_coords[0]['lat'].data
-            self.test_lon = self.test_patch_coords[0]['lon'].data
-   
-            print( self.test_lat,flush=True )    
-            print( self.test_lon,flush=True )    
+        self.x_gt = self.test_xr_ds.gt.data
+        self.obs_inp = self.test_xr_ds.obs_inp.data
+        self.x_oi = self.test_xr_ds.oi.data
+        self.x_rec = self.test_xr_ds.pred.data
+        self.x_rec_ssh = self.x_rec
 
-            self.test_dates = np.concatenate([chunk['time'] for chunk in self.test_patch_coords])
-            print( len(self.test_dates),flush=True )    
+        self.test_coords = self.test_xr_ds.coords
+        self.test_lat = self.test_coords['lat'].data
+        self.test_lon = self.test_coords['lon'].data
+        self.test_dates = self.test_coords['time'].data
 
-            
-            if 1*0 :
-                print(x_rec.shape,flush=True)
-                print(diag_ds,flush=True)
-                
-                self.test_lat = diag_ds['lat']
-                print(self.test_lat)
-                
-                self.test_lon = diag_ds['lon']
-                print(self.test_lon)
-    
-                self.test_dates = diag_ds['time']
-                
-                print(self.test_dates)
+        if self.use_sst :
+            print(self.x_rec.shape)
+            print(self.x_sst_feat_ssh.shape)
+
+        if self.hparams.save_rec_netcdf == True :
+            path_save1 = self.logger.log_dir + f'/test_res_all.nc'
+            print('... Save nc file with all reults : '+path_save1)
+            if not self.use_sst :
+                save_netcdf(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh, sst_feat=self.sst_feat,
+                         lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
+            else:
+                save_netcdf_with_sst(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh, sst_feat=self.sst_feat,
+                         lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
             
             if self.hparams.save_rec_netcdf == True :
-                path_save1 = self.logger.log_dir + f'/test_res_all.nc'
-                print('... Save nc file with all reults : '+path_save1)
                 #save_netcdf(saved_path1=path_save1, pred=self.x_rec,
                 #         lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
                 
                 save_netcdf_with_sst(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh, sst_feat=self.sst_feat,
                          lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
-
-        else:            
-            self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
-            self.x_gt = self.test_xr_ds.gt.data
-            self.obs_inp = self.test_xr_ds.obs_inp.data
-            self.x_oi = self.test_xr_ds.oi.data
-            self.x_rec = self.test_xr_ds.pred.data
-            self.x_rec_ssh = self.x_rec
-
-            self.test_coords = self.test_xr_ds.coords
-            self.test_lat = self.test_coords['lat'].data
-            self.test_lon = self.test_coords['lon'].data
-            self.test_dates = self.test_coords['time'].data
-            
-            if self.hparams.save_rec_netcdf == True :
-                Path(self.logger.log_dir).mkdir(exist_ok=True)
-                path_save1 = self.logger.log_dir + f'/test.nc'
-                self.test_xr_ds.to_netcdf(path_save1)
-
         
-            
-
         # display map
         print('..... sla_diag in',flush=True)
         md = self.sla_diag(t_idx=3, log_pref=log_pref)
