@@ -486,6 +486,7 @@ def save_netcdf_with_sst(saved_path1, gt, obs, oi, pred, sst_feat, lon, lat, tim
     mesh_lat = mesh_lat.T
     mesh_lon = mesh_lon.T
 
+    time = np.arange(gt.shape[0])
     dt = pred.shape[1]
     xrdata = xr.Dataset( \
         data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
@@ -497,6 +498,7 @@ def save_netcdf_with_sst(saved_path1, gt, obs, oi, pred, sst_feat, lon, lat, tim
                    'ssh_rec': (('time', 'lat', 'lon'), pred), \
                    'sst_feat': (('time', 'feat', 'lat', 'lon'), sst_feat)}, \
         coords={'lon': lon, 'lat': lat, 'time': time,'feat':np.arange(sst_feat.shape[1])})
+    
     xrdata.time.attrs['units'] = time_units
     xrdata.to_netcdf(path=saved_path1, mode='w')
     print('... file saved',flush=True)
