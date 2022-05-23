@@ -460,7 +460,10 @@ class LitModelAugstate(pl.LightningModule):
                         yield tuple(
                                 [outputs[bc][b][k][i] for k in outputs_keys]
                         )
-
+        
+        
+        sst_feat_arr = torch.cat([chunk['sst_feat'] for chunk in outputs]).numpy()
+        print(sst_feat_arr.shape)     
         out_item = iter_item(outputs)
         print(out_item)         
         print(out_item['gt'].size())         
