@@ -668,10 +668,11 @@ class LitModelAugstate(pl.LightningModule):
             
             print(x_rec.shape,flush=True)
 
-            print(diag_ds.keys(),flush=True)
             self.test_lat = diag_ds['lat']
             self.test_lon = diag_ds['lon']
             self.test_dates = diag_ds['time']
+            
+            print(self.test_dates)
             
             if self.hparams.save_rec_netcdf == True :
                 path_save1 = self.logger.log_dir + f'/test_res_all.nc'
