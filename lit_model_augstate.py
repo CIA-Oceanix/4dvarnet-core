@@ -665,6 +665,7 @@ class LitModelAugstate(pl.LightningModule):
 
     def compute_loss(self, batch, phase, state_init=(None,)):
 
+        print('test1',flush=True)
         if not self.use_sst:
             targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
         else:
@@ -777,8 +778,8 @@ class LitModelAugstate(pl.LightningModule):
                 
                 print(sst_feat.size(),flush=True)
                 return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics, sst_feat
-            else:
-                return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
+            #else:
+        return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
 
 class LitModelCycleLR(LitModelAugstate):
     def configure_optimizers(self):
