@@ -685,8 +685,8 @@ class LitModelAugstate(pl.LightningModule):
             #print( self.test_patch_coords,flush=True )  
             
             print('-----')
-            self.test_lat = self.test_patch_coords[0]['lat']
-            self.test_lon = self.test_patch_coords[0]['lon']
+            self.test_lat = self.test_patch_coords[0]['lat'].data
+            self.test_lon = self.test_patch_coords[0]['lon'].data
    
             print( self.test_lat,flush=True )    
             print( self.test_lon,flush=True )    
