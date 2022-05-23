@@ -222,6 +222,8 @@ class LitModelAugstate(pl.LightningModule):
             losses.append(_loss)
             metrics.append(_metrics)
         if ( phase == 'test ' ) & ( self.use_sst_obs ):
+            print('..... end forward step',flush=True)
+
             return losses, out, metrics, state[-1]
         else:            
             return losses, out, metrics
@@ -330,7 +332,9 @@ class LitModelAugstate(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
             
         if ( self.use_sst_obs ) :
-            losses, out, metrics, sst_feat = self(batch, phase='test')
+          print('..... forward step in',flush=True)
+          losses, out, metrics, sst_feat = self(batch, phase='test')
+          print('..... gforward step in',flush=True)
         else:
             losses, out, metrics = self(batch, phase='test')
         loss = losses[-1]
@@ -562,6 +566,8 @@ class LitModelAugstate(pl.LightningModule):
         return md
 
     def diag_epoch_end(self, outputs, log_pref='test'):
+        
+        print('..... giag epoch end',flush=True)
         full_outputs = self.gather_outputs(outputs, log_pref=log_pref)
         if full_outputs is None:
             print("full_outputs is None on ", self.global_rank)
@@ -583,6 +589,7 @@ class LitModelAugstate(pl.LightningModule):
         self.x_oi = self.test_xr_ds.oi.data
         self.x_rec = self.test_xr_ds.pred.data
         self.x_rec_ssh = self.x_rec
+        
         if self.use_sst_obs :
             self.x_sst_feat_ssh = self.test_xr_ds.sst_feat.data
             
