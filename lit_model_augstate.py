@@ -689,7 +689,7 @@ class LitModelAugstate(pl.LightningModule):
                          lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
                     
         # display map
-        self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
+        self.test_xr_ds = self.build_test_xr_ds_with_sst(full_outputs, diag_ds=diag_ds)
 
         self.x_gt = self.test_xr_ds.gt.data
         self.obs_inp = self.test_xr_ds.obs_inp.data
