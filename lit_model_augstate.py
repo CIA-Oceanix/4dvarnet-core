@@ -625,11 +625,12 @@ class LitModelAugstate(pl.LightningModule):
             diag_ds = self.trainer.val_dataloaders[0].dataset.datasets[0]
         else:
             raise Exception('unknown phase')
-        if self.use_sst_obs :
+        if self.use_sst :
             print('create ds (all except sst_feat)',flush=True)
             self.test_xr_ds = self.build_test_xr_ds(full_outputs[:-1], diag_ds=diag_ds)
             print('create ds (all except sst_feat)',flush=True)
-            sst_feat_ds = self.build_test_xr_ds_sst(full_outputs[-1], diag_ds=diag_ds)
+            print(full_outputs[-1].size())
+            sst_feat_ds = self.build_test_xr_ds_sst([full_outputs[-1]], diag_ds=diag_ds)
             print('done ... create ds (all except sst_feat)',flush=True)
             self.x_sst_feat_ssh = sst_feat_ds.data
         else:            
@@ -656,6 +657,7 @@ class LitModelAugstate(pl.LightningModule):
             print('... Save nc file with all reults : '+path_save1)
             #save_netcdf(saved_path1=path_save1, pred=self.x_rec,
             #         lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
+            
             save_netcdf_with_sst(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.oi, pred=self.rec, sst_feat=self.sst_feat,
                      lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
 
