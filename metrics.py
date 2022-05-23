@@ -710,7 +710,7 @@ def get_psd_score(x_t, x, ref, with_fig=False):
 
 def rmse_based_scores(da_rec, da_ref):
     # boost swot rmse score
-    logging.info('     Compute RMSE-based scores...')
+    #logging.info('     Compute RMSE-based scores...')
 
     # RMSE(t) based score
     rmse_t = 1.0 - (((da_rec - da_ref)**2).mean(dim=('lon', 'lat')))**0.5/(((da_ref)**2).mean(dim=('lon', 'lat')))**0.5
@@ -736,7 +736,7 @@ def rmse_based_scores(da_rec, da_ref):
 
 def psd_based_scores(da_rec, da_ref):
     # boost-swot-psd-score
-    logging.info('     Compute PSD-based scores...')
+    #logging.info('     Compute PSD-based scores...')
 
     # Compute error = SSH_reconstruction - SSH_true
     err = (da_rec - da_ref)
