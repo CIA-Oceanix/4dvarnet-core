@@ -643,6 +643,9 @@ class LitModelAugstate(pl.LightningModule):
             self.x_gt = extract_seq(outputs,'gt',dw=20)
             self.x_gt = self.x_gt[:,int(self.hparams.dT/2),:,:]
 
+            self.obs_inp = extract_seq(outputs,'obs_inp',dw=20)
+            self.obs_inp = self.obs_inp[:,int(self.hparams.dT/2),:,:]
+
             self.x_oi = extract_seq(outputs,'oi',dw=20)
             self.x_oi = self.x_oi[:,int(self.hparams.dT/2),:,:]
 
