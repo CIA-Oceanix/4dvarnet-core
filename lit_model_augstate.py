@@ -609,7 +609,6 @@ class LitModelAugstate(pl.LightningModule):
 
     def diag_epoch_end(self, outputs, log_pref='test'):
         
-        print('..... diag_epoch_end in',flush=True)
         full_outputs = self.gather_outputs(outputs, log_pref=log_pref)
         
         if full_outputs is None:
@@ -658,7 +657,7 @@ class LitModelAugstate(pl.LightningModule):
 
         if self.hparams.save_rec_netcdf == True :
             path_save1 = self.logger.log_dir + f'/test_res_all.nc'
-            if self.use_sst :
+            if not self.use_sst :
                 save_netcdf(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh,
                          lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
             else:
