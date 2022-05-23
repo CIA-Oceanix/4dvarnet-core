@@ -156,12 +156,27 @@ class Model_HwithSST(torch.nn.Module):
         self.conv_m = torch.nn.Conv2d(dT, self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
         self.sigmoid = torch.nn.Sigmoid()
 
+    def extract_sst_feature(self,y1):
+        y_feat = self.conv21(y1)
+       
+        return y_feat
+        
+    def extract_state_feature(self,x):
+        x_feat = self.conv11(x)
+        
+        return x_feat
+
     def forward(self, x, y, mask):
         dyout = (x - y[0]) * mask[0]
 
         y1 = y[1] * mask[1]
-        dyout1 = self.conv11(x) - self.conv21(y1)
+        x_feat = self.extract_state_feature(x)
+        y_feat = self.extract_sst_feature(y1)
+        dyout1 = x_feat - y_feat
+
         dyout1 = dyout1 * self.sigmoid(self.conv_m(mask[1]))
+        #dyout1 = self.conv11(x) - self.conv21(y1)
+        #dyout1 = dyout1 * self.sigmoid(self.conv_m(mask[1]))
 
         return [dyout, dyout1]
     
