@@ -370,7 +370,7 @@ class LitModelAugstate(pl.LightningModule):
     def gather_outputs(self, outputs, log_pref):
         data_path = Path(f'{self.logger.log_dir}/{log_pref}_data')
         data_path.mkdir(exist_ok=True, parents=True)
-        print(len(outputs))
+        #print(len(outputs))
         torch.save(outputs, data_path / f'{self.global_rank}.t')
 
         if dist.is_initialized():
@@ -645,10 +645,9 @@ class LitModelAugstate(pl.LightningModule):
         self.logger.log_metrics(md, step=self.current_epoch)
         print('.... End compute metrics',flush=True)
 
-
         if self.hparams.save_rec_netcdf == True :
             #path_save1 = self.logger.log_dir + f'/test_res_all.nc'
-            path_save1 = '/tmp/test_res_all.nc'
+            path_save1 = self.hparams.path_save_netcdf+'/res_4dvarnet_all.nc'
             if not self.use_sst :
                 save_netcdf(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh,
                          lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
