@@ -444,6 +444,8 @@ class LitModelAugstate(pl.LightningModule):
                diag_ds[i]
                for i in range(len(diag_ds))
             ]
+        print(outputs[0][0]['gt'].size())         
+        print(outputs[0][0]['sst_feat'].size(),flush=True)         
 
         def iter_item(outputs):
             n_batch_chunk = len(outputs)
@@ -456,8 +458,6 @@ class LitModelAugstate(pl.LightningModule):
                                 [outputs[bc][b][k][i] for k in outputs_keys]
                         )
 
-        print(outputs[0][0]['gt'].size())         
-        print(outputs[0][0]['sst_feat'].size())         
         out_item = iter_item(outputs)
         print(out_item)         
         print(out_item['gt'].size())         
