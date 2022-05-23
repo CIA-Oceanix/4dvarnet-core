@@ -684,10 +684,17 @@ class LitModelAugstate(pl.LightningModule):
             
             #print( self.test_patch_coords,flush=True )  
             
-            print( len(self.test_patch_coords) )
-            print( self.test_patch_coords[0],flush=True )    
-            print( self.test_patch_coords[0].keys(),flush=True )    
-            print( self.test_patch_coords[0]['lat'],flush=True )    
+            print('-----')
+            self.test_lat = self.test_patch_coords[0]['lat']
+            self.test_lon = self.test_patch_coords[0]['lon']
+   
+            print( self.test_lat,flush=True )    
+            print( self.test_lon,flush=True )    
+
+            self.test_dates = torch.cat([chunk['time'] for chunk in self.test_patch_coords])
+            print( self.test_dates,flush=True )    
+            
+            self.test_lat = self.test_coords['lat']
             
             if 1*0 :
                 print(x_rec.shape,flush=True)
@@ -709,7 +716,7 @@ class LitModelAugstate(pl.LightningModule):
                 #save_netcdf(saved_path1=path_save1, pred=self.x_rec,
                 #         lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
                 
-                save_netcdf_with_sst(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.oi, pred=self.rec, sst_feat=self.sst_feat,
+                save_netcdf_with_sst(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh, sst_feat=self.sst_feat,
                          lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
 
         else:            
