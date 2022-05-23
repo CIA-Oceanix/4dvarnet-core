@@ -684,8 +684,10 @@ class LitModelAugstate(pl.LightningModule):
             
             #print( self.test_patch_coords,flush=True )  
             
+            print( len(self.test_patch_coords) )
             print( self.test_patch_coords[0],flush=True )    
             print( self.test_patch_coords[0].keys(),flush=True )    
+            print( self.test_patch_coords[0]['lat'],flush=True )    
             
             if 1*0 :
                 print(x_rec.shape,flush=True)
