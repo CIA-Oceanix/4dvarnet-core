@@ -616,6 +616,7 @@ class LitModelAugstate(pl.LightningModule):
         
         print('..... diag_epoch_end in',flush=True)
         full_outputs = self.gather_outputs(outputs, log_pref=log_pref)
+        
         if full_outputs is None:
             print("full_outputs is None on ", self.global_rank)
             return
@@ -626,9 +627,12 @@ class LitModelAugstate(pl.LightningModule):
         else:
             raise Exception('unknown phase')
         if self.use_sst :
-            print( len(full_outputs))
-            print(full_outputs[0][:].shape)
-            print(full_outputs[:][-1].shape)
+            print( len(full_outputs) )
+            print( len(full_outputs[0]) )
+            print(full_outputs[0][0].keys())
+            
+            print(full_outputs[0]['gt'].shape)
+            print(full_outputs[0]['sst_feat'].shape)
             
             print('create ds (all except sst_feat)',flush=True)
             self.test_xr_ds = self.build_test_xr_ds(full_outputs[0][:-1], diag_ds=diag_ds)
