@@ -436,6 +436,56 @@ class LitModelAugstate(pl.LightningModule):
         ).transpose('time', 'lat', 'lon')
 
 
+    def build_test_xr_ds_sst(self, outputs, diag_ds):
+
+        outputs_keys = list(outputs[0][0].keys())
+        with diag_ds.get_coords():
+            self.test_patch_coords = [
+               diag_ds[i]
+               for i in range(len(diag_ds))
+            ]
+
+        def iter_item(outputs):
+            n_batch_chunk = len(outputs)
+            n_batch = len(outputs[0])
+            for b in range(n_batch):
+                bs = outputs[0][b]['gt'].shape[0]
+                for i in range(bs):
+                    for bc in range(n_batch_chunk):
+                        yield tuple(
+                                [outputs[bc][b][k][i] for k in outputs_keys]
+                        )
+
+        dses =[
+                xr.Dataset( {
+                    k: (('time', 'feat','lat', 'lon'), x_k) for k, x_k in zip(outputs_keys, xs)
+                }, coords=coords)
+            for  xs, coords
+            in zip(iter_item(outputs), self.test_patch_coords)
+        ]
+
+        fin_ds = xr.merge([xr.zeros_like(ds[['time','feat','lat', 'lon']]) for ds in dses])
+        fin_ds = fin_ds.assign(
+            {'weight': (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
+        )
+        for v in dses[0]:
+            fin_ds = fin_ds.assign(
+                {v: (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
+            )
+
+        for ds in dses:
+            ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
+            xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.gt.dims)
+            _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
+            fin_ds = fin_ds + _ds
+
+
+        return (
+            (fin_ds.drop('weight') / fin_ds.weight)
+            .sel(instantiate(self.test_domain))
+            .pipe(lambda ds: ds.sel(time=~(np.isnan(ds.gt).all('lat').all('lon'))))
+        ).transpose('time', 'feat','lat', 'lon')
+
     def nrmse_fn(self, pred, ref, gt):
         return (
                 self.test_xr_ds[[pred, ref]]
@@ -487,13 +537,6 @@ class LitModelAugstate(pl.LightningModule):
             path_save0 = self.logger.log_dir + '/animation.mp4'
             animate_maps(self.x_gt, self.obs_inp, self.x_oi, self.x_rec, self.lon, self.lat, path_save0)
             
-        if False : #self.hparams.save_rec_netcdf == True :
-            path_save1 = self.hparams.weights_save_path.replace('.ckpt','_res.nc')
-            print('... Save nc file with all reults : '+path_save1)
-            #save_netcdf(saved_path1=path_save1, pred=self.x_rec,
-            #         lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
-            save_netcdf_with_sst(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.oi, pred=self.rec, sst_feat=self.sst_feat,
-                     lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
             # save NetCDF
         # PENDING: replace hardcoded 60
         # save_netcdf(saved_path1=path_save1, pred=self.x_rec,
@@ -571,7 +614,7 @@ class LitModelAugstate(pl.LightningModule):
 
     def diag_epoch_end(self, outputs, log_pref='test'):
         
-        print('..... giag epoch end',flush=True)
+        print('..... diag_epoch_end in',flush=True)
         full_outputs = self.gather_outputs(outputs, log_pref=log_pref)
         if full_outputs is None:
             print("full_outputs is None on ", self.global_rank)
@@ -582,7 +625,12 @@ class LitModelAugstate(pl.LightningModule):
             diag_ds = self.trainer.val_dataloaders[0].dataset.datasets[0]
         else:
             raise Exception('unknown phase')
-        self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
+        if self.use_sst_obs :
+            self.test_xr_ds = self.build_test_xr_ds(full_outputs[:-1], diag_ds=diag_ds)
+        else:
+            self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
+            sst_feat_ds = self.build_test_xr_ds_sst(full_outputs[:-1], diag_ds=diag_ds)
+            self.x_sst_feat_ssh = sst_feat_ds.data
 
         Path(self.logger.log_dir).mkdir(exist_ok=True)
         path_save1 = self.logger.log_dir + f'/test.nc'
@@ -594,15 +642,22 @@ class LitModelAugstate(pl.LightningModule):
         self.x_rec = self.test_xr_ds.pred.data
         self.x_rec_ssh = self.x_rec
         
-        if self.use_sst_obs :
-            self.x_sst_feat_ssh = self.test_xr_ds.sst_feat.data
             
         self.test_coords = self.test_xr_ds.coords
         self.test_lat = self.test_coords['lat'].data
         self.test_lon = self.test_coords['lon'].data
         self.test_dates = self.test_coords['time'].data
 
+        if self.hparams.save_rec_netcdf == True :
+            path_save1 = self.logger.log_dir + f'/test_res_all.nc'
+            print('... Save nc file with all reults : '+path_save1)
+            #save_netcdf(saved_path1=path_save1, pred=self.x_rec,
+            #         lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
+            save_netcdf_with_sst(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.oi, pred=self.rec, sst_feat=self.sst_feat,
+                     lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
+
         # display map
+        print('..... sla_diag in',flush=True)
         md = self.sla_diag(t_idx=3, log_pref=log_pref)
         self.latest_metrics.update(md)
         self.logger.log_metrics(md, step=self.current_epoch)
