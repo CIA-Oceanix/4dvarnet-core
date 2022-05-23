@@ -170,7 +170,8 @@ class LitModelAugstate(pl.LightningModule):
         self.use_sst_obs = self.hparams.use_sst_obs if hasattr(self.hparams, 'use_sst_obs') else False
         self.use_sst_state = self.hparams.use_sst_state if hasattr(self.hparams, 'use_sst_state') else False
         self.aug_state = self.hparams.aug_state if hasattr(self.hparams, 'aug_state') else False
-        
+        self.save_rec_netcdf = self.haprams.save_rec_netcdf if hasattr(self.hparams, 'save_rec_netcdf') else True
+
         self.model = self.create_model()
         self.model_LR = ModelLR()
         self.grad_crop = lambda t: t[...,1:-1, 1:-1]
@@ -655,7 +656,7 @@ class LitModelAugstate(pl.LightningModule):
         self.latest_metrics.update(md)
         self.logger.log_metrics(md, step=self.current_epoch)
 
-        if self.hparams.save_rec_netcdf == True :
+        if self.save_rec_netcdf == True :
             #path_save1 = self.logger.log_dir + f'/test_res_all.nc'
             path_save1 = self.hparams.path_save_netcdf+'/res_4dvarnet_all.nc'
             if not self.use_sst :
