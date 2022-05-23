@@ -489,16 +489,6 @@ def save_netcdf_with_sst(saved_path1, gt, obs, oi, pred, sst_feat, lon, lat, tim
     time = np.arange(gt.shape[0])
     dt = pred.shape[1]
     
-    if False:
-        xrdata = xr.Dataset( \
-            data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
-                       'latitude': (('lat', 'lon'), mesh_lat), \
-                       'Time': (('time'), time), \
-                       'GT': (('time', 'lat', 'lon'), gt),
-                       'OI': (('time', 'lat', 'lon'), oi),
-                       '4DVarNet': (('time', 'lat', 'lon'), pred)}, \
-            coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred))})
-
     print(sst_feat.shape,flush=True)
     print(gt.shape,flush=True)
     xrdata = xr.Dataset( \
