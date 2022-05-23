@@ -212,9 +212,7 @@ class LitModelAugstate(pl.LightningModule):
         state_init = [None]
         out=None
         
-        print('.........')
         for _ in range(self.hparams.n_fourdvar_iter):
-            print('......... iter %d'%_)
             _loss, out, state, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
             if ( phase == 'test ' ) & ( self.use_sst_obs ):
                 state_init = [None if s is None else s.detach() for s in state]
@@ -481,7 +479,7 @@ class LitModelAugstate(pl.LightningModule):
             path_save0 = self.logger.log_dir + '/animation.mp4'
             animate_maps(self.x_gt, self.obs_inp, self.x_oi, self.x_rec, self.lon, self.lat, path_save0)
             
-        if self.hparams.save_rec_netcdf == True :
+        if False : #self.hparams.save_rec_netcdf == True :
             path_save1 = self.hparams.weights_save_path.replace('.ckpt','_res.nc')
             print('... Save nc file with all reults : '+path_save1)
             #save_netcdf(saved_path1=path_save1, pred=self.x_rec,
