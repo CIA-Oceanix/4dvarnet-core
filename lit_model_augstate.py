@@ -626,9 +626,13 @@ class LitModelAugstate(pl.LightningModule):
         else:
             raise Exception('unknown phase')
         if self.use_sst :
+            print( len(full_outputs))
+            print(full_outputs[0].size())
+            print(full_outputs[-1].size())
+            
             print('create ds (all except sst_feat)',flush=True)
             self.test_xr_ds = self.build_test_xr_ds(full_outputs[:-1], diag_ds=diag_ds)
-            print('create ds (all except sst_feat)',flush=True)
+            print('create ds sst_feat',flush=True)
             print(full_outputs[-1].size())
             sst_feat_ds = self.build_test_xr_ds_sst([full_outputs[-1]], diag_ds=diag_ds)
             print('done ... create ds (all except sst_feat)',flush=True)
