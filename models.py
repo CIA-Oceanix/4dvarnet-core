@@ -271,6 +271,55 @@ class Model_HwithSSTBN_nolin_tanh(torch.nn.Module):
 
         return [dyout, dyout1]
 
+class Model_HwithSST_nolin_tanh(torch.nn.Module):
+    def __init__(self,shape_data, dT=5,dim=5,width_kernel=3,padding_mode='reflect'):
+        super(Model_HwithSST_nolin_tanh, self).__init__()
+
+        self.dim_obs = 2
+        self.dim_obs_channel = np.array([shape_data, dim])
+
+        #print('..... # im obs sst : %d'%dim)
+        self.w_kernel = width_kernel
+
+        self.convx11 = torch.nn.Conv2d(shape_data, 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+        self.convx12 = torch.nn.Conv2d(2*self.dim_obs_channel[1], self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+        self.convx21 = torch.nn.Conv2d(self.dim_obs_channel[1], 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+        self.convx22 = torch.nn.Conv2d(2*self.dim_obs_channel[1], self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+
+
+        self.convy11 = torch.nn.Conv2d(dT, 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+        self.convy12 = torch.nn.Conv2d(2*self.dim_obs_channel[1], self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+        self.convy21 = torch.nn.Conv2d(self.dim_obs_channel[1], 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+        self.convy22 = torch.nn.Conv2d(2*self.dim_obs_channel[1], self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+
+
+        self.conv_m = torch.nn.Conv2d(dT, self.dim_obs_channel[1], (3, 3), padding=1, bias=True,padding_mode=padding_mode)
+        self.sigmoid = torch.nn.Sigmoid()  # torch.nn.Softmax(dim=1)
+
+    def extract_sst_feature(self,y1):
+        y1     = self.convy12( torch.tanh( self.convy11(y1) ) )
+        y_feat = self.convy22( torch.tanh( self.convy21( torch.tanh(y1) ) ) )
+       
+        return y_feat
+        
+    def extract_state_feature(self,x):
+        x1     = self.convx12( torch.tanh( self.convx11(x) ) )
+        x_feat = self.convx22( torch.tanh( self.convx21( torch.tanh(x1) ) ) )
+        
+        return x_feat
+
+    def forward(self, x, y, mask):
+        dyout = (x - y[0]) * mask[0]
+
+        y1 = y[1] * mask[1]
+                
+        x_feat = self.extract_state_feature(x)
+        y_feat = self.extract_sst_feature(y1)
+        dyout1 = x_feat - y_feat
+
+        dyout1 = dyout1 * self.sigmoid(self.conv_m(mask[1]))
+
+        return [dyout, dyout1]
 class Gradient_img(torch.nn.Module):
     def __init__(self):
         super(Gradient_img, self).__init__()
