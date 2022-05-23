@@ -438,20 +438,15 @@ class LitModelAugstate(pl.LightningModule):
 
     def build_test_xr_ds_sst(self, outputs, diag_ds):
 
-        print('.... in')
         outputs_keys = list(outputs[0][0].keys())
+        print(outputs_keys)
+        print(outputs_keys[:-1],flush=True)
+        
         with diag_ds.get_coords():
             self.test_patch_coords = [
                diag_ds[i]
                for i in range(len(diag_ds))
             ]
-        
-        print(outputs_keys,flush=True)
-        print(outputs[0][0]['gt'].size(),flush=True)         
-        print(outputs[0][0]['sst_feat'].size(),flush=True)         
-        print('+++++++++')
-        sst_feat_arr = torch.cat([chunk['gt'] for chunk in outputs]).numpy()
-        print(sst_feat_arr.shape,flush=True)
 
         def iter_item(outputs):
             n_batch_chunk = len(outputs)
@@ -461,28 +456,18 @@ class LitModelAugstate(pl.LightningModule):
                 for i in range(bs):
                     for bc in range(n_batch_chunk):
                         yield tuple(
-                                [outputs[bc][b][k][i] for k in outputs_keys]
+                                [outputs[bc][b][k][i] for k in outputs_keys[:-1]]
                         )
         
-        
-        
-        out_item = iter_item(outputs)
-        print(out_item)         
-        print(out_item['gt'].size())         
-
         dses =[
                 xr.Dataset( {
-                    k: (('time', 'feat','lat', 'lon'), x_k) for k, x_k in zip(outputs_keys, xs)
+                    k: (('time', 'lat', 'lon'), x_k) for k, x_k in zip(outputs_keys, xs)
                 }, coords=coords)
             for  xs, coords
             in zip(iter_item(outputs), self.test_patch_coords)
         ]
 
-        print(dses['gt'])
-        print(dses['oi'])
-        print(dses['sst_feat'])
-                
-        fin_ds = xr.merge([xr.zeros_like(ds[['time','feat','lat', 'lon']]) for ds in dses])
+        fin_ds = xr.merge([xr.zeros_like(ds[['time','lat', 'lon']]) for ds in dses])
         fin_ds = fin_ds.assign(
             {'weight': (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
         )
@@ -502,7 +487,7 @@ class LitModelAugstate(pl.LightningModule):
             (fin_ds.drop('weight') / fin_ds.weight)
             .sel(instantiate(self.test_domain))
             .pipe(lambda ds: ds.sel(time=~(np.isnan(ds.gt).all('lat').all('lon'))))
-        ).transpose('time', 'feat','lat', 'lon')
+        ).transpose('time', 'lat', 'lon')
 
     def nrmse_fn(self, pred, ref, gt):
         return (
@@ -647,6 +632,9 @@ class LitModelAugstate(pl.LightningModule):
 
         if self.use_sst :
             
+            self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
+            
+            print( self.test_xr_ds )
 
             x_gt = torch.cat([chunk['gt'] for chunk in outputs]).numpy()
             x_oi = torch.cat([chunk['oi'] for chunk in outputs]).numpy()
@@ -693,8 +681,7 @@ class LitModelAugstate(pl.LightningModule):
 
             self.test_dates = np.concatenate([chunk['time'] for chunk in self.test_patch_coords])
             print( len(self.test_dates),flush=True )    
-            
-            self.test_lat = self.test_coords['lat']
+
             
             if 1*0 :
                 print(x_rec.shape,flush=True)
