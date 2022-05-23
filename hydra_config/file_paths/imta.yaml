@@ -1,0 +1,14 @@
+natl_ssh_daily: /users/local/DATA/DataNATL60/GULFSTREAM/ref/NATL60-CJM165_GULFSTREAM240x240_ssh_y2013.1y_new.nc
+natl_sst_daily: /users/local/DATA/DataNATL60/GULFSTREAM/ref/NATL60-CJM165_GULFSTREAM240x240_sst_y2013.1y_new.nc
+
+oi_swot_4nadir: /users/local/DATA/DataNATL60/GULFSTREAM/oi/ssh_NATL60_240x240_swot_4nadir_new.nc
+pseudo_obs: /users/local/DATA/DataNATL60/GULFSTREAM/data_new/dataset_240x240_nadir_0d_swot.nc
+
+#oi_4nadir: /users/local/DATA/DataNATL60/GULFSTREAM/oi/ssh_NATL60_240x240_swot_4nadir_new.nc
+#natl_ssh: /gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc
+#natl_sst: /gpfsdsstore/projects/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_sst_y2013.1y.nc
+
+#cal_data: /gpfswork/rech/yrf/commun/CalData/full_cal_obs.nc
+#noisy_swot: /gpfswork/rech/yrf/commun/CalData/cal_data_karin_noise_only.nc
+#new_noisy_swot: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/CalData/cal_data_new_errs.nc
+#new_noisy_swot_with_1d_decomp: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/CalData/cal_data_new_syst_errs_20220218.nc
