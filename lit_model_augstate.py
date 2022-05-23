@@ -77,13 +77,13 @@ def get_phi(hparams):
 
 def get_constant_crop(patch_size, crop, dim_order=['time', 'lat', 'lon']):
         patch_weight = np.zeros([patch_size[d] for d in dim_order], dtype='float32')
-        print(patch_size, crop)
+        #print(patch_size, crop)
         mask = tuple(
                 slice(crop[d], -crop[d]) if crop.get(d, 0)>0 else slice(None, None)
                 for d in dim_order
         )
         patch_weight[mask] = 1.
-        print(patch_weight.sum())
+        #print(patch_weight.sum())
         return patch_weight
 
 def get_hanning_mask(patch_size, **kwargs):
@@ -269,7 +269,7 @@ class LitModelAugstate(pl.LightningModule):
 
                 self.hparams.n_grad = self.hparams.nb_grad_update[indx]
                 self.model.n_grad = self.hparams.n_grad
-                print("ngrad iter", self.model.n_grad)
+
                 mm = 0
                 lrCurrent = self.hparams.lr_update[indx]
                 lr = np.array([lrCurrent, lrCurrent, 0.5 * lrCurrent, 0.])
@@ -637,13 +637,9 @@ class LitModelAugstate(pl.LightningModule):
         self.test_lon = self.test_coords['lon'].data
         self.test_dates = self.test_coords['time'].data
 
-        print(self.obs_inp,flush=True)
-
-        print('.... compute metrics')
         md = self.sla_diag(t_idx=3, log_pref=log_pref)
         self.latest_metrics.update(md)
         self.logger.log_metrics(md, step=self.current_epoch)
-        print('.... End compute metrics',flush=True)
 
         if self.hparams.save_rec_netcdf == True :
             #path_save1 = self.logger.log_dir + f'/test_res_all.nc'
