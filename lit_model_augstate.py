@@ -692,7 +692,7 @@ class LitModelAugstate(pl.LightningModule):
             print( self.test_lon,flush=True )    
 
             self.test_dates = np.concatenate([chunk['time'] for chunk in self.test_patch_coords])
-            print( self.test_dates,flush=True )    
+            print( len(self.test_dates),flush=True )    
             
             self.test_lat = self.test_coords['lat']
             
