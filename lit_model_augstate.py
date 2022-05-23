@@ -647,12 +647,12 @@ class LitModelAugstate(pl.LightningModule):
 
         if self.use_sst :
             
-            print(outputs.keys(),flush=True)
 
             x_gt = torch.cat([chunk['gt'] for chunk in outputs]).numpy()
+            print(x_gt.shape,flush=True)
+
             x_oi = torch.cat([chunk['oi'] for chunk in outputs]).numpy()
             print(x_oi.shape,flush=True)
-            print(x_gt.shape,flush=True)
 
             x_obs_inp = torch.cat([chunk['obs_inp'] for chunk in outputs]).numpy()
             sst_feat = torch.cat([chunk['sst_feat'] for chunk in outputs]).numpy()
