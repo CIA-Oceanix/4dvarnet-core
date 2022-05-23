@@ -652,7 +652,7 @@ class LitModelAugstate(pl.LightningModule):
             print(self.x_sst_feat_ssh.shape,flush=True)
 
             self.x_gt = self.test_xr_ds.gt.data
-            print(self.x_gt.shape,flush=True,flush=True)
+            print(self.x_gt.shape,flush=True)
             print('-----------------',flush=True)
 
             self.x_gt = extract_seq(outputs,'gt',dw=20)
