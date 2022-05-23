@@ -678,7 +678,7 @@ class LitModelAugstate(pl.LightningModule):
         self.test_lon = self.test_coords['lon'].data
         self.test_dates = self.test_coords['time'].data
 
-        if self.hparams.save_rec_netcdf == True :
+        if False : #self.hparams.save_rec_netcdf == True :
             path_save1 = self.logger.log_dir + f'/test_res_all.nc'
             if not self.use_sst :
                 save_netcdf(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh,
@@ -689,6 +689,14 @@ class LitModelAugstate(pl.LightningModule):
                          lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
                     
         # display map
+        self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
+
+        self.x_gt = self.test_xr_ds.gt.data
+        self.obs_inp = self.test_xr_ds.obs_inp.data
+        self.x_oi = self.test_xr_ds.oi.data
+        self.x_rec = self.test_xr_ds.pred.data
+        self.x_rec_ssh = self.x_rec
+
         print('..... sla_diag in',flush=True)
         md = self.sla_diag(t_idx=3, log_pref=log_pref)
         self.latest_metrics.update(md)
