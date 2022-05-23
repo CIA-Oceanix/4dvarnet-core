@@ -635,6 +635,8 @@ class LitModelAugstate(pl.LightningModule):
         else:
             self.test_xr_ds = self.build_test_xr_ds_sst(full_outputs, diag_ds=diag_ds)
             self.x_sst_feat_ssh = torch.cat([chunk['sst_feat'] for chunk in outputs]).numpy()
+            dw = 20
+            self.x_sst_feat_ssh = self.x_sst_feat_ssh[:,:,dw:self.x_sst_feat_ssh.shape[2]-dw,dw:self.x_sst_feat_ssh.shape[2]-dw]
 
         self.x_gt = self.test_xr_ds.gt.data
         self.obs_inp = self.test_xr_ds.obs_inp.data
@@ -655,10 +657,10 @@ class LitModelAugstate(pl.LightningModule):
             path_save1 = self.logger.log_dir + f'/test_res_all.nc'
             print('... Save nc file with all reults : '+path_save1)
             if not self.use_sst :
-                save_netcdf(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh, sst_feat=self.sst_feat,
+                save_netcdf(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh,
                          lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
             else:
-                save_netcdf_with_sst(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh, sst_feat=self.sst_feat,
+                save_netcdf_with_sst(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh, sst_feat=self.x_sst_feat_ssh,
                          lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
             
             if self.hparams.save_rec_netcdf == True :
