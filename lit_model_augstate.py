@@ -673,7 +673,6 @@ class LitModelAugstate(pl.LightningModule):
             #dw = 20
             #self.x_sst_feat_ssh = self.x_sst_feat_ssh[:,:,dw:self.x_sst_feat_ssh.shape[2]-dw,dw:self.x_sst_feat_ssh.shape[2]-dw]
 
-
         self.test_coords = self.test_xr_ds.coords
         self.test_lat = self.test_coords['lat'].data
         self.test_lon = self.test_coords['lon'].data
@@ -687,7 +686,7 @@ class LitModelAugstate(pl.LightningModule):
                          lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
             else:
                 save_netcdf_with_sst(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh, sst_feat=self.x_sst_feat_ssh,
-                         lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
+                         lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
                     
         # display map
         print('..... sla_diag in',flush=True)

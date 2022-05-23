@@ -499,6 +499,7 @@ def save_netcdf_with_sst(saved_path1, gt, obs, oi, pred, sst_feat, lon, lat, tim
         coords={'lon': lon, 'lat': lat, 'time': time,'feat':np.arange(sst_feat.shape[1])})
     xrdata.time.attrs['units'] = time_units
     xrdata.to_netcdf(path=saved_path1, mode='w')
+    print('... file saved',flush=True)
 
 
 def nrmse(ref, pred):
