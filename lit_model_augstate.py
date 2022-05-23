@@ -648,19 +648,19 @@ class LitModelAugstate(pl.LightningModule):
                 return seq
             
             self.x_sst_feat_ssh = extract_seq(outputs,'sst_feat',dw=20)
-            print('-----------------',flush=True)
-            print(self.x_sst_feat_ssh.shape,flush=True)
+            #print('-----------------',flush=True)
+            #print(self.x_sst_feat_ssh.shape,flush=True)
 
             self.x_gt = self.test_xr_ds.gt.data
-            print(self.x_gt.shape,flush=True)
-            print('-----------------',flush=True)
+            #print(self.x_gt.shape,flush=True)
+            #print('-----------------',flush=True)
 
             self.x_gt = extract_seq(outputs,'gt',dw=20)
             self.x_gt = self.x_gt[:,int(self.hparams.dT/2),:,:]
-            print(self.x_gt.shape,flush=True)
+            #print(self.x_gt.shape,flush=True)
 
-            print('-----------------',flush=True)
-            print('-----------------',flush=True)
+            #print('-----------------',flush=True)
+            #print('-----------------',flush=True)
 
             self.x_oi = extract_seq(outputs,'oi',dw=20)
             self.x_oi = self.x_oi[:,int(self.hparams.dT/2),:,:]
@@ -679,10 +679,6 @@ class LitModelAugstate(pl.LightningModule):
         self.test_lon = self.test_coords['lon'].data
         self.test_dates = self.test_coords['time'].data
 
-        if self.use_sst :
-            print(self.x_rec.shape)
-            print(self.x_sst_feat_ssh.shape)
-
         if self.hparams.save_rec_netcdf == True :
             path_save1 = self.logger.log_dir + f'/test_res_all.nc'
             print('... Save nc file with all reults : '+path_save1)
@@ -692,14 +688,7 @@ class LitModelAugstate(pl.LightningModule):
             else:
                 save_netcdf_with_sst(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh, sst_feat=self.x_sst_feat_ssh,
                          lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
-            
-            if self.hparams.save_rec_netcdf == True :
-                #save_netcdf(saved_path1=path_save1, pred=self.x_rec,
-                #         lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
-                
-                save_netcdf_with_sst(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh, sst_feat=self.sst_feat,
-                         lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
-        
+                    
         # display map
         print('..... sla_diag in',flush=True)
         md = self.sla_diag(t_idx=3, log_pref=log_pref)
