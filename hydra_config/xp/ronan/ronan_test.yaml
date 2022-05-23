@@ -17,7 +17,7 @@ params:
   n_grad: 5
   dT: 7
   DimAE: 50
-  dim_obs_sst_feat: 20
+  dim_obs_sst_feat: 10
   dim_grad_solver: 150
   save_rec_netcdf: True
   path_save_netcdf: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/'
