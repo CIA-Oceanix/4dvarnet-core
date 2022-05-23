@@ -212,7 +212,9 @@ class LitModelAugstate(pl.LightningModule):
         state_init = [None]
         out=None
         
+        print('.........')
         for _ in range(self.hparams.n_fourdvar_iter):
+            print('......... iter %d'%_)
             _loss, out, state, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
             if ( phase == 'test ' ) & ( self.use_sst_obs ):
                 state_init = [None if s is None else s.detach() for s in state]
