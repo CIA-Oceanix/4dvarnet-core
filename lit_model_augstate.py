@@ -779,6 +779,7 @@ class LitModelAugstate(pl.LightningModule):
                 print(sst_feat.size(),flush=True)
                 return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics, sst_feat
             #else:
+        print('end compute_loss ',flush=True)
         return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
 
 class LitModelCycleLR(LitModelAugstate):
