@@ -472,6 +472,35 @@ def save_netcdf(saved_path1, gt, oi, pred, lon, lat, time,
     xrdata.time.attrs['units'] = time_units
     xrdata.to_netcdf(path=saved_path1, mode='w')
 
+def save_netcdf_with_sst(saved_path1, gt, obs, oi, pred, sst_feat, lon, lat, time,
+                time_units='days since 2012-10-01 00:00:00'):
+    '''
+    saved_path1: string
+    pred: 3d numpy array (4DVarNet-based predictions)
+    lon: 1d numpy array
+    lat: 1d numpy array
+    time: 1d array-like of time corresponding to the experiment
+    '''
+
+    mesh_lat, mesh_lon = np.meshgrid(lat, lon)
+    mesh_lat = mesh_lat.T
+    mesh_lon = mesh_lon.T
+
+    dt = pred.shape[1]
+    xrdata = xr.Dataset( \
+        data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
+                   'latitude': (('lat', 'lon'), mesh_lat), \
+                   'Time': (('time'), time), \
+                   'ssh_gt': (('time', 'lat', 'lon'), gt),
+                   'ssh_oi': (('time', 'lat', 'lon'), oi),
+                   'ssh_obs': (('time', 'lat', 'lon'), obs), \
+                   'ssh_rec': (('time', 'lat', 'lon'), pred), \
+                   'sst_feat': (('time', 'feat', 'lat', 'lon'), sst_feat)}, \
+        coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred)),'feat':np.arange(sst_feat.shape[1])})
+    xrdata.time.attrs['units'] = time_units
+    xrdata.to_netcdf(path=saved_path1, mode='w')
+
+
 def nrmse(ref, pred):
     '''
     ref: Ground Truth fields

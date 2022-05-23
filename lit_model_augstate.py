@@ -161,7 +161,8 @@ class LitModelAugstate(pl.LightningModule):
         self.use_sst = self.hparams.sst if hasattr(self.hparams, 'sst') else False
         self.use_sst_obs = self.hparams.use_sst_obs if hasattr(self.hparams, 'use_sst_obs') else False
         self.use_sst_state = self.hparams.use_sst_state if hasattr(self.hparams, 'use_sst_state') else False
-        self.aug_state = self.hparams.aug_state if hasattr(self.hparams, 'aug_state') else 0
+        self.aug_state = self.hparams.aug_state if hasattr(self.hparams, 'aug_state') else False
+        
         self.model = self.create_model()
         self.model_LR = ModelLR()
         self.grad_crop = lambda t: t[...,1:-1, 1:-1]
@@ -175,6 +176,7 @@ class LitModelAugstate(pl.LightningModule):
         self.obs_inp = None
         self.x_oi = None  # variable to store OI
         self.x_rec = None  # variable to store output of test method
+        self.x_feat = None  # variable to store output of test method
         self.test_figs = {}
 
         self.tr_loss_hist = []
@@ -214,7 +216,10 @@ class LitModelAugstate(pl.LightningModule):
             state_init = [None if s is None else s.detach() for s in state]
             losses.append(_loss)
             metrics.append(_metrics)
-        return losses, out, metrics
+        if ( phase == 'test ' ) & ( self.use_sst_obs ):
+            return losses, out, metrics, state[-1]
+        else:            
+            return losses, out, metrics
 
     def configure_optimizers(self):
         opt = torch.optim.Adam
@@ -318,17 +323,28 @@ class LitModelAugstate(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
-        losses, out, metrics = self(batch, phase='test')
+            
+        if ( self.use_sst_obs ) :
+            losses, out, metrics, sst_feat = self(batch, phase='test')
+        else:
+            losses, out, metrics = self(batch, phase='test')
         loss = losses[-1]
         if loss is not None:
             self.log(f'{log_pref}_loss', loss)
             self.log(f'{log_pref}_mse', metrics[-1]["mse"] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
 
-        return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'oi'    : (targets_OI.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
+        if self.use_sst_obs :
+            return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                    'oi'    : (targets_OI.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                    'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                    'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
+        else:
+            return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                    'oi'    : (targets_OI.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                    'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                    'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                    'sst_feat' : sst_feat.detach().cpu()}
 
     def test_step(self, test_batch, batch_idx):
         return self.diag_step(test_batch, batch_idx, log_pref='test')
@@ -343,7 +359,6 @@ class LitModelAugstate(pl.LightningModule):
         print(f'epoch end {self.global_rank} {len(outputs)}')
         if (self.current_epoch + 1) % self.hparams.val_diag_freq == 0:
             return self.diag_epoch_end(outputs, log_pref='val')
-
 
     def gather_outputs(self, outputs, log_pref):
         data_path = Path(f'{self.logger.log_dir}/{log_pref}_data')
@@ -458,6 +473,13 @@ class LitModelAugstate(pl.LightningModule):
         if self.hparams.animate == True:
             path_save0 = self.logger.log_dir + '/animation.mp4'
             animate_maps(self.x_gt, self.obs_inp, self.x_oi, self.x_rec, self.lon, self.lat, path_save0)
+            
+        if self.hparams.save_rec_netcdf == True :
+            path_save1 = self.hparams.weights_save_path.replace('.ckpt','_res.nc')
+            print('... Save nc file with all reults : '+path_save1)
+            save_netcdf(saved_path1=path_save1, pred=self.x_rec,
+                     lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
+            
             # save NetCDF
         # PENDING: replace hardcoded 60
         # save_netcdf(saved_path1=path_save1, pred=self.x_rec,
@@ -470,8 +492,6 @@ class LitModelAugstate(pl.LightningModule):
         mse_df = self.mse_fn('pred', 'oi', 'gt')
         nrmse_df.to_csv(self.logger.log_dir + '/nRMSE.txt')
         mse_df.to_csv(self.logger.log_dir + '/MSE.txt')
-
-        print(mse_df)
 
         # plot nRMSE
         # PENDING: replace hardcoded 60
@@ -557,7 +577,9 @@ class LitModelAugstate(pl.LightningModule):
         self.x_oi = self.test_xr_ds.oi.data
         self.x_rec = self.test_xr_ds.pred.data
         self.x_rec_ssh = self.x_rec
-
+        if self.use_sst_obs :
+            self.x_sst_feat_ssh = self.test_xr_ds.sst_feat.data
+            
         self.test_coords = self.test_xr_ds.coords
         self.test_lat = self.test_coords['lat'].data
         self.test_lon = self.test_coords['lon'].data
@@ -709,7 +731,6 @@ class LitModelAugstate(pl.LightningModule):
                 yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
             )
 
-
             # total loss
             loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
             loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
@@ -728,7 +749,19 @@ class LitModelAugstate(pl.LightningModule):
                 ('mseOI', loss_OI.detach()),
                 ('mseGOI', loss_GOI.detach())])
 
-        return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
+        if (phase == 'val') or (phase == 'test'):
+            if self.use_sst :
+                sst_feat = sst_gt[:,int(self.hparams.dT/2),:,:].view(-1,1,sst_gt.size(2),sst_gt.size(3))
+                
+                if self.use_sst_obs :
+                    #sst_feat = self.model.model_H.conv21( inputs_SST )
+                    sst_feat = torch.cat( (sst_feat,self.model.model_H.extract_sst_feature( sst_gt )) , dim = 1 )
+                    ssh_feat = self.model.model_H.extract_state_feature( outputsSLRHR )
+                    sst_feat = torch.cat( (sst_feat,ssh_feat) , dim=1)
+                
+                return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad,sst_feat], metrics
+            else:
+                return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
 
 class LitModelCycleLR(LitModelAugstate):
     def configure_optimizers(self):
