@@ -331,10 +331,8 @@ class LitModelAugstate(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
             
         if ( self.use_sst_obs ) :
-          print('..... forward step in',flush=True)
           #losses, out, metrics = self(batch, phase='test')
           losses, out, metrics, sst_feat = self(batch, phase='test')
-          print('..... forward step out',flush=True)
         else:
             losses, out, metrics = self(batch, phase='test')
         loss = losses[-1]
@@ -435,8 +433,6 @@ class LitModelAugstate(pl.LightningModule):
     def build_test_xr_ds_sst(self, outputs, diag_ds):
 
         outputs_keys = list(outputs[0][0].keys())
-        print(outputs_keys)
-        print(outputs_keys[:-1],flush=True)
         
         with diag_ds.get_coords():
             self.test_patch_coords = [
@@ -660,11 +656,11 @@ class LitModelAugstate(pl.LightningModule):
         self.test_lon = self.test_coords['lon'].data
         self.test_dates = self.test_coords['time'].data
 
-        if False: # self.hparams.save_rec_netcdf == True :
+        if self.hparams.save_rec_netcdf == True :
             path_save1 = self.logger.log_dir + f'/test_res_all.nc'
-            if not self.use_sst :
+            if self.use_sst :
                 save_netcdf(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh,
-                         lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
+                         lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
             else:
                 print('... Save nc file with all results : '+path_save1)
                 save_netcdf_with_sst(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh, sst_feat=self.x_sst_feat_ssh,
