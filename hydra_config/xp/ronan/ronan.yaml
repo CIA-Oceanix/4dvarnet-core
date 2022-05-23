@@ -10,7 +10,7 @@ entrypoint:
 params:
   k_n_grad: 3
   n_grad: 5
-  dT: 5
+  dT: 7
   DimAE: 50
   dim_grad_solver: 150
   phi_param: 'unet1'
