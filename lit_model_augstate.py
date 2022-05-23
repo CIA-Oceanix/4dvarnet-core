@@ -671,7 +671,20 @@ class LitModelAugstate(pl.LightningModule):
                    diag_ds[i]
                    for i in range(len(diag_ds))
                 ]
-            print( self.test_patch_coords )    
+ 
+            if 1*0 :
+                #ds_all =
+        
+                dses =[
+                        xr.Dataset( {
+                            k: (('time', 'feat','lat', 'lon'), x_k) for k, x_k in zip(outputs_keys, xs)
+                        }, coords=coords)
+                    for  xs, coords
+                    in zip(iter_item(outputs), self.test_patch_coords) ]
+            
+            #print( self.test_patch_coords,flush=True )    
+            print( self.test_patch_coords['lat'],flush=True )    
+            print( self.test_patch_coords['lon'],flush=True )    
             
             if 1*0 :
                 print(x_rec.shape,flush=True)
