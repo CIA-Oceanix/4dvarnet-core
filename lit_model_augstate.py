@@ -449,6 +449,9 @@ class LitModelAugstate(pl.LightningModule):
         print(outputs_keys,flush=True)
         print(outputs[0][0]['gt'].size(),flush=True)         
         print(outputs[0][0]['sst_feat'].size(),flush=True)         
+        print('+++++++++')
+        sst_feat_arr = torch.cat([chunk['gt'] for chunk in outputs]).numpy()
+        print(sst_feat_arr.shape,flush=True)
 
         def iter_item(outputs):
             n_batch_chunk = len(outputs)
@@ -462,8 +465,7 @@ class LitModelAugstate(pl.LightningModule):
                         )
         
         
-        sst_feat_arr = torch.cat([chunk['sst_feat'] for chunk in outputs]).numpy()
-        print(sst_feat_arr.shape)     
+        
         out_item = iter_item(outputs)
         print(out_item)         
         print(out_item['gt'].size())         
