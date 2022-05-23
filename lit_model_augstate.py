@@ -404,7 +404,7 @@ class LitModelAugstate(pl.LightningModule):
                         yield tuple(
                                 [outputs[bc][b][k][i] for k in outputs_keys]
                         )
-        print(outputs[0][0]['gt'].shape[0])         
+        print(outputs[0][0]['gt'])         
         out_item = iter_item(outputs)
         print(out_item['gt'])
         print(out_item['gt'].shape)
