@@ -17,7 +17,7 @@ from omegaconf import OmegaConf
 from scipy import stats
 import solver as NN_4DVar
 import metrics
-from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
+from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps_oi, animate_maps, get_psd_score
 from models import Model_H, Phi_r_OI, Gradient_img
 
 from lit_model_augstate import LitModelAugstate
@@ -39,6 +39,17 @@ class LitModelOI(LitModelAugstate):
     def __init__(self, *args, **kwargs):
          super().__init__(*args, **kwargs)
 
+    def configure_optimizers(self):
+
+        optimizer = optim.AdamW([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+            {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+            {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
+            {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+            ]
+            , lr=0., weight_decay=self.hparams.weight_decay)
+
+        return optimizer
+
     def diag_step(self, batch, batch_idx, log_pref='test'):
         _, inputs_Mask, inputs_obs, targets_GT = batch
         losses, out, metrics = self(batch, phase='test')
@@ -54,16 +65,33 @@ class LitModelOI(LitModelAugstate):
 
     def sla_diag(self, t_idx=3, log_pref='test'):
 
-        # psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
-        # psd_fig = metrics.plot_psd_score(psd_ds)
-        # self.test_figs['psd'] = psd_fig
-        # psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
-        # self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
+        path_save0 = self.logger.log_dir + '/maps.png'
+        t_idx = 3
+        fig_maps = plot_maps_oi(
+                  self.x_gt[t_idx],
+                self.obs_inp[t_idx],
+                  self.x_rec[t_idx],
+                  self.test_lon, self.test_lat, path_save0)
+        path_save01 = self.logger.log_dir + '/maps_Grad.png'
+        fig_maps_grad = plot_maps_oi(
+                  self.x_gt[t_idx],
+                self.obs_inp[t_idx],
+                  self.x_rec[t_idx],
+                  self.test_lon, self.test_lat, path_save01, grad=True)
+        self.test_figs['maps'] = fig_maps
+        self.test_figs['maps_grad'] = fig_maps_grad
+        self.logger.experiment.add_figure(f'{log_pref} Maps', fig_maps, global_step=self.current_epoch)
+        self.logger.experiment.add_figure(f'{log_pref} Maps Grad', fig_maps_grad, global_step=self.current_epoch)
+
+        psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
+        psd_fig = metrics.plot_psd_score(psd_ds)
+        self.test_figs['psd'] = psd_fig
+        self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
         _, _, mu, sig = metrics.rmse_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
 
         md = {
-            # f'{log_pref}_lambda_x': lamb_x,
-            # f'{log_pref}_lambda_t': lamb_t,
+            f'{log_pref}_lambda_x': lamb_x,
+            f'{log_pref}_lambda_t': lamb_t,
             f'{log_pref}_mu': mu,
             f'{log_pref}_sigma': sig,
         }

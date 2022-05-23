@@ -258,6 +258,66 @@ def plot_maps(gt,obs,oi,pred,lon,lat,resfile,grad=False,
     plt.close()             # close the figure
     return fig
 
+def plot_maps_oi(gt,obs,pred,lon,lat,resfile,grad=False,
+                 crop=None, orthographic=False,supervised=True):
+
+    if crop is not None:
+        ilon = np.where((lon>=crop[0]) & (lon<=crop[1]))[0]
+        ilat = np.where((lat>=crop[2]) & (lat<=crop[3]))[0]
+        gt = (gt[:,ilat,:])[:,:,ilon]
+        obs = (obs[:,ilat,:])[:,:,ilon]
+        pred = (pred[:,ilat,:])[:,:,ilon]
+        lon = lon[ilon]
+        lat = lat[ilat]
+    extent = [np.min(lon)-1,np.max(lon)+1,np.min(lat)-1,np.max(lat)+1]
+    central_lon = np.mean(extent[:2])
+    central_lat = np.mean(extent[2:])
+
+    if orthographic:
+        #crs = ccrs.Orthographic(central_lon,central_lat)
+        crs = ccrs.Orthographic(-30,45)
+    else:
+        crs = ccrs.PlateCarree(central_longitude=0.0)
+
+    if grad:
+        vmax = np.nanmax(np.abs(gradient(gt, 2)))
+        vmin = 0
+        cm = plt.cm.viridis
+        norm = colors.PowerNorm(gamma=0.7, vmin=vmin, vmax=vmax)
+    else:
+        vmax = np.nanmax(np.abs(gt))
+        vmin = -1.*vmax
+        cm = plt.cm.coolwarm
+        norm = colors.Normalize(vmin=vmin, vmax=vmax)
+
+    extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
+
+    fig = plt.figure(figsize=(15,9))
+    gs = gridspec.GridSpec(2, 4)
+    gs.update(wspace=0.5)
+    if supervised:
+        ax1 = fig.add_subplot(gs[0, :2], projection=crs)
+        ax2 = fig.add_subplot(gs[0, 2:], projection=crs)
+        ax3 = fig.add_subplot(gs[1, 1:3], projection=crs)
+        if grad:
+            plot(ax1, lon, lat, gradient(gt, 2), r"$\nabla_{GT}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax2, lon, lat, np.where(np.isnan(obs), np.nan, 0.), "OBS (mask)", extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax3, lon, lat, gradient(pred, 2), r"$\nabla_{4DVarNet}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+        else:
+            plot(ax1, lon, lat, gt, 'GT', extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax2, lon, lat, obs, 'OBS', extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax3, lon, lat, pred, '4DVarNet', extent=extent, cmap=cm, norm=norm, colorbar=False)
+
+    # Colorbar
+    cbar_ax = fig.add_axes([0.1, 0.05, 0.8, 0.01])
+    sm = plt.cm.ScalarMappable(cmap=cm, norm=norm)
+    sm._A = []
+    cbar = fig.colorbar(sm, cax=cbar_ax, orientation='horizontal', pad=3.0)
+    plt.savefig(resfile)    # save the figure
+    fig = plt.gcf()
+    plt.close()             # close the figure
+    return fig
+
 def animate_maps(gt, obs, oi, pred, lon, lat, resfile,
                  crop=None, orthographic=True, dw=4, grad=False, supervised=True):
 
@@ -684,7 +744,6 @@ def psd_based_scores(da_rec, da_ref):
 
     level = [0.5]
     cs = plt.contour(1./psd_based_score.freq_lon.values,1./psd_based_score.freq_time.values, psd_based_score, level)
-    print(f"{cs.collections[0].get_paths()=}")
     x05, y05 = cs.collections[0].get_paths()[0].vertices.T
     plt.close()
 
