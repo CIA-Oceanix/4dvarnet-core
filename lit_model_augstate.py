@@ -642,6 +642,8 @@ class LitModelAugstate(pl.LightningModule):
         self.x_rec_ssh = self.x_rec
         
         self.test_coords = self.test_xr_ds.coords
+        self.test_coords['time'].data = self.test_coords['time'].data[2:42]
+        
         self.test_lat = self.test_coords['lat'].data
         self.test_lon = self.test_coords['lon'].data
         self.test_dates = self.test_coords['time'].data
