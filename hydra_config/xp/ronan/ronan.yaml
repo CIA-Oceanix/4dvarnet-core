@@ -7,6 +7,14 @@ entrypoint:
    ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-hydra-exp/version_1/checkpoints/modelCalSLAInterpGF-epoch=142-val_loss=0.5566.ckpt'
 
 # Et là tu charges la config d'où tu veux partir:
+params:
+  k_n_grad: 3
+  n_grad: 5
+  dT: 5
+  DimAE: 50
+  dim_grad_solver: 150
+  phi_param: 'unet1'
+
 defaults:
 - /xp/xp_aug/xp_ronan/full_core_hanning
 - _self_
