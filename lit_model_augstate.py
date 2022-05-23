@@ -644,14 +644,22 @@ class LitModelAugstate(pl.LightningModule):
             diag_ds = self.trainer.val_dataloaders[0].dataset.datasets[0]
         else:
             raise Exception('unknown phase')
+
         if self.use_sst :
             
-            x_rec = torch.cat([chunk['pred'] for chunk in outputs]).numpy()
+            print(outputs.keys(),flush=True)
+
             x_gt = torch.cat([chunk['gt'] for chunk in outputs]).numpy()
             x_oi = torch.cat([chunk['oi'] for chunk in outputs]).numpy()
+            print(x_oi.shape,flush=True)
+            print(x_gt.shape,flush=True)
+
             x_obs_inp = torch.cat([chunk['obs_inp'] for chunk in outputs]).numpy()
             sst_feat = torch.cat([chunk['sst_feat'] for chunk in outputs]).numpy()
+            x_rec = torch.cat([chunk['pred'] for chunk in outputs]).numpy()
             
+            print(x_rec.shape,flush=True)
+
             x_rec = x_rec[:,int(self.hparams.dT/2),:,:].squueze()
             x_gt = x_gt[:,int(self.hparams.dT/2),:,:].squueze()
             x_oi = x_oi[:,int(self.hparams.dT/2),:,:].squueze()
