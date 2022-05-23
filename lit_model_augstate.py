@@ -645,9 +645,12 @@ class LitModelAugstate(pl.LightningModule):
         else:
             raise Exception('unknown phase')
         if self.use_sst :
-            print( len(full_outputs) )
-            print( len(full_outputs[0]) )
-            print(full_outputs[0][0].keys())
+            
+            x_rec = torch.cat([chunk['pred'] for chunk in outputs]).numpy()
+            x_gt = torch.cat([chunk['gt'] for chunk in outputs]).numpy()
+            x_oi = torch.cat([chunk['oi'] for chunk in outputs]).numpy()
+            sst_feat = torch.cat([chunk['sst_feat'] for chunk in outputs]).numpy()
+            print(x_rec.shape)
             
             #print(full_outputs[0][0]['gt'].shape)
             #print(full_outputs[0][0]['sst_feat'].shape)
