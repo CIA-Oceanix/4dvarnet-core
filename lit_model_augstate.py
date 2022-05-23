@@ -645,7 +645,7 @@ class LitModelAugstate(pl.LightningModule):
             #print(full_outputs[0][0]['sst_feat'].shape)
             
             print('create ds (all except sst_feat)',flush=True)
-            sst_feat_ds = self.build_test_xr_ds_sst([full_outputs[0][-1]], diag_ds=diag_ds)
+            sst_feat_ds = self.build_test_xr_ds_sst(full_outputs, diag_ds=diag_ds)
             print('done ... create ds (all except sst_feat)',flush=True)
             self.x_sst_feat_ssh = sst_feat_ds.data
         else:            
