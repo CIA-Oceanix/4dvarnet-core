@@ -499,8 +499,8 @@ def save_netcdf_with_sst(saved_path1, gt, obs, oi, pred, sst_feat, lon, lat, tim
                    'ssh_oi': (('time', 'lat', 'lon'), oi), \
                    'ssh_obs': (('time', 'lat', 'lon'), obs), \
                    'ssh_rec': (('time', 'lat', 'lon'), pred), \
-                   'sst_feat': (('time', 'feat', 'lat', 'lon'), sst_feat)}, \
-        coords={'lon': lon, 'lat': lat, 'time': time,'feat':np.arange(sst_feat.shape[1])})
+                   'sst_feat': (('time', 'feat', 'lat', 'lon'), sst_feat)})#, \
+    #    coords={'lon': lon, 'lat': lat, 'time': time,'feat':np.arange(sst_feat.shape[1])})
     
     #xrdata.time.attrs['units'] = time_units
     xrdata.to_netcdf(path=saved_path1, mode='w')
