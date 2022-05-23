@@ -214,18 +214,18 @@ class LitModelAugstate(pl.LightningModule):
         
         for _ in range(self.hparams.n_fourdvar_iter):
             print('..... iter forward %d'%_,flush=True)
-            _loss, out, state, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
             if ( phase == 'test ' ) & ( self.use_sst_obs ):
-                state_init = [None if s is None else s.detach() for s in state]
-                state_init = state_init[:-1]
+                _loss, out, state, _metrics,sst_feat = self.compute_loss(batch, phase=phase, state_init=state_init)
             else:
-                state_init = [None if s is None else s.detach() for s in state]
+                _loss, out, state, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
+                
+            state_init = [None if s is None else s.detach() for s in state]
             losses.append(_loss)
             metrics.append(_metrics)
         if ( phase == 'test ' ) & ( self.use_sst_obs ):
             print('..... end forward step',flush=True)
 
-            return losses, out, metrics, state[-1]
+            return losses, out, metrics, sst_feat
         else:            
             return losses, out, metrics
 
