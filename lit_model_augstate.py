@@ -637,8 +637,9 @@ class LitModelAugstate(pl.LightningModule):
         self.x_oi = self.test_xr_ds.oi.data
         self.x_rec = self.test_xr_ds.pred.data
         self.x_rec_ssh = self.x_rec
+        
+        print(self.obs_inp,flush=True)
 
-        print('..... sla_diag in',flush=True)
         md = self.sla_diag(t_idx=3, log_pref=log_pref)
         self.latest_metrics.update(md)
         self.logger.log_metrics(md, step=self.current_epoch)
@@ -655,7 +656,7 @@ class LitModelAugstate(pl.LightningModule):
                 save_netcdf(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh,
                          lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
             else:
-                if 1*0 :
+                if 1*1 :
                     def extract_seq(out,key,dw=20):
                         seq = torch.cat([chunk[key] for chunk in outputs]).numpy()
                         seq = seq[:,:,dw:seq.shape[2]-dw,dw:seq.shape[2]-dw]
