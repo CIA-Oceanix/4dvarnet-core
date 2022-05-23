@@ -666,18 +666,26 @@ class LitModelAugstate(pl.LightningModule):
             self.x_rec_ssh = x_rec
             self.x_sst_feat_ssh = sst_feat
             
-            print(x_rec.shape,flush=True)
-            print(diag_ds,flush=True)
+            with diag_ds.get_coords():
+                self.test_patch_coords = [
+                   diag_ds[i]
+                   for i in range(len(diag_ds))
+                ]
+            print( self.test_patch_coords )    
             
-            self.test_lat = diag_ds['lat']
-            print(self.test_lat)
-            
-            self.test_lon = diag_ds['lon']
-            print(self.test_lon)
-
-            self.test_dates = diag_ds['time']
-            
-            print(self.test_dates)
+            if 1*0 :
+                print(x_rec.shape,flush=True)
+                print(diag_ds,flush=True)
+                
+                self.test_lat = diag_ds['lat']
+                print(self.test_lat)
+                
+                self.test_lon = diag_ds['lon']
+                print(self.test_lon)
+    
+                self.test_dates = diag_ds['time']
+                
+                print(self.test_dates)
             
             if self.hparams.save_rec_netcdf == True :
                 path_save1 = self.logger.log_dir + f'/test_res_all.nc'
