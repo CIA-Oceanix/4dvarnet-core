@@ -645,6 +645,8 @@ class LitModelAugstate(pl.LightningModule):
         self.x_rec = self.test_xr_ds.pred.data
         self.x_rec_ssh = self.x_rec
         
+        print('..... Shape evaluated tensors: %dx%dx%d'%(self.x_gt.shape[0],self.x_gt.shape[1],self.x_gt.shape[2]))
+        
         self.test_coords = self.test_xr_ds.coords
         
         self.test_lat = self.test_coords['lat'].data
