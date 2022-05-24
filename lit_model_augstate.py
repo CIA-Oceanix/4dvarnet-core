@@ -470,27 +470,27 @@ class LitModelAugstate(pl.LightningModule):
         ]
 
         fin_ds = xr.merge([xr.zeros_like(ds[['time','lat', 'lon']]) for ds in dses])
-        print( fin_ds )
-        print('_______________________')
 
         fin_ds = fin_ds.assign(
             {'weight': (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
         )
-        print( fin_ds.weight.data.shape )
-        print('_______________________')
         
         for v in dses[0]:
             fin_ds = fin_ds.assign(
                 {v: (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
             )
 
-        w = self.patch_weight.detach().cpu()
+        # set the weight to a binadry time window center  
         w = np.zeros_like( self.patch_weight.detach().cpu() )
         w[int(self.hparams.dT/2),:,:] = 1.
+        w = w * self.patch_weight.detach().cpu()
+        
         print(w.shape)
-        print(w[:self.hparams.dT,30,30])
-        print(w[:self.hparams.dT,0,0])
-        print(w[:self.hparams.dT,-1,-1])
+        print(w[3,15:25,30])
+        print(w[3,215:225,30])
+        print(w[3,30,15:25])
+        print(w[3,30,215:225])
+        
         for ds in dses:
             ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)            
             #xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.gt.dims)
