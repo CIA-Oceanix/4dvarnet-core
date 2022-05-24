@@ -4,7 +4,7 @@
 
 entrypoint:
    weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/'
-#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_38/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=46-val_loss=0.2098.ckpt'
+   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_38/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=46-val_loss=0.2098.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_24/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=02-val_loss=0.2179.ckpt'
 #
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_15/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-linear_02-grad_05_03_150-epoch=141-val_loss=0.2899.ckpt'
@@ -12,7 +12,7 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_18/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-linear-bn_03-grad_05_03_150-epoch=128-val_loss=0.2984.ckpt'#
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_18/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-linear-bn_05-grad_05_03_150-epoch=124-val_loss=0.2938.ckpt'#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_20/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_05-grad_05_03_150-epoch=134-val_loss=0.2658.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_19/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-linear-bn_10-grad_05_03_150-epoch=125-val_loss=0.2911.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_19/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-linear-bn_20-grad_05_03_150-epoch=127-val_loss=0.2869.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_19/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-linear-bn_20-grad_05_03_150-epoch=127-val_loss=0.2869.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_20/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_10-grad_05_03_150-epoch=124-val_loss=0.2444.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_21/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=121-val_loss=0.2291.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_14/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-sstobs-nolinear-tanh-bn_10-grad_05_03_150-epoch=85-val_loss=0.2202.ckpt'
@@ -21,7 +21,7 @@ entrypoint:
 # Et là tu charges la config d'où tu veux partir:
 
 params:
-  sst_model: 'linear-bn'#'linear'#'nolinear-tanh-bn'# 
+  sst_model: 'nolinear-tanh-bn'#'linear-bn'#'linear'# 
   patch_weight:
     _target_: lit_model_augstate.get_cropped_hanning_mask
     patch_size: ${datamodule.slice_win}
