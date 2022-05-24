@@ -4,7 +4,7 @@
 
 entrypoint:
    weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_21/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=120-val_loss=0.2282.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_21/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=120-val_loss=0.2282.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_20/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_10-grad_05_03_150-epoch=124-val_loss=0.2444.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_21/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_10-grad_05_03_150-epoch=124-val_loss=0.2444.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_21/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=105-val_loss=0.2295.ckpt'
@@ -13,12 +13,12 @@ entrypoint:
 # Et là tu charges la config d'où tu veux partir:
 
 params:
-  sst_model: 'nolinear-tanh-bn' #'nolinear-tanh' #'nolinear-tanh-bn' ?? #
+  sst_model: 'nolinear-tanh' #'nolinear-tanh-bn' #'nolinear-tanh-bn' ?? #
   k_n_grad: 3
   n_grad: 5
   dT: 7
   DimAE: 50
-  dim_obs_sst_feat: 20
+  dim_obs_sst_feat: ??#20
   dim_grad_solver: 150
   phi_param: 'unet1'
   ckpt_name: 'modelSLAwSSTGF-{epoch:02d}-{val_loss:.4f}'
