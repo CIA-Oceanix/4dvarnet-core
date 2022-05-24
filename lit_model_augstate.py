@@ -653,6 +653,8 @@ class LitModelAugstate(pl.LightningModule):
         self.test_lon = self.test_coords['lon'].data
         self.test_dates = self.test_coords['time'].data
 
+        print(self.test_dates)
+
         md = self.sla_diag(t_idx=3, log_pref=log_pref)
         self.latest_metrics.update(md)
         self.logger.log_metrics(md, step=self.current_epoch)
@@ -955,6 +957,13 @@ if __name__ =='__main__':
     # cfg = get_cfg("xp_aug/xp_repro/quentin_repro")
     print(OmegaConf.to_yaml(cfg))
     lit_mod_cls = get_class(cfg.lit_mod_cls)
+    
+    mod = _mod or self._get_model(ckpt_path=ckpt)
+
+    trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs)
+    trainer.test(mod, dataloaders=self.dataloaders[dataloader])
+
+    
     runner = hydra_main.FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls)
     mod = runner.test(ckpt)
     mod.test_figs['psd']
