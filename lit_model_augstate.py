@@ -471,10 +471,13 @@ class LitModelAugstate(pl.LightningModule):
 
         fin_ds = xr.merge([xr.zeros_like(ds[['time','lat', 'lon']]) for ds in dses])
         print( fin_ds )
+        print('_______________________')
 
         fin_ds = fin_ds.assign(
             {'weight': (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
         )
+        print( fin_ds.weight.data.shape )
+        print('_______________________')
         for v in dses[0]:
             fin_ds = fin_ds.assign(
                 {v: (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
