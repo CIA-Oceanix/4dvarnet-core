@@ -491,6 +491,9 @@ class LitModelAugstate(pl.LightningModule):
             fin_ds = fin_ds + _ds
 
         print( fin_ds )
+        print( fin_ds.weight.data[2:4,30,30] )
+        print( fin_ds.weight.data[42:44,30,30] )
+        
         print('_______________________')
 
         return (
