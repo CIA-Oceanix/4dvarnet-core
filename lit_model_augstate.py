@@ -665,7 +665,7 @@ class LitModelAugstate(pl.LightningModule):
         
         self.test_lat = self.test_coords['lat'].data
         self.test_lon = self.test_coords['lon'].data
-        self.test_dates = self.test_coords['time'].data[2:42]
+        self.test_dates = self.test_coords['time'].data#[2:42]
 
         print(len(self.test_dates))
 
