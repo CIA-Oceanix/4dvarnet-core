@@ -650,7 +650,7 @@ class LitModelAugstate(pl.LightningModule):
         else:
             self.test_xr_ds = self.build_test_xr_ds_sst(full_outputs, diag_ds=diag_ds)
 
-        print(self.test_xr_ds.gt.data.shape)
+        #print(self.test_xr_ds.gt.data.shape)
 
         self.x_gt = self.test_xr_ds.gt.data#[2:42,:,:]
         self.obs_inp = self.test_xr_ds.obs_inp.data#[2:42,:,:]

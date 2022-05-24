@@ -647,8 +647,8 @@ def get_psd_score(x_t, x, ref, with_fig=False):
         psd_score = 1 - psd_err / psd_x_t
         return psd_score
 
-    print(ref.shape)
-    print(x.shape)
+    #print(ref.shape)
+    #print(x.shape)
 
     ref_score = psd_score(ref)
     model_score = psd_score(x)
