@@ -170,7 +170,7 @@ class LitModelAugstate(pl.LightningModule):
         self.use_sst_obs = self.hparams.use_sst_obs if hasattr(self.hparams, 'use_sst_obs') else False
         self.use_sst_state = self.hparams.use_sst_state if hasattr(self.hparams, 'use_sst_state') else False
         self.aug_state = self.hparams.aug_state if hasattr(self.hparams, 'aug_state') else False
-        self.save_rec_netcdf = self.haprams.save_rec_netcdf if hasattr(self.hparams, 'save_rec_netcdf') else './'
+        self.save_rec_netcdf = self.hparams.save_rec_netcdf if hasattr(self.hparams, 'save_rec_netcdf') else './'
 
         self.model = self.create_model()
         self.model_LR = ModelLR()
