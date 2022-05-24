@@ -486,12 +486,6 @@ class LitModelAugstate(pl.LightningModule):
         w[int(self.hparams.dT/2),:,:] = 1.
         w = w * self.patch_weight.detach().cpu().numpy()
         
-        print(w.shape)
-        print(w[3,15:25,30])
-        print(w[3,215:225,30])
-        print(w[3,30,15:25])
-        print(w[3,30,215:225])
-        
         for ds in dses:
             ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)            
             #xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.gt.dims)
@@ -501,8 +495,6 @@ class LitModelAugstate(pl.LightningModule):
             fin_ds = fin_ds + _ds
 
         #fin_ds.weight.data = ( fin_ds.weight.data > 1. ).astype(float)
-        print( fin_ds )        
-        print('_______________________')
 
         return (
             (fin_ds.drop('weight') / fin_ds.weight)
@@ -666,15 +658,13 @@ class LitModelAugstate(pl.LightningModule):
         self.x_rec = self.test_xr_ds.pred.data#[2:42,:,:]
         self.x_rec_ssh = self.x_rec
         
-        print('..... Shape evaluated tensors: %dx%dx%d'%(self.x_gt.shape[0],self.x_gt.shape[1],self.x_gt.shape[2]))
+        #print('..... Shape evaluated tensors: %dx%dx%d'%(self.x_gt.shape[0],self.x_gt.shape[1],self.x_gt.shape[2]))
         
         self.test_coords = self.test_xr_ds.coords
         
         self.test_lat = self.test_coords['lat'].data
         self.test_lon = self.test_coords['lon'].data
         self.test_dates = self.test_coords['time'].data#[2:42]
-
-        print(len(self.test_dates))
 
         md = self.sla_diag(t_idx=3, log_pref=log_pref)
         self.latest_metrics.update(md)
