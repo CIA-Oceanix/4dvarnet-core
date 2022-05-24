@@ -639,10 +639,10 @@ class LitModelAugstate(pl.LightningModule):
         else:
             self.test_xr_ds = self.build_test_xr_ds_sst(full_outputs, diag_ds=diag_ds)
 
-        self.x_gt = self.test_xr_ds.gt.data
-        self.obs_inp = self.test_xr_ds.obs_inp.data
-        self.x_oi = self.test_xr_ds.oi.data
-        self.x_rec = self.test_xr_ds.pred.data
+        self.x_gt = self.test_xr_ds.gt.data[2:42,:,:]
+        self.obs_inp = self.test_xr_ds.obs_inp.data[2:42,:,:]
+        self.x_oi = self.test_xr_ds.oi.data[2:42,:,:]
+        self.x_rec = self.test_xr_ds.pred.data[2:42,:,:]
         self.x_rec_ssh = self.x_rec
         
         print('..... Shape evaluated tensors: %dx%dx%d'%(self.x_gt.shape[0],self.x_gt.shape[1],self.x_gt.shape[2]))
@@ -651,7 +651,7 @@ class LitModelAugstate(pl.LightningModule):
         
         self.test_lat = self.test_coords['lat'].data
         self.test_lon = self.test_coords['lon'].data
-        self.test_dates = self.test_coords['time'].data
+        self.test_dates = self.test_coords['time'].data[2:42]
 
         print(len(self.test_dates))
 
