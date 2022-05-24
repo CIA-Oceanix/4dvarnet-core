@@ -481,13 +481,14 @@ class LitModelAugstate(pl.LightningModule):
             )
 
         # set the weight to a binadry (time window center  + spatial bounding box)
-        if False:
+        if True :
             print(".... Set weight matrix to binary mask for final outputs")
             w = np.zeros_like( self.patch_weight.detach().cpu().numpy() )
             w[int(self.hparams.dT/2),:,:] = 1.
             w = w * self.patch_weight.detach().cpu().numpy()
         else:
             w = self.patch_weight.detach().cpu().numpy()
+            print('..... weight mask ')
             print(w[0:7,30,30])
             
         for ds in dses:
