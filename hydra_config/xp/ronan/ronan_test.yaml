@@ -16,6 +16,9 @@ entrypoint:
 
 params:
   sst_model: 'nolinear-tanh-bn'# 'linear'#'linear-bn'#
+  patch_weight:
+    crop:
+      time: 1
   k_n_grad: 3
   n_grad: 5
   dT: 7
