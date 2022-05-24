@@ -478,6 +478,7 @@ class LitModelAugstate(pl.LightningModule):
         )
         print( fin_ds.weight.data.shape )
         print('_______________________')
+        
         for v in dses[0]:
             fin_ds = fin_ds.assign(
                 {v: (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
@@ -488,6 +489,9 @@ class LitModelAugstate(pl.LightningModule):
             xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.gt.dims)
             _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
             fin_ds = fin_ds + _ds
+
+        print( fin_ds )
+        print('_______________________')
 
         return (
             (fin_ds.drop('weight') / fin_ds.weight)
