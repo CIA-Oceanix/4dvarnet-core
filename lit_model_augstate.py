@@ -490,7 +490,7 @@ class LitModelAugstate(pl.LightningModule):
             _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
             fin_ds = fin_ds + _ds
 
-        fin_ds.weight.data = ( fin_ds.weight.data > 1. ).astype(float)
+        #fin_ds.weight.data = ( fin_ds.weight.data > 1. ).astype(float)
         print( fin_ds )
         print( fin_ds.weight.data[2:4,30,30] )
         print( fin_ds.weight.data[42:44,30,30] )
