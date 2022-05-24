@@ -653,10 +653,10 @@ class LitModelAugstate(pl.LightningModule):
 
         print(self.test_xr_ds.gt.data.shape)
 
-        self.x_gt = self.test_xr_ds.gt.data[2:42,:,:]
-        self.obs_inp = self.test_xr_ds.obs_inp.data[2:42,:,:]
-        self.x_oi = self.test_xr_ds.oi.data[2:42,:,:]
-        self.x_rec = self.test_xr_ds.pred.data[2:42,:,:]
+        self.x_gt = self.test_xr_ds.gt.data#[2:42,:,:]
+        self.obs_inp = self.test_xr_ds.obs_inp.data#[2:42,:,:]
+        self.x_oi = self.test_xr_ds.oi.data#[2:42,:,:]
+        self.x_rec = self.test_xr_ds.pred.data#[2:42,:,:]
         self.x_rec_ssh = self.x_rec
         
         print('..... Shape evaluated tensors: %dx%dx%d'%(self.x_gt.shape[0],self.x_gt.shape[1],self.x_gt.shape[2]))
