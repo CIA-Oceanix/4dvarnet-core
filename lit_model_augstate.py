@@ -485,12 +485,12 @@ class LitModelAugstate(pl.LightningModule):
             )
 
         w = self.patch_weight.detach().cpu()
-        print(w[2:4,30,30])
-        print(w[42:44,30,30])
+        print(w[0:6,30,30])
+        print(w[40:46,30,30])
         for ds in dses:
             ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)            
             xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.gt.dims)
-            print(xr_weight) 
+            #print(xr_weight) 
             _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
             fin_ds = fin_ds + _ds
 
