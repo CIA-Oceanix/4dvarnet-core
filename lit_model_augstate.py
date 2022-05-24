@@ -486,7 +486,9 @@ class LitModelAugstate(pl.LightningModule):
             w = np.zeros_like( self.patch_weight.detach().cpu().numpy() )
             w[int(self.hparams.dT/2),:,:] = 1.
             w = w * self.patch_weight.detach().cpu().numpy()
-        
+        else:
+            w = self.patch_weight.detach().cpu().numpy()
+            
         for ds in dses:
             ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)            
             #xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.gt.dims)
