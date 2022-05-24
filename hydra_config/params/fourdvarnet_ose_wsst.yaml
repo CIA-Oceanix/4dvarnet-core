@@ -1,14 +1,14 @@
 files_cfg:
-  oi_path: ${file_paths.oi_path}
+  oi_path: ${file_paths.oi_ose_osse_nadswot_path}
   oi_var: ssh
   oi_decode: false
-  obs_mask_path: ${file_paths.obs_mask_path}
+  obs_mask_path: ${file_paths.obs_mask_ose_osse_nadswot_path}
   obs_mask_var: ssh
   obs_mask_decode: false
-  gt_path: ${file_paths.gt_path}
+  gt_path: ${file_paths.gt_ose_osse_path}
   gt_var: ssh
   gt_decode: false
-  sst_path: ${file_paths.sst_path}
+  sst_path: ${file_paths.sst_ose_osse_path}
   sst_var: sst
   sst_decode: false
 iter_update:

@@ -1,0 +1,12 @@
+# @package _global_
+xp_name: oi_gp_spde_learn_params
+datamodule:
+  resize_factor: 1
+params:
+  estim_parameters: true
+defaults:
+  - /params: fourdvarnet_oi_gp
+  - /domain@datamodule.dim_range: gp
+  - /training: oi_gp_spde
+  - _self_
+

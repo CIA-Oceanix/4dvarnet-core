@@ -118,6 +118,7 @@ def DiffOperator(Nx, Ny, dx, dy, m, H, kappa):
     ## Tous les voisins
     k = torch.cat((k1, k2, k3, k4, k5, k6, k7, k8, k9),dim=1)
     return(torch.sparse.FloatTensor(k[0:2].long(), k[2], torch.Size([nbNodes,nbNodes])))
+    #return torch.sparse_coo_tensor(k[0:2].long(), k[2], torch.Size([nbNodes,nbNodes]))
 
 
 def DiffOperator_Diffusion(Nx, Ny, dx, dy, H, kappa):

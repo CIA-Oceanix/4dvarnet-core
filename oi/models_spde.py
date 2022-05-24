@@ -44,15 +44,27 @@ class encode_param_CNN(torch.nn.Module):
         self.n_t, self.n_y, self.n_x  = shape_data
 
         # Conv2D layers
+        self.pool1 = torch.nn.MaxPool2d(2, 2)
         self.conv1   = torch.nn.Conv2d(self.n_t,dim_ae,(3,3),padding=1,bias=False)
+        self.pool2 = torch.nn.MaxPool2d(2, 2)
         self.conv2   = torch.nn.Conv2d(dim_ae,2*dim_ae,(3,3),padding=1,bias=False)
+        self.pool3 = torch.nn.MaxPool2d(4, 4)
         self.conv3   = torch.nn.Conv2d(2*dim_ae,6*self.n_t,(3,3),padding=1,bias=False)
+        self.conv_t1 = torch.nn.ConvTranspose2d(6*self.n_t, 6*self.n_t, 5, stride=4)
+        self.conv_t2 = torch.nn.ConvTranspose2d(6*self.n_t, 6*self.n_t, 2, stride=2)
+        self.conv_t3 = torch.nn.ConvTranspose2d(6*self.n_t, 6*self.n_t, 2, stride=2)
 
     def forward(self, x):
         # input shape (b,t,y,x) --> output shape (b,6*t,y,x)
-        x = self.conv1(F.relu(x))
-        x = self.conv2(F.relu(x))
-        x = self.conv3(x)
+        x = self.pool1(x)
+        x = F.relu(self.conv1(x))
+        x = self.pool2(x)
+        x = F.relu(self.conv2(x))
+        x = self.pool3(x)
+        x = F.relu(self.conv3(x))
+        x = F.relu(self.conv_t1(x))
+        x = F.relu(self.conv_t2(x))
+        x = self.conv_t3(x)
         return x
 
 class decode_param_CNN(torch.nn.Module):
@@ -210,7 +222,7 @@ class Prior_SPDE(torch.nn.Module):
 
 class Phi_r(torch.nn.Module):
 
-    def __init__(self, shape_data, diff_only=False, square_root=False):
+    def __init__(self, shape_data, diff_only=False, square_root=False, given_parameters=False, nc="spde_path.nc"):
         super().__init__()
         self.diff_only = diff_only
         self.encoder = encode_param_CNN(shape_data,10)
@@ -220,20 +232,49 @@ class Phi_r(torch.nn.Module):
             self.decoder = decode_param_CNN_diff(shape_data)
         self.operator_spde = Prior_SPDE(shape_data,diff_only=self.diff_only)
         self.square_root = square_root
+        self.given_parameters = not given_parameters
+        if self.given_parameters==True:
+            # SPDE diffusion parameters
+            nb_nodes = np.prod(shape_data[1:])
+            H = torch.empty((2,2,nb_nodes),requires_grad=True).to(device)
+            H11 = torch.reshape(torch.transpose(torch.Tensor(nc.H11.values),0,1),(nb_nodes,)).to(device)
+            H12 = torch.reshape(torch.transpose(torch.Tensor(nc.H12.values),0,1),(nb_nodes,)).to(device)
+            H22 = torch.reshape(torch.transpose(torch.Tensor(nc.H22.values),0,1),(nb_nodes,)).to(device)
+            H[0,0,:] = H22
+            H[0,1,:] = H12
+            H[1,0,:] = H12
+            H[1,1,:] = H11
+            self.params = [1./3, None, H] 
+            self.Q = self.operator_spde(.33,None,torch.unsqueeze(H,dim=0),
+                                     square_root=self.square_root)[0]
 
-    def forward(self, x, kappa, m, H):
+    def forward(self, x, params, estim_params=True):
         x_new = list()
         n_b, n_t, n_y, n_x = x.shape
         # state space -> parameter space
-        params = self.encoder(x)
-        if self.diff_only==False:
-            kappa, m, H = self.decoder(params)
+        if self.given_parameters==False:
+            if estim_params==True:
+                params = self.encoder(x)
+                if self.diff_only==False:
+                    kappa, m, H = self.decoder(params)
+                else:
+                    kappa = .33
+                    m = None
+                    H = self.decoder(params)
+            else:
+                kappa = params[0]
+                m = params[1]
+                H = params[2]
         else:
-            kappa = .33
-            m = None
-            H = self.decoder(params)
+            kappa = self.params[0]
+            m = self.params[1]
+            H = torch.stack(n_b*[self.params[2]])
+
         # SPDE prior (sparse Q)
-        Q = self.operator_spde(kappa, m, H, square_root=self.square_root)
+        if self.given_parameters==False:
+            Q = self.operator_spde(kappa, m, H, square_root=self.square_root)
+        else:
+            Q = torch.stack(n_b*[self.Q])
         x_new = list()
         for i in range(n_b):
             x_ = torch.sparse.mm(Q[i],
@@ -246,59 +287,26 @@ class Phi_r(torch.nn.Module):
             else:
                 x_new.append(torch.permute(torch.reshape(x_,(n_t,n_x,n_y)),(0,2,1)))
         x = torch.stack(x_new)
-        if self.diff_only==False:
-            kappa = torch.reshape(kappa,(n_b,1,n_x,n_y,n_t))
-            m = torch.reshape(m,(n_b,2,n_x,n_y,n_t))
-            H = torch.reshape(H,(n_b,2,2,n_x,n_y,n_t))
-            return x, [kappa, m, H]
+        if self.given_parameters==False:
+            if estim_params==True:
+                if self.diff_only==False:
+                    kappa = torch.reshape(kappa,(n_b,1,n_x,n_y,n_t))
+                    m = torch.reshape(m,(n_b,2,n_x,n_y,n_t))
+                    H = torch.reshape(H,(n_b,2,2,n_x,n_y,n_t))
+                else:
+                    H = torch.reshape(H,(n_b,2,2,n_x,n_y))
         else:
-            H = torch.reshape(H,(n_b,2,2,n_x,n_y))
-            return x, [H]
-
-class Phi_r2(torch.nn.Module):
-    def __init__(self, nc,  shape_data, diff_only=False, square_root=False):
-        super().__init__()
-        self.diff_only = diff_only
-        self.operator_spde = Prior_SPDE(shape_data,diff_only=self.diff_only)
-        # SPDE diffusion parameters
-        nb_nodes = np.prod(shape_data[1:])
-        H = torch.empty((2,2,nb_nodes)).to(device)
-        H11 = torch.reshape(torch.transpose(torch.Tensor(nc.H11.values),0,1),(nb_nodes,)).to(device)
-        H12 = torch.reshape(torch.transpose(torch.Tensor(nc.H12.values),0,1),(nb_nodes,)).to(device)
-        H22 = torch.reshape(torch.transpose(torch.Tensor(nc.H22.values),0,1),(nb_nodes,)).to(device)
-        H[0,0,:] = H22
-        H[0,1,:] = H12
-        H[1,0,:] = H12
-        H[1,1,:] = H11
-        self.H = H
-        self.square_root = square_root
-        self.op = self.operator_spde(.33,None,torch.unsqueeze(H,dim=0),
-                                     square_root=self.square_root)[0]
-
-    def forward(self, x, kappa, m, H):
-        x_new = list()
-        n_b, n_t, n_y, n_x = x.shape
-        for i in range(n_b):
-            x_ = torch.sparse.mm(self.op,
-                                 torch.reshape(torch.permute(x[i],(0,2,1)),
-                                               (n_t*n_x*n_y,1)))
-            if self.square_root==False:
-                x_ = torch.matmul(torch.reshape(torch.permute(x[i],(0,2,1)),
-                                               (1,n_t*n_x*n_y)),x_)
-                x_new.append(x_[0,0])
+            if self.diff_only==False:
+                kappa = torch.stack(n_b*[self.params[0]])
+                m = torch.stack(n_b*[self.params[1]])
+                H = torch.stack(n_b*[self.params[2]])
+                kappa = torch.reshape(kappa,(n_b,1,n_x,n_y,n_t))
+                m = torch.reshape(m,(n_b,2,n_x,n_y,n_t))
+                H = torch.reshape(H,(n_b,2,2,n_x,n_y,n_t))
             else:
-                x_new.append(torch.permute(torch.reshape(x_,(n_t,n_x,n_y)),(0,2,1)))
-        x = torch.stack(x_new)
-        if self.diff_only==False:
-            kappa = torch.reshape(kappa,(n_b,1,n_x,n_y,n_t))
-            m = torch.reshape(m,(n_b,2,n_x,n_y,n_t))
-            H = torch.reshape(H,(n_b,2,2,n_x,n_y,n_t))
-            return x, [kappa, m, H]
-        else:
-            with torch.no_grad():
-                H = torch.stack(n_b*[self.H])
+                H = torch.stack(n_b*[self.params[2]])
                 H = torch.reshape(H,(n_b,2,2,n_x,n_y))
-            return x, [H]
+        return x, [kappa,m,H]
 
 class Phi_r3(torch.nn.Module):
     def __init__(self, shape_data, diff_only=False):
