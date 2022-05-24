@@ -18,6 +18,8 @@ entrypoint:
 params:
   sst_model: 'nolinear-tanh-bn'# 'linear'#'linear-bn'#
   patch_weight:
+    _target_: lit_model_augstate.get_cropped_hanning_mask
+    patch_size: ${datamodule.slice_win}
     crop:
       time: 3
   k_n_grad: 3
