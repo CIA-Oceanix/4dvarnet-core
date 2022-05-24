@@ -486,7 +486,7 @@ class LitModelAugstate(pl.LightningModule):
 
         w = self.patch_weight.detach().cpu()
         w = np.zeros_like( self.patch_weight.detach().cpu() )
-        w[int(self.dT/2),:,:] = 1.
+        w[int(self.hparams.dT/2),:,:] = 1.
         print(w.shape)
         print(w[:self.hparams.dT,30,30])
         print(w[:self.hparams.dT,0,0])
