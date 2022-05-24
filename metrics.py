@@ -667,8 +667,8 @@ def get_psd_score(x_t, x, ref, with_fig=False):
     )
 
     try:
-        print('here')
-        print(psd_plot_data.wl.data)
+        #print('here')
+        #print(psd_plot_data.wl.data)
         spatial_resolution_model = (
             xr.DataArray(
                 psd_plot_data.wl.data,
