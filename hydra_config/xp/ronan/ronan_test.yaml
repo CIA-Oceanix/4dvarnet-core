@@ -26,5 +26,6 @@ params:
   path_save_netcdf: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/'
   ckpt_name: 'modelSLAwSSTGF-unet1-{epoch:02d}-{val_loss:.4f}'
 defaults:
-- /xp/xp_aug/xp_ronan/full_core_hanning_sst
+#- /xp/xp_aug/xp_ronan/full_core_hanning_sst
+- /xp/xp_aug/xp_repro/full_core_sst
 - _self_
