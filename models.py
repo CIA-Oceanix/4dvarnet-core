@@ -219,6 +219,64 @@ class Model_HwithSSTBN(torch.nn.Module):
 
         return [dyout, dyout1]
 
+class Model_HwithSSTBNandAtt(torch.nn.Module):
+    def __init__(self,shape_data, dT=5,dim=5,width_kernel=3,padding_mode='reflect'):
+        super(Model_HwithSSTBN, self).__init__()
+
+        self.dim_obs = 2
+        self.dim_obs_channel = np.array([shape_data, dim])
+
+        self.w_kernel = width_kernel
+
+        self.bn_feat = torch.nn.BatchNorm2d(self.dim_obs_channel[1],track_running_stats=False)
+
+        self.conv11 = torch.nn.Conv2d(shape_data, self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+        self.conv21 = torch.nn.Conv2d(dT, self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+        #self.conv_m = torch.nn.Conv2d(dT, self.dim_obs_channel[1], (3, 3), padding=1, bias=True,padding_mode=padding_mode)
+        self.sigmoid = torch.nn.Sigmoid()  # torch.nn.Softmax(dim=1)
+
+        self.conv_m   = torch.nn.Conv2d(self.dimObsChannel[1],self.dim_obs_channel[1],(1,1),padding=0,bias=True,padding_mode=padding_mode)
+        
+        self.lam_obs_sst  = torch.nn.Parameter(torch.Tensor(1. * np.ones((1,self.dim_obs_channel[1]))))
+        self.thr_obs_sst  = torch.nn.Parameter(torch.Tensor(0.3 * np.ones((1,self.dim_obs_channel[1]))))
+
+    def extract_sst_feature(self,y1):
+        y_feat = self.bn_feat( self.conv21(y1) )
+       
+        return y_feat
+        
+    def extract_state_feature(self,x):
+        x_feat = self.bn_feat( self.conv11(x) )
+        
+        return x_feat
+
+    def compute_w(self,dyout1,r=1.):
+        for kk in range(0,self.dim_obs_channel[1]):
+            wkk = ( self.lam_obs_sst[0,kk] * dyout1[:,kk,:,:] ) **2 - self.thr_obs_sst[0,kk]**2
+            wkk = wkk.view(-1,1,dyout1.size(2),dyout1.size(3))
+            
+            if kk == 0 :
+                w = 1. * wkk
+            else:
+                w = torch.cat( (w,wkk) , dim = 1)
+                
+        w = self.sigmoid( self.conv_m( - F.relu( r * w ) ) )
+
+    def forward(self, x, y, mask):
+        dyout = (x - y[0]) * mask[0]
+
+        y1 = y[1] * mask[1]
+                
+        x_feat = self.extract_state_feature(x)
+        y_feat = self.extract_sst_feature(y1)
+        dyout1 = x_feat - y_feat
+
+        w = self.compute_w(dyout1)
+        
+        dyout1 = dyout1 * w
+
+        return [dyout, dyout1]
+
 class Model_HwithSSTBN_nolin_tanh(torch.nn.Module):
     def __init__(self,shape_data, dT=5,dim=5,width_kernel=3,padding_mode='reflect'):
         super(Model_HwithSSTBN_nolin_tanh, self).__init__()
