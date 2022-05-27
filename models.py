@@ -273,6 +273,9 @@ class Model_HwithSSTBNandAtt(torch.nn.Module):
 
         w = self.compute_w( dyout1 )
         
+        print(w)
+        print(w.size())
+        
         dyout1 = dyout1 * w
 
         return [dyout, dyout1]
