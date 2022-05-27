@@ -250,7 +250,7 @@ class Model_HwithSSTBNandAtt(torch.nn.Module):
         
         return x_feat
 
-    def compute_w(self,dyout1,r=1.):
+    def compute_w(self,dyout1):
         for kk in range(0,self.dim_obs_channel[1]):
             wkk = ( self.lam_obs_sst[0,kk] * dyout1[:,kk,:,:] ) **2 - self.thr_obs_sst[0,kk]**2
             wkk = wkk.view(-1,1,dyout1.size(2),dyout1.size(3))
@@ -260,7 +260,7 @@ class Model_HwithSSTBNandAtt(torch.nn.Module):
             else:
                 w = torch.cat( (w,wkk) , dim = 1)
                 
-        w = self.sigmoid( self.conv_m( - F.relu( r * w ) ) )
+        w = self.sigmoid( self.conv_m( - F.relu( w ) ) )
 
     def forward(self, x, y, mask):
         dyout = (x - y[0]) * mask[0]
@@ -271,7 +271,7 @@ class Model_HwithSSTBNandAtt(torch.nn.Module):
         y_feat = self.extract_sst_feature(y1)
         dyout1 = x_feat - y_feat
 
-        w = self.compute_w(dyout1)
+        w = self.compute_w( dyout1 )
         
         dyout1 = dyout1 * w
 
