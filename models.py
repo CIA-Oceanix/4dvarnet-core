@@ -235,7 +235,7 @@ class Model_HwithSSTBNandAtt(torch.nn.Module):
         #self.conv_m = torch.nn.Conv2d(dT, self.dim_obs_channel[1], (3, 3), padding=1, bias=True,padding_mode=padding_mode)
         self.sigmoid = torch.nn.Sigmoid()  # torch.nn.Softmax(dim=1)
 
-        self.conv_m   = torch.nn.Conv2d(self.dimObsChannel[1],self.dim_obs_channel[1],(1,1),padding=0,bias=True,padding_mode=padding_mode)
+        self.conv_m   = torch.nn.Conv2d(self.dim_obs_channel[1],self.dim_obs_channel[1],(1,1),padding=0,bias=True,padding_mode=padding_mode)
         
         self.lam_obs_sst  = torch.nn.Parameter(torch.Tensor(1. * np.ones((1,self.dim_obs_channel[1]))))
         self.thr_obs_sst  = torch.nn.Parameter(torch.Tensor(0.3 * np.ones((1,self.dim_obs_channel[1]))))
