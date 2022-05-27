@@ -85,6 +85,7 @@ class FourDVarNetHydraRunner:
             mod = self.lit_cls.load_from_checkpoint(ckpt_path,
                                                     hparam=self.cfg,
                                                     strict=False,
+                                                    test_domain=self.cfg.test_domain,
                                                     mean_Tr=self.mean_Tr,
                                                     mean_Tt=self.mean_Tt,
                                                     mean_Val=self.mean_Val,
@@ -101,6 +102,7 @@ class FourDVarNetHydraRunner:
                                var_Tr=self.var_Tr,
                                var_Tt=self.var_Tt,
                                var_Val=self.var_Val,
+                               test_domain=self.cfg.test_domain,
                                )
         return mod
 

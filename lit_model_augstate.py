@@ -293,7 +293,7 @@ class LitModelAugstate(pl.LightningModule):
 
     def validation_epoch_end(self, outputs):
         print(f'epoch end {self.global_rank} {len(outputs)}')
-        if (self.current_epoch + 1) % self.hparams.val_diag_freq == 0:
+        if  (self.current_epoch + 1) % self.hparams.val_diag_freq == 0:
             return self.diag_epoch_end(outputs, log_pref='val')
 
 
@@ -433,17 +433,10 @@ class LitModelAugstate(pl.LightningModule):
         path_save4 = self.logger.log_dir + '/SNR.png'
         snr_fig = plot_snr(self.x_gt, self.x_oi, self.x_rec, path_save4)
         self.test_figs['snr'] = snr_fig
-
         self.logger.experiment.add_figure(f'{log_pref} SNR', snr_fig, global_step=self.current_epoch)
-        try:
-            psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
-            psd_fig = metrics.plot_psd_score(psd_ds)
-        except Exception as e:
-            print(f'Failed to compute lambdas because of {e}')
-            psd_ds, lamb_x, lamb_t = None, np.nan, np.nan
-            psd_fig, _ = plt.subplots()
-            plt.close()
 
+        psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
+        psd_fig = metrics.plot_psd_score(psd_ds)
         self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
         self.test_figs['psd'] = psd_fig
 
@@ -499,7 +492,9 @@ class LitModelAugstate(pl.LightningModule):
         # display map
         md = self.sla_diag(t_idx=3, log_pref=log_pref)
         self.latest_metrics.update(md)
+        print('I am here')
         self.logger.log_metrics(md, step=self.current_epoch)
+        print('I am here')
 
     def teardown(self, stage='test'):
         if self.logger is not None:

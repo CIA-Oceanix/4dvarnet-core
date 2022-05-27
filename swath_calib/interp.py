@@ -124,11 +124,8 @@ def nanmod(nda, m):
 def stack_passes(sen_ds, tgt_len):
     passes = []
     (
-        sen_ds
-        .reset_index('time')
-        .rename({'time': 'idx'})
-        .rename({'time_': 'time'})
-        .groupby('ch_nb')
+        sen_ds.reset_index('time').rename({'time': 'idx'})
+        .rename({'time_': 'time'}).groupby('ch_nb')
         .apply(lambda g: passes.append(
             g.pad(idx=(0, tgt_len - g.dims['idx']), constant_values=np.nan)) or g)
     )
