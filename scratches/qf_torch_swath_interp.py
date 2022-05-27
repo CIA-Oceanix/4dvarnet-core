@@ -30,25 +30,18 @@ import models
 import solver
 import functools
 import importlib
+import numcodecs
+import torch.nn.functional as F
+numcodecs.blosc.use_threads = False
 importlib.reload(solver)
-fp = 'dgx_ifremer'
-cfgn = 'qxp20_swot_sst'
-cfgn = 'xp_aug/xp_repro/full_core_hanning'
-OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
-cfg = utils.get_cfg(f'{cfgn}')
-overrides = [
-    # '+datamodule.dl_kwargs.shuffle=False',
-    f'file_paths={fp}',
-    'params.files_cfg.obs_mask_path=${file_paths.new_noisy_swot}',
-    # 'params.files_cfg.obs_mask_var=five_nadirs',
-]
+import hydra_main
+importlib.reload(hydra_main)
+importlib.reload(utils)
+importlib.reload(lit_model_augstate)
 
 
 # Generate grided product on swath
-cfg_4dvar = utils.get_cfg(cfgn, overrides=overrides)
-OmegaConf.resolve(cfg_4dvar)
 
-rms = lambda da: np.sqrt(np.mean(da**2))
 
 class ModelObsMixedGeometry(torch.nn.Module):
 
@@ -60,21 +53,32 @@ class ModelObsMixedGeometry(torch.nn.Module):
         self.dim_obs_channel = np.array([shape_data, sst_ch])
 
 
+
+
     def forward(self, x, y, msk):
-        xlr, anom, *_ = torch.split(x, self.hparams.dT, dim=1)
+        xlr, anom_obs, *_ = torch.split(x, self.hparams.dT, dim=1)
 
         ylr, (_, gc, sv, sc, nv, nc) = y
         msk_lr, _ = msk
         dyoutlr =  (ylr - xlr) * msk_lr
-        s_x = swath_calib.interp.batch_torch_interpolate_with_fmt(xlr + anom, *gc, *sc)
-        s_x_msk = s_x.isfinite()
 
         fna = lambda t, m: t.where(m, torch.zeros_like(t))
-        dyout =  fna(s_x, s_x_msk) - fna(sv, s_x_msk)
-        n_x = swath_calib.interp.batch_torch_interpolate_with_fmt(x, *gc, *nc)
-        n_x_msk = n_x.isfinite()
-        dyout1 =  fna(n_x, n_x_msk) - fna(nv, n_x_msk)
+        if sv is not None:
+            s_x = swath_calib.interp.batch_torch_interpolate_with_fmt(xlr + anom_obs, *gc, *sc)
+            s_x_msk = s_x.isfinite()
+            dyout =  fna(s_x, s_x_msk) - fna(sv, s_x_msk)
+        else:
+            dyout = torch.zeros_like(xlr)
+
+        if nv is not None:
+            n_x = swath_calib.interp.batch_torch_interpolate_with_fmt(x, *gc, *nc)
+            n_x_msk = n_x.isfinite()
+            dyout1 =  fna(n_x, n_x_msk) - fna(nv, n_x_msk)
+        else:
+            dyout1 = torch.zeros_like(xlr)
         return [dyoutlr, dyout, dyout1]
+
+
 
 class SensorXrDs(torch.utils.data.Dataset):
     def __init__(self,
@@ -100,10 +104,10 @@ class SensorXrDs(torch.utils.data.Dataset):
         return (
             torch.stack(gv),
             list(map(torch.stack, zip(*gc))),
-            swath_calib.interp.stack(sv),
-            list(map(swath_calib.interp.stack, zip(*sc))),
-            swath_calib.interp.stack(nv),
-            list(map(swath_calib.interp.stack, zip(*nc))),
+            None if sv is None else swath_calib.interp.stack(sv),
+            None if sc is None else list(map(swath_calib.interp.stack, zip(*sc))),
+            None if nv is None else swath_calib.interp.stack(nv),
+            None if nc is None else list(map(swath_calib.interp.stack, zip(*nc))),
         )
 
     @functools.cache
@@ -121,24 +125,30 @@ class SensorXrDs(torch.utils.data.Dataset):
             lon_max=coords['lon'].max().item() + 360,
         )
 
-        nadirs = [swath_calib.utils.get_nadir_slice(p, **slice_args) for p in self.nadir_paths]
-        nadirs = [nad for nad in nadirs if nad is not None]
-        swot = swath_calib.utils.get_swot_slice(self.swot_path, **slice_args)
+        if self.swot_path is not None:
+            swot = swath_calib.utils.get_swot_slice(self.swot_path, **slice_args)
 
-        add_cc = lambda ds: ds.assign(ch_nb=lambda _df: (_df.x_al.diff('time').pipe(np.abs) > 3).cumsum())
-        sw = swot.pipe(add_cc)
+            add_cc = lambda ds: ds.assign(ch_nb=lambda _df: (_df.x_al.diff('time').pipe(np.abs) > 3).cumsum())
+            sw = swot.pipe(add_cc)
+
+            sp_ds = swath_calib.interp.stack_passes(*swath_calib.interp.add_nb_ch(swot))
+            spv = swath_calib.interp.fmt_s_value(sp_ds, self.swot_vars, spc[0].isfinite())
+            spc =  swath_calib.interp.fmt_s_coords(sp_ds)
+        else:
+            spv, spc = None, (None, None, None)
+
+        if self.nadir_paths[0] is not None:
+            nadirs = [swath_calib.utils.get_nadir_slice(p, **slice_args) for p in self.nadir_paths]
+            nadirs = [nad for nad in nadirs if nad is not None]
+            nads_with_nb_ch, tgt_len = zip(*[swath_calib.interp.add_nb_ch(nad) for nad in nadirs])
+
+            np_ds = xr.concat([swath_calib.interp.stack_passes(nad, max(tgt_len)) for nad in nads_with_nb_ch], 'p')
 
 
-
-        nads_with_nb_ch, tgt_len = zip(*[swath_calib.interp.add_nb_ch(nad) for nad in nadirs])
-
-        np_ds = xr.concat([swath_calib.interp.stack_passes(nad, max(tgt_len)) for nad in nads_with_nb_ch], 'p')
-
-        sp_ds = swath_calib.interp.stack_passes(*swath_calib.interp.add_nb_ch(swot))
-
-        spc, npc = swath_calib.interp.fmt_s_coords(sp_ds), swath_calib.interp.fmt_s_coords(np_ds)
-        spv = swath_calib.interp.fmt_s_value(sp_ds, self.swot_vars, spc[0].isfinite())
-        npv = swath_calib.interp.fmt_s_value(np_ds, self.nadir_vars, npc[0].isfinite())
+            npc = swath_calib.interp.fmt_s_coords(np_ds)
+            npv = swath_calib.interp.fmt_s_value(np_ds, self.nadir_vars, npc[0].isfinite())
+        else: 
+            npv, npc = None, (None, None, None)
 
         return (
                 torch.from_numpy(gv_), swath_calib.interp.fmt_g_coords(xr.Dataset(coords)),
@@ -187,15 +197,16 @@ class FourDVarMixedGeometryDataset(torch.utils.data.Dataset):
     @staticmethod
     def collate_fn(list_of_items):
         oi , gt, go, gc, sv, sc, nv, nc = zip(*list_of_items)
+        cstack = lambda ts: None if ts[0] is None else swath_calib.interp.stack(ts)
         return (
             torch.stack(oi),
             torch.stack(gt),
             torch.stack(go),
             list(map(torch.stack, zip(*gc))),
-            swath_calib.interp.stack(sv),
-            list(map(swath_calib.interp.stack, zip(*sc))),
-            swath_calib.interp.stack(nv),
-            list(map(swath_calib.interp.stack, zip(*nc))),
+            cstack(sv),
+            list(map(cstack, zip(*sc))),
+            cstack(nv),
+            list(map(cstack, zip(*nc))),
         )
 
     def __getitem__(self, item):
@@ -203,7 +214,7 @@ class FourDVarMixedGeometryDataset(torch.utils.data.Dataset):
             with self.gt_ds.get_coords():
                 return self.gt_ds[item]
         oi, gt, go, gc, sv, sc, nv, nc = (self.oi_ds[item], self.gt_ds[item], *self.sens_obs_ds[item])
-        pp = lambda t: (t - self.norm_stats[0]) / self.norm_stats[1]
+        pp = lambda t: t if t is None else (t - self.norm_stats[0]) / self.norm_stats[1]
         return pp(torch.from_numpy(oi)), pp(torch.from_numpy(gt)), pp(go), gc, pp(sv), sc, pp(nv), nc
 
 
@@ -297,8 +308,6 @@ class FourDVarMixedGeometryDatamodule(pl.LightningDataModule):
 
 
 def get_4dvarnet_mixgeom(hparams):
-    print(hparams)
-    print('should_be_here')
     return solver.Solver_Grad_4DVarNN(
                 models.Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                     hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
@@ -307,7 +316,17 @@ def get_4dvarnet_mixgeom(hparams):
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
+def get_4dvarnet_cal(hparams):
+    return solver.Solver_Grad_4DVarNN(
+                models.Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+                CalibrationModelObsMixedGeometry(hparams.shape_state[0], hparams=hparams),
+                solver.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+                    hparams.dim_grad_solver, hparams.dropout),
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+
 class LitModMixGeom(lit_model_augstate.LitModelAugstate):
+
     def diag_step(self, batch, batch_idx, log_pref='test'):
         oi, gt, go,  *_ = batch
         losses, out, metrics = self(batch, phase='test')
@@ -323,7 +342,10 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
                 'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def create_model(self, *args, **kwargs):
-        return get_4dvarnet_mixgeom(self.hparams)
+        if self.hparams.model_name == '4dvarnet':
+            return get_4dvarnet_mixgeom(self.hparams)
+        elif self.hparams.model_name == '4dvarnet_cal':
+            return get_4dvarnet_cal(self.hparams)
 
     def get_init_state(self, batch, state=(None,)):
         if state[0] is not None:
@@ -355,33 +377,31 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
             state = torch.autograd.Variable(state, requires_grad=True)
-            outputs, hidden_new, cell_new, normgrad = self.model(state, obs, msks, *state_init[1:])
+            x_out, hidden_new, cell_new, normgrad = self.model(state, obs, msks, *state_init[1:])
 
             if (phase == 'val') or (phase == 'test'):
-                outputs = outputs.detach()
+                x_out = x_out.detach()
 
-            outputsSLRHR = outputs
-            outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
             if self.aug_state:
-                outputs = outputsSLR + outputs[:, 2*self.hparams.dT:, :, :]
+                xlr, _, xhr = torch.split(x_out, self.hparams.dT, dim=1)
+                outputs = xlr + xhr
             else:
-                outputs = outputsSLR + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
+                xlr, xhr = torch.split(x_out, self.hparams.dT, dim=1)
+                outputs = xlr + xhr
 
             # median filter
             if self.median_filter_width > 1:
                 outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
 
 
-            yGT = torch.cat((oi,
-                             gt_wo_nan - outputsSLR),
-                            dim=1)
+            yGT = torch.cat((oi_wo_nan, gt_wo_nan - xlr), dim=1)
             if self.aug_state:
-                yGT = torch.cat((yGT, gt_wo_nan - outputsSLR), dim=1)
+                yGT = torch.cat((yGT, gt_wo_nan - xlr), dim=1)
 
             loss_All, loss_GAll = self.sla_loss(outputs, gt_wo_nan)
-            loss_OI, loss_GOI = self.sla_loss(oi, gt_wo_nan)
+            loss_OI, loss_GOI = self.sla_loss(oi_wo_nan, gt_wo_nan)
             loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
-                yGT, oi, outputs, outputsSLR, outputsSLRHR
+                yGT, oi, outputs, xlr, x_out
             )
 
             # print(loss_All, loss_GAll,loss_AE, loss_AE_GT, loss_SR, loss_LR)
@@ -403,43 +423,273 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
                 ('mseOI', loss_OI.detach()),
                 ('mseGOI', loss_GOI.detach())])
 
-        return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
+        return loss, outputs, [x_out, hidden_new, cell_new, normgrad], metrics
         
-splits = OmegaConf.masked_copy(cfg_4dvar.datamodule, ['train_slices', 'val_slices', 'test_slices'])
-grid_kwargs = hydra.utils.call(OmegaConf.masked_copy(cfg_4dvar.datamodule, ['slice_win', 'dim_range', 'strides']))
-dl_kwargs = {'batch_size': 2}
-sensor_kwargs =dict(
-    nadir_paths=tuple([f'../sla-data-registry/sensor_zarr/zarr/nadir/{name}' for name in ['swot', 'en', 'tpn', 'g2', 'j1']]),
-    swot_path=f'../sla-data-registry/sensor_zarr/zarr/new_swot',
-    nadir_var='ssh_model',
-    swot_vars=('ssh_model',),
-)
-ds_kwargs = dict(
-    OmegaConf.masked_copy(cfg_4dvar.datamodule,['gt_path', 'gt_var', 'oi_path', 'oi_var', 'obs_mask_path', 'obs_mask_var']),
-    grid_kwargs=grid_kwargs, sens_kwargs=sensor_kwargs,
-)
+class CalibrationModelObsMixedGeometry(torch.nn.Module):
 
-dm = FourDVarMixedGeometryDatamodule(ds_kwargs=ds_kwargs, dl_kwargs=dl_kwargs, **hydra.utils.call(splits),)
+    def __init__(self, shape_data, hparams=None, min_size=500, sigs=tuple([8* (i+1) for i in range(10)])):
+        super().__init__()
+        self.hparams = hparams
+        self.dim_obs = 3
+        sst_ch = hparams.dT
+        self.dim_obs_channel = np.array([shape_data, sst_ch])
+        self.min_size = min_size
+        self.num_feat = 2*len(sigs) 
+        self.norm = torch.nn.BatchNorm2d(num_features=self.num_feat)
 
-lit_mod = utils.get_model(cfgn, ckpt=None, dm=dm, add_overrides=overrides+['lit_mod_cls=__main__.LitModMixGeom'])
-trainer = pl.Trainer(gpus=1)
-trainer.fit(lit_mod, datamodule=dm)
-dl = dm.train_dataloader()
+        self.gaussian = StackedGaussian(sigs)
+        self.calnet = swath_calib.models.build_net(self.num_feat, 1, nhidden = 32, depth = 2,)
 
-for i, b in enumerate(dm.train_dataloader()):
-    oi, gv, gc, sv, sc, nv, nc = b
-    print('training', i)
-    print('training', oi.shape, sv.shape, nv.shape)
-for i, b in enumerate(dm.val_dataloader()):
-    print('val', i)
-for i, b in enumerate(dm.test_dataloader()):
-    print('test', i)
 
-batch = next(iter(dl))
-# dataloading.XrDataset(ds_kwargs.oi_path, ds_kwargs.oi_var, decode=False, **hydra.utils.call(grid_kwargs))
-# FourDVarMixedGeometryDataset(slice('2013-01-03', "2013-01-27"), **ds_kwargs)
+    def forward(self, x, y, ymsk):
+        ylr, (_, gc, sv, sc, nv, nc) = y
+        xlr, anom_obs, *_ = torch.split(x, self.hparams.dT, dim=1)
+
+        if sv is not None:
+            s_xlr = swath_calib.interp.batch_torch_interpolate_with_fmt(xlr, *gc, *sc)
+            fs_xlr = einops.rearrange(s_xlr.detach(), 'b p ... -> (b p) () ...')
+
+            fy = einops.rearrange(sv, 'b p ... -> (b p) () ...')
+
+            msk = fy[:, :, :self.min_size, :].isfinite().all(3).all(2).all(1)
+            idx = fs_xlr[ msk, ...].isfinite().all(3).all(1).all(0)
+
+            gy =  self.gaussian(fy[msk][:, :, idx])
+            inp_gy = torch.cat((gy.diff(dim=1), gy[:, -1:, ...]), 1)
+
+            gs_xlr = self.gaussian(fs_xlr[msk][:, :, idx])
+            inp_gs_xlr = torch.cat((gy.diff(dim=1), gs_xlr[:, -1:, ...]), 1)
+
+            cal_input = torch.cat((inp_gy, inp_gs_xlr), dim=1)
+            # print(cal_input.shape)
+            out_cal = self.calnet(self.norm(cal_input))
+
+            s_x = swath_calib.interp.batch_torch_interpolate_with_fmt(xlr + anom_obs, *gc, *sc)
+            f_sx = einops.rearrange(s_x, 'b p ... -> (b p) () ...')
+            dyout = out_cal - f_sx[msk][:,:,idx]
+        else:
+            dyout = torch.zeros_like(xlr)
+
+        if nv is not None:
+            fna = lambda t, m: t.where(m, torch.zeros_like(t))
+
+            n_x = swath_calib.interp.batch_torch_interpolate_with_fmt(x, *gc, *nc)
+            n_x_msk = n_x.isfinite()
+            dyout1 =  fna(n_x, n_x_msk) - fna(nv, n_x_msk)
+        else:
+            dyout1 = torch.zeros_like(xlr)
+
+        ylr, (_, gc, sv, sc, nv, nc) = y
+        msk_lr, _ = ymsk
+        dyoutlr =  (ylr - xlr) * msk_lr
+        return [dyoutlr, dyout, dyout1]
+
+
+class StackedGaussian(torch.nn.Module):
+    def __init__(self, sigs= tuple([8 * (i+1) for i in range(20)]), size=75, min_size=600):
+        super().__init__()
+        assert size %2 ==1, 'same pad not yet implemnted here for even kernels'
+        self.size = size
+        self.min_size = min_size
+        self.kernel = torch.nn.Parameter(torch.stack([
+            kornia.filters.get_gaussian_kernel1d(size, sig)
+            for sig in sigs
+        ])[:, None, :, None], requires_grad=False)
+
+  
+    def forward(self, fx):
+        px = F.pad(fx, (0,0, self.size//2, self.size//2), mode='replicate')
+        return  F.conv2d(px, self.kernel)
 
 if __name__ == '__main__':
+    fp = 'dgx_ifremer'
+    cfgn = 'qxp20_swot_sst'
+    cfgn = 'xp_aug/xp_repro/full_core_hanning'
+    OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
+    overrides = [
+        # '+datamodule.dl_kwargs.shuffle=False',
+        f'file_paths={fp}',
+        'params.files_cfg.obs_mask_path=${file_paths.new_noisy_swot}',
+        'params.files_cfg.obs_mask_var=five_nadirs',
+        '+params.model_name=4dvarnet',
+        'params.val_diag_freq=3',
+    ]
+    cfg_4dvar = utils.get_cfg(cfgn, overrides=overrides)
+    OmegaConf.resolve(cfg_4dvar)
+    splits = OmegaConf.masked_copy(cfg_4dvar.datamodule, ['train_slices', 'val_slices', 'test_slices'])
+    grid_kwargs = hydra.utils.call(OmegaConf.masked_copy(cfg_4dvar.datamodule, ['slice_win', 'dim_range', 'strides']))
+    dl_kwargs = {
+        'batch_size': 2,
+        'num_workers': 4
+    }
+    sensor_kwargs =dict(
+        nadir_paths=tuple([f'../sla-data-registry/sensor_zarr/zarr/nadir/{name}' for name in ['swot', 'en', 'tpn', 'g2', 'j1']]),
+        swot_path=None,
+        nadir_var='ssh_model',
+        swot_vars=('ssh_model', 'wet_tropo_res', 'syst_error_uncalibrated'),
+    )
+    ds_kwargs = dict(
+        OmegaConf.masked_copy(cfg_4dvar.datamodule,['gt_path', 'gt_var', 'oi_path', 'oi_var', 'obs_mask_path', 'obs_mask_var']),
+        grid_kwargs=grid_kwargs, sens_kwargs=sensor_kwargs,
+    )
+    dm = FourDVarMixedGeometryDatamodule(ds_kwargs=ds_kwargs, dl_kwargs=dl_kwargs, **hydra.utils.call(splits),)
+    
+
+    lit_mod = utils.get_model(cfgn, ckpt=None, dm=dm, add_overrides=overrides+['lit_mod_cls=__main__.LitModMixGeom'])
+    # trainer = pl.Trainer(gpus=2, strategy='ddp', max_epochs=200)
+    trainer = pl.Trainer(gpus=[5])
+    # trainer = pl.Trainer(gpus=[5], limit_train_batches=5)
+    trainer.fit(lit_mod, datamodule=dm)
+    # dm.setup()
+    # b = next(iter(dm.val_dataloader()))
+    # oi , gt, go, gc, sv, sc, nv, nc = b
+
+B =False
+if __name__ == '__main__' and B:
+    fp = 'dgx_ifremer'
+    cfgn = 'qxp20_swot_sst'
+    cfgn = 'xp_aug/xp_repro/full_core_hanning'
+    OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
+    overrides = [
+        # '+datamodule.dl_kwargs.shuffle=False',
+        f'file_paths={fp}',
+        'params.files_cfg.obs_mask_path=${file_paths.new_noisy_swot}',
+        'params.files_cfg.obs_mask_var=five_nadirs',
+        '+params.model_name=4dvarnet_cal',
+        'params.val_diag_freq=3',
+    ]
+    cfg_4dvar = utils.get_cfg(cfgn, overrides=overrides)
+    OmegaConf.resolve(cfg_4dvar)
+    splits = OmegaConf.masked_copy(cfg_4dvar.datamodule, ['train_slices', 'val_slices', 'test_slices'])
+    grid_kwargs = hydra.utils.call(OmegaConf.masked_copy(cfg_4dvar.datamodule, ['slice_win', 'dim_range', 'strides']))
+    dl_kwargs = {
+        'batch_size': 2,
+        'num_workers': 4
+    }
+    sensor_kwargs =dict(
+        nadir_paths=tuple([f'../sla-data-registry/sensor_zarr/zarr/nadir/{name}' for name in ['swot', 'en', 'tpn', 'g2', 'j1']]),
+        swot_path=f'../sla-data-registry/sensor_zarr/zarr/new_swot',
+        nadir_var='ssh_model',
+        swot_vars=('ssh_model', 'wet_tropo_res', 'syst_error_uncalibrated'),
+    )
+    ds_kwargs = dict(
+        OmegaConf.masked_copy(cfg_4dvar.datamodule,['gt_path', 'gt_var', 'oi_path', 'oi_var', 'obs_mask_path', 'obs_mask_var']),
+        grid_kwargs=grid_kwargs, sens_kwargs=sensor_kwargs,
+    )
+    dm = FourDVarMixedGeometryDatamodule(ds_kwargs=ds_kwargs, dl_kwargs=dl_kwargs, **hydra.utils.call(splits),)
+    
+
+    lit_mod = utils.get_model(cfgn, ckpt=None, dm=dm, add_overrides=overrides+['lit_mod_cls=__main__.LitModMixGeom'])
+    # trainer = pl.Trainer(gpus=2, strategy='ddp', max_epochs=200)
+    trainer = pl.Trainer(gpus=[4])
+    # trainer = pl.Trainer(gpus=[5], limit_train_batches=5)
+    trainer.fit(lit_mod, datamodule=dm)
+    # dm.setup()
+    # b = next(iter(dm.val_dataloader()))
+    # oi , gt, go, gc, sv, sc, nv, nc = b
+
+if __name__ == '__main__' and B:
+    fp = 'dgx_ifremer'
+    cfgn = 'qxp20_swot_sst'
+    cfgn = 'xp_aug/xp_repro/full_core_hanning'
+    OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
+    overrides = [
+        # '+datamodule.dl_kwargs.shuffle=False',
+        f'file_paths={fp}',
+        'params.files_cfg.obs_mask_path=${file_paths.new_noisy_swot}',
+        'params.files_cfg.obs_mask_var=swot_nadirs_no_noise',
+        'params.val_diag_freq=3',
+    ]
+    cfg_4dvar = utils.get_cfg(cfgn, overrides=overrides)
+    OmegaConf.resolve(cfg_4dvar)
+    splits = OmegaConf.masked_copy(cfg_4dvar.datamodule, ['train_slices', 'val_slices', 'test_slices'])
+    grid_kwargs = hydra.utils.call(OmegaConf.masked_copy(cfg_4dvar.datamodule, ['slice_win', 'dim_range', 'strides']))
+    dl_kwargs = {
+        'batch_size': 4,
+        'num_workers': 4
+    }
+    sensor_kwargs =dict(
+        nadir_paths=tuple([f'../sla-data-registry/sensor_zarr/zarr/nadir/{name}' for name in ['swot', 'en', 'tpn', 'g2', 'j1']]),
+        swot_path=f'../sla-data-registry/sensor_zarr/zarr/new_swot',
+        nadir_var='ssh_model',
+        swot_vars=('ssh_model',),
+    )
+    ds_kwargs = dict(
+        OmegaConf.masked_copy(cfg_4dvar.datamodule,['gt_path', 'gt_var', 'oi_path', 'oi_var', 'obs_mask_path', 'obs_mask_var']),
+        grid_kwargs=grid_kwargs, sens_kwargs=sensor_kwargs,
+    )
+    dm = FourDVarMixedGeometryDatamodule(ds_kwargs=ds_kwargs, dl_kwargs=dl_kwargs, **hydra.utils.call(splits),)
+    
+
+    lit_mod = utils.get_model(cfgn, ckpt=None, dm=dm, add_overrides=overrides+['lit_mod_cls=__main__.LitModMixGeom'])
+    # trainer = pl.Trainer(gpus=2, strategy='ddp', max_epochs=200)
+    # trainer = pl.Trainer(gpus=[4])
+    # trainer = pl.Trainer(gpus=1, limit_train_batches=5)
+    # trainer.fit(lit_mod, datamodule=dm)
+    dm.setup()
+    b = next(iter(dm.val_dataloader()))
+    oi , gt, go, gc, sv, sc, nv, nc = b
+    # gf = GaussianScaleDecom2D()
+    # gf(sv).shape
+
+if (__name__ == '__main__') and B:
+    fds = xr.open_dataset('lightning_logs/version_7/test.nc')
+    import metrics
+    import xrft
+    ds = fds.isel(lat=slice(20, -20), lon=slice(20, -20))
+    da_rec, da_ref = ds.pred, ds.gt
+    da_rec.isel(time=0).plot()
+    np.sum(np.isnan(da_ref))
+    # Compute error = SSH_reconstruction - SSH_true
+    err = (da_rec - da_ref)
+    err = err.chunk({"lat":1, 'time': err['time'].size, 'lon': err['lon'].size})
+    # make time vector in days units
+    err['time'] = (err.time - err.time[0]) / np.timedelta64(1, 'D')
+
+    # Rechunk SSH_true
+    signal = da_ref.chunk({"lat":1, 'time': da_ref['time'].size, 'lon': da_ref['lon'].size})
+    # make time vector in days units
+    signal['time'] = (signal.time - signal.time[0]) / np.timedelta64(1, 'D')
+
+    # Compute PSD_err and PSD_signal
+    psd_err = xrft.power_spectrum(err, dim=['time', 'lon'], detrend='constant', window=True).compute()
+    psd_signal = xrft.power_spectrum(signal, dim=['time', 'lon'], detrend='constant', window=True).compute()
+
+    # Averaged over latitude
+    mean_psd_signal = psd_signal.mean(dim='lat').where((psd_signal.freq_lon > 0.) & (psd_signal.freq_time > 0), drop=True)
+    mean_psd_err = psd_err.mean(dim='lat').where((psd_err.freq_lon > 0.) & (psd_err.freq_time > 0), drop=True)
+
+    # return PSD-based score
+    psd_based_score = (1.0 - mean_psd_err/mean_psd_signal)
+
+    # Find the key metrics: shortest temporal & spatial scales resolved based on the 0.5 contour criterion of the PSD_score
+
+
+
+    level = [0.5]
+    cs = plt.contour(1./psd_based_score.freq_lon.values,1./psd_based_score.freq_time.values, psd_based_score, level)
+    x05, y05 = cs.collections[0].get_paths()[0].vertices.T
+    plt.close()
+
+    shortest_spatial_wavelength_resolved = np.min(x05)
+    shortest_temporal_wavelength_resolved = np.min(y05)
+
+    psd_da = (1.0 - mean_psd_err/mean_psd_signal)
+    psd_da.name = 'psd_score'
+    psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(ds.pred, ds.gt)
+
+if (__name__ == '__main__') and B:
+    fp = 'dgx_ifremer'
+    cfgn = 'qxp20_swot_sst'
+    cfgn = 'xp_aug/xp_repro/full_core_hanning'
+    OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
+    cfg = utils.get_cfg(f'{cfgn}')
+    overrides = [
+        # '+datamodule.dl_kwargs.shuffle=False',
+        f'file_paths={fp}',
+        'params.files_cfg.obs_mask_path=${file_paths.new_noisy_swot}',
+        # 'params.files_cfg.obs_mask_var=five_nadirs',
+    ]
     dm = utils.get_dm(cfgn, add_overrides=overrides)
 
     s = torch.squeeze
