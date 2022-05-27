@@ -260,7 +260,8 @@ class Model_HwithSSTBNandAtt(torch.nn.Module):
             else:
                 w = torch.cat( (w,wkk) , dim = 1)
                 
-        w = self.sigmoid( self.conv_m( - F.relu( w ) ) )
+        return self.sigmoid( self.conv_m( - F.relu( w ) ) )
+        
 
     def forward(self, x, y, mask):
         dyout = (x - y[0]) * mask[0]
@@ -272,9 +273,6 @@ class Model_HwithSSTBNandAtt(torch.nn.Module):
         dyout1 = x_feat - y_feat
 
         w = self.compute_w( dyout1 )
-        
-        print(w)
-        print(w.size())
         
         dyout1 = dyout1 * w
 
