@@ -241,23 +241,30 @@ class LitModelAugstate(pl.LightningModule):
 
         # compute loss and metrics
 
-        losses, _, metrics = self(train_batch, phase='train')
-        if losses[-1] is None:
-            print("None loss")
-            return None
-        # loss = torch.stack(losses).sum()
-        loss = 2*torch.stack(losses).sum() - losses[0]
-
         if not self.automatic_optimization:
             opt = self.optimizers()
-            opt.zero_grad()
-            self.manual_backward(loss)
-            opt.step()
-        # log step metric
-        # self.log('train_mse', mse)
-        # self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True)
-        # self.log("tr_min_nobs", train_batch[1].sum(dim=[1,2,3]).min().item(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        # self.log("tr_n_nobs", train_batch[1].sum().item(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+
+        losses = []
+        metrics = []
+        state_init = [None]
+        out=None
+        for _ in range(self.hparams.n_fourdvar_iter):
+            _loss, out, state, _metrics = self.compute_loss(train_batch, phase='train', state_init=state_init)
+            if not self.automatic_optimization:
+                opt.zero_grad()
+                self.manual_backward(_loss)
+                opt.step()
+            state_init = [None if s is None else s.detach() for s in state]
+            losses.append(_loss)
+            metrics.append(_metrics)
+
+        # losses, _, metrics = self(train_batch, phase='train')
+        # if losses[-1] is None:
+        #     print("None loss")
+        #     return None
+        # # loss = torch.stack(losses).sum()
+        loss = 2*torch.stack(losses).sum() - losses[0]
+
         self.log("tr_loss", loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log("tr_mse", metrics[-1]['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
         self.log("tr_mseG", metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)

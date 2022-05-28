@@ -142,6 +142,8 @@ def fmt_s_coords(p_ds):
     )))
 
 def fmt_s_value(p_ds, data_vars, isfinmsk):
+    if data_vars is None:
+        return None
     p_ds = p_ds.broadcast_like(p_ds.ssh_model)
     _v = p_ds[data_vars].to_array().sum('variable')
     _v = _v.data.astype(np.float32) 
