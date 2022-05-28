@@ -45,7 +45,7 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_58/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn-att_10-grad_05_03_150-epoch=77-val_loss=0.2882.ckpt'
 
 params:
-  sst_model: 'nolinear-tanh-bn-att'  #'nolinear-tanh-bn'#'linear-bn'#''linear'# 
+  sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'  #'linear-bn'#''linear'# 
   patch_weight:
     _target_: lit_model_augstate.get_cropped_hanning_mask
     patch_size: ${datamodule.slice_win}
@@ -55,7 +55,7 @@ params:
   n_grad: 5
   dT: 7
   DimAE: 50
-  dim_obs_sst_feat: 10
+  dim_obs_sst_feat: 2#10
   dim_grad_solver: 150
   save_rec_netcdf: True
   sig_filter_laplacian: 1.
