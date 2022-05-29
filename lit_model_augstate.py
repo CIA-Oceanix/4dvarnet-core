@@ -905,7 +905,7 @@ class LitModelAugstate(pl.LightningModule):
                 loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
                 
-                utputsSLRHR = None
+                outputsSLRHR = None
                 hidden_new = None
                 cell_new = None
                 normgrad = 0.
