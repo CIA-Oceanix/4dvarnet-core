@@ -18,9 +18,7 @@ entrypoint:
 params:
   sst_model: 'linear-bn-att'#''linear-bn'#'linear' #
   k_n_grad: 3
-  n_grad: 0
-  use_sst_state: True
-  use_sst_obs: False
+  n_grad: 5
   dT: 7
   DimAE: 50
   dim_obs_sst_feat: 10

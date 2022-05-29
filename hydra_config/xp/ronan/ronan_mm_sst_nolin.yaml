@@ -10,7 +10,7 @@ entrypoint:
 params:
   sst_model: 'nolinear-tanh-bn'
   k_n_grad: 3
-  n_grad: 5
+  n_grad: 0
   dT: 7
   DimAE: 50
   dim_obs_sst_feat: 20
