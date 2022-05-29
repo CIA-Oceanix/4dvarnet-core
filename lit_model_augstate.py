@@ -232,7 +232,10 @@ class LitModelAugstate(pl.LightningModule):
             
             suffix_chkpt = suffix_chkpt+'-grad_%02d_%02d_%03d'%(self.hparams.n_grad,self.hparams.k_n_grad,self.hparams.dim_grad_solver)
         else:
-            suffix_chkpt = suffix_chkpt+'-DirectInv'
+            if ( self.use_sst ) & ( self.use_sst_state ) :
+                suffix_chkpt = suffix_chkpt+'-DirectInv-wSST'
+            else:
+                suffix_chkpt = suffix_chkpt+'-DirectInv'
             
         suffix_chkpt = suffix_chkpt+old_suffix
         
