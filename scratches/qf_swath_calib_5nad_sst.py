@@ -92,8 +92,14 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
                 out_channels=len(train_ds.gt_vars),
                 **cfg.net_cfg
         )
+        normnet = torch.nn.Sequential(
+            # torch.nn.BatchNorm2d(len(train_ds.pp_vars)),
+            net
+        )
+
         cal_mod = swath_calib.models.LitDirectCNN(
-                net,
+                # net,
+                normnet,
                 gt_var_stats=[s[train_ds.gt_vars].to_array().data for s in train_ds.stats],
                 **cfg.lit_cfg
             )

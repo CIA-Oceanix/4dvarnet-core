@@ -244,6 +244,7 @@ class LitModelAugstate(pl.LightningModule):
 
         if not self.automatic_optimization:
             opt = self.optimizers()
+            opt.zero_grad()
 
         losses = []
         metrics = []
@@ -252,13 +253,13 @@ class LitModelAugstate(pl.LightningModule):
         for _ in range(self.hparams.n_fourdvar_iter):
             _loss, out, state, _metrics = self.compute_loss(train_batch, phase='train', state_init=state_init)
             if not self.automatic_optimization:
-                opt.zero_grad()
                 self.manual_backward(_loss)
-                opt.step()
             state_init = [None if s is None else s.detach() for s in state]
             losses.append(_loss)
             metrics.append(_metrics)
 
+        if not self.automatic_optimization:
+            opt.step()
         # losses, _, metrics = self(train_batch, phase='train')
         # if losses[-1] is None:
         #     print("None loss")
@@ -634,7 +635,6 @@ class LitModelAugstate(pl.LightningModule):
             loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
                 yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
             )
-
 
             # total loss
             loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
