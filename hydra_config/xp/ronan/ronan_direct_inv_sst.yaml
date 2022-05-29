@@ -1,0 +1,56 @@
+# @package _global_
+
+# Ici tu peux surcharger les parties de la config que tu veux sans impacter les autres, par exemple:
+
+entrypoint:
+   weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_15/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-linear_02-grad_05_03_150-epoch=141-val_loss=0.2899.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_17/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-linear-bn_01-grad_05_03_150-epoch=131-val_loss=0.2961.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_18/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-linear-bn_02-grad_05_03_150-epoch=135-val_loss=0.2852.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_18/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-linear-bn_03-grad_05_03_150-epoch=128-val_loss=0.2984.ckpt'#
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_18/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-linear-bn_05-grad_05_03_150-epoch=124-val_loss=0.2938.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_19/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-linear-bn_10-grad_05_03_150-epoch=125-val_loss=0.2911.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_19/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-linear-bn_20-grad_05_03_150-epoch=127-val_loss=0.2869.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_39/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-linear-bn_50-grad_05_03_150-epoch=115-val_loss=0.3037.ckpt'
+# Et là tu charges la config d'où tu veux partir:
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_55/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-linear-bn-att_10-grad_05_03_150-epoch=131-val_loss=0.2598.ckpt'
+
+params:
+  sst_model: 'linear-bn-att'#''linear-bn'#'linear' #
+  k_n_grad: 3
+  n_grad: 5
+  dT: 7
+  DimAE: 50
+  dim_obs_sst_feat: 10
+  dim_grad_solver: 150
+  phi_param: 'unet1'
+  ckpt_name: 'modelSLAwSSTGF-{epoch:02d}-{val_loss:.4f}'
+  dT: 7
+  patch_weight:
+    _target_: lit_model_augstate.get_cropped_hanning_mask
+    patch_size: ${datamodule.slice_win}
+    crop:
+      time: 1
+  k_n_grad: 3
+  n_grad: 0
+  val_diag_freq: 5 
+  padding_mode: reflect
+  alpha_mse_ssh: 50. # loss
+  alpha_mse_gssh: 1000.
+  norm_obs: l2
+  norm_prior: l2
+  phi_param: 'unet1'
+  use_sst_obs: False
+  use_sst_state: True
+datamodule:
+  aug_train_data: True
+
+defaults:
+  - /xp/xp_aug/base_xp
+  - /splits/dc_boost_swot@datamodule
+  - /xp/xp_aug/aug/without_aug_state
+  - /xp/xp_aug/dl/d240_p240x5_s240x1
+  - /xp/xp_aug/sst/with_sst
+  - /xp/xp_aug/loss/map
+  - /xp/xp_aug/train_strat/const_lr_ngrad_5_3cas
+  - _self_ 
