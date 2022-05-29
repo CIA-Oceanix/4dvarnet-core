@@ -69,7 +69,7 @@ def build_net(
     kernel_size = 3,
     num_repeat = 1,
     residual = True,
-    norm_type = 'bn',
+    norm_type = 'none',
     act_type = 'relu',
     mix = True,
     mix_residual = False,
