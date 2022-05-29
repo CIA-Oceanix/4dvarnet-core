@@ -9,7 +9,7 @@ entrypoint:
 # Et là tu charges la config d'où tu veux partir:
 params:
   k_n_grad: 3
-  n_grad: 5
+  n_grad: 0
   dT: 7
   DimAE: 50
   dim_grad_solver: 150
