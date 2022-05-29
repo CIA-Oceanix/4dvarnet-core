@@ -253,7 +253,7 @@ class LitModelAugstate(pl.LightningModule):
             else:
                 _loss, out, state, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
             
-            if self.n_grad > 0 :
+            if self.hparams.n_grad > 0 :
                 state_init = [None if s is None else s.detach() for s in state]
             losses.append(_loss)
             metrics.append(_metrics)
