@@ -236,7 +236,8 @@ class LitModelAugstate(pl.LightningModule):
                 suffix_chkpt = suffix_chkpt+'-DirectInv-wSST'
             else:
                 suffix_chkpt = suffix_chkpt+'-DirectInv'
-            
+            suffix_chkpt = suffix_chkpt+'-dT%02d'%(self.hparams.dT)
+                
         suffix_chkpt = suffix_chkpt+old_suffix
         
         return filename_chkpt.replace(old_suffix,suffix_chkpt)
