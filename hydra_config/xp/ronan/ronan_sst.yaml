@@ -20,6 +20,7 @@ params:
   k_n_grad: 3
   n_grad: 0
   use_sst_state: True
+  use_sst_obs: False
   dT: 7
   DimAE: 50
   dim_obs_sst_feat: 10
