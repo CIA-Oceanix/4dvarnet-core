@@ -250,7 +250,7 @@ class LitModelAugstate(pl.LightningModule):
             losses.append(_loss)
             metrics.append(_metrics)
             
-        if ( phase == 'test' ) & ( self.use_sst_obs ):
+        if ( phase == 'test' ) & ( self.use_sst ):
             return losses, out, metrics, sst_feat
         else:    
             return losses, out, metrics
@@ -358,7 +358,7 @@ class LitModelAugstate(pl.LightningModule):
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
             
-        if ( self.use_sst_obs ) :
+        if ( self.use_sst ) :
           #losses, out, metrics = self(batch, phase='test')
           losses, out, metrics, sst_feat = self(batch, phase='test')
         else:
@@ -369,7 +369,7 @@ class LitModelAugstate(pl.LightningModule):
             self.log(f'{log_pref}_mse', metrics[-1]["mse"] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
 
-        if not self.use_sst_obs :
+        if not self.use_sst :
             return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                     'oi'    : (targets_OI.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                     'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
