@@ -191,6 +191,9 @@ class LitModelAugstate(pl.LightningModule):
         self.save_rec_netcdf = self.hparams.save_rec_netcdf if hasattr(self.hparams, 'save_rec_netcdf') else './'
         self.sig_filter_laplacian = self.hparams.sig_filter_laplacian if hasattr(self.hparams, 'sig_filter_laplacian') else 0.5
 
+        if self.hparams.k_n_grad == 0 :
+            self.hparams.n_fourdvar_iter = 1
+
         self.model = self.create_model()
         self.model_LR = ModelLR()
         self.grad_crop = lambda t: t[...,1:-1, 1:-1]
@@ -908,7 +911,7 @@ class LitModelAugstate(pl.LightningModule):
                 outputsSLRHR = 0. * outputs
                 hidden_new = 0. * outputs
                 cell_new = 0. * outputs
-                normgrad = 0.
+                normgrad = 0. * 
             # metrics
             # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
             mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(
