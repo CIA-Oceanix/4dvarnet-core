@@ -5,7 +5,7 @@
 entrypoint:
    weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_2/checkpoints/modelSLAwSSTGF-unet1_050-augdata-DirectInv-wSST-dT07-epoch=86-val_loss=0.5610.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_8/checkpoints/modelSLAwSSTGF-unet-std_050-augdata-DirectInv-wSST-dT07-epoch=70-val_loss=0.4845.ckpt'   
+   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_8/checkpoints/modelSLAwSSTGF-unet-std_050-augdata-DirectInv-wSST-dT07-epoch=76-val_loss=0.4715.ckpt'   
 params:
   sst_model: 'linear-bn-att'#''linear-bn'#'linear' #
   k_n_grad: 3
