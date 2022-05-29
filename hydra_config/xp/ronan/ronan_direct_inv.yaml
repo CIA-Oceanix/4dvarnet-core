@@ -5,7 +5,8 @@
 entrypoint:
    weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_15/checkpoints/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-linear_02-grad_05_03_150-epoch=141-val_loss=0.2899.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_3/checkpoints/modelSLAwSSTGF-unet1_050-augdata-DirectInv-dT07-epoch=15-val_loss=1.0348.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_3/checkpoints/modelSLAwSSTGF-unet1_050-augdata-DirectInv-dT07-epoch=15-val_loss=1.0348.ckpt'
+   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_7/checkpoints/modelSLAwSSTGF-unet-std_050-augdata-DirectInv-dT07-epoch=36-val_loss=1.0936.ckpt'
 params:
   k_n_grad: 3
   n_grad: 0
