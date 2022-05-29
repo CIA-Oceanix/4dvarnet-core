@@ -19,8 +19,7 @@ params:
   sst_model: 'linear-bn-att'#''linear-bn'#'linear' #
   k_n_grad: 3
   n_grad: 0
-  use_sst_state: False
-  use_sst: False
+  use_sst_state: True
   dT: 7
   DimAE: 50
   dim_obs_sst_feat: 10
