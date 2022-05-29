@@ -217,16 +217,20 @@ class LitModelAugstate(pl.LightningModule):
         old_suffix = '-{epoch:02d}-{val_loss:.4f}'
 
         suffix_chkpt = '-'+self.hparams.phi_param+'_%03d-augdata'%self.hparams.DimAE
-        
-        if self.hparams.aug_state :
-            suffix_chkpt = suffix_chkpt+'-augstate-dT%02d'%(self.hparams.dT)
-        if self.use_sst_state :
-            suffix_chkpt = suffix_chkpt+'-mmstate-augstate-dT%02d'%(self.hparams.dT)
-        
-        if self.use_sst_obs :
-            suffix_chkpt = suffix_chkpt+'-sstobs-'+self.hparams.sst_model+'_%02d'%(self.hparams.dim_obs_sst_feat)
-        
-        suffix_chkpt = suffix_chkpt+'-grad_%02d_%02d_%03d'%(self.hparams.n_grad,self.hparams.k_n_grad,self.hparams.dim_grad_solver)    
+        if self.hparams.n_grad > 0 :
+            
+            if self.hparams.aug_state :
+                suffix_chkpt = suffix_chkpt+'-augstate-dT%02d'%(self.hparams.dT)
+            if self.use_sst_state :
+                suffix_chkpt = suffix_chkpt+'-mmstate-augstate-dT%02d'%(self.hparams.dT)
+            
+            if self.use_sst_obs :
+                suffix_chkpt = suffix_chkpt+'-sstobs-'+self.hparams.sst_model+'_%02d'%(self.hparams.dim_obs_sst_feat)
+            
+            suffix_chkpt = suffix_chkpt+'-grad_%02d_%02d_%03d'%(self.hparams.n_grad,self.hparams.k_n_grad,self.hparams.dim_grad_solver)
+        else:
+            suffix_chkpt = suffix_chkpt+'DirectInv'
+            
         suffix_chkpt = suffix_chkpt+old_suffix
         
         return filename_chkpt.replace(old_suffix,suffix_chkpt)
@@ -852,46 +856,59 @@ class LitModelAugstate(pl.LightningModule):
 
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
-            state = torch.autograd.Variable(state, requires_grad=True)
-            outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
-
-            if (phase == 'val') or (phase == 'test'):
-                outputs = outputs.detach()
-
-            outputsSLRHR = outputs
-            outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
-            if self.aug_state :
-                outputs = outputsSLR + outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
-            else:
-                outputs = outputsSLR + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
-
-            # median filter
-            if self.median_filter_width > 1:
-                outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
-
-            # reconstruction losses
-            # projection losses
-
-            yGT = torch.cat((targets_OI,
-                             targets_GT_wo_nan - outputsSLR),
-                            dim=1)
-            if self.aug_state :
-                yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
-                       
-            if self.use_sst_state :
-                yGT = torch.cat((yGT,sst_gt), dim=1)
-
-            loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
-            loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
-            loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
-                yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
-            )
-
-            # total loss
-            loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
-            loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
-            loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
-
+            
+            if self.hparams.n_grad > 0 :                
+                state = torch.autograd.Variable(state, requires_grad=True)
+                outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
+    
+                if (phase == 'val') or (phase == 'test'):
+                    outputs = outputs.detach()
+    
+                outputsSLRHR = outputs
+                outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
+                if self.aug_state :
+                    outputs = outputsSLR + outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
+                else:
+                    outputs = outputsSLR + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
+    
+                # median filter
+                if self.median_filter_width > 1:
+                    outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
+    
+                # reconstruction losses
+                # projection losses
+    
+                yGT = torch.cat((targets_OI,
+                                 targets_GT_wo_nan - outputsSLR),
+                                dim=1)
+                if self.aug_state :
+                    yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
+                           
+                if self.use_sst_state :
+                    yGT = torch.cat((yGT,sst_gt), dim=1)
+    
+                loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
+                loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
+                loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
+                    yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
+                )
+    
+                # total loss
+                loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
+                loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
+                loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
+            else:                
+                outputs = self.model.phi_r(obs)
+                outputs = outputs[:, 0:self.hparams.dT, :, :] + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
+ 
+                loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
+                loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
+                loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
+                
+                utputsSLRHR = None
+                hidden_new = None
+                cell_new = None
+                normgrad = 0.
             # metrics
             # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
             mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(
