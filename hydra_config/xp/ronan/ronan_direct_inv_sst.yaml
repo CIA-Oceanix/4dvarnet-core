@@ -25,7 +25,8 @@ params:
   dim_grad_solver: 150
   phi_param: 'unet1'
   ckpt_name: 'modelSLAwSSTGF-{epoch:02d}-{val_loss:.4f}'
-  dT: 7
+  use_sst_obs: False
+  use_sst_state: True
   patch_weight:
     _target_: lit_model_augstate.get_cropped_hanning_mask
     patch_size: ${datamodule.slice_win}
@@ -39,9 +40,6 @@ params:
   alpha_mse_gssh: 1000.
   norm_obs: l2
   norm_prior: l2
-  phi_param: 'unet1'
-  use_sst_obs: False
-  use_sst_state: True
 datamodule:
   aug_train_data: True
 
