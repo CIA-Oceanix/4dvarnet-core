@@ -905,9 +905,9 @@ class LitModelAugstate(pl.LightningModule):
                 loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
                 
-                outputsSLRHR = None
-                hidden_new = None
-                cell_new = None
+                outputsSLRHR = 0. * outputs
+                hidden_new = 0. * outputs
+                cell_new = 0. * outputs
                 normgrad = 0.
             # metrics
             # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
