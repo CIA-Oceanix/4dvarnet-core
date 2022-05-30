@@ -229,11 +229,6 @@ class FourDVarNetHydraRunner:
         )
 
 def _main(cfg):
-    if cfg.datamodule.resize_factor!=1:
-        cfg.datamodule.slice_win['lat'] =  int(cfg.datamodule.slice_win['lat']/cfg.datamodule.resize_factor)
-        cfg.datamodule.slice_win['lon'] =  int(cfg.datamodule.slice_win['lon']/cfg.datamodule.resize_factor)
-        cfg.datamodule.strides['lat'] =  int(cfg.datamodule.strides['lat']/cfg.datamodule.resize_factor)
-        cfg.datamodule.strides['lon'] =  int(cfg.datamodule.strides['lon']/cfg.datamodule.resize_factor)
     print(OmegaConf.to_yaml(cfg))
     pl.seed_everything(seed=cfg.get('seed', None))
     dm = instantiate(cfg.datamodule)
