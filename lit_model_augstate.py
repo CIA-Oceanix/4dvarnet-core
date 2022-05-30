@@ -723,6 +723,7 @@ class LitModelAugstate(pl.LightningModule):
             #path_save1 = self.logger.log_dir + f'/test_res_all.nc'
             path_save1 = self.hparams.path_save_netcdf.replace('.ckpt','_res_4dvarnet_all.nc')
             if not self.use_sst :
+                print('... Save nc file with all results : '+path_save1)
                 save_netcdf_with_obs(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh,
                          lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
             else:
