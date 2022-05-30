@@ -83,6 +83,51 @@ def batch_torch_interpolate(gv, gt, gx, gy, st, sx, sy, bn):
 import torch.nn.functional as F
 
 
+def batch_interp_to_grid(bgv, bgt, bgx, bgy, bsv, bst, bsx, bsy):
+    def cp_nearest(s, g0, d):
+        return ((s - g0) / d).round().maximum(torch.full_like(s, 0)).long()
+
+    def cp_idx(s, g0, d):
+        return ((s - g0) / d).trunc().maximum(torch.full_like(s, 0)).long()
+
+    _sv, _st, _sx, _sy = map(lambda t: torch.flatten(t, start_dim=1), (bsv, bst, bsx, bsy))
+    minf = lambda t: einops.reduce(t, 'b ... -> b ()', reduction='min')
+    maxf = lambda t: einops.reduce(t, 'b ... -> b ()', reduction='max')
+    inbound = (
+        # (_st > minf(bgt)) & (_st < maxf(bgt)) &
+        (_sx > minf(bgx)) & (_sx < maxf(bgx))
+        & (_sy > minf(bgy)) & (_sy < maxf(bgy))
+    )
+
+    msk = (_st.isfinite() & inbound).nonzero(as_tuple=True)
+    __sv, __st, __sx, __sy = map(lambda t: t[msk], (_sv, _st, _sx, _sy))
+    bn, _ = msk
+    gt, gx, gy, sv, st, sx, sy, bn = bgt, bgx, bgy, __sv, __st, __sx, __sy, bn
+
+    dt, dx, dy = gt.diff()[0,0], gx.diff()[0,0], gy.diff()[0,0]
+    t0, x0, y0 = gt.min(1).values[:, None], gx.min(1).values[:, None], gy.min(1).values[:, None]
+    nt, nx, ny = len(gt[0,:]), len(gx[0,:]), len(gy[0,:])
+
+    ar = torch.arange(len(sx))
+    ct = cp_nearest(st, t0, dt)[bn, ar]
+    # ct = cp_idx(st, t0, dt)[bn, ar]
+    cx, cy = cp_idx(sx, x0, dx)[bn, ar], cp_idx(sy, y0, dy)[bn, ar]
+    
+
+    fg = torch.zeros_like(bgv).flatten()
+    wfg = torch.zeros_like(bgv).flatten()
+    fidx= (
+            bn * nt * nx * ny 
+            + ct *  nx * ny
+            + cx  * ny
+            + cy 
+    )
+    fg.index_add_(0, fidx , sv) 
+    wfg.index_add_(0, fidx, torch.ones_like(sv)) 
+    tgt_fg = fg.where((wfg==0), fg / wfg)
+    ggv = tgt_fg.reshape_as(bgv)
+    return ggv
+
 
 
 def batch_torch_interpolate_with_fmt(bgv, bgt, bgx, bgy, bst, bsx, bsy):

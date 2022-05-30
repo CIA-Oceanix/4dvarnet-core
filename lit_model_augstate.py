@@ -482,7 +482,8 @@ class LitModelAugstate(pl.LightningModule):
         else:
             raise Exception('unknown phase')
         self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
-
+        print(self.test_xr_ds.dims)
+        print(self.test_xr_ds.time)
         Path(self.logger.log_dir).mkdir(exist_ok=True)
         path_save1 = self.logger.log_dir + f'/test.nc'
         self.test_xr_ds.to_netcdf(path_save1)
@@ -720,15 +721,19 @@ if __name__ =='__main__':
     # cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_hannAdamW/version_0/checkpoints/modelCalSLAInterpGF-epoch=129-val_loss=0.5664.ckpt'
     # cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_daugx3hann/version_1/checkpoints/modelCalSLAInterpGF-epoch=32-val_loss=0.5734.ckpt'
     # cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_daugx3hann/version_1/checkpoints/modelCalSLAInterpGF-epoch=34-val_loss=0.5793.ckpt'
-    cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_daugx3hann/version_1/checkpoints/modelCalSLAInterpGF-epoch=43-val_loss=0.5658.ckpt'
+    # cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_daugx3hann/version_1/checkpoints/modelCalSLAInterpGF-epoch=43-val_loss=0.5658.ckpt'
+    cfg_n, ckpt = 'qxp20_swot_sst', 'results/xp20/qxp20_swot_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=129-val_loss=0.2785.ckpt'
+    cfg_n, ckpt = 'qxp20_swot_no_sst', 'results/xp20/qxp20_swot_no_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=131-val_loss=0.4958.ckpt'
+    # cfg_n, ckpt = 'qxp20_5nad_no_sst', 'results/xp20/qxp20_5nad_no_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=85-val_loss=0.7589.ckpt'
     # cfg_n, ckpt = 'full_core_hanning_t_grad', 'results/xpnew/hanning_grad/version_0/checkpoints/modelCalSLAInterpGF-epoch=102-val_loss=3.7019.ckpt'
-    cfg_n = f"xp_aug/xp_repro/{cfg_n}"
+    # cfg_n = f"xp_aug/xp_repro/{cfg_n}"
     dm = get_dm(cfg_n, setup=False,
             add_overrides=[
                 # 'params.files_cfg.obs_mask_path=/gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/CalData/cal_data_new_errs.nc',
                 # 'params.files_cfg.obs_mask_path=/gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d.nc',
                 # 'params.files_cfg.obs_mask_var=four_nadirs'
                 # 'params.files_cfg.obs_mask_var=swot_nadirs_no_noise'
+                'file_paths=dgx_ifremer'
             ]
 
 
