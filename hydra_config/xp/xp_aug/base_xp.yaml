@@ -62,6 +62,7 @@ datamodule:
   sst_var: ???
   aug_train_data: false
   resolution: 1/20
+  resize_factor: 1
   dl_kwargs:
     batch_size: 2
     num_workers: 2

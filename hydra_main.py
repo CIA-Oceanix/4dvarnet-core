@@ -53,6 +53,7 @@ class FourDVarNetHydraRunner:
         #print(test_dates)
         self.time = {'time_test' : test_dates}
         OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
+        OmegaConf.register_new_resolver("div", lambda x,y: x/int(y), replace=True)
 
         self.setup(dm)
 

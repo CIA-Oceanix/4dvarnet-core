@@ -4,13 +4,7 @@ xp_name: xp_oi
 params:
   model: 4dvarnet_OI
   dT: 29
-  patch_weight:
-    patch_size: 
-      lat: 60
-      lon: 60
     crop:
-      lat: 5
-      lon: 5
       time: 3
   k_n_grad: 3
   n_grad: 5
