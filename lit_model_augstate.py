@@ -110,8 +110,8 @@ class LitModelAugstate(pl.LightningModule):
         hparam = {} if hparam is None else hparam
         hparams = hparam if isinstance(hparam, dict) else OmegaConf.to_container(hparam, resolve=True)
 
-        # self.save_hyperparameters({**hparams, **kwargs})
-        self.save_hyperparameters({**hparams, **kwargs}, logger=False)
+        self.save_hyperparameters({**hparams, **kwargs})
+        # self.save_hyperparameters({**hparams, **kwargs}, logger=False)
         self.latest_metrics = {}
         # TOTEST: set those parameters only if provided
         self.var_Val = self.hparams.var_Val
@@ -364,7 +364,8 @@ class LitModelAugstate(pl.LightningModule):
         return (
             (fin_ds.drop('weight') / fin_ds.weight)
             .sel(instantiate(self.test_domain))
-            .pipe(lambda ds: ds.sel(time=~(np.isnan(ds.gt).all('lat').all('lon'))))
+            .isel(time=slice(self.hparams.dT //2, -self.hparams.dT //2))
+            # .pipe(lambda ds: ds.sel(time=~(np.isnan(ds.gt).all('lat').all('lon'))))
         ).transpose('time', 'lat', 'lon')
 
 
