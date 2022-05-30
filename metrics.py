@@ -540,7 +540,7 @@ def save_netcdf_with_obs(saved_path1, gt, obs, oi, pred, lon, lat, time,
                    'ssh_obs': (('time', 'lat', 'lon'), obs),
                    'ssh_oi': (('time', 'lat', 'lon'), oi),
                    'ssh_rec': (('time', 'lat', 'lon'), pred)}, \
-        coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred)),'feat':np.arange(sst_feat.shape[1])})
+        coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred))})
 
     
     #xrdata.time.attrs['units'] = time_units
