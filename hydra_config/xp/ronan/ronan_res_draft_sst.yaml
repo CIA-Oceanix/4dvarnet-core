@@ -7,13 +7,13 @@ entrypoint:
 #   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=105-val_loss=0.1946.ckpt'
 #   ckpt_path: '~/ResSLANATL60/SavedModels_GF//modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_50-grad_05_03_150-epoch=75-val_loss=0.1932.ckpt'
 #   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-linear-bn_03-grad_05_03_150-epoch=105-val_loss=0.2512.ckpt'
-#   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelCalSLAInterpGF-unet1_050-augdata-augstate-dT07-grad_05_03_150-epoch=94-val_loss=0.5335.ckpt'
+   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelCalSLAInterpGF-unet1_050-augdata-augstate-dT07-grad_05_03_150-epoch=94-val_loss=0.5335.ckpt'
 #   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelSLAwSSTGF-unet1_050-augdata-DirectInv-dT07-epoch=196-val_loss=1.0252.ckpt'
 #   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelSLAwSSTGF-unet-std_050-augdata-DirectInv-dT07-epoch=58-val_loss=1.0545.ckpt'
 #   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelSLAwSSTGF-unet-std_050-augdata-DirectInv-wSST-dT07-epoch=179-val_loss=0.4576.ckpt'
 #   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelSLAwSSTGF-unet1_050-augdata-DirectInv-wSST-dT07-epoch=145-val_loss=0.5605.ckpt'
 #   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelSLAwSSTGF-unet1-unet1_050-augdata-augstate-dT07-mmstate-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=88-val_loss=0.2664.ckpt'
-   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-mmstate-augstate-dT07-grad_05_03_150-epoch=121-val_loss=0.3125.ckpt'
+#   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-mmstate-augstate-dT07-grad_05_03_150-epoch=121-val_loss=0.3125.ckpt'
 params:
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'  #'linear-bn'#''linear'# 
   patch_weight:
