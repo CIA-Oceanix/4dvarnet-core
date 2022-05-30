@@ -2,20 +2,20 @@
 
 datamodule:
   slice_win:
-    lat: ${div: 200,${datamodule.resize_factor}}
-    lon: ${div: 160,${datamodule.resize_factor}}
+    lat: ${div:200,${datamodule.resize_factor}}
+    lon: ${div:160,${datamodule.resize_factor}}
     time: ${params.dT}
   strides:
-    lat: ${div: 200,${datamodule.resize_factor}}
-    lon: ${div: 160,${datamodule.resize_factor}}
+    lat: ${div:200,${datamodule.resize_factor}}
+    lon: ${div:160,${datamodule.resize_factor}}
     time: 1
 params:
   patch_weight:
     _target_: lit_model_augstate.get_constant_crop
     patch_size: ${datamodule.slice_win}
     crop:
-      lat: ${div: 0,${datamodule.resize_factor}}
-      lon: ${div: 0,${datamodule.resize_factor}}
+      lat: ${div:0,${datamodule.resize_factor}}
+      lon: ${div:0,${datamodule.resize_factor}}
       time: 2
 
 defaults:
