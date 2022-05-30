@@ -398,9 +398,9 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
             return torch.tensor(0.)
 
         s_vb = swath_calib.interp.batch_torch_interpolate_with_fmt(xb, *gc, *sc)
-
-        cal_out, idx = self.model.model_H.cal_cost(sv, s_vb, sgt)
-        t1, t2 = cal_out, sgt.where(~(cal_out==0), torch.zeros_like(sgt))[:, :, idx]
+        cal_out, cal_idx = self.model.model_H.cal_out(sv, s_vb)
+        fna = lambda t, m: t.where(m, torch.zeros_like(t))
+        t1, t2 = cal_out, fna(sgt[:,:, cal_idx, :], ~(cal_out==0))
         rmse = ((t1 -t2)**2).mean().sqrt()
 
         def sob(t):
@@ -408,7 +408,7 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
                 # return kornia.filters.sobel(rearrange(t, 'b d1 d2 c -> b c d1 d2'))
                 return kornia.filters.sobel(t)
             elif len(t.shape) == 3:
-                return kornia.filters.sobel(rearrange(t, 'b d1 d2 -> b () d1 d2'))
+                return kornia.filters.sobel(einops.rearrange(t, 'b d1 d2 -> b () d1 d2'))
             else:
                 assert False, 'Should not be here'
 
@@ -417,7 +417,7 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
                 # return kornia.filters.laplacian(rearrange(t, 'b d1 d2 c -> b c d1 d2'), kernel_size=3)
                 return kornia.filters.laplacian(t, kernel_size=3)
             elif len(t.shape) == 3:
-                return kornia.filters.laplacian(rearrange(t, 'b d1 d2 -> b () d1 d2'), kernel_size=3)
+                return kornia.filters.laplacian(einops.rearrange(t, 'b d1 d2 -> b () d1 d2'), kernel_size=3)
             else:
                 assert False, 'Should not be here'
 
@@ -566,8 +566,7 @@ class CalibrationModelObsGridGeometry(torch.nn.Module):
 
     def cal_cost(self, sv_uncal, sv_bg, sv_ref):
         out_cal, idx = self.cal_out(sv_uncal, sv_bg)
-        fna = lambda t: t.where(t.isfinite(), torch.zeros_like(t))
-        dyout = out_cal - fna(sv_ref)[:, :, idx, :]
+        dyout = out_cal - sv_ref[:, :, idx, :]
         return dyout
 
     def forward(self, x, y, ymsk):
@@ -582,6 +581,12 @@ class CalibrationModelObsGridGeometry(torch.nn.Module):
             elif self.hparams.calref == 'xlr':
                 s_xlr = swath_calib.interp.batch_torch_interpolate_with_fmt(xlr, *gc, *sc)
 
+            out_cal, cal_idx = self.cal_out(sv, s_xlr)
+            g_cal = swath_calib.interp.batch_interp_to_grid(
+                    ylr, *gc, out_cal, *map(lambda t: t[:, :, cal_idx, ...], sc)
+            )
+            dyout = g_cal - (xlr + anom_obs) 
+            dyout = self.hparams.swot_obs_w * dyout
 
         else:
             dyout = torch.zeros_like(xlr)
@@ -665,6 +670,7 @@ class CalibrationModelObsSensorGeometry(torch.nn.Module):
                         reduction='mean',
                 )
 
+
         else:
             dyout = torch.zeros_like(xlr)
 
@@ -725,8 +731,8 @@ if __name__ == '__main__':
         '+params.warmup_epochs=20',
         '+params.obscost_downsamp=2',
         # '+params.calref=x',
-        # '+params.calref=xlr',
-        '+params.calref=oi',
+        '+params.calref=xlr',
+        # '+params.calref=oi',
         'params.automatic_optimization=false',
     ]
     cfg_4dvar = utils.get_cfg(cfgn, overrides=overrides)
@@ -753,13 +759,12 @@ if __name__ == '__main__':
     dm = FourDVarMixedGeometryDatamodule(ds_kwargs=ds_kwargs, dl_kwargs=dl_kwargs, **hydra.utils.call(splits),)
     
     # ckpt = 'lightning_logs/version_50/checkpoints/epoch=52-step=6148.ckpt'
-
     ckpt = None
     lit_mod = utils.get_model(cfgn, ckpt=ckpt, dm=dm, add_overrides=overrides+['lit_mod_cls=__main__.LitModMixGeom'])
     print(lit_mod.__class__)
     vcb = swath_calib.versioning_cb.VersioningCallback()
     lrcb = pl.callbacks.LearningRateMonitor()
-    xp_num = 3 
+    xp_num = 2 
     logger = pl.loggers.TensorBoardLogger(
         'mixed_geom_logs',
         name=f'{xp_num}_{int(sensor_kwargs["swot_path"] is None)}_{cfg_4dvar.params.calref}',
