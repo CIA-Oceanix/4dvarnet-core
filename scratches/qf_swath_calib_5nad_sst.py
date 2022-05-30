@@ -81,7 +81,7 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
             ''')
 
         # Train calib model
-        train_ds = swath_calib.dataset.SmoothSwathDataset(swath_data['train'], **cfg.swath_ds_cfg) 
+        train_ds = swath_calib.dataset.SmoothSwathDataset(swath_data['train'], **cfg.swath_ds_cfg, norm_stats=(0, 1)) 
         val_ds = swath_calib.dataset.SmoothSwathDataset(swath_data['val'], **cfg.swath_ds_cfg, norm_stats=train_ds.stats) 
 
         train_dl = torch.utils.data.DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=3)
@@ -93,21 +93,22 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
                 **cfg.net_cfg
         )
         normnet = torch.nn.Sequential(
-            # torch.nn.BatchNorm2d(len(train_ds.pp_vars)),
+            torch.nn.BatchNorm2d(num_features=len(train_ds.pp_vars), affine=False, momentum=0.1),
             net
         )
 
         cal_mod = swath_calib.models.LitDirectCNN(
                 # net,
                 normnet,
-                gt_var_stats=[s[train_ds.gt_vars].to_array().data for s in train_ds.stats],
+                # gt_var_stats=[s[train_ds.gt_vars].to_array().data for s in train_ds.stats],
+                gt_var_stats=[np.array([0]), np.array([1])],
                 **cfg.lit_cfg
             )
         cal_mod.use_ff = cfg.train_with_ff
         logger = pl.loggers.TensorBoardLogger('lightning_logs', name=f'{xp_num}_{cfgn}', version='')
         vcb = swath_calib.versioning_cb.VersioningCallback()
         trainer = pl.Trainer(
-            gpus=[7],
+            gpus=[6],
             logger=logger,
             callbacks=[
                 pl.callbacks.LearningRateMonitor(),
@@ -286,7 +287,7 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
         return locals()
 
 if __name__ == '__main__':
-    xp_num=114
+    xp_num=115
     cfgs = swath_calib.configs.register_configs()
     for cfgn in cfgs:
         full_from_scratch(xp_num, cfgn)

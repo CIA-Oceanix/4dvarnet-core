@@ -10,7 +10,7 @@ class SmoothSwathDataset(torch.utils.data.Dataset):
             self,
             swath_data,
             norm_stats=None,
-            sigmas_obs=(0,*[(i+1)*8 for i in range(40)]),
+            sigmas_obs=(0,*[(i+1)*8 for i in range(10)]),
             sigmas_xb=(0,),
             sigmas_gt=(0,),
             gt_var='ssh_model',
