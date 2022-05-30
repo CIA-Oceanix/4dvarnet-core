@@ -64,7 +64,7 @@ params:
   DimAE: 50
   dim_obs_sst_feat: 2#10
   dim_grad_solver: 150
-  save_rec_netcdf: False
+  save_rec_netcdf: True
   sig_filter_laplacian: 1.
   path_save_netcdf: '/gpfsscratch/rech/yrf/ulh44ct/temp/save.ckpt'
   ckpt_name: 'modelSLAwSSTGF-unet1-{epoch:02d}-{val_loss:.4f}'
