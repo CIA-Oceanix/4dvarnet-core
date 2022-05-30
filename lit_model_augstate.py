@@ -18,7 +18,7 @@ from omegaconf import OmegaConf
 from scipy import stats
 import solver as NN_4DVar
 import metrics
-from metrics import save_netcdf,save_netcdf_with_sst, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
+from metrics import save_netcdf,save_netcdf_with_obs,save_netcdf_with_sst, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
 from models import Model_H, Model_HwithSST, Model_HwithSSTBN,Phi_r, ModelLR, Gradient_img, Model_HwithSSTBN_nolin_tanh, Model_HwithSST_nolin_tanh, Model_HwithSSTBNandAtt
 from models import Model_HwithSSTBNAtt_nolin_tanh
 
@@ -718,11 +718,12 @@ class LitModelAugstate(pl.LightningModule):
         self.latest_metrics.update(md)
         self.logger.log_metrics(md, step=self.current_epoch)
 
+        print('..... Log directory: '+self.logger.log_dir)
         if self.save_rec_netcdf == True :
             #path_save1 = self.logger.log_dir + f'/test_res_all.nc'
             path_save1 = self.hparams.path_save_netcdf.replace('.ckpt','_res_4dvarnet_all.nc')
             if not self.use_sst :
-                save_netcdf(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh,
+                save_netcdf_with_obs(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh,
                          lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
             else:
                 if 1*1 :
