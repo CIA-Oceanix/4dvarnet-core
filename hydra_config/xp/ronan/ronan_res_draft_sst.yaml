@@ -32,7 +32,7 @@ params:
   path_save_netcdf: '/gpfsscratch/rech/yrf/ulh44ct/temp/save.ckpt'
   ckpt_name: 'modelSLAwSSTGF-unet1-{epoch:02d}-{val_loss:.4f}'
 defaults:
-#- /xp/xp_aug/xp_ronan/full_core_hanning
-- /xp/xp_aug/xp_ronan/full_core_hanning_sst
+- /xp/xp_aug/xp_ronan/full_core_hanning
+#- /xp/xp_aug/xp_ronan/full_core_hanning_sst
 #- /xp/xp_aug/xp_repro/full_core_sst
 - _self_
