@@ -4,6 +4,7 @@ xp_name: xp_oi
 params:
   model: 4dvarnet_OI
   dT: 29
+  patch_weight:
     crop:
       time: 3
   k_n_grad: 3
