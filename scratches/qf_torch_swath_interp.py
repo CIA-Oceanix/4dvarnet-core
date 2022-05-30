@@ -404,7 +404,7 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
 
         return {
             'optimizer': optimizer,
-            'lr_scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, verbose=True, patience=50, cooldown=10, factor=0.5),
+            'lr_scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, verbose=True, patience=25, cooldown=10, factor=0.5),
             'monitor': 'val_loss'
         }
 
@@ -459,7 +459,7 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
         )
         if self.hparams.calref =='oi':
             xb = oi_wo_nan
-        elif self.hparams.calref =='xrl':
+        elif self.hparams.calref =='xlr':
             xb = xlr
         elif self.hparams.calref =='x':
             xb = outputs
@@ -543,7 +543,7 @@ class CalibrationModelObsMixedGeometry(torch.nn.Module):
 
             dyout = self.cal_cost(sv, s_xlr, s_x)
             # dyout = self.cal_cost(sv, s_x, s_x)
-            dyout = 0.1 * dyout
+            dyout = self.hparams.swot_obs_w * dyout
             if self.downsamp > 1:
                 dyout = einops.reduce(
                         dyout[...,
@@ -610,11 +610,12 @@ if __name__ == '__main__':
         '+params.model_name=4dvarnet_cal',
         'params.val_diag_freq=3',
         '+params.alpha_cal=1',
-        '+params.warmup_epochs=1',
+        '+params.swot_obs_w=0.1',
+        '+params.warmup_epochs=6',
         '+params.obscost_downsamp=2',
         # '+params.calref=x',
-        # '+params.calref=xlr',
-        '+params.calref=oi',
+        '+params.calref=xlr',
+        # '+params.calref=oi',
         'params.automatic_optimization=false',
     ]
     cfg_4dvar = utils.get_cfg(cfgn, overrides=overrides)
@@ -627,8 +628,8 @@ if __name__ == '__main__':
     }
     sensor_kwargs =dict(
         nadir_paths=tuple([f'../sla-data-registry/sensor_zarr/zarr/nadir/{name}' for name in ['swot', 'en', 'tpn', 'g2', 'j1']]),
-        swot_path=None,
-        # swot_path=f'../sla-data-registry/sensor_zarr/zarr/new_swot',
+        # swot_path=None,
+        swot_path=f'../sla-data-registry/sensor_zarr/zarr/new_swot',
         nadir_var='ssh_model',
         swot_gt_vars=('ssh_model',),
         swot_obs_vars=('ssh_model', 'wet_tropo_res', 'syst_error_uncalibrated'),
@@ -637,6 +638,7 @@ if __name__ == '__main__':
         OmegaConf.masked_copy(cfg_4dvar.datamodule,['gt_path', 'gt_var', 'oi_path', 'oi_var', 'obs_mask_path', 'obs_mask_var']),
         grid_kwargs=grid_kwargs, sens_kwargs=sensor_kwargs,
     )
+    print(ds_kwargs)
     dm = FourDVarMixedGeometryDatamodule(ds_kwargs=ds_kwargs, dl_kwargs=dl_kwargs, **hydra.utils.call(splits),)
     
     # ckpt = 'lightning_logs/version_50/checkpoints/epoch=52-step=6148.ckpt'
@@ -645,6 +647,11 @@ if __name__ == '__main__':
     print(lit_mod.__class__)
     vcb = swath_calib.versioning_cb.VersioningCallback()
     lrcb = pl.callbacks.LearningRateMonitor()
-    trainer = pl.Trainer(gpus=[2], weights_summary='full', callbacks=[vcb, lrcb])
+    xp_num = 1 
+    logger = pl.loggers.TensorBoardLogger(
+        'mixed_geom_logs',
+        name=f'{xp_num}_{int(sensor_kwargs["swot_path"] is None)}_{cfg_4dvar.params.calref}',
+    )
+    trainer = pl.Trainer(gpus=[3], logger=logger, weights_summary='full', callbacks=[vcb, lrcb])
     trainer.fit(lit_mod, datamodule=dm)
 
