@@ -5,8 +5,9 @@
 entrypoint:
    weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-hydra-exp/'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-hydra-exp/version_1/checkpoints/modelCalSLAInterpGF-epoch=142-val_loss=0.5566.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-hydra-exp/version_3/checkpoints/modelCalSLAInterpGF-unet1_050-augdata-augstate-dT07-grad_05_03_150-epoch=94-val_loss=0.5335.ckpt'
-#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-hydra-exp/version_6/checkpoints/modelSLAwSSTGF-unet1-unet1_050-augdata-DirectInv-dT07-epoch=97-val_loss=1.0147.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-hydra-exp/version_3/checkpoints/modelCalSLAInterpGF-unet1_050-augdata-augstate-dT07-grad_05_03_150-epoch=94-val_loss=0.5335.ckpt'
+   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-hydra-exp/version_7/checkpoints/modelSLAwSSTGF-unet-std_050-augdata-DirectInv-dT07-epoch=58-val_loss=1.0545.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-hydra-exp/version_3/checkpoints/modelSLAwSSTGF-unet1_050-augdata-DirectInv-dT07-epoch=196-val_loss=1.0252.ckpt'
 params:
   n_grad: 0
   dT: 7
