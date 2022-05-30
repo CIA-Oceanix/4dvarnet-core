@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: xp_interp_dt7_240_h_sst
+xp_name: baseline_sst
 params:
   dT: 7
   patch_weight:

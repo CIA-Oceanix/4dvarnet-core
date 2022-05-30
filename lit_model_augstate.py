@@ -1,4 +1,5 @@
 import einops
+import hydra
 import torch.distributed as dist
 import kornia
 from hydra.utils import instantiate
@@ -75,6 +76,21 @@ def get_constant_crop(patch_size, crop, dim_order=['time', 'lat', 'lon']):
         print(patch_weight.sum())
         return patch_weight
 
+def get_hanning_mask(patch_size, **kwargs):
+        
+    t_msk =kornia.filters.get_hanning_kernel1d(patch_size['time'])
+    s_msk = kornia.filters.get_hanning_kernel2d((patch_size['lat'], patch_size['lon']))
+
+    patch_weight = t_msk[:, None, None] * s_msk[None, :, :]
+    return patch_weight.cpu().numpy()
+
+def get_cropped_hanning_mask(patch_size, crop, **kwargs):
+    pw = get_constant_crop(patch_size, crop)
+        
+    t_msk =kornia.filters.get_hanning_kernel1d(patch_size['time'])
+
+    patch_weight = t_msk[:, None, None] * pw
+    return patch_weight.cpu().numpy()
 
 ############################################ Lightning Module #######################################################################
 
@@ -171,23 +187,24 @@ class LitModelAugstate(pl.LightningModule):
         return losses, out, metrics
 
     def configure_optimizers(self):
-
+        opt = torch.optim.Adam
+        if hasattr(self.hparams, 'opt'):
+            opt = lambda p: hydra.utils.call(self.hparams.opt, p)
         if self.model_name == '4dvarnet':
-            optimizer = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+            optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
-                ]
-                , lr=0., weight_decay=self.hparams.weight_decay)
+                ])
 
             return optimizer
         elif self.model_name == '4dvarnet_sst':
 
-            optimizer = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+            optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
                                 {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
-                                ], lr=0., weight_decay=self.hparams.weight_decay)
+                                ])
 
             return optimizer
         else:
@@ -306,21 +323,13 @@ class LitModelAugstate(pl.LightningModule):
 
         if dist.is_initialized():
             dist.barrier()
-        if self.global_rank > 0:
-            print(f'Saved data for rank {self.global_rank}')
-            return
 
-        return [torch.load(f) for f in sorted(data_path.glob('*'))]
+        if self.global_rank == 0:
+            return [torch.load(f) for f in sorted(data_path.glob('*'))]
 
-    def build_test_xr_ds(self, outputs, log_pref):
+    def build_test_xr_ds(self, outputs, diag_ds):
 
         outputs_keys = list(outputs[0][0].keys())
-        if log_pref == 'test':
-            diag_ds = self.trainer.test_dataloaders[0].dataset.datasets[0]
-        elif log_pref == 'val':
-            diag_ds = self.trainer.val_dataloaders[0].dataset.datasets[0]
-        else:
-            raise Exception('unknown phase')
         with diag_ds.get_coords():
             self.test_patch_coords = [
                diag_ds[i]
@@ -473,7 +482,16 @@ class LitModelAugstate(pl.LightningModule):
 
     def diag_epoch_end(self, outputs, log_pref='test'):
         full_outputs = self.gather_outputs(outputs, log_pref=log_pref)
-        self.test_xr_ds = self.build_test_xr_ds(full_outputs, log_pref=log_pref)
+        if full_outputs is None:
+            print("full_outputs is None on ", self.global_rank)
+            return
+        if log_pref == 'test':
+            diag_ds = self.trainer.test_dataloaders[0].dataset.datasets[0]
+        elif log_pref == 'val':
+            diag_ds = self.trainer.val_dataloaders[0].dataset.datasets[0]
+        else:
+            raise Exception('unknown phase')
+        self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
 
         Path(self.logger.log_dir).mkdir(exist_ok=True)
         path_save1 = self.logger.log_dir + f'/test.nc'
@@ -645,6 +663,27 @@ class LitModelAugstate(pl.LightningModule):
 
         return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
 
+class LitModelCycleLR(LitModelAugstate):
+    def configure_optimizers(self):
+        opt = optim.Adam(self.parameters(), lr=1e-3)
+        return {
+            'optimizer': opt,
+        'lr_scheduler': torch.optim.lr_scheduler.CyclicLR(
+            opt, **self.hparams.cycle_lr_kwargs),
+        'monitor': 'val_loss'
+    }
+
+    def on_train_epoch_start(self):
+        if self.model_name in ('4dvarnet', '4dvarnet_sst'):
+            opt = self.optimizers()
+            if (self.current_epoch in self.hparams.iter_update) & (self.current_epoch > 0):
+                indx = self.hparams.iter_update.index(self.current_epoch)
+                print('... Update Iterations number #%d: NGrad = %d -- ' % (
+                    self.current_epoch, self.hparams.nb_grad_update[indx]))
+
+                self.hparams.n_grad = self.hparams.nb_grad_update[indx]
+                self.model.n_grad = self.hparams.n_grad
+                print("ngrad iter", self.model.n_grad)
 
 if __name__ =='__main__':
 
@@ -659,46 +698,37 @@ if __name__ =='__main__':
     from utils import get_cfg, get_dm, get_model
     from omegaconf import OmegaConf
     OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
-    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638612/checkpoints/modelCalSLAInterpGF-epoch=30-val_loss=1.5786.ckpt'
-    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=13-val_loss=1.4913.ckpt'
-    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=16-val_loss=1.4879.ckpt'
-    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=19-val_loss=1.4220.ckpt'
-    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=30-val_loss=1.4054.ckpt'
-    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=43-val_loss=1.4010.ckpt'
-
-    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=35-val_loss=1.3944.ckpt'
-    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=59-val_loss=1.3850.ckpt'
-    # cfg_n, ckpt = 'dT5_240', 'dashboard/xp_interp_dt5_240_h/lightning_logs/version_1638603/checkpoints/modelCalSLAInterpGF-epoch=80-val_loss=1.3976.ckpt'
-
-    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=18-val_loss=1.4573.ckpt'
-    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=29-val_loss=1.4368.ckpt'
-
-    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=40-val_loss=1.3377.ckpt'
-
-    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=60-val_loss=1.3481.ckpt'
-    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1638604/checkpoints/modelCalSLAInterpGF-epoch=72-val_loss=1.3462.ckpt'
-
-    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1714109/checkpoints/modelCalSLAInterpGF-epoch=07-val_loss=1.3174.ckpt'
-    # cfg_n, ckpt = 'full_core', 'dashboard/xp_interp_dt7_240_h/lightning_logs/version_1714109/checkpoints/modelCalSLAInterpGF-epoch=16-val_loss=1.3098.ckpt'
-
-
-    # cfg_n, ckpt = 'quentin_repro_w_hugo_lit_240', 'dashboard/xp_interp_dt7_240_r/lightning_logs/version_1638608/checkpoints/modelCalSLAInterpGF-epoch=98-val_loss=1.4799.ckpt'
-    # cfg_n, ckpt = 'quentin_repro_w_hugo_lit_240', 'dashboard/xp_interp_dt7_240_r/lightning_logs/version_1638608/checkpoints/modelCalSLAInterpGF-epoch=74-val_loss=1.5486.ckpt'
-    # cfg_n, ckpt = 'quentin_repro_w_hugo_lit_240', 'dashboard/xp_interp_dt7_240_r/lightning_logs/version_1638608/checkpoints/modelCalSLAInterpGF-epoch=85-val_loss=1.5409.ckpt'
-
-    # cfg_n, ckpt = 'quentin_repro_w_hugo_lit_240', 'modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt'
-
-    # cfg_n, ckpt = 'full_core', 'archive_dash/xp_interp_dt7_240_h/version_2/checkpoints/modelCalSLAInterpGF-epoch=131-val_loss=1.3230.ckpt'
-    # cfg_n, ckpt = 'full_core', 'archive_dash/xp_interp_dt7_240_h/version_2/checkpoints/modelCalSLAInterpGF-epoch=49-val_loss=1.3328.ckpt'
-    # cfg_n, ckpt = 'full_core', 'archive_dash/xp_interp_dt7_240_h/version_2/checkpoints/modelCalSLAInterpGF-epoch=110-val_loss=1.3428.ckpt'
     import hydra_config
-    cfg_n, ckpt = 'qxp16_aug2_dp240_swot_w_oi_map_no_sst_ng5x3cas_l2_dp025_00', 'archive_dash/qxp16_aug2_dp240_swot_w_oi_map_no_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=170-val_loss=0.0164.ckpt'
-    # cfg_n, ckpt = 'full_core', 'modelSLA-L2-GF-augdata01-augstate-boost-swot-dT07-igrad05_03-dgrad150-epoch=42-val_loss=1.28.ckpt'
-    # cfg_n, ckpt = 'dT9', 'dashboard/xp_interp_dt9_240_h/lightning_logs/version_1715728/checkpoints/modelCalSLAInterpGF-epoch=23-val_loss=1.4065.ckpt'
-    # cfg_n, ckpt = 'dT5_240_sst', None
-    # cfg_n, ckpt = 'full_core_hanning_t_grad', 'dashboard/xp_interp_dt7_240_h_hanning/lightning_logs/version_1733027/checkpoints/modelCalSLAInterpGF-epoch=04-val_loss=0.2668.ckpt'
+    # cfg_n, ckpt = 'qxp16_aug2_dp240_swot_w_oi_map_no_sst_ng5x3cas_l2_dp025_00', 'archive_dash/qxp16_aug2_dp240_swot_w_oi_map_no_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=170-val_loss=0.0164.ckpt'
+    cfg_n, ckpt = 'full_core', 'results/xpmultigpus/xphack4g_augx4/version_0/checkpoints/modelCalSLAInterpGF-epoch=26-val_loss=1.4156.ckpt'
+    # cfg_n, ckpt = 'full_core', 'archive_dash/xp_interp_dt7_240_h/version_5/checkpoints/modelCalSLAInterpGF-epoch=47-val_loss=1.3773.ckpt'
 
+    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=181-val_loss=0.0101.ckpt'
+    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=191-val_loss=0.0101.ckpt'
+    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=192-val_loss=0.0102.ckpt'
+    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=192-val_loss=0.0102.ckpt'
+
+    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=187-val_loss=0.0105.ckpt'
+    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=198-val_loss=0.0103.ckpt'
+    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=194-val_loss=0.0106.ckpt'
+
+    # cfg_n, ckpt = 'full_core_sst', 'archive_dash/xp_interp_dt7_240_h_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=114-val_loss=0.6698.ckpt'
     # cfg_n = f"xp_aug/xp_repro/{cfg_n}"
+    # cfg_n, ckpt = 'full_core_hanning_sst', 'results/xpnew/hanning_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=95-val_loss=0.3419.ckpt'
+    # cfg_n, ckpt = 'full_core_hanning_sst', 'results/xpnew/hanning_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=92-val_loss=0.3393.ckpt'
+    # cfg_n, ckpt = 'full_core_hanning_sst', 'results/xpnew/hanning_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=99-val_loss=0.3438.ckpt'
+    # cfg_n, ckpt = 'full_core_sst_fft', 'results/xpnew/sst_fft/version_0/checkpoints/modelCalSLAInterpGF-epoch=59-val_loss=2.0084.ckpt'
+    # cfg_n, ckpt = 'full_core_sst_fft', 'results/xpnew/sst_fft/version_0/checkpoints/modelCalSLAInterpGF-epoch=92-val_loss=2.0447.ckpt'
+    # cfg_n, ckpt = 'cycle_lr_sst', 'results/xpnew/xp_cycle_lr_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=103-val_loss=0.9093.ckpt'
+    # cfg_n, ckpt = 'full_core_hanning', 'results/xpnew/hanning/version_0/checkpoints/modelCalSLAInterpGF-epoch=91-val_loss=0.5461.ckpt'
+    # cfg_n, ckpt = 'full_core_hanning', 'results/xpnew/hanning/version_2/checkpoints/modelCalSLAInterpGF-epoch=88-val_loss=0.5654.ckpt'
+    # cfg_n, ckpt = 'full_core_hanning', 'results/xpnew/hanning/version_2/checkpoints/modelCalSLAInterpGF-epoch=129-val_loss=0.5692.ckpt'
+    # cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_hannAdamW/version_0/checkpoints/modelCalSLAInterpGF-epoch=129-val_loss=0.5664.ckpt'
+    # cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_daugx3hann/version_1/checkpoints/modelCalSLAInterpGF-epoch=32-val_loss=0.5734.ckpt'
+    # cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_daugx3hann/version_1/checkpoints/modelCalSLAInterpGF-epoch=34-val_loss=0.5793.ckpt'
+    cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_daugx3hann/version_1/checkpoints/modelCalSLAInterpGF-epoch=43-val_loss=0.5658.ckpt'
+    # cfg_n, ckpt = 'full_core_hanning_t_grad', 'results/xpnew/hanning_grad/version_0/checkpoints/modelCalSLAInterpGF-epoch=102-val_loss=3.7019.ckpt'
+    cfg_n = f"xp_aug/xp_repro/{cfg_n}"
     dm = get_dm(cfg_n, setup=False,
             add_overrides=[
                 # 'params.files_cfg.obs_mask_path=/gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/CalData/cal_data_new_errs.nc',
