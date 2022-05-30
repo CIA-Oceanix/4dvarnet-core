@@ -5,6 +5,7 @@
 entrypoint:
    weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/'
    ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-mmstate-augstate-dT07-grad_05_03_150-epoch=121-val_loss=0.3125.ckpt'
+   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelSLAwSSTGF-unet1-unet1_050-augdata-augstate-dT07-mmstate-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=88-val_loss=0.2664.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_3/checkpoints/modelSLAwSSTGF-unet1-unet1_050-augdata-augstate-dT07-mmstate-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=103-val_loss=0.2862.ckpt'
 # Et là tu charges la config d'où tu veux partir:
 
