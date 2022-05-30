@@ -227,8 +227,6 @@ class FourDVarNetHydraRunner:
         )
 
 def _main(cfg):
-    OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
-    OmegaConf.register_new_resolver("div", lambda x,y: x/int(y), replace=True)
     print(OmegaConf.to_yaml(cfg))
     pl.seed_everything(seed=cfg.get('seed', None))
     dm = instantiate(cfg.datamodule)
