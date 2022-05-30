@@ -63,7 +63,7 @@ params:
   dim_grad_solver: 150
   save_rec_netcdf: True
   sig_filter_laplacian: 1.
-  path_save_netcdf: '~/ResNATL60_GF/SavedSLAModels/'
+  path_save_netcdf: '~/ResNATL60_GF/SavedSLAModels/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=105-val_loss=0.1946.ckpt'
   ckpt_name: 'modelSLAwSSTGF-unet1-{epoch:02d}-{val_loss:.4f}'
 defaults:
 - /xp/xp_aug/xp_ronan/full_core_hanning_sst
