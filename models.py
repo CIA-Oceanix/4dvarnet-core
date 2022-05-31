@@ -171,6 +171,7 @@ class Model_HwithSST(torch.nn.Module):
 
         y1 = y[1] * mask[1]
         x_feat = self.extract_state_feature(x)
+                
         y_feat = self.extract_sst_feature(y1)
         dyout1 = x_feat - y_feat
 

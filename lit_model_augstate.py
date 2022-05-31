@@ -190,6 +190,7 @@ class LitModelAugstate(pl.LightningModule):
         self.aug_state = self.hparams.aug_state if hasattr(self.hparams, 'aug_state') else False
         self.save_rec_netcdf = self.hparams.save_rec_netcdf if hasattr(self.hparams, 'save_rec_netcdf') else './'
         self.sig_filter_laplacian = self.hparams.sig_filter_laplacian if hasattr(self.hparams, 'sig_filter_laplacian') else 0.5
+        self.scale_dwscaling_sst = self.hparams.scale_dwscaling_sst if hasattr(self.hparams, 'scale_dwscaling_sst') else 1.0
 
         if self.hparams.k_n_grad == 0 :
             self.hparams.n_fourdvar_iter = 1
@@ -718,6 +719,8 @@ class LitModelAugstate(pl.LightningModule):
         self.latest_metrics.update(md)
         self.logger.log_metrics(md, step=self.current_epoch)
 
+        if self.scale_dwscaling_sst > 1. :
+            print('.... Using downscaled SST by %.1f'%self.scale_dwscaling_sst)
         print('..... Log directory: '+self.logger.log_dir)
         if self.save_rec_netcdf == True :
             #path_save1 = self.logger.log_dir + f'/test_res_all.nc'
@@ -825,6 +828,10 @@ class LitModelAugstate(pl.LightningModule):
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
 
+        if self.scale_dwscaling_sst > 1. :
+            sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (self.scale_dwscaling_sst,self.scale_dwscaling_sst))
+            sst_gt = torch.nn.functional.interpolate(sst_gt, scale_factor=self.scale_dwscaling_sst, mode='bicubic')
+            
         #targets_OI, inputs_Mask, targets_GT = batch
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:

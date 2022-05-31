@@ -4,7 +4,7 @@
 
 entrypoint:
    weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/'
-#   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=105-val_loss=0.1946.ckpt'
+   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=105-val_loss=0.1946.ckpt'
 #   ckpt_path: '~/ResSLANATL60/SavedModels_GF//modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_50-grad_05_03_150-epoch=75-val_loss=0.1932.ckpt'
 #   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-linear-bn_03-grad_05_03_150-epoch=105-val_loss=0.2512.ckpt'
 #   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelCalSLAInterpGF-unet1_050-augdata-augstate-dT07-grad_05_03_150-epoch=94-val_loss=0.5335.ckpt'
@@ -14,7 +14,7 @@ entrypoint:
 #   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelSLAwSSTGF-unet1_050-augdata-DirectInv-wSST-dT07-epoch=145-val_loss=0.5605.ckpt'
 #   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelSLAwSSTGF-unet1-unet1_050-augdata-augstate-dT07-mmstate-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=88-val_loss=0.2664.ckpt'
 #   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelSLAwSSTGF-unet1_050-augdata-augstate-dT07-mmstate-augstate-dT07-grad_05_03_150-epoch=121-val_loss=0.3125.ckpt'
-   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelSLAwSSTGF-unet1-unet1_050-augdata-augstate-dT07-mmstate-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=82-val_loss=0.2551.ckpt'
+#   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelSLAwSSTGF-unet1-unet1_050-augdata-augstate-dT07-mmstate-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=82-val_loss=0.2551.ckpt'
 #   ckpt_path: '~/ResSLANATL60/SavedModels_GF/modelSLAwSSTGF-unet1-unet1_050-augdata-augstate-dT07-mmstate-augstate-dT07-grad_05_03_150-epoch=55-val_loss=0.2883.ckpt'
 params:
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'  #'linear-bn'#''linear'# 
@@ -31,6 +31,7 @@ params:
   dim_grad_solver: 150
   save_rec_netcdf: True
   sig_filter_laplacian: 1.
+  scale_dwscaling_sst: 2.
   path_save_netcdf: '/gpfsscratch/rech/yrf/ulh44ct/temp/save.ckpt'
   ckpt_name: 'modelSLAwSSTGF-unet1-{epoch:02d}-{val_loss:.4f}'
 defaults:
