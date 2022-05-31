@@ -40,7 +40,6 @@ def get_4dvarnet_sst(hparams):
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
-
 def get_phi(hparams):
     class PhiPassThrough(torch.nn.Module):
         def __init__(self):
@@ -68,7 +67,7 @@ def get_constant_crop(patch_size, crop, dim_order=['time', 'lat', 'lon']):
         return patch_weight
 
 def get_hanning_mask(patch_size, **kwargs):
-        
+
     t_msk =kornia.filters.get_hanning_kernel1d(patch_size['time'])
     s_msk = kornia.filters.get_hanning_kernel2d((patch_size['lat'], patch_size['lon']))
 
@@ -77,7 +76,7 @@ def get_hanning_mask(patch_size, **kwargs):
 
 def get_cropped_hanning_mask(patch_size, crop, **kwargs):
     pw = get_constant_crop(patch_size, crop)
-        
+
     t_msk =kornia.filters.get_hanning_kernel1d(patch_size['time'])
 
     patch_weight = t_msk[:, None, None] * pw

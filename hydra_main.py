@@ -52,7 +52,6 @@ class FourDVarNetHydraRunner:
                       for i in range(len(dm.test_slices))])
         #print(test_dates)
         self.time = {'time_test' : test_dates}
-        OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
 
         self.setup(dm)
 
@@ -188,7 +187,7 @@ class FourDVarNetHydraRunner:
         :param dataloader: Dataloader on which to run the test Checkpoint from which to resume
         :param trainer_kwargs: (Optional)
         """
-    
+
         if _trainer is not None:
             _trainer.test(mod, dataloaders=self.dataloaders[dataloader])
             return
