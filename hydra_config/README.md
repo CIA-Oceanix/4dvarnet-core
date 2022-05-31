@@ -51,35 +51,35 @@ entrypoint:
 
 
 ### Example commands:
-- Run the experiment specified in the  `xp/full_core.yaml` files:
+- Run the experiment specified in the  `xp/baseline/full_core.yaml` files:
 ```
-python hydra_main.py xp=full_core entrypoint=run
-```
-
-- Run the experiment in a slurm job (1 node 4 gpus) on jz specified in the  `xp/full_core.yaml` files:
-```
-python hydra_main.py xp=full_core entrypoint=run +backend=slurm_1x4 -m
+python hydra_main.py xp=baseline/full_core entrypoint=run
 ```
 
-- Run the two experiments specified in the  `xp/full_core.yaml`, `xp/full_core_sst.yaml`files:
+- Run the experiment in a slurm job (1 node 4 gpus) on jz specified in the  `xp/baseline/full_core.yaml` files:
 ```
-python hydra_main.py --multirun xp=full_core,full_core_sst entrypoint=run 
-```
-
-- Run the experiment specified in the  `xp/full_core.yaml` for a test run (only on train batch, val batch test\_batch) :
-```
-python hydra_main.py  xp=full_core entrypoint=run entrypoint.fast_dev_run=True
+python hydra_main.py xp=baseline/full_core entrypoint=run +backend=slurm_1x4 -m
 ```
 
-- Run the experiment specified in the  `xp/full_core.yaml` and modify a parameter:
+- Run the two experiments specified in the  `xp/baseline/full_core.yaml`, `xp/baseline/full_core_sst.yaml`files:
+```
+python hydra_main.py --multirun xp=baseline/full_core,baseline/full_core_sst entrypoint=run 
+```
+
+- Run the experiment specified in the  `xp/baseline/full_core.yaml` for a test run (only on train batch, val batch test\_batch) :
+```
+python hydra_main.py  xp=baseline/full_core entrypoint=run entrypoint.fast_dev_run=True
+```
+
+- Run the experiment specified in the  `xp/baseline/full_core.yaml` and modify a parameter:
 
 ```
-python hydra_main.py  xp=full_core params.n_grad=15 entrypoint=run 
+python hydra_main.py  xp=baseline/full_core params.n_grad=15 entrypoint=run 
 ```
 
 - (To be tested) Test a trained model on a different domain :
 ```
-python hydra_main.py  xp=full_core entrypoint=test entrypoint.ckpt_path=<path_withescaped_equal_signs_\=>  /domain@datamodule.dim_range: natl
+python hydra_main.py  xp=baseline/full_core entrypoint=test entrypoint.ckpt_path=<path_withescaped_equal_signs_\=>  /domain@datamodule.dim_range: natl
 ```
 
 
