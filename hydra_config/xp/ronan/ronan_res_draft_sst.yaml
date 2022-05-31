@@ -31,7 +31,7 @@ params:
   dim_grad_solver: 150
   save_rec_netcdf: True
   sig_filter_laplacian: 1.
-  scale_dwscaling_sst: 2.
+  scale_dwscaling_sst: 4.
   path_save_netcdf: '/gpfsscratch/rech/yrf/ulh44ct/temp/save.ckpt'
   ckpt_name: 'modelSLAwSSTGF-unet1-{epoch:02d}-{val_loss:.4f}'
 defaults:
