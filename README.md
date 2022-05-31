@@ -41,9 +41,7 @@ https://s3.eu-central-1.wasabisys.com/melody/NATL/ref/NATL60-CJM165_NATL_sst_y20
 
 
 ### Run
-```
-python main.py
-```
+See the README.md in [hydra\_config](https://github.com/CIA-Oceanix/4dvarnet-core/tree/main/hydra_config)
 
 ## Contribution workflow
 - [Install the project](#installation)
