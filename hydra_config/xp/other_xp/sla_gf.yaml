@@ -1,0 +1,9 @@
+# @package _global_
+xp_name: sla_gf
+defaults:
+  - /params: sla_gf_hal
+  - /domain@datamodule.dim_range: gf
+  - /training: baseline
+  - _self_
+
+

@@ -1,0 +1,4 @@
+# @package _global_
+params:
+  alpha_mse_ssh: 1.0
+  alpha_mse_gssh: 10.0
