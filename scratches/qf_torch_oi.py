@@ -15,9 +15,6 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
-
-
-
 def prepare_oi_batch(
         obs_values, obs_time, obs_lon, obs_lat,
         c_time, c_lon, c_lat,
@@ -87,11 +84,6 @@ def torch_oi(
                              ((obs_lat[:, None] - obs_lat[None, :]) / Ly)**2)
 
     nobs = len(obs_time)
-    # print(f'{nobs=}')
-    # print(f'{obs_time=}')
-    # print(f'{grid_time=}')
-    # print(f'{HBHt=}')
-    # print(f'{BHt=}')
     R = torch.diag(torch.full((nobs,), noise**2, device=grid_time.device))
 
     
