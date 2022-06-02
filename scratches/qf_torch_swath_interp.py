@@ -112,7 +112,7 @@ class SensorXrDs(torch.utils.data.Dataset):
         self.swot_obs_vars = list(swot_obs_vars)
         self.obs_downsamp = obs_downsamp
         self.min_swot_length = min_swot_length
-        self.crop = pd.to_timedelta('2D')
+        self.crop = pd.to_timedelta('3D')
 
     def __len__(self):
         return len(self.xr_ds)
@@ -648,10 +648,10 @@ class CalibrationModelObsGridGeometry(torch.nn.Module):
         super().__init__()
         self.hparams = hparams
         sst_ch = hparams.dT
-        self.dim_obs = 1
-        self.dim_obs_channel = np.array([shape_data])
-        # self.dim_obs = 2
-        # self.dim_obs_channel = np.array([shape_data, shape_data])
+        # self.dim_obs_channel = np.array([shape_data, sst_ch])
+        # self.dim_obs = 3
+        self.dim_obs = 2
+        self.dim_obs_channel = np.array([shape_data, shape_data])
         self.min_size = min_size
         self.num_feat = 2*(len(sigs)+1)
         self.norm = torch.nn.BatchNorm2d(num_features=self.num_feat, affine=False, momentum=0.1)
@@ -779,8 +779,7 @@ class CalibrationModelObsGridGeometry(torch.nn.Module):
         else:
             dyout1 = torch.zeros_like(x)
 
-        # return dyout, dyout1
-        return dyout + dyout1
+        return dyout, dyout1
         # return [dyoutlr, dyout, dyout1]
         
 class CalibrationModelObsSensorGeometry(torch.nn.Module):
@@ -788,11 +787,9 @@ class CalibrationModelObsSensorGeometry(torch.nn.Module):
     def __init__(self, shape_data, hparams=None, min_size=500, sigs=tuple([8* (i+1) for i in range(10)])):
         super().__init__()
         self.hparams = hparams
+        self.dim_obs = 3
         sst_ch = hparams.dT
-        # self.dim_obs = 2
-        # self.dim_obs_channel = np.array([shape_data, sst_ch])
-        self.dim_obs = 1
-        self.dim_obs_channel = np.array(sst_ch)
+        self.dim_obs_channel = np.array([shape_data, sst_ch])
         self.min_size = min_size
         self.num_feat = 2*(len(sigs)+1)
         self.norm = torch.nn.BatchNorm2d(num_features=self.num_feat, affine=False, momentum=0.1)
@@ -919,7 +916,7 @@ if __name__ == '__main__':
         'params.automatic_optimization=false',
         'params.patch_weight._target_=lit_model_augstate.get_constant_crop',
         'params.dT=11',
-        'params.patch_weight.crop.time=2',
+        'params.patch_weight.crop.time=3',
     ]
     map_cfg_n, map_ckpt = 'qxp20_5nad_no_sst', 'results/xp20/qxp20_5nad_no_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=85-val_loss=0.7589.ckpt'
     map_cfg_n, map_ckpt = 'qxp20_swot_no_sst', 'results/xp20/qxp20_swot_no_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=131-val_loss=0.4958.ckpt'
@@ -991,8 +988,6 @@ if __name__ == '__main__':
         # print(lit_mod.model.load_state_dict(mapmod.model.state_dict(), strict=False))
         # print(lit_mod.model.model_H.calnet.load_state_dict(cal_mod.net.state_dict(), strict=False))
 
-        pw = hydra.utils.call(cfg_4dvar.params.patch_weight)
-        lit_mod.patch_weight.data = torch.from_numpy(pw)
 
         vcb = swath_calib.versioning_cb.VersioningCallback()
         lrcb = pl.callbacks.LearningRateMonitor()
@@ -1006,11 +1001,13 @@ if __name__ == '__main__':
 
     #####               TEST #########################
     def test():
-        # ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_7/checkpoints').glob('*.ckpt')))
-        ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_10/checkpoints').glob('*.ckpt')))
-
+        # ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_10/checkpoints').glob('*.ckpt')))
+        ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_21/checkpoints').glob('*.ckpt')))
+        cfg_4dvar.params.patch_weight.crop.time=cfg_4dvar.params.dT//2
+        pw = hydra.utils.call(cfg_4dvar.params.patch_weight)
         print(ckpt)
         lit_mod = utils.get_model(cfgn, ckpt=ckpt, dm=dm, add_overrides=overrides+['lit_mod_cls=__main__.LitModMixGeom'])
+        lit_mod.patch_weight.data = torch.from_numpy(pw)
         logger = pl.loggers.TensorBoardLogger(
             'mixed_geom_logs',
             name=f'test_{xp_num}_{int(sensor_kwargs["swot_path"] is None)}_{cfg_4dvar.params.calref}',
