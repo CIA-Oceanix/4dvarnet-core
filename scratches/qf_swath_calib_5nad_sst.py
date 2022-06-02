@@ -81,9 +81,11 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
             ''')
 
         # Train calib model
-        train_ds = swath_calib.dataset.SmoothSwathDataset(swath_data['train'], **cfg.swath_ds_cfg, norm_stats=(0, 1)) 
-        val_ds = swath_calib.dataset.SmoothSwathDataset(swath_data['val'], **cfg.swath_ds_cfg, norm_stats=train_ds.stats) 
-
+        ns = (0.31446309894037083, 0.3886609494201447)
+        # train_ds = swath_calib.dataset.SmoothSwathDataset(swath_data['train'], **cfg.swath_ds_cfg, norm_stats=ns) 
+        # val_ds = swath_calib.dataset.SmoothSwathDataset(swath_data['val'], **cfg.swath_ds_cfg, norm_stats=train_ds.stats) 
+        val_ds = swath_calib.dataset.SmoothSwathDataset(swath_data['val'], **cfg.swath_ds_cfg, norm_stats=ns) 
+        1/0
         train_dl = torch.utils.data.DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=3)
         val_dl = torch.utils.data.DataLoader(val_ds, batch_size=1, shuffle=False, num_workers=3)
         
@@ -101,7 +103,7 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
                 # net,
                 normnet,
                 # gt_var_stats=[s[train_ds.gt_vars].to_array().data for s in train_ds.stats],
-                gt_var_stats=[np.array([0]), np.array([1])],
+                gt_var_stats=[np.array([ns[0]]), np.array([ns[1]])],
                 **cfg.lit_cfg
             )
         cal_mod.use_ff = cfg.train_with_ff
@@ -255,7 +257,8 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
                     'rmse_pred': rms(cal_data.pred - cal_data.ssh_model).item(),
                     'grad_rmse': cal_data.groupby('contiguous_chunk').apply(lambda g: sobel(g.cal) - sobel(g.ssh_model)).pipe(rms).item(),
                     'grad_rmse_pred': cal_data.groupby('contiguous_chunk').apply(lambda g: sobel(g.pred) - sobel(g.ssh_model)).pipe(rms).item(),
-                **spat_res_df.loc[lambda df: df.xp_long=='cal'].spat_res.agg({'spat_res_mean': 'mean','spat_res_std': 'std'}).to_dict()
+                **spat_res_df.loc[lambda df: df.xp_long=='cal'].spat_res.agg({'spat_res_mean': 'mean','spat_res_std': 'std'}).to_dict(),
+                **spat_res_df.loc[lambda df: df.xp_long=='pred'].spat_res.agg({'spat_res_pred_mean': 'mean','spat_res_pred_std': 'std'}).to_dict()
                 }]
                 
                 print(pd.DataFrame(swath_metrics).to_markdown())
@@ -287,7 +290,8 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
         return locals()
 
 if __name__ == '__main__':
-    xp_num=115
+    xp_num=117
     cfgs = swath_calib.configs.register_configs()
     for cfgn in cfgs:
-        full_from_scratch(xp_num, cfgn)
+        locals().update(full_from_scratch(xp_num, cfgn))
+

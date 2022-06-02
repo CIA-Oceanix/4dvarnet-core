@@ -66,8 +66,8 @@ class ConvLSTM2d(torch.nn.Module):
         if prev_state is None:
             state_size = [batch_size, self.hidden_size] + list(spatial_size)
             prev_state = (
-                torch.autograd.Variable(torch.zeros(state_size)).to(device),
-                torch.autograd.Variable(torch.zeros(state_size)).to(device)
+                torch.autograd.Variable(torch.zeros(state_size)).to(input_.device),
+                torch.autograd.Variable(torch.zeros(state_size)).to(input_.device)
             )
 
         # prev_state has two components
@@ -352,11 +352,11 @@ class Model_Var_Cost(nn.Module):
             #     # y_loss = F.mse_loss(_dy, torch.zeros_like(_dy))
             #     # print(y_loss)
             #     loss +=  y_loss
-            for kk in range(0,self.dim_obs):
+            for kk, ddy in enumerate(dy):
                 loss +=  (
                     self.alphaObs[kk]**2
                     * self.normObs(
-                        dy[kk],
+                        ddy,
                         self.WObs[kk,0:dy[kk].size(1)]**2,
                         self.epsObs[kk]
                     )
