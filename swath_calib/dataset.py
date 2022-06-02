@@ -9,7 +9,7 @@ class SmoothSwathDataset(torch.utils.data.Dataset):
     def __init__(
             self,
             swath_data,
-            norm_stats=None,
+            norm_stats=(0., 1.),
             sigmas_obs=(0,*[(i+1)*8 for i in range(10)]),
             sigmas_xb=(0,),
             sigmas_gt=(0,),
@@ -17,7 +17,9 @@ class SmoothSwathDataset(torch.utils.data.Dataset):
             ref_var='pred',
             xb_var='oi',
         ):
+        mean, std = norm_stats
         xrgf = lambda da, sig: da if sig==0 else xr.apply_ufunc(lambda nda: ndi.gaussian_filter1d(nda, axis=0, sigma=sig, order=0, mode='mirror', truncate=3.0), da)
+        pp = lambda da: (da -mean) /std
         swath_data = swath_data.assign(contiguous_chunk=lambda _df: (_df.x_al.diff('time').pipe(np.abs) > 3).cumsum())
         # swath_data = swath_data.assign(contiguous_chunk=lambda _df: (_df.x_al.diff('time') > 3).cumsum())
         sw_data_w_aug = (
@@ -37,9 +39,9 @@ class SmoothSwathDataset(torch.utils.data.Dataset):
                         gt_res= lambda ds: ds.ssh_model - ds.xb,
                         ref_res= lambda ds: ds.pred - ds.xb
                     ).assign(
-                        **{f'obs_{sig}' : lambda _g, sig=sig: xrgf(_g.obs, sig) for sig in sigmas_obs},
-                        **({} if len(sigmas_xb)==0 else {f'xb_{sig}' : lambda _g, sig=sig: xrgf(_g.xb, sig) for sig in sigmas_xb}),
-                        **{f'gt_{sig}' : lambda _g, sig=sig: xrgf(_g[gt_var], sig) for sig in sigmas_gt},
+                        **{f'obs_{sig}' : lambda _g, sig=sig: xrgf(pp(_g.obs), sig) for sig in sigmas_obs},
+                        **({} if len(sigmas_xb)==0 else {f'xb_{sig}' : lambda _g, sig=sig: xrgf(pp(_g.xb), sig) for sig in sigmas_xb}),
+                        **{f'gt_{sig}' : lambda _g, sig=sig: xrgf(pp(_g[gt_var]), sig) for sig in sigmas_gt},
                     )
                 )
         )
@@ -83,7 +85,8 @@ class SmoothSwathDataset(torch.utils.data.Dataset):
         # mean, std =train_ds.stats
         # norm_stats=train_ds.stats
         # print(mean)
-        pp_ds = ((sw_res_data[all_vars] - mean) / std).assign(contiguous_chunk=sw_res_data.contiguous_chunk).astype(np.float32)
+        # pp_ds = ((sw_res_data[all_vars] - mean) / std).assign(contiguous_chunk=sw_res_data.contiguous_chunk).astype(np.float32)
+        pp_ds = sw_res_data[all_vars].assign(contiguous_chunk=sw_res_data.contiguous_chunk).astype(np.float32)
 
         min_timestep = 300
         self.stats  = mean, std

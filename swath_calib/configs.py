@@ -203,7 +203,7 @@ def register_configs():
             cs.store(name=xpns[-1], node=OmegaConf.merge(
                 common_cfg,
                 cfg,
-                size_overrides_cfg['pp20x8'],
+                size_overrides_cfg['pp10x8'],
                 *basic_overrides,
                 {'train_with_ff': train_with_ff}
             ), group='xp', package='_global_')

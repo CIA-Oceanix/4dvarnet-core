@@ -102,6 +102,7 @@ class SensorXrDs(torch.utils.data.Dataset):
             swot_gt_vars=('ssh_model',),
             swot_obs_vars=('ssh_model',),
             obs_downsamp=None,
+            min_swot_length=None,
         ):
         self.xr_ds = xr_ds
         self.nadir_paths = nadir_paths
@@ -110,6 +111,7 @@ class SensorXrDs(torch.utils.data.Dataset):
         self.swot_gt_vars = list(swot_gt_vars)
         self.swot_obs_vars = list(swot_obs_vars)
         self.obs_downsamp = obs_downsamp
+        self.min_swot_length = min_swot_length
 
     def __len__(self):
         return len(self.xr_ds)
@@ -127,7 +129,7 @@ class SensorXrDs(torch.utils.data.Dataset):
             None if nc is None else list(map(swath_calib.interp.stack, zip(*nc))),
         )
 
-    @functools.cache
+    @functools.lru_cache(maxsize=None)
     def __getitem__(self, item):
         with self.xr_ds.get_coords():
             coords = self.xr_ds[item]
@@ -148,7 +150,7 @@ class SensorXrDs(torch.utils.data.Dataset):
             # add_cc = lambda ds: ds.assign(ch_nb=lambda _df: (_df.x_al.diff('time').pipe(np.abs) > 3).cumsum())
             # sw = swot.pipe(add_cc)
 
-            sp_ds = swath_calib.interp.stack_passes(*swath_calib.interp.add_nb_ch(swot))
+            sp_ds = swath_calib.interp.stack_passes(*swath_calib.interp.add_nb_ch(swot), min_len=self.min_swot_length)
             spc =  swath_calib.interp.fmt_s_coords(sp_ds)
             spgt = swath_calib.interp.fmt_s_value(sp_ds, self.swot_gt_vars , spc[0].isfinite())
             spv = swath_calib.interp.fmt_s_value(sp_ds, self.swot_obs_vars , spc[0].isfinite())
@@ -215,7 +217,7 @@ class FourDVarMixedGeometryDataset(torch.utils.data.Dataset):
     @staticmethod
     def collate_fn(list_of_items):
         oi , gt, sgt, go, gc, sv, sc, nv, nc = zip(*list_of_items)
-        cstack = lambda ts: None if ts[0] is None else swath_calib.interp.stack(ts)
+        cstack = lambda ts: None if all(t is None for t in ts) else swath_calib.interp.stack([t for t in ts if t is not None])
         return (
             torch.stack(oi),
             torch.stack(gt),
@@ -356,7 +358,7 @@ def get_4dvarnet_cal_grid(hparams):
 class LitModMixGeom(lit_model_augstate.LitModelAugstate):
 
     def diag_step(self, batch, batch_idx, log_pref='test'):
-        oi, gt, _, go,  *_ = batch
+        oi, gt, sgt, go, *y = batch
         losses, out, metrics = self(batch, phase='test')
         loss = losses[-1]
         if loss is not None and log_pref is not None:
@@ -369,6 +371,23 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
                 'oi'    : (oi.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'obs_inp'    : (go.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
+
+    def forward(self, batch, phase='test'):
+        losses = []
+        metrics = []
+        state_init = [None]
+        out=None
+        for _ in range(self.hparams.n_fourdvar_iter):
+            _loss, out, state, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init, last=(_==(self.hparams.n_fourdvar_iter-1)))
+            state_init = [None if s is None else s.detach() for s in state]
+            losses.append(_loss)
+            metrics.append(_metrics)
+        return losses, out, metrics
+
+
+    def predict_step(self, batch, batch_idx):
+        return self.diag_step(batch, batch_idx, log_pref=None)
+
 
     def create_model(self, *args, **kwargs):
         if self.hparams.model_name == '4dvarnet':
@@ -392,20 +411,34 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
             init_state = torch.cat((init_state, go_oi), dim=1)
         return init_state
 
-    def loss_cal(self, sgt, y, xb):
+    def cal_out(self, y, xb):
         _, gc, sv, sc, _, _ = y
-        if sv is None:
-            return torch.tensor(0.)
-
         s_vb = swath_calib.interp.batch_torch_interpolate_with_fmt(xb, *gc, *sc)
-        cal_out, cal_idx = self.model.model_H.cal_out(sv, s_vb)
+        cal_out, cal_msk, cal_idx = self.model.model_H.cal_out(sv, s_vb.detach())
+
         fna = lambda t, m: t.where(m, torch.zeros_like(t))
-        t1, t2 = cal_out, fna(sgt[:,:, cal_idx, :], ~(cal_out==0))
-        rmse = ((t1 -t2)**2).mean().sqrt()
+        pw = einops.repeat(self.patch_weight, '... -> b ...', b=xb.size(0))
+        sw = swath_calib.interp.batch_torch_interpolate_with_fmt(pw, *gc, *sc)
+        sw = fna(sw, sw.isfinite())
+        return cal_out, cal_msk, cal_idx, sw
+
+    def loss_cal(self, sgt, y, xb):
+
+        _, _, sv, _, _, _ = y
+        if sv is None:
+            return torch.tensor(0.), torch.tensor(0.), torch.tensor(0.)
+
+        fna = lambda t, m: t.where(m, torch.zeros_like(t))
+        cal_out, cal_msk, cal_idx, sw = self.cal_out(y, xb)
+
+        t1, t2, tw = cal_out, fna(sgt[:,:, cal_idx, :], cal_msk), fna(sw[:,:, cal_idx, :], cal_msk)
+        if tw.sum().item() == 0:
+            return torch.tensor(0.), torch.tensor(0.), torch.tensor(0.)
+
+        mse = ((t1-t2)**2 * tw).sum() / tw.sum()
 
         def sob(t):
             if len(t.shape) == 4:
-                # return kornia.filters.sobel(rearrange(t, 'b d1 d2 c -> b c d1 d2'))
                 return kornia.filters.sobel(t)
             elif len(t.shape) == 3:
                 return kornia.filters.sobel(einops.rearrange(t, 'b d1 d2 -> b () d1 d2'))
@@ -421,10 +454,10 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
             else:
                 assert False, 'Should not be here'
 
-        rmse_grad = ((sob(t1) - sob(t2))**2).mean().sqrt()
-        rmse_lap = ((lap(t1) - lap(t2))**2).mean().sqrt()
+        mse_grad = ((sob(t1) - sob(t2))**2 * tw).sum() / tw.sum()
+        mse_lap = ((lap(t1) - lap(t2))**2 * tw).sum() / tw.sum()
 
-        return rmse, rmse_grad, rmse_lap
+        return mse, mse_grad, mse_lap
 
     def configure_optimizers(self):
         opt = torch.optim.Adam
@@ -433,7 +466,7 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
 
         optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                             {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
-                            {'params': self.model.model_H.parameters(), 'lr': 0.5*self.hparams.lr_update[0]},
+                            {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
                             {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                             ])
 
@@ -443,7 +476,8 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
             'monitor': 'val_loss'
         }
 
-    def compute_loss(self, batch, phase, state_init=(None,)):
+
+    def compute_loss(self, batch, phase, state_init=(None,), last=False):
         oi, gt, sgt, *y = batch
 
 
@@ -454,7 +488,11 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
         state = self.get_init_state(batch, state_init)
 
         obs = (oi, y)
-        if self.current_epoch < self.hparams.warmup_epochs:
+        if (phase=='train') and (self.current_epoch < self.hparams.warmup_epochs):
+            (go, gc, _, sc, nv, nc) = y 
+            obs = (oi, (go, gc, None, sc, nv, nc))
+
+        if (not last):
             (go, gc, _, sc, nv, nc) = y 
             obs = (oi, (go, gc, None, sc, nv, nc))
 
@@ -492,20 +530,24 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
         loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
             yGT, oi, outputs, xlr, x_out
         )
+
         if self.hparams.calref =='oi':
             xb = oi_wo_nan
         elif self.hparams.calref =='xlr':
             xb = xlr
         elif self.hparams.calref =='x':
             xb = outputs
+
+        # loss_cal, g_loss_cal, l_loss_cal = self.loss_cal(sgt, y, xb.detach())
         loss_cal, g_loss_cal, l_loss_cal = self.loss_cal(sgt, y, xb)
 
-        # print(loss_All, loss_GAll,loss_AE, loss_AE_GT, loss_SR, loss_LR)
+        # print(loss_All, loss_GAll,loss_AE, loss_AE_GT, loss_SR, loss_LR, loss_cal)
         # total loss
-        loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
-        loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
-        loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
-        loss += self.hparams.alpha_cal * (loss_cal + g_loss_cal + l_loss_cal)
+        loss = 0
+        # loss += self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
+        # loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
+        # loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
+        loss += self.hparams.alpha_cal * (loss_cal + 0.5*g_loss_cal + 0.5*l_loss_cal)
 
         # metrics
         # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
@@ -514,9 +556,9 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
         mse = loss_All.detach()
         mseGrad = loss_GAll.detach()
         metrics = dict([
-            ('mse', mse),
-            ('mseGrad', mseGrad),
-            ('meanGrad', mean_GAll),
+            ('mse', mse.detach()),
+            ('mseGrad', mseGrad.detach()),
+            ('meanGrad', mean_GAll.detach()),
             ('mseOI', loss_OI.detach()),
             ('mseGOI', loss_GOI.detach()),
             ('mseCal', loss_cal.detach())])
@@ -528,21 +570,33 @@ class CalibrationModelObsGridGeometry(torch.nn.Module):
     def __init__(self, shape_data, hparams=None, min_size=500, sigs=tuple([8* (i+1) for i in range(10)])):
         super().__init__()
         self.hparams = hparams
-        self.dim_obs = 3
         sst_ch = hparams.dT
-        self.dim_obs_channel = np.array([shape_data, sst_ch])
+        # self.dim_obs_channel = np.array([shape_data, sst_ch])
+        # self.dim_obs = 3
+        self.dim_obs = 1
+        self.dim_obs_channel = np.array([shape_data])
         self.min_size = min_size
-        self.num_feat = 2*len(sigs) 
+        self.num_feat = 2*(len(sigs)+1)
         self.norm = torch.nn.BatchNorm2d(num_features=self.num_feat, affine=False, momentum=0.1)
 
         self.gaussian = StackedGaussian(sigs)
-        self.calnet = swath_calib.models.build_net(self.num_feat, 1,)# nhidden = 32, depth = 2,)
+        self.calnet = torch.nn.Sequential(
+            self.norm,
+            swath_calib.models.build_net(
+                in_channels=self.num_feat,
+                out_channels=1,
+                mix=True,
+            ),# nhidden = 32, depth = 2,),
+        )
         self.downsamp = self.hparams.obscost_downsamp
 
+        self.patch_weight = torch.nn.Parameter(
+                torch.from_numpy(hydra.utils.call(self.hparams.patch_weight)), requires_grad=False)
+        self.ns = (0.31446309894037083, 0.3886609494201447)
 
-    def cal_out(self, sv_uncal, sv_bg):
-        sh = einops.parse_shape(sv_bg, 'b p ...')
-        fs_xlr = einops.rearrange(sv_bg.detach(), 'b p ... -> (b p) () ...')
+
+    def cal_inp(self, sv_uncal, sv_bg):
+        fs_xlr = einops.rearrange(sv_bg, 'b p ... -> (b p) () ...')
 
         fy = einops.rearrange(sv_uncal, 'b p ... -> (b p) () ...')
 
@@ -550,28 +604,79 @@ class CalibrationModelObsGridGeometry(torch.nn.Module):
         idx = fs_xlr[ msk, ...].isfinite().all(3).all(1).all(0)
 
         gy =  self.gaussian(fy[msk][:, :, idx])
-        inp_gy = torch.cat((gy.diff(dim=1), gy[:, -1:, ...]), 1)
+        inp_gy = torch.cat((gy.diff(dim=1), -gy[:, -1:, ...]), 1)
 
         gs_xlr = self.gaussian(fs_xlr[msk][:, :, idx])
-        inp_gs_xlr = torch.cat((gy.diff(dim=1), gs_xlr[:, -1:, ...]), 1)
+        inp_gs_xlr = torch.cat((gy.diff(dim=1), -gs_xlr[:, -1:, ...]), 1)
 
-        cal_input = torch.cat((inp_gy, inp_gs_xlr), dim=1)
-        _out_cal = self.calnet(self.norm(cal_input)) + fs_xlr[msk][:,:,idx]
+        cal_input = -torch.cat((inp_gy, inp_gs_xlr), dim=1)
+        return cal_input
+
+    def cal_out(self, sv_uncal, sv_bg):
+        sh = einops.parse_shape(sv_bg, 'b p ...')
+        fs_xlr = einops.rearrange(sv_bg, 'b p ... -> (b p) () ...')
+
+        fy = einops.rearrange(sv_uncal, 'b p ... -> (b p) () ...')
+
+        msk = fy[:, :, :self.min_size, :].isfinite().all(3).all(2).all(1)
+        idx = fs_xlr[ msk, ...].isfinite().all(3).all(1).all(0)
+
+        gy =  self.gaussian(fy[msk][:, :, idx])
+        inp_gy = torch.cat((gy.diff(dim=1), -gy[:, -1:, ...]), 1)
+
+        gs_xlr = self.gaussian(fs_xlr[msk][:, :, idx])
+        inp_gs_xlr = torch.cat((gy.diff(dim=1), -gs_xlr[:, -1:, ...]), 1)
+
+        cal_input = -torch.cat((inp_gy, inp_gs_xlr), dim=1)
+        _out_cal = self.calnet(cal_input)
+        _out_cal = _out_cal + self.ns[0]/self.ns[1] + fs_xlr[msk][:,:,idx]
         out_cal = torch.zeros_like(fy[:, :, idx])
+        out_msk = torch.zeros_like(fy[:, :, idx])
         # print(out_cal.shape, _out_cal.shape, cal_input.shape)
         out_cal.index_add_(0, msk.nonzero(as_tuple=True)[0], _out_cal)
+        out_msk.index_add_(0, msk.nonzero(as_tuple=True)[0], torch.ones_like(_out_cal))
         out_cal = einops.rearrange(out_cal, '(b p) ()  ... -> b p ...', **sh)
+        out_msk = einops.rearrange(out_msk > 0, '(b p) ()  ... -> b p ...', **sh)
+        # print(out_cal.shape, out_cal.isnan().sum())
         
-        return out_cal, idx
+        return out_cal, out_msk, idx
 
     def cal_cost(self, sv_uncal, sv_bg, sv_ref):
-        out_cal, idx = self.cal_out(sv_uncal, sv_bg)
-        dyout = out_cal - sv_ref[:, :, idx, :]
+        out_cal, cal_msk, idx = self.cal_out(sv_uncal, sv_bg)
+        dyout = cal_msk * (out_cal - sv_ref[:, :, idx, :])
         return dyout
 
     def forward(self, x, y, ymsk):
-        ylr, (_, gc, sv, sc, nv, nc) = y
-        xlr, anom_obs, anom_rec = torch.split(x, self.hparams.dT, dim=1)
+        ylr, (go, gc, sv, sc, nv, nc) = y
+        xlr, _, anom_rec = torch.split(x, self.hparams.dT, dim=1)
+
+        # if self.hparams.compat_base:
+        #     anom_rec = anom_obs
+
+        if nv is not None:
+            g_cal, gmsk = swath_calib.interp.batch_interp_to_grid(
+                ylr, *gc, nv, *nc
+            )
+            # dyout1 = gmsk.float() * (g_cal - (xlr + anom_rec))
+
+
+            # Baseline
+            # yy = torch.cat((ylr, (g_cal - ylr).where(gmsk, torch.zeros_like(ylr)), ylr), dim=1) 
+            # mm = torch.cat((torch.ones_like(ylr), gmsk, torch.zeros_like(go)), dim=1)
+            # dyout = torch.abs((yy -x )  * mm)
+
+            # Move nadir obs to rec
+            yy = torch.cat((ylr, ylr, (g_cal - ylr).where(gmsk, torch.zeros_like(ylr))), dim=1) 
+            mm = torch.cat((torch.ones_like(ylr), torch.zeros_like(go), gmsk), dim=1)
+            dyout = torch.abs((yy -x )  * mm)
+        else:
+            # dyout =torch.zeros_like(x)
+            msk = go.isfinite()
+            gooi = (go - ylr).where(msk, torch.zeros_like(ylr))
+            yy = torch.cat((ylr, gooi, gooi), dim=1) 
+
+            mm = torch.cat((torch.ones_like(ylr), msk, msk), dim=1)
+            dyout = torch.abs((yy -x )  * mm)
 
         if sv is not None:
             if self.hparams.calref == 'oi':
@@ -581,29 +686,23 @@ class CalibrationModelObsGridGeometry(torch.nn.Module):
             elif self.hparams.calref == 'xlr':
                 s_xlr = swath_calib.interp.batch_torch_interpolate_with_fmt(xlr, *gc, *sc)
 
-            out_cal, cal_idx = self.cal_out(sv, s_xlr)
-            g_cal = swath_calib.interp.batch_interp_to_grid(
+            out_cal, cal_msk, cal_idx = self.cal_out(sv, s_xlr.detach())
+            g_cal, gmsk = swath_calib.interp.batch_interp_to_grid(
                     ylr, *gc, out_cal, *map(lambda t: t[:, :, cal_idx, ...], sc)
             )
-            dyout = g_cal - (xlr + anom_obs) 
-            dyout = self.hparams.swot_obs_w * dyout
-
-        else:
-            dyout = torch.zeros_like(xlr)
-
-        if nv is not None:
-            xlr, _, anom_rec = torch.split(x, self.hparams.dT, dim=1)
-            g_cal = swath_calib.interp.batch_interp_to_grid(
-                ylr, *gc, nv, *nc
+            g_cal_msk, _ = swath_calib.interp.batch_interp_to_grid(
+                    ylr, *gc, cal_msk.float(), *map(lambda t: t[:, :, cal_idx, ...], sc)
             )
-            dyout1 = g_cal - (xlr + anom_rec)
+            yy = torch.cat((ylr, (g_cal - ylr).where(g_cal_msk.bool() & gmsk, torch.zeros_like(ylr)), ylr), dim=1) 
+            mm = torch.cat((torch.ones_like(ylr), self.patch_weight[None, ...] * gmsk.float() * g_cal_msk, torch.zeros_like(go)), dim=1)
+            dyout1 = torch.abs((yy -x )  * mm)
+            # dyout = self.hparams.swot_obs_w * dyout
 
         else:
-            dyout1 = torch.zeros_like(xlr)
+            dyout1 = torch.zeros_like(x)
 
-        msk_lr, _ = ymsk
-        dyoutlr =  (ylr - xlr) * msk_lr
-        return [dyoutlr, dyout, dyout1]
+        return dyout + dyout1
+        # return [dyoutlr, dyout, dyout1]
         
 class CalibrationModelObsSensorGeometry(torch.nn.Module):
 
@@ -614,7 +713,7 @@ class CalibrationModelObsSensorGeometry(torch.nn.Module):
         sst_ch = hparams.dT
         self.dim_obs_channel = np.array([shape_data, sst_ch])
         self.min_size = min_size
-        self.num_feat = 2*len(sigs) 
+        self.num_feat = 2*(len(sigs)+1)
         self.norm = torch.nn.BatchNorm2d(num_features=self.num_feat, affine=False, momentum=0.1)
 
         self.gaussian = StackedGaussian(sigs)
@@ -711,11 +810,12 @@ class StackedGaussian(torch.nn.Module):
   
     def forward(self, fx):
         px = F.pad(fx, (0,0, self.size//2, self.size//2), mode='replicate')
-        return  F.conv2d(px, self.kernel)
+        return  torch.cat((fx, F.conv2d(px, self.kernel)), dim=1)
 
 if __name__ == '__main__':
+
     fp = 'dgx_ifremer'
-    cfgn = 'qxp20_swot_sst'
+    # cfgn = 'qxp20_swot_sst'
     cfgn = 'xp_aug/xp_repro/full_core_hanning'
     OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
     overrides = [
@@ -726,15 +826,50 @@ if __name__ == '__main__':
         'params.files_cfg.obs_mask_var=five_nadirs',
         '+params.model_name=4dvarnet_cal_grid',
         'params.val_diag_freq=3',
-        '+params.alpha_cal=1',
+        '+params.alpha_cal=10',
         '+params.swot_obs_w=0.1',
-        '+params.warmup_epochs=20',
-        '+params.obscost_downsamp=2',
-        # '+params.calref=x',
-        '+params.calref=xlr',
+        '+params.warmup_epochs=1',
+        '+params.compat_base=False',
+        '+params.obscost_downsamp=1',
+        '+params.calref=x',
+        'params.lr_update=[0.0005, 0.0001]',
+        # '+params.calref=xlr',
         # '+params.calref=oi',
         'params.automatic_optimization=false',
+        # 'params.patch_weight._target_=lit_model_augstate.get_constant_crop',
+        # 'params.patch_weight.crop.time=2',
     ]
+    map_cfg_n, map_ckpt = 'qxp20_5nad_no_sst', 'results/xp20/qxp20_5nad_no_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=85-val_loss=0.7589.ckpt'
+    mapmod = utils.get_model(
+        map_cfg_n,
+        map_ckpt,
+        add_overrides=overrides
+    )
+    
+    print(swath_calib.configs.register_configs())
+    cal_cfg_n, cal_ckpt = 'ffFalse_swath_calib_qxp20_5nad_no_sst', 'lightning_logs/117_ffFalse_swath_calib_qxp20_5nad_no_sst/checkpoints/last.ckpt'
+    cal_cfg = utils.get_cfg(cal_cfg_n)
+
+    net = swath_calib.models.build_net(
+            in_channels=22,
+            out_channels=1,
+            **cal_cfg.net_cfg
+    )
+    normnet = torch.nn.Sequential(
+        torch.nn.BatchNorm2d(num_features=22, affine=False, momentum=0.1),
+        net
+    )
+
+    cal_mod = swath_calib.models.LitDirectCNN(
+            # net,
+            normnet,
+            # gt_var_stats=[s[train_ds.gt_vars].to_array().data for s in train_ds.stats],
+            gt_var_stats=[np.array([0]), np.array([1])],
+            **cal_cfg.lit_cfg
+        )
+
+    print(cal_mod.load_state_dict(torch.load(cal_ckpt, map_location='cpu')['state_dict']))
+
     cfg_4dvar = utils.get_cfg(cfgn, overrides=overrides)
     OmegaConf.resolve(cfg_4dvar)
     splits = OmegaConf.masked_copy(cfg_4dvar.datamodule, ['train_slices', 'val_slices', 'test_slices'])
@@ -744,36 +879,62 @@ if __name__ == '__main__':
         'num_workers': 4
     }
     sensor_kwargs =dict(
-        nadir_paths=tuple([f'../sla-data-registry/sensor_zarr/zarr/nadir/{name}' for name in ['swot', 'en', 'tpn', 'g2', 'j1']]),
+        nadir_paths=[None],
+        # nadir_paths=tuple([f'../sla-data-registry/sensor_zarr/zarr/nadir/{name}' for name in ['swot', 'en', 'tpn', 'g2', 'j1']]),
         # swot_path=None,
         swot_path=f'../sla-data-registry/sensor_zarr/zarr/new_swot',
+        min_swot_length=None,
         nadir_var='ssh_model',
         swot_gt_vars=('ssh_model',),
         swot_obs_vars=('ssh_model', 'wet_tropo_res', 'syst_error_uncalibrated'),
     )
     ds_kwargs = dict(
         OmegaConf.masked_copy(cfg_4dvar.datamodule,['gt_path', 'gt_var', 'oi_path', 'oi_var', 'obs_mask_path', 'obs_mask_var']),
-        grid_kwargs=grid_kwargs, sens_kwargs=sensor_kwargs,
+        grid_kwargs=grid_kwargs,
+        sens_kwargs=sensor_kwargs,
     )
     print(ds_kwargs)
     dm = FourDVarMixedGeometryDatamodule(ds_kwargs=ds_kwargs, dl_kwargs=dl_kwargs, **hydra.utils.call(splits),)
     
-    # ckpt = 'lightning_logs/version_50/checkpoints/epoch=52-step=6148.ckpt'
     ckpt = None
+    # ckpt = 'lightning_logs/version_50/checkpoints/epoch=52-step=6148.ckpt'
+    # ckpt = str(next(Path('mixed_geom_logs/3_0_x/version_1/checkpoints/').glob('*.ckpt')))
+    # ckpt = str(next(Path('mixed_geom_logs/3_0_x/version_6/checkpoints/').glob('*.ckpt')))
+    # ckpt = str(next(Path('mixed_geom_logs/4_0_oi/version_5/checkpoints').glob('*.ckpt')))
+    # ckpt = str(next(Path('mixed_geom_logs/5_0_x/version_4/checkpoints').glob('*.ckpt')))
+
+    print(ckpt)
     lit_mod = utils.get_model(cfgn, ckpt=ckpt, dm=dm, add_overrides=overrides+['lit_mod_cls=__main__.LitModMixGeom'])
-    print(lit_mod.__class__)
+
+    xp_num = 5 
+
+    print(lit_mod.model.load_state_dict(mapmod.model.state_dict(), strict=False))
+    print(lit_mod.model.model_H.calnet.load_state_dict(cal_mod.net.state_dict(), strict=False))
+
+    pw = hydra.utils.call(cfg_4dvar.params.patch_weight)
+    lit_mod.patch_weight.data = torch.from_numpy(pw)
+
     vcb = swath_calib.versioning_cb.VersioningCallback()
     lrcb = pl.callbacks.LearningRateMonitor()
-    xp_num = 2 
     logger = pl.loggers.TensorBoardLogger(
         'mixed_geom_logs',
         name=f'{xp_num}_{int(sensor_kwargs["swot_path"] is None)}_{cfg_4dvar.params.calref}',
     )
-    trainer = pl.Trainer(gpus=[0], logger=logger, weights_summary='full', callbacks=[vcb, lrcb])
+    trainer = pl.Trainer(gpus=1, logger=logger, weights_summary='full', callbacks=[vcb, lrcb])
     trainer.fit(lit_mod, datamodule=dm)
 
+    # logger = pl.loggers.TensorBoardLogger(
+    #     'mixed_geom_logs',
+    #     name=f'test_{xp_num}_{int(sensor_kwargs["swot_path"] is None)}_{cfg_4dvar.params.calref}',
+    # )
+    # trainer = pl.Trainer(gpus=[7], logger=logger, weights_summary='full')
+    # trainer.test(lit_mod, datamodule=dm)
+
+    # trainer.test(lit_mod, dataloaders=dm.test_dataloader())
+    # out = trainer.predict(lit_mod, dataloaders=dm.val_dataloader())
+    1/0
     def s2xr(v, c):                                              
-        v, c = v.cpu().numpy(), [cc.cpu().numpy() for cc in c]   
+        v, c = v.detach().cpu().numpy(), [cc.detach().cpu().numpy() for cc in c]   
         dims = tuple([f'd{di}' for di, _ in enumerate(v.shape)]) 
         ds = xr.Dataset({                                        
           'value': (dims, v),                                  
@@ -784,7 +945,7 @@ if __name__ == '__main__':
         return ds                                                
                                                                
     def g2xr(v, c):                                              
-        v, c = v.cpu().numpy(), [cc.cpu().numpy() for cc in c]   
+        v, c = v.detach().cpu().numpy(), [cc.detach().cpu().numpy() for cc in c]   
         dims = tuple([f'd{di}' for di, _ in enumerate(v.shape)]) 
         ds = xr.Dataset({                                        
           'value': (dims, v),                                  
@@ -793,12 +954,100 @@ if __name__ == '__main__':
           'y': ((dims[0], dims[-1]), c[2]),                    
         })                                                       
         return ds                                                
-
-    # oi, gt, sgt, go, gc, sv, sc, nv, nc = next(iter(dm.val_dataloader()))
+    lit_mod =lit_mod.to('cuda:7')
+    lit_mod.model.model_Grad.lstm.Gates.weight
+    oi, gt, sgt, go, gc, sv, sc, nv, nc = lit_mod.transfer_batch_to_device(next(iter(dm.val_dataloader())), lit_mod.device, 0)
+    l, out, m = lit_mod((oi, gt, sgt, go, gc, None, sc, None, nc))
+    sc
+    mod_obs = lit_mod.model.model_H
     # mod_obs = CalibrationModelObsGridGeometry(cfg_4dvar.params.shape_data,
     #         cfg_4dvar.params)
+    mod_obs.num_feat
+    out.shape
+    sc[0]
+    s_xlr = swath_calib.interp.batch_torch_interpolate_with_fmt(out.detach(), *gc, *sc)
 
-    # out, idx = mod_obs.cal_out(sv, sgt)
+
+
+
+    cal_inp = mod_obs.cal_inp(sv, s_xlr)
+    ref_pp, ref_tgt, raw_gt, raw_ref = val_ds[0]
+    plt.imshow(ref_tgt.squeeze())
+    plt.imshow(raw_gt.squeeze())
+    plt.imshow(raw_gt.squeeze())
+    ref_pp.shape
+    my_pp = cal_inp[0]
+
+
+    1/0
+    plt.plot(ref_pp[:, 0, 0])
+    plt.plot(ref_pp[0, :, 0])
+    plt.plot(ref_pp[0, 0, :])
+
+    plt.plot(my_pp[:, 0, 0].detach().cpu())
+    plt.plot(my_pp[0, :, 0].detach().cpu())
+    plt.plot(my_pp[0, 0, :].detach().cpu())
+
+    out_cal, cal_msk, cal_idx, sw = lit_mod.cal_out((go, gc, sv, sc, nv, nc), out.detach())
+    mean, std = dm.norm_stats
+    out_cal.mean(-1).mean(-1)
+    _foo = out_cal + mean/std
+    _bar = sgt[:,:,cal_idx] 
+    _paz = s_xlr[:,:,cal_idx] 
+    (_bar - _paz)[1, 2].abs().mean()
+    (_bar - (_paz + _foo))[1, 2].abs().mean()
+    out_cal[1,2]
+    _bar[1,2]*std + mean
+    _paz[1,2]*std + mean
+    _foo[1,2]*std + mean
+
+    sgt.mean(-1).mean(-1)
+    rgt = (sgt * std) + mean
+    pout = (s_xlr * std) + mean
+    rout = (out_cal - s_xlr[:,:,cal_idx] * std) + mean
+    rout[1, 2]
+    rgt[1,2]
+    pout[1, 2]
+    out_cal[1,2]
+    ref_out = cal_mod(next(iter(torch.utils.data.DataLoader(val_ds, batch_size=1, shuffle=False))))
+
+    next(iter(torch.utils.data.DataLoader(val_ds, batch_size=1, shuffle=False)))
+    rout
+    plt.imshow((ref_out).T.squeeze().detach().cpu())
+    
+    sw.sum(-1).sum(-1)
+
+    cds = s2xr(rout, [cc[:,:,cal_idx] for cc in sc])
+    pds = s2xr(pout[:, :, cal_idx], [cc[:,:,cal_idx] for cc in sc])
+    gds = s2xr(rgt[:,:,cal_idx], [cc[:,:,cal_idx] for cc in sc])
+    mds = g2xr(out, gc)
+
+    pds.isel(d0=1, d1=2).value.T.plot(figsize=(15,3))
+    cds.isel(d0=1, d1=2).value.T.plot(figsize=(15,3))
+    gds.isel(d0=1, d1=2).value.T.plot(figsize=(15,3))
+    (pds - gds).isel(d0=1, d1=2).value.T.plot(figsize=(15,3))
+    (cds - gds).isel(d0=1, d1=2).value.T.plot(figsize=(15,3))
+    mds.isel(d0=0, d1=3).value.plot()
+    out_cal.shape
+    cal_msk.shape
+
+    ref_pp.shape
+    fig, ax = plt.subplots(1,figsize=(15, 3))
+    im = ax.imshow(np.transpose(ref_pp[10]))
+    plt.colorbar(im)
+
+    fig, ax = plt.subplots(1,figsize=(15, 3))
+    im =ax.imshow(np.transpose(cal_inp[0, 10]))
+    plt.colorbar(im)
+
+    fig, ax = plt.subplots(1,figsize=(15, 3))
+    im = ax.imshow(np.transpose(ref_raw[0]))
+    plt.colorbar(im)
+
+    cal_inp.shape
+    out_cal.shape
+    out_cal.isnan().sum()
+    cal_idx
     # sv.shape
     # sgt[:, :, idx,:] -out
     # out.shape

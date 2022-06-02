@@ -71,7 +71,7 @@ def build_net(
     residual = True,
     norm_type = 'none',
     act_type = 'relu',
-    mix = True,
+    mix = False,
     mix_residual = False,
     mix_act_type = 'none',
     mix_norm_type = 'none',

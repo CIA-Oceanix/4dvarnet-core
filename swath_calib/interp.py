@@ -126,7 +126,8 @@ def batch_interp_to_grid(bgv, bgt, bgx, bgy, bsv, bst, bsx, bsy):
     wfg.index_add_(0, fidx, torch.ones_like(sv)) 
     tgt_fg = fg.where((wfg==0), fg / wfg)
     ggv = tgt_fg.reshape_as(bgv)
-    return ggv
+    gmsk = wfg.reshape_as(bgv) > 0
+    return ggv, gmsk
 
 
 
@@ -142,7 +143,7 @@ def batch_torch_interpolate_with_fmt(bgv, bgt, bgx, bgy, bst, bsx, bsy):
 
     msk = (_st.isfinite() & inbound).nonzero(as_tuple=True)
     __st, __sx, __sy = map(lambda t: t[msk], (_st, _sx, _sy))
-    bn, _ = msk
+    bn = msk[0]
     sv = batch_torch_interpolate(bgv, bgt, bgx, bgy, __st, __sx, __sy, bn)
 
     f_msk = (_st.isfinite() & inbound).flatten()
@@ -166,8 +167,21 @@ def nanmod(nda, m):
     nda_wo_nan =np.where(isfin, nda, np.zeros_like(nda))
     return np.where(isfin,  nda_wo_nan % m, nda)
 
-def stack_passes(sen_ds, tgt_len):
+def stack_passes(sen_ds, tgt_len, min_len=None):
     passes = []
+    if min_len is not None:
+        chunks = list(
+                sen_ds.groupby('ch_nb').count()
+                .isel(nC=0).pipe(lambda ds: ds.isel(ch_nb=ds.to_array().isel(variable=0) > min_len))
+                .ch_nb.values
+        )
+        sen_ds = sen_ds.isel(time=sen_ds.ch_nb.isin(chunks))
+        if sen_ds.dims['time']==0:
+            return  xr.concat(
+                [xr.full_like(
+                    sen_ds.reset_index('time').rename({'time': 'idx'}).rename({'time_': 'time'})
+                .isel(idx=slice(0,1)), np.nan)], dim='p'
+            )
     (
         sen_ds.reset_index('time').rename({'time': 'idx'})
         .rename({'time_': 'time'}).groupby('ch_nb')
