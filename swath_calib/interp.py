@@ -177,11 +177,7 @@ def stack_passes(sen_ds, tgt_len, min_len=None):
         )
         sen_ds = sen_ds.isel(time=sen_ds.ch_nb.isin(chunks))
         if sen_ds.dims['time']==0:
-            return  xr.concat(
-                [xr.full_like(
-                    sen_ds.reset_index('time').rename({'time': 'idx'}).rename({'time_': 'time'})
-                .isel(idx=slice(0,1)), np.nan)], dim='p'
-            )
+            return None
     (
         sen_ds.reset_index('time').rename({'time': 'idx'})
         .rename({'time_': 'time'}).groupby('ch_nb')

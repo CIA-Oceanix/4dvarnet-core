@@ -112,7 +112,7 @@ class SensorXrDs(torch.utils.data.Dataset):
         self.swot_obs_vars = list(swot_obs_vars)
         self.obs_downsamp = obs_downsamp
         self.min_swot_length = min_swot_length
-        self.crop = pd.to_timedelta('3D')
+        self.crop = pd.to_timedelta('2D')
 
     def __len__(self):
         return len(self.xr_ds)
@@ -150,11 +150,17 @@ class SensorXrDs(torch.utils.data.Dataset):
 
             # add_cc = lambda ds: ds.assign(ch_nb=lambda _df: (_df.x_al.diff('time').pipe(np.abs) > 3).cumsum())
             # sw = swot.pipe(add_cc)
-
-            sp_ds = swath_calib.interp.stack_passes(*swath_calib.interp.add_nb_ch(swot), min_len=self.min_swot_length)
-            spc =  swath_calib.interp.fmt_s_coords(sp_ds)
-            spgt = swath_calib.interp.fmt_s_value(sp_ds, self.swot_gt_vars , spc[0].isfinite())
-            spv = swath_calib.interp.fmt_s_value(sp_ds, self.swot_obs_vars , spc[0].isfinite())
+           
+            if swot is not None:
+                sp_ds = swath_calib.interp.stack_passes(*swath_calib.interp.add_nb_ch(swot), min_len=self.min_swot_length)
+                if sp_ds is not None:
+                    spc =  swath_calib.interp.fmt_s_coords(sp_ds)
+                    spgt = swath_calib.interp.fmt_s_value(sp_ds, self.swot_gt_vars , spc[0].isfinite())
+                    spv = swath_calib.interp.fmt_s_value(sp_ds, self.swot_obs_vars , spc[0].isfinite())
+                else:
+                    spgt, spv, spc = None, None, (None, None, None)
+            else:
+                spgt, spv, spc = None, None, (None, None, None)
         else:
             spgt, spv, spc = None, None, (None, None, None)
 
@@ -227,8 +233,10 @@ class FourDVarMixedGeometryDataset(torch.utils.data.Dataset):
             list(map(torch.stack, zip(*gc))),
             cstack(sv),
             list(map(cstack, zip(*sc))),
+            torch.tensor([t is not None for t in sv]),
             cstack(nv),
             list(map(cstack, zip(*nc))),
+            torch.tensor([t is not None for t in nv]),
         )
 
     def __getitem__(self, item):
@@ -481,19 +489,19 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
         return init_state
 
     def cal_out(self, y, xb):
-        _, gc, sv, sc, _, _ = y
-        s_vb = swath_calib.interp.batch_torch_interpolate_with_fmt(xb, *gc, *sc)
+        _, gc, sv, sc, si, _, _, ni = y
+        s_vb = swath_calib.interp.batch_torch_interpolate_with_fmt(xb[si], *[cc[si] for cc in gc], *sc)
         cal_out, cal_msk, cal_idx = self.model.model_H.cal_out(sv, s_vb.detach())
 
         fna = lambda t, m: t.where(m, torch.zeros_like(t))
         pw = einops.repeat(self.patch_weight, '... -> b ...', b=xb.size(0))
-        sw = swath_calib.interp.batch_torch_interpolate_with_fmt(pw, *gc, *sc)
+        sw = swath_calib.interp.batch_torch_interpolate_with_fmt(pw, *[cc[si] for cc in gc], *sc)
         sw = fna(sw, sw.isfinite())
         return cal_out, cal_msk, cal_idx, sw
 
     def loss_cal(self, sgt, y, xb):
 
-        _, _, sv, _, _, _ = y
+        _, _, sv, *_= y
         if sv is None:
             return torch.tensor(0.), torch.tensor(0.), torch.tensor(0.)
 
@@ -558,8 +566,8 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
 
         obs = (oi, y)
         if not use_swot:
-            (go, gc, _, sc, nv, nc) = y 
-            obs = (oi, (go, gc, None, sc, nv, nc))
+            (go, gc, _, *_) = y 
+            obs = (oi, (go, gc, None, *_))
 
         msks = (torch.ones_like(oi), None)
 
@@ -606,8 +614,8 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
         # loss_cal, g_loss_cal, l_loss_cal = self.loss_cal(sgt, y, xb.detach())
         lcal_in = y
         if not compute_cal:
-            (go, gc, _, sc, nv, nc) = y
-            lcal_in = (go, gc, None, sc, nv, nc)
+            (go, gc, _, *_) = y
+            lcal_in = (go, gc, None, *_)
         loss_cal, g_loss_cal, l_loss_cal = self.loss_cal(sgt, lcal_in, xb)
 
         # print(loss_All, loss_GAll,loss_AE, loss_AE_GT, loss_SR, loss_LR, loss_cal)
@@ -640,10 +648,10 @@ class CalibrationModelObsGridGeometry(torch.nn.Module):
         super().__init__()
         self.hparams = hparams
         sst_ch = hparams.dT
-        # self.dim_obs_channel = np.array([shape_data, sst_ch])
-        # self.dim_obs = 3
         self.dim_obs = 1
         self.dim_obs_channel = np.array([shape_data])
+        # self.dim_obs = 2
+        # self.dim_obs_channel = np.array([shape_data, shape_data])
         self.min_size = min_size
         self.num_feat = 2*(len(sigs)+1)
         self.norm = torch.nn.BatchNorm2d(num_features=self.num_feat, affine=False, momentum=0.1)
@@ -716,7 +724,7 @@ class CalibrationModelObsGridGeometry(torch.nn.Module):
         return dyout
 
     def forward(self, x, y, ymsk):
-        ylr, (go, gc, sv, sc, nv, nc) = y
+        ylr, (go, gc, sv, sc, si, nv, nc, ni) = y
         xlr, _, anom_rec = torch.split(x, self.hparams.dT, dim=1)
 
         # if self.hparams.compat_base:
@@ -724,7 +732,7 @@ class CalibrationModelObsGridGeometry(torch.nn.Module):
 
         if nv is not None:
             g_cal, gmsk = swath_calib.interp.batch_interp_to_grid(
-                ylr, *gc, nv, *nc
+                ylr[ni], *[cc[ni] for cc in gc], nv, *nc
             )
             # dyout1 = gmsk.float() * (g_cal - (xlr + anom_rec))
 
@@ -735,9 +743,9 @@ class CalibrationModelObsGridGeometry(torch.nn.Module):
             # dyout = torch.abs((yy -x )  * mm)
 
             # Move nadir obs to rec
-            yy = torch.cat((ylr, ylr, (g_cal - ylr).where(gmsk, torch.zeros_like(ylr))), dim=1) 
-            mm = torch.cat((torch.ones_like(ylr), torch.zeros_like(go), gmsk), dim=1)
-            dyout = torch.abs((yy -x )  * mm)
+            yy = torch.cat((ylr[ni], ylr[ni], (g_cal - ylr[ni]).where(gmsk, torch.zeros_like(ylr[ni]))), dim=1) 
+            mm = torch.cat((torch.ones_like(ylr[ni]), torch.zeros_like(go[ni]), gmsk), dim=1)
+            dyout = torch.abs((yy -x[ni] )  * mm)
         else:
             # dyout =torch.zeros_like(x)
             msk = go.isfinite()
@@ -745,31 +753,33 @@ class CalibrationModelObsGridGeometry(torch.nn.Module):
             yy = torch.cat((ylr, gooi, gooi), dim=1) 
 
             mm = torch.cat((torch.ones_like(ylr), msk, torch.zeros_like(msk)), dim=1)
-            dyout = torch.abs((yy -x )  * mm)
+            dyout = torch.abs((yy - x )  * mm)
 
         if sv is not None:
+            sgc  = [cc[si] for cc in gc]
             if self.hparams.calref == 'oi':
-                s_xlr = swath_calib.interp.batch_torch_interpolate_with_fmt(ylr, *gc, *sc)
+                s_xlr = swath_calib.interp.batch_torch_interpolate_with_fmt(ylr[si], *sgc , *sc)
             elif self.hparams.calref == 'x':
-                s_xlr = swath_calib.interp.batch_torch_interpolate_with_fmt(xlr + anom_rec, *gc, *sc)
+                s_xlr = swath_calib.interp.batch_torch_interpolate_with_fmt((xlr + anom_rec)[si],  *sgc, *sc)
             elif self.hparams.calref == 'xlr':
-                s_xlr = swath_calib.interp.batch_torch_interpolate_with_fmt(xlr, *gc, *sc)
+                s_xlr = swath_calib.interp.batch_torch_interpolate_with_fmt(xlr[si], *sgc, *sc)
 
             out_cal, cal_msk, cal_idx = self.cal_out(sv, s_xlr.detach())
             g_cal, gmsk = swath_calib.interp.batch_interp_to_grid(
-                    ylr, *gc, out_cal.detach(), *map(lambda t: t[:, :, cal_idx, ...], sc)
+                    ylr[si], *sgc, out_cal.detach(), *map(lambda t: t[:, :, cal_idx, ...], sc)
             )
             g_cal_msk, _ = swath_calib.interp.batch_interp_to_grid(
-                    ylr, *gc, cal_msk.float(), *map(lambda t: t[:, :, cal_idx, ...], sc)
+                    ylr[si], *sgc, cal_msk.float(), *map(lambda t: t[:, :, cal_idx, ...], sc)
             )
-            yy = torch.cat((ylr, (g_cal - ylr).where(g_cal_msk.bool() & gmsk, torch.zeros_like(ylr)), ylr), dim=1) 
-            mm = torch.cat((torch.ones_like(ylr), self.patch_weight[None, ...] * gmsk.float() * g_cal_msk, torch.zeros_like(go)), dim=1)
-            dyout1 = torch.abs((yy -x )  * mm)
+            yy = torch.cat((ylr[si], (g_cal - ylr[si]).where(g_cal_msk.bool() & gmsk, torch.zeros_like(ylr[si])), ylr[si]), dim=1) 
+            mm = torch.cat((torch.ones_like(ylr[si]), self.patch_weight[None, ...] * gmsk.float() * g_cal_msk, torch.zeros_like(ylr[si])), dim=1)
+            dyout1 = torch.abs((yy -x[si] )  * mm)
             # dyout = self.hparams.swot_obs_w * dyout
 
         else:
             dyout1 = torch.zeros_like(x)
 
+        # return dyout, dyout1
         return dyout + dyout1
         # return [dyoutlr, dyout, dyout1]
         
@@ -778,9 +788,11 @@ class CalibrationModelObsSensorGeometry(torch.nn.Module):
     def __init__(self, shape_data, hparams=None, min_size=500, sigs=tuple([8* (i+1) for i in range(10)])):
         super().__init__()
         self.hparams = hparams
-        self.dim_obs = 3
         sst_ch = hparams.dT
-        self.dim_obs_channel = np.array([shape_data, sst_ch])
+        # self.dim_obs = 2
+        # self.dim_obs_channel = np.array([shape_data, sst_ch])
+        self.dim_obs = 1
+        self.dim_obs_channel = np.array(sst_ch)
         self.min_size = min_size
         self.num_feat = 2*(len(sigs)+1)
         self.norm = torch.nn.BatchNorm2d(num_features=self.num_feat, affine=False, momentum=0.1)
@@ -885,7 +897,7 @@ if __name__ == '__main__':
 
     fp = 'dgx_ifremer'
     # cfgn = 'qxp20_swot_sst'
-    cfgn = 'xp_aug/xp_repro/full_core_hanning'
+    cfgn = 'baseline/full_core_hanning'
     OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
     overrides = [
         # '+datamodule.dl_kwargs.shuffle=False',
@@ -901,13 +913,13 @@ if __name__ == '__main__':
         '+params.compat_base=False',
         '+params.obscost_downsamp=1',
         '+params.calref=x',
-        'params.lr_update=[0.0005]',
+        # 'params.lr_update=[0.0005]',
         # '+params.calref=xlr',
         # '+params.calref=oi',
         'params.automatic_optimization=false',
         'params.patch_weight._target_=lit_model_augstate.get_constant_crop',
         'params.dT=11',
-        'params.patch_weight.crop.time=3',
+        'params.patch_weight.crop.time=2',
     ]
     map_cfg_n, map_ckpt = 'qxp20_5nad_no_sst', 'results/xp20/qxp20_5nad_no_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=85-val_loss=0.7589.ckpt'
     map_cfg_n, map_ckpt = 'qxp20_swot_no_sst', 'results/xp20/qxp20_swot_no_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=131-val_loss=0.4958.ckpt'
@@ -954,7 +966,7 @@ if __name__ == '__main__':
         # nadir_paths=tuple([f'../sla-data-registry/sensor_zarr/zarr/nadir/{name}' for name in ['swot', 'en', 'tpn', 'g2', 'j1']]),
         # swot_path=None,
         swot_path=f'../sla-data-registry/sensor_zarr/zarr/new_swot',
-        min_swot_length=None,
+        min_swot_length=500,
         nadir_var='ssh_model',
         swot_gt_vars=('ssh_model',),
         swot_obs_vars=('ssh_model', 'wet_tropo_res', 'syst_error_uncalibrated'),
@@ -994,7 +1006,8 @@ if __name__ == '__main__':
 
     #####               TEST #########################
     def test():
-        ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_7/checkpoints').glob('*.ckpt')))
+        # ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_7/checkpoints').glob('*.ckpt')))
+        ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_10/checkpoints').glob('*.ckpt')))
 
         print(ckpt)
         lit_mod = utils.get_model(cfgn, ckpt=ckpt, dm=dm, add_overrides=overrides+['lit_mod_cls=__main__.LitModMixGeom'])
@@ -1006,8 +1019,8 @@ if __name__ == '__main__':
         trainer.test(lit_mod, datamodule=dm)
 
 
-    train()
-    # test()
+    # train()
+    test()
     # trainer.test(lit_mod, dataloaders=dm.test_dataloader())
     # out = trainer.predict(lit_mod, dataloaders=dm.val_dataloader())
     def s2xr(v, c):                                              
