@@ -114,7 +114,6 @@ t_idx = 4
 from scipy import ndimage
 import numpy as np
 import xarray as xr
-
 def sobel_grid(da):
     dlat = da.pipe(lambda da:  da.groupby('time').apply(lambda da: ndimage.sobel(da, da.dims.index('lat')))) / 5
     dlon = da.pipe(lambda da:  da.groupby('time').apply(lambda da: ndimage.sobel(da, da.dims.index('lon')))) / 5
