@@ -103,6 +103,7 @@ class SensorXrDs(torch.utils.data.Dataset):
             swot_obs_vars=('ssh_model',),
             obs_downsamp=None,
             min_swot_length=None,
+            crop_time=0,
         ):
         self.xr_ds = xr_ds
         self.nadir_paths = nadir_paths
@@ -112,7 +113,7 @@ class SensorXrDs(torch.utils.data.Dataset):
         self.swot_obs_vars = list(swot_obs_vars)
         self.obs_downsamp = obs_downsamp
         self.min_swot_length = min_swot_length
-        self.crop = pd.to_timedelta('3D')
+        self.crop = pd.to_timedelta(f'{crop_time}D')
 
     def __len__(self):
         return len(self.xr_ds)
@@ -382,6 +383,7 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
                 'oi'    : (oi.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'obs_inp'    : (go.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'pred' : (out_w_cal.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'pred_wo_cal' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def forward(self, batch, phase='test'):
@@ -915,7 +917,7 @@ if __name__ == '__main__':
         # '+params.calref=oi',
         'params.automatic_optimization=false',
         'params.patch_weight._target_=lit_model_augstate.get_constant_crop',
-        'params.dT=11',
+        'params.dT=13',
         'params.patch_weight.crop.time=3',
     ]
     map_cfg_n, map_ckpt = 'qxp20_5nad_no_sst', 'results/xp20/qxp20_5nad_no_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=85-val_loss=0.7589.ckpt'
@@ -964,6 +966,7 @@ if __name__ == '__main__':
         # swot_path=None,
         swot_path=f'../sla-data-registry/sensor_zarr/zarr/new_swot',
         min_swot_length=500,
+        crop_time=cfg_4dvar.params.patch_weight.crop.time,
         nadir_var='ssh_model',
         swot_gt_vars=('ssh_model',),
         swot_obs_vars=('ssh_model', 'wet_tropo_res', 'syst_error_uncalibrated'),
