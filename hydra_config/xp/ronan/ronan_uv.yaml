@@ -16,8 +16,8 @@ params:
   dim_grad_solver: 150
   phi_param: 'unet-std'#'unet1'
   ckpt_name: 'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
-  use_sst_obs: False
-  use_sst_state: True
+  use_sst_obs: True
+  use_sst_state: False
   patch_weight:
     _target_: lit_model_uv.get_cropped_hanning_mask
     patch_size: ${datamodule.slice_win}
