@@ -438,8 +438,10 @@ class FourDVarNetDataset(Dataset):
                 return oi_item, obs_mask_item, obs_item, gt_item, sst_item
             else:
                 pp_uv = self.get_pp(self.norm_stats_uv)
+                
                 _u_item = pp_uv(self.u_ds[item % length])
                 u_item = np.where(~np.isnan(_u_item), _u_item, 0.)
+                
                 _v_item = pp_uv(self.v_ds[item % length])
                 v_item = np.where(~np.isnan(_v_item), _v_item, 0.)
     
@@ -544,6 +546,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 print('... Use (U,V) data')
                 mean_uv = 0.
                 var_u = float(xr.concat([_ds.u_ds.ds[_ds.u_ds.var]**2 for _ds in ds.datasets], dim='time').mean())
+                print('var_u = %f'%var_u)
+                print(ds.keys())
+                
                 var_v = float(xr.concat([_ds.v_ds.ds[_ds.v_ds.var]**2 for _ds in ds.datasets], dim='time').mean())
                 
                 std_uv = np.sqrt(var_u + var_v)
