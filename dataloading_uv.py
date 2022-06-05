@@ -689,7 +689,6 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 self.set_norm_stats(self.val_ds, self.norm_stats, self.norm_stats_sst, self.norm_stats_uv)
                 self.set_norm_stats(self.test_ds, self.norm_stats, self.norm_stats_sst, self.norm_stats_uv)
 
-
         self.bounding_box = self.get_domain_bounds(self.train_ds)
         self.ds_size = self.get_domain_split()
 
