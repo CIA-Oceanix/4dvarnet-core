@@ -885,10 +885,6 @@ class LitModelUV(pl.LightningModule):
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt = batch
 
-        print( targets_GT.size() )
-        print( sst_gt.size() )
-        print( u_gt.size() )
-
         if self.scale_dwscaling_sst > 1 :
             sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
             sst_gt = torch.nn.functional.interpolate(sst_gt, scale_factor=self.scale_dwscaling_sst, mode='bicubic')
@@ -909,8 +905,8 @@ class LitModelUV(pl.LightningModule):
                         ('mseGOI', 0.)])
                     )
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
-        u_gt_wo_nan = u_gt.where(~u_gt.isnan(), 0.)
-        v_gt_wo_nan = v_gt.where(~v_gt.isnan(), 0.)
+        u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
+        v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
         
         state = self.get_init_state(batch, state_init)
 
