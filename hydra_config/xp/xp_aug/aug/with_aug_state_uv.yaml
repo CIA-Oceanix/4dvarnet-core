@@ -3,11 +3,11 @@
 params:
   aug_state: True
   shape_state:
-    - ${mul:${datamodule.slice_win.time},6} 
+    - ${mul:${datamodule.slice_win.time},5} 
     - ${datamodule.slice_win.lon}
     - ${datamodule.slice_win.lat}
   shape_data:
-    - ${mul:${datamodule.slice_win.time},6} 
+    - ${mul:${datamodule.slice_win.time},5} 
     - ${datamodule.slice_win.lon}
     - ${datamodule.slice_win.lat}
 
