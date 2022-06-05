@@ -38,7 +38,7 @@ datamodule:
   v_path: ${file_paths.natl_v_daily}
   v_var: v
 defaults:
-  - /xp/xp_aug/base_xp_uv
+  - /xp/ronan/base_xp_uv
   - /splits/dc_boost_swot@datamodule
   - /xp/xp_aug/aug/with_aug_state_uv
   - /xp/xp_aug/dl/d240_p240x5_s240x1
