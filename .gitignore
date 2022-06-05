@@ -51,3 +51,6 @@ instab
 lightning_logs_archives
 report
 trained_cfgs
+
+disc_full_training.ckpt
+full_training.ckpt

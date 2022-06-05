@@ -383,7 +383,7 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
                 'oi'    : (oi.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'obs_inp'    : (go.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'pred' : (out_w_cal.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                # 'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'pred_wo_cal' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def forward(self, batch, phase='test'):
@@ -486,6 +486,8 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
         go_oi = msk.float() * (go.where(msk, torch.zeros_like(go)) - oi)
 
         init_state = torch.cat((oi,go_oi), dim=1)
+        if self.hparams.aug_cal_obs:
+            init_state = torch.cat((init_state, torch.zeros_like(go_oi)), dim=1)
         if self.aug_state:
             init_state = torch.cat((init_state, go_oi), dim=1)
         return init_state
@@ -584,27 +586,14 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
             if (phase == 'val') or (phase == 'test'):
                 x_out = x_out.detach()
 
-        if self.aug_state:
-            xlr, _, xhr = torch.split(x_out, self.hparams.dT, dim=1)
-            outputs = xlr + xhr
-        else:
-            xlr, xhr = torch.split(x_out, self.hparams.dT, dim=1)
-            outputs = xlr + xhr
+        xlr, *_, xhr = torch.split(x_out, self.hparams.dT, dim=1)
+        outputs = xlr + xhr
 
         # median filter
         if self.median_filter_width > 1:
             outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
 
 
-        yGT = torch.cat((oi_wo_nan, gt_wo_nan - xlr), dim=1)
-        if self.aug_state:
-            yGT = torch.cat((yGT, gt_wo_nan - xlr), dim=1)
-
-        loss_All, loss_GAll = self.sla_loss(outputs, gt_wo_nan)
-        loss_OI, loss_GOI = self.sla_loss(oi_wo_nan, gt_wo_nan)
-        loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
-            yGT, oi, outputs, xlr, x_out
-        )
 
         if self.hparams.calref =='oi':
             xb = oi_wo_nan
@@ -613,12 +602,23 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
         elif self.hparams.calref =='x':
             xb = outputs
 
-        # loss_cal, g_loss_cal, l_loss_cal = self.loss_cal(sgt, y, xb.detach())
         lcal_in = y
         if not compute_cal:
             (go, gc, _, *_) = y
             lcal_in = (go, gc, None, *_)
         loss_cal, g_loss_cal, l_loss_cal = self.loss_cal(sgt, lcal_in, xb)
+
+        yGT = torch.cat((oi_wo_nan, gt_wo_nan - xlr), dim=1)
+        if self.aug_state:
+            yGT = torch.cat((yGT, gt_wo_nan - xlr), dim=1)
+        if self.hparams.aug_cal_obs:
+            yGT = torch.cat((yGT, gt_wo_nan - xlr), dim=1)
+
+        loss_All, loss_GAll = self.sla_loss(outputs, gt_wo_nan)
+        loss_OI, loss_GOI = self.sla_loss(oi_wo_nan, gt_wo_nan)
+        loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
+            yGT, oi, outputs, xlr, x_out
+        )
 
         # print(loss_All, loss_GAll,loss_AE, loss_AE_GT, loss_SR, loss_LR, loss_cal)
         # total loss
@@ -727,7 +727,8 @@ class CalibrationModelObsGridGeometry(torch.nn.Module):
 
     def forward(self, x, y, ymsk):
         ylr, (go, gc, sv, sc, si, nv, nc, ni) = y
-        xlr, _, anom_rec = torch.split(x, self.hparams.dT, dim=1)
+        xlr, *_, anom_rec = torch.split(x, self.hparams.dT, dim=1)
+
 
         # if self.hparams.compat_base:
         #     anom_rec = anom_obs
@@ -752,10 +753,14 @@ class CalibrationModelObsGridGeometry(torch.nn.Module):
             # dyout =torch.zeros_like(x)
             msk = go.isfinite()
             gooi = (go - ylr).where(msk, torch.zeros_like(ylr))
-            yy = torch.cat((ylr, gooi, gooi), dim=1) 
 
+            yy = torch.cat((ylr, gooi, gooi), dim=1) 
             mm = torch.cat((torch.ones_like(ylr), msk, torch.zeros_like(msk)), dim=1)
-            dyout = torch.abs((yy - x )  * mm)
+
+            if self.hparams.aug_cal_obs:
+                yy = torch.cat((yy, gooi), dim=1) 
+                mm = torch.cat((mm, torch.zeros_like(gooi)), dim=1) 
+            dyout = ((yy - x )  * mm)
 
         if sv is not None:
             sgc  = [cc[si] for cc in gc]
@@ -773,9 +778,17 @@ class CalibrationModelObsGridGeometry(torch.nn.Module):
             g_cal_msk, _ = swath_calib.interp.batch_interp_to_grid(
                     ylr[si], *sgc, cal_msk.float(), *map(lambda t: t[:, :, cal_idx, ...], sc)
             )
-            yy = torch.cat((ylr[si], (g_cal - ylr[si]).where(g_cal_msk.bool() & gmsk, torch.zeros_like(ylr[si])), ylr[si]), dim=1) 
-            mm = torch.cat((torch.ones_like(ylr[si]), self.patch_weight[None, ...] * gmsk.float() * g_cal_msk, torch.zeros_like(ylr[si])), dim=1)
-            dyout1 = torch.abs((yy -x[si] )  * mm)
+            yy = ylr[si]
+            mm = torch.ones_like(ylr[si])
+            if self.hparams.aug_cal_obs:
+                yy = torch.cat((yy, ylr[si]), dim=1) 
+                mm = torch.cat((mm, torch.zeros_like(ylr[si])), dim=1) 
+            yy = torch.cat((yy, (g_cal - ylr[si]).where(g_cal_msk.bool() & gmsk, ylr[si]), ylr[si]), dim=1) 
+            mm = torch.cat((mm, self.patch_weight[None, ...] * gmsk.float() * g_cal_msk, torch.zeros_like(ylr[si])), dim=1)
+            # print(yy.shape, mm.shape, x[si].shape)
+
+
+            dyout1 = ((yy -x[si] )  * mm)
             # dyout = self.hparams.swot_obs_w * dyout
 
         else:
@@ -911,13 +924,16 @@ if __name__ == '__main__':
         '+params.warmup_epochs=0',
         '+params.compat_base=False',
         '+params.obscost_downsamp=1',
+        '+params.aug_cal_obs=0',
+        "params.shape_state.0='${mul:${datamodule.slice_win.time},3}'",
+        "params.shape_data.0='${mul:${datamodule.slice_win.time},3}'",
         '+params.calref=x',
         # 'params.lr_update=[0.0005]',
         # '+params.calref=xlr',
         # '+params.calref=oi',
         'params.automatic_optimization=false',
         'params.patch_weight._target_=lit_model_augstate.get_constant_crop',
-        'params.dT=13',
+        'params.dT=11',
         'params.patch_weight.crop.time=3',
     ]
     map_cfg_n, map_ckpt = 'qxp20_5nad_no_sst', 'results/xp20/qxp20_5nad_no_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=85-val_loss=0.7589.ckpt'
@@ -1005,7 +1021,9 @@ if __name__ == '__main__':
     #####               TEST #########################
     def test():
         # ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_10/checkpoints').glob('*.ckpt')))
-        ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_21/checkpoints').glob('*.ckpt')))
+        # ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_21/checkpoints').glob('*.ckpt')))
+        ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_39/checkpoints').glob('*.ckpt')))
+        # cfg_4dvar.params.patch_weight._target_='lit_model_augstate.get_cropped_hanning_mask'
         cfg_4dvar.params.patch_weight.crop.time=cfg_4dvar.params.dT//2
         pw = hydra.utils.call(cfg_4dvar.params.patch_weight)
         print(ckpt)
@@ -1019,8 +1037,8 @@ if __name__ == '__main__':
         trainer.test(lit_mod, datamodule=dm)
 
 
-    # train()
-    test()
+    train()
+    # test()
     # trainer.test(lit_mod, dataloaders=dm.test_dataloader())
     # out = trainer.predict(lit_mod, dataloaders=dm.val_dataloader())
     def s2xr(v, c):                                              
