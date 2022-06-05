@@ -546,10 +546,6 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 print('... Use (U,V) data')
                 mean_uv = 0.
                 var_u = float(xr.concat([_ds.u_ds.ds[_ds.u_ds.var]**2 for _ds in ds.datasets], dim='time').mean())
-                print('....u : '+self.u_path+'-- var: '+self.u_var)
-                print('....v : '+self.v_path+'-- var: '+self.v_var)
-                print('var_u = %f'%var_u)                    
-                
                 var_v = float(xr.concat([_ds.v_ds.ds[_ds.v_ds.var]**2 for _ds in ds.datasets], dim='time').mean())
                 
                 std_uv = np.sqrt(var_u + var_v)
@@ -589,9 +585,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         elif self.pp == 'norm':
             return self.min_max(ds)
 
-    def set_norm_stats(self, ds, ns, ns_sst=None):
+    def set_norm_stats(self, ds, ns, ns_sst=None,ns_uv=None):
         for _ds in ds.datasets:
-            _ds.set_norm_stats(ns, ns_sst)
+            _ds.set_norm_stats(ns, ns_sst, ns_uv)
 
     def get_domain_bounds(self, ds):
         min_lon = round(np.min(np.concatenate([_ds.gt_ds.ds['lon'].values for _ds in ds.datasets])), 2)
