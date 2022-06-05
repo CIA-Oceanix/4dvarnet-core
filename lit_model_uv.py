@@ -1040,7 +1040,7 @@ class LitModelUV(pl.LightningModule):
                 ssh_feat = self.model.model_H.extract_state_feature( outputsSLRHR )
                 sst_feat = torch.cat( (sst_feat,ssh_feat) , dim=1)
             
-            return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics, sst_feat
+            return loss, [outputs,outputs_u,outputs_v], [outputsSLRHR, hidden_new, cell_new, normgrad], metrics, sst_feat
             
         else:
             return loss, [outputs,outputs_u,outputs_v], [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
