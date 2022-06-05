@@ -142,7 +142,6 @@ class Div_uv(torch.nn.Module):
 
     def forward(self, u,v):
 
-        print( u.size() )
         
         if u.size(1) == 1:
             G_x = self.convGx(u)
@@ -165,7 +164,6 @@ class Div_uv(torch.nn.Module):
                 else:
                     div = torch.cat((div, div_.view(-1, 1, u.size(1) - 2, u.size(2) - 2)), dim=1)
         
-        print( div.size() )
         return div
 
 ############################################ Lightning Module #######################################################################
@@ -954,13 +952,13 @@ class LitModelUV(pl.LightningModule):
                 outputsSLRHR = outputs
                 outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
                 if self.aug_state :
-                    outputs = outputsSLR + outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
-                    outputs_u = outputs[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
-                    outputs_v = outputs[:, 4*self.hparams.dT:5*self.hparams.dT, :, :]
+                    outputs = outputsSLR + outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
+                    outputs_u = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
+                    outputs_v = outputsSLRHR[:, 4*self.hparams.dT:5*self.hparams.dT, :, :]
                 else:
-                    outputs = outputsSLR + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
-                    outputs_u = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
-                    outputs_v = outputs[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
+                    outputs = outputsSLR + outputsSLRHR[:, self.hparams.dT:2*self.hparams.dT, :, :]
+                    outputs_u = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
+                    outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
 
                 # compute divergence for current field    
                 div_rec = self.div_field(outputs_u,outputs_v)
