@@ -328,7 +328,7 @@ class FourDVarNetDataset(Dataset):
 
         if v_var is not None:
             self.v_ds = XrDataset(
-                u_path, v_var,
+                v_path, v_var,
                 slice_win=slice_win,
                 resolution=resolution,
                 dim_range=dim_range,
@@ -548,10 +548,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 var_u = float(xr.concat([_ds.u_ds.ds[_ds.u_ds.var]**2 for _ds in ds.datasets], dim='time').mean())
                 print('....u : '+self.u_path+'-- var: '+self.u_var)
                 print('....v : '+self.v_path+'-- var: '+self.v_var)
-                print('var_u = %f'%var_u)
-                for _ds in ds.datasets:
-                    print(_ds.keys())
-                    
+                print('var_u = %f'%var_u)                    
                 
                 var_v = float(xr.concat([_ds.v_ds.ds[_ds.v_ds.var]**2 for _ds in ds.datasets], dim='time').mean())
                 
