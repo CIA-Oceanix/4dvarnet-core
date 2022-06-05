@@ -128,9 +128,42 @@ def get_cropped_hanning_mask(patch_size, crop, **kwargs):
     patch_weight = t_msk[:, None, None] * pw
     return patch_weight.cpu().numpy()
 
+class Div_uv(torch.nn.Module):
+    def __init__(self):
+        super(Div_uv, self).__init__()
+
+        a = np.array([[1., 0., -1.], [2., 0., -2.], [1., 0., -1.]])
+        self.convGx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+        self.convGx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+
+        b = np.array([[1., 2., 1.], [0., 0., 0.], [-1., -2., -1.]])
+        self.convGy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+        self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+
+    def forward(self, u,v):
+
+        if u.size(1) == 1:
+            G_x = self.convGx(u)
+            G_y = self.convGy(v)
+        else:
+
+            for kk in range(0, u.size(1)):
+                G_x = self.convGx(u[:, kk, :, :].view(-1, 1, u.size(2), u.size(3)))
+                G_y = self.convGy(v[:, kk, :, :].view(-1, 1, u.size(2), u.size(3)))
+
+                G_x = G_x.view(-1, 1, u.size(2) - 2, u.size(2) - 2)
+                G_y = G_y.view(-1, 1, u.size(2) - 2, u.size(2) - 2)
+
+                div_ = G_x + G_y 
+                if kk == 0:
+                    div = div_.view(-1, 1, u.size(1) - 2, u.size(2) - 2)
+                else:
+                    div = torch.cat((div, div_.view(-1, 1, u.size(1) - 2, u.size(2) - 2)), dim=1)
+        return div
+
 ############################################ Lightning Module #######################################################################
 
-class LitModelAugstate(pl.LightningModule):
+class LitModelUV(pl.LightningModule):
 
     MODELS = {
             '4dvarnet': get_4dvarnet,
@@ -176,6 +209,7 @@ class LitModelAugstate(pl.LightningModule):
 
         self.var_Val = self.hparams.var_Val
         self.var_Tr = self.hparams.var_Tr
+        self.var_tr_uv = self.hparams.var_tr_uv
         self.var_Tt = self.hparams.var_Tt
         self.mean_Val = self.hparams.mean_Val
         self.mean_Tr = self.hparams.mean_Tr
@@ -200,6 +234,9 @@ class LitModelAugstate(pl.LightningModule):
         self.grad_crop = lambda t: t[...,1:-1, 1:-1]
         self.gradient_img = lambda t: torch.unbind(
                 self.grad_crop(2.*kornia.filters.spatial_gradient(t, normalized=True)), 2)
+        
+        self.div_field = Div_uv()
+
         # loss weghing wrt time
 
         # self._w_loss = torch.nn.Parameter(torch.Tensor(self.patch_weight), requires_grad=False)  # duplicate for automatic upload to gpu
@@ -367,9 +404,9 @@ class LitModelAugstate(pl.LightningModule):
 
     def diag_step(self, batch, batch_idx, log_pref='test'):
         if not self.use_sst:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt = batch
         else:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt = batch
             
         if ( self.use_sst ) :
           #losses, out, metrics = self(batch, phase='test')
@@ -385,13 +422,21 @@ class LitModelAugstate(pl.LightningModule):
         if not self.use_sst :
             return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                     'oi'    : (targets_OI.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                    'u_gt'    : (u_gt.detach().cpu() * np.sqrt(self.var_tr_uv)) ,
+                    'v_gt'    : (v_gt.detach().cpu() * np.sqrt(self.var_tr_uv)) ,
                     'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                    'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
+                    'pred' : (out[0].detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                    'pred_u' : (out[1].detach().cpu() * np.sqrt(self.var_tr_uv)) ,
+                    'pred_v' : (out[2].detach().cpu() * np.sqrt(self.var_tr_uv)) }
         else:
             return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                     'oi'    : (targets_OI.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                    'u_gt'    : (u_gt.detach().cpu() * np.sqrt(self.var_tr_uv)) ,
+                    'v_gt'    : (v_gt.detach().cpu() * np.sqrt(self.var_tr_uv)) ,
                     'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                    'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                    'pred' : (out[0].detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                    'pred_u' : (out[1].detach().cpu() * np.sqrt(self.var_tr_uv)) ,
+                    'pred_v' : (out[2].detach().cpu() * np.sqrt(self.var_tr_uv)) ,
                     'sst_feat' : sst_feat.detach().cpu()}
 
     def test_step(self, test_batch, batch_idx):
@@ -810,6 +855,17 @@ class LitModelAugstate(pl.LightningModule):
 
         return loss, loss_grad
 
+    def div_loss(self, gt, out):
+
+        return NN_4DVar.compute_spatio_temp_weighted_loss((out - gt), self.patch_weight)
+
+    def uv_loss(self, gt, out):
+
+        loss = NN_4DVar.compute_spatio_temp_weighted_loss((out[0] - gt[0]), self.patch_weight)
+        loss = loss + NN_4DVar.compute_spatio_temp_weighted_loss((out[1] - gt[1]), self.patch_weight)
+
+        return loss
+
     def reg_loss(self, y_gt, oi, out, out_lr, out_lrhr):
         l_ae = self.loss_ae(out_lrhr)
         l_ae_gt = self.loss_ae(y_gt)
@@ -824,13 +880,14 @@ class LitModelAugstate(pl.LightningModule):
     def compute_loss(self, batch, phase, state_init=(None,)):
 
         if not self.use_sst:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt = batch
         else:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt = batch
 
         if self.scale_dwscaling_sst > 1 :
             sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
             sst_gt = torch.nn.functional.interpolate(sst_gt, scale_factor=self.scale_dwscaling_sst, mode='bicubic')
+
             
         #targets_OI, inputs_Mask, targets_GT = batch
         # handle patch with no observation
@@ -848,13 +905,15 @@ class LitModelAugstate(pl.LightningModule):
                         ('mseGOI', 0.)])
                     )
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
-
+        u_gt_wo_nan = u_gt.where(~u_gt.isnan(), 0.)
+        v_gt_wo_nan = v_gt.where(~v_gt.isnan(), 0.)
+        
         state = self.get_init_state(batch, state_init)
 
         #state = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
 
-        obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI)) ,dim=1)
-        new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask) , dim=1)
+        obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI),0. * targets_OI,0. * targets_OI) ,dim=1)
+        new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, torch.zeros_like(inputs_Mask), torch.zeros_like(inputs_Mask)) , dim=1)
 
         if self.aug_state :
             obs = torch.cat( (obs, 0. * targets_OI,) ,dim=1)
@@ -885,9 +944,17 @@ class LitModelAugstate(pl.LightningModule):
                 outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
                 if self.aug_state :
                     outputs = outputsSLR + outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
+                    outputs_u = outputs[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
+                    outputs_v = outputs[:, 4*self.hparams.dT:5*self.hparams.dT, :, :]
                 else:
                     outputs = outputsSLR + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
-    
+                    outputs_u = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
+                    outputs_v = outputs[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
+
+                # compute divergence for current field    
+                div_rec = self.div_field(outputs_u,outputs_v)
+                div_gt = self.div_field(u_gt,v_gt)
+                
                 # median filter
                 if self.median_filter_width > 1:
                     outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
@@ -905,21 +972,35 @@ class LitModelAugstate(pl.LightningModule):
                     yGT = torch.cat((yGT,sst_gt), dim=1)
     
                 loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
+                loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])
+                
+                loss_div = self.div_loss( div_rec , div_gt ) 
+
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
                 loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
                     yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
                 )
-    
+                        
                 # total loss
                 loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
+                loss += self.hparams.alpha_mse_uv * loss_uv + self.hparams.alpha_mse_div * loss_div
                 loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
                 loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
             else:                
                 outputs = self.model.phi_r(obs)
                 outputs = outputs[:, 0:self.hparams.dT, :, :] + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
+                outputs_u = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
+                outputs_v = outputs[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
+
+                # compute divergence for current field    
+                div_rec = self.div_field(outputs_u,outputs_v)
+                div_gt = self.div_field(u_gt,v_gt)
  
                 loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
+                loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
+                loss_div = self.div_loss( div_rec , div_gt ) 
                 loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
+                loss += self.hparams.alpha_mse_uv * loss_uv + self.hparams.alpha_mse_div * loss_div
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
                 
                 outputsSLRHR = None #0. * outputs
@@ -951,7 +1032,7 @@ class LitModelAugstate(pl.LightningModule):
             return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics, sst_feat
             
         else:
-            return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
+            return loss, [outputs,outputs_u,outputs_v], [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
 
 class LitModelCycleLR(LitModelAugstate):
     def configure_optimizers(self):

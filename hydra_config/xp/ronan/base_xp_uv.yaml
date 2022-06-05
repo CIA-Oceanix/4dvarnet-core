@@ -44,7 +44,7 @@ params:
   norm_prior: 'l1'
   patch_weight: ??? # dl
   median_filter_width: 1
-lit_mod_cls: lit_model_augstate.LitModelAugstate
+lit_mod_cls: lit_model_uv.LitModelUV
 datamodule:
   _target_: dataloading_uv.FourDVarNetDataModule
   slice_win: ??? # dl

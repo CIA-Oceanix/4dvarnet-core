@@ -19,7 +19,7 @@ params:
   use_sst_obs: False
   use_sst_state: True
   patch_weight:
-    _target_: lit_model_augstate.get_cropped_hanning_mask
+    _target_: lit_model_uv.get_cropped_hanning_mask
     patch_size: ${datamodule.slice_win}
     crop:
       time: 1
@@ -38,7 +38,7 @@ datamodule:
   v_path: ${file_paths.natl_v_daily}
   v_var: v
 defaults:
-  - /xp/xp_aug/base_xp
+  - /xp/xp_aug/base_xp_uv
   - /splits/dc_boost_swot@datamodule
   - /xp/xp_aug/aug/with_aug_state_uv
   - /xp/xp_aug/dl/d240_p240x5_s240x1
