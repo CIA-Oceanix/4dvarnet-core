@@ -46,7 +46,7 @@ params:
   median_filter_width: 1
 lit_mod_cls: lit_model_uv.LitModelUV
 datamodule:
-  _target_: dataloading.FourDVarNetDataModule
+  _target_: dataloading_uv.FourDVarNetDataModule
   slice_win: ??? # dl
   strides: ???
   train_slices: ??? # splits
