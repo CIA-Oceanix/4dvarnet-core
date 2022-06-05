@@ -1,0 +1,48 @@
+# @package _global_
+
+# Ici tu peux surcharger les parties de la config que tu veux sans impacter les autres, par exemple:
+
+entrypoint:
+   weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_2/checkpoints/modelSLAwSSTGF-unet1_050-augdata-DirectInv-wSST-dT07-epoch=145-val_loss=0.5605.ckpt'
+   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_8/checkpoints/modelSLAwSSTGF-unet-std_050-augdata-DirectInv-wSST-dT07-epoch=76-val_loss=0.4715.ckpt'   
+params:
+  sst_model: 'linear-bn-att'#''linear-bn'#'linear' #
+  k_n_grad: 3
+  n_grad: 5
+  dT: 7
+  DimAE: 50
+  dim_obs_sst_feat: 10
+  dim_grad_solver: 150
+  phi_param: 'unet-std'#'unet1'
+  ckpt_name: 'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
+  use_sst_obs: False
+  use_sst_state: True
+  patch_weight:
+    _target_: lit_model_augstate.get_cropped_hanning_mask
+    patch_size: ${datamodule.slice_win}
+    crop:
+      time: 1
+  val_diag_freq: 5 
+  padding_mode: reflect
+  alpha_mse_ssh: 50. # loss
+  alpha_mse_gssh: 1000.
+  alpha_mse_uv: 50.
+  alpha_mse_div: 1.
+  norm_obs: l2
+  norm_prior: l2
+datamodule:
+  aug_train_data: True  
+  u_path: ${file_paths.natl_u_daily}
+  u_var: u
+  v_path: ${file_paths.natl_v_daily}
+  v_var: v
+defaults:
+  - /xp/xp_aug/base_xp
+  - /splits/dc_boost_swot@datamodule
+  - /xp/xp_aug/aug/with_aug_state_uv
+  - /xp/xp_aug/dl/d240_p240x5_s240x1
+  - /xp/xp_aug/sst/with_sst
+  - /xp/xp_aug/loss/map
+  - /xp/xp_aug/train_strat/const_lr_ngrad_5_3cas
+  - _self_ 
