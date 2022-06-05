@@ -867,8 +867,7 @@ class LitModelUV(pl.LightningModule):
 
     def div_loss(self, gt, out):
 
-        print( self.patch_weight.size() )    
-        return NN_4DVar.compute_spatio_temp_weighted_loss( (out - gt), self.patch_weight)
+        return NN_4DVar.compute_spatio_temp_weighted_loss( (out - gt), self.patch_weight[7,1:-1,1:-1])
 
     def uv_loss(self, gt, out):
 
