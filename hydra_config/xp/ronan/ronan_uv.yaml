@@ -11,7 +11,7 @@ params:
   k_n_grad: 3
   n_grad: 2
   dT: 7
-  DimAE: 10#50
+  DimAE: 20
   dim_obs_sst_feat: 5
   dim_grad_solver: 100
   phi_param: 'unet-std'#'unet1'
