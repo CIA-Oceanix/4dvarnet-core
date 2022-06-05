@@ -142,9 +142,14 @@ class Div_uv(torch.nn.Module):
 
     def forward(self, u,v):
 
+        print( u.size() )
+        
         if u.size(1) == 1:
             G_x = self.convGx(u)
             G_y = self.convGy(v)
+            
+            div_ = G_x + G_y 
+            div = div_.view(-1, 1, u.size(1) - 2, u.size(2) - 2)
         else:
 
             for kk in range(0, u.size(1)):
@@ -159,6 +164,8 @@ class Div_uv(torch.nn.Module):
                     div = div_.view(-1, 1, u.size(1) - 2, u.size(2) - 2)
                 else:
                     div = torch.cat((div, div_.view(-1, 1, u.size(1) - 2, u.size(2) - 2)), dim=1)
+        
+        print( div.size() )
         return div
 
 ############################################ Lightning Module #######################################################################
