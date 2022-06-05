@@ -626,7 +626,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 sst_decode=self.sst_decode,
                 u_path=self.u_path,
                 u_var=self.u_var,
-                u_path=self.v_path,
+                v_path=self.v_path,
                 u_var=self.v_var,
                 uv_decode=self.uv_decode,
                 resolution=self.resolution,
@@ -739,14 +739,14 @@ if __name__ == '__main__':
 
     # Test fit
     from utils import get_dm
-    dm = get_dm('xp_aug/xp_repro/full_core_sst', add_overrides=[ 'datamodule.sst_path=${file_paths.natl_sst_daily}'])
+    dm = get_dm('xp_aug/xp_repro/full_core_sst', add_overrides=['datamodule.sst_path=${file_paths.natl_sst_daily}'])
     
     dl = dm.test_dataloader()
     ds = dl.dataset.datasets[0]
     len(ds.perm)
     batch= next(iter(dl))
-    oi, msk, obs, gt, sst_gt = ds[2]
-    oi_, msk_, obs_, gt_, sst_gt_ = ds[2+ len(ds.perm)]
+    oi, msk, obs, gt, sst_gt, u_gt,v_gt = ds[2]
+    oi_, msk_, obs_, gt_, sst_gt_, u_gt_,v_gt_ = ds[2+ len(ds.perm)]
     import matplotlib.pyplot as plt
     ds.sst_ds.ds.isel(time=0).sst.plot()
     p = lambda t: plt.imshow(t[0])
