@@ -962,7 +962,7 @@ class LitModelUV(pl.LightningModule):
 
                 # compute divergence for current field    
                 div_rec = self.div_field(outputs_u,outputs_v)
-                div_gt = self.div_field(u_gt,v_gt)
+                div_gt = self.div_field(u_gt_wo_nan,v_gt_wo_nan)
                 
                 # median filter
                 if self.median_filter_width > 1:
@@ -976,6 +976,8 @@ class LitModelUV(pl.LightningModule):
                                 dim=1)
                 if self.aug_state :
                     yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
+                
+                yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
                            
                 if self.use_sst_state :
                     yGT = torch.cat((yGT,sst_gt), dim=1)
