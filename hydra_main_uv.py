@@ -82,7 +82,7 @@ class FourDVarNetHydraRunner:
         self.original_coords = datamodule.get_original_coords()
         self.padded_coords = datamodule.get_padded_coords()
 
-        self.var_tr_uv = datamodule.norm_stats_uv[1]**2 if hasattr(self.hparams, 'norm_stats_uv') else 0.
+        self.var_tr_uv = datamodule.norm_stats_uv[1]**2
 
     def run(self, ckpt_path=None, dataloader="test", **trainer_kwargs):
         """
