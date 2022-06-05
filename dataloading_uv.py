@@ -562,9 +562,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             return m, M-m
         else:
             print('... Use SST data')
+            m_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').min())
+            M_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').max())
             if self.u_var == None:
-                m_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').min())
-                M_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').max())
     
                 return [m, M-m], [m_sst, M_sst-m_sst]
             else:
