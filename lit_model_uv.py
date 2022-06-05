@@ -404,6 +404,7 @@ class LitModelUV(pl.LightningModule):
         # self.log("tr_n_nobs", train_batch[1].sum().item(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log("tr_loss", loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log("tr_mse", metrics[-1]['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_mse_uv", metrics[-1]['mse_uv'] , on_step=False, on_epsoch=True, prog_bar=True)
         self.log("tr_mseG", metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
 
         return loss
@@ -423,6 +424,7 @@ class LitModelUV(pl.LightningModule):
         if loss is not None:
             self.log(f'{log_pref}_loss', loss)
             self.log(f'{log_pref}_mse', metrics[-1]["mse"] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{log_pref}_mse_uv', metrics[-1]["mse_uv"] , on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
 
         if not self.use_sst :
@@ -911,6 +913,7 @@ class LitModelUV(pl.LightningModule):
                         ('mseGrad', 0.),
                         ('meanGrad', 1.),
                         ('mseOI', 0.),
+                        ('mse_uv', 0.),
                         ('mseGOI', 0.)])
                     )
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
@@ -1024,8 +1027,12 @@ class LitModelUV(pl.LightningModule):
                     torch.hypot(g_targets_GT_x, g_targets_GT_y) , self.grad_crop(self.patch_weight))
             mse = loss_All.detach()
             mseGrad = loss_GAll.detach()
+            mse_uv = loss_uv.detach()
+            mse_div = loss_div.detach()
             metrics = dict([
                 ('mse', mse),
+                ('mse_uv', mse_uv),
+                ('mse_div', mse_div),
                 ('mseGrad', mseGrad),
                 ('meanGrad', mean_GAll),
                 ('mseOI', loss_OI.detach()),
