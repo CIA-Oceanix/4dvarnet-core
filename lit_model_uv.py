@@ -821,18 +821,22 @@ class LitModelUV(pl.LightningModule):
             return state[0]
 
         if not self.use_sst:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt = batch
         else:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt = batch
 
         if self.aug_state :
             init_state = torch.cat((targets_OI,
                                     inputs_Mask * (inputs_obs - targets_OI),
-                                    inputs_Mask * (inputs_obs - targets_OI),),
+                                    inputs_Mask * (inputs_obs - targets_OI),
+                                    torch.zeros_like(targets_GT),
+                                    torch.zeros_like(targets_GT)),
                                    dim=1)
         else:
             init_state = torch.cat((targets_OI,
-                                    inputs_Mask * (inputs_obs - targets_OI)),
+                                    inputs_Mask * (inputs_obs - targets_OI),
+                                    torch.zeros_like(targets_GT),
+                                    torch.zeros_like(targets_GT)),
                                    dim=1)
 
         if self.use_sst_state :
