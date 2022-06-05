@@ -195,6 +195,7 @@ class LitModelUV(pl.LightningModule):
         self.var_Val = self.hparams.var_Val
         self.var_Tr = self.hparams.var_Tr
         self.var_Tt = self.hparams.var_Tt
+        self.var_tr_uv = self.hparams.var_tr_uv
 
         # create longitudes & latitudes coordinates
         self.test_domain=test_domain
