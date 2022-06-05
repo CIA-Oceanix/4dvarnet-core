@@ -1034,7 +1034,7 @@ class LitModelUV(pl.LightningModule):
         else:
             return loss, [outputs,outputs_u,outputs_v], [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
 
-class LitModelCycleLR(LitModelAugstate):
+class LitModelCycleLR(LitModelUV):
     def configure_optimizers(self):
         opt = optim.Adam(self.parameters(), lr=1e-3)
         return {
