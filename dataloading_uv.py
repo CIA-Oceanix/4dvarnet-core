@@ -627,7 +627,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 u_path=self.u_path,
                 u_var=self.u_var,
                 v_path=self.v_path,
-                u_var=self.v_var,
+                v_var=self.v_var,
                 uv_decode=self.uv_decode,
                 resolution=self.resolution,
                 resize_factor=self.resize_factor,
