@@ -537,9 +537,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             return mean, std
         else:
             print('... Use SST data')
+            mean_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').mean())
+            std_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').std())
             if self.u_var == None:
-                mean_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').mean())
-                std_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').std())
 
                 return [mean, std], [mean_sst, std_sst]
             else:
