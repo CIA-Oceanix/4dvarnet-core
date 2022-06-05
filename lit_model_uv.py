@@ -160,9 +160,9 @@ class Div_uv(torch.nn.Module):
 
                 div_ = G_x + G_y 
                 if kk == 0:
-                    div = div_.view(-1, 1, u.size(1) - 2, u.size(2) - 2)
+                    div = div_.view(-1, 1, u.size(2) - 2, u.size(2) - 2)
                 else:
-                    div = torch.cat((div, div_.view(-1, 1, u.size(1) - 2, u.size(2) - 2)), dim=1)
+                    div = torch.cat((div, div_.view(-1, 1, u.size(2) - 2, u.size(3) - 2)), dim=1)
         
         return div
 
