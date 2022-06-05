@@ -13,7 +13,7 @@ params:
   dT: 7
   DimAE: 10#50
   dim_obs_sst_feat: 5
-  dim_grad_solver: 30#100
+  dim_grad_solver: 100
   phi_param: 'unet-std'#'unet1'
   ckpt_name: 'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
   use_sst_obs: True
