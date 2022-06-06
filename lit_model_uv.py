@@ -1055,8 +1055,6 @@ class LitModelUV(pl.LightningModule):
     def loss_ae(self, state_out):
         return torch.mean((self.model.phi_r(state_out) - state_out) ** 2)
 
-    def 
-
     def sla_loss(self, gt, out):
         g_outputs_x, g_outputs_y = self.gradient_img(out)
         g_gt_x, g_gt_y = self.gradient_img(gt)
