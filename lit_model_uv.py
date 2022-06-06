@@ -294,8 +294,9 @@ class LitModelUV(pl.LightningModule):
 
     def compute_div(self,u,v):
         # siletring
-        f_u = kornia.filters.gaussian_blur2d(u, (5,5), sigma=self.sig_filter_div, border_type='reflect')
-        f_v = kornia.filters.gaussian_blur2d(v, (5,5), sigma=self.sig_filter_div, border_type='reflect')
+        print( self.sig_filter_div )
+        f_u = kornia.filters.gaussian_blur2d(u, (5,5), (1.0,1.0), border_type='reflect')
+        f_v = kornia.filters.gaussian_blur2d(v, (5,5), (self.sig_filter_div,self.sig_filter_div), border_type='reflect')
         
         # gradients
         du_dx, du_dy = self.gradient_img(f_u)
