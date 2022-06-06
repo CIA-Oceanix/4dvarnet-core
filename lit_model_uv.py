@@ -814,7 +814,7 @@ class LitModelUV(pl.LightningModule):
             mse_uv_geo = np.nanmean( (u_geo - u_gt)**2 + (v_geo - v_gt)**2 )
             nmse_uv_geo = mse_uv_geo / np.nanmean( (u_gt)**2 + (v_gt)**2 )
             
-            mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo =  compute_div_curl_metrics(u_gt,v_gt,u_geo,v_geo,sig_div=sigma, 
+            mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo =  compute_div_curl_metrics(u_gt,v_gt,u_geo,v_geo,sig_div=0, 
                                                                                                alpha_dx = alpha_dx , alpha_dy = alpha_dy) 
                         
             return mse_uv_geo, nmse_uv_geo, mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo
