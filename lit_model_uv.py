@@ -791,11 +791,15 @@ class LitModelUV(pl.LightningModule):
             #corr_y_u = float( np.mean( u_gt * gy_ssh) / np.sqrt( np.mean( gy_ssh**2 ) * np.mean( u_gt**2 ) ) )
             #corr_y_v = float( np.mean( v_gt * gy_ssh) / np.sqrt( np.mean( gy_ssh**2 ) * np.mean( v_gt**2 ) ) )
             
+            corr_v = float( np.mean( v_gt * v_geo) / np.sqrt( np.mean( v_geo**2 ) * np.mean( v_gt**2 ) ) )
+            corr_u = float( np.mean( v_gt * v_geo) / np.sqrt( np.mean( v_geo**2 ) * np.mean( v_gt**2 ) ) )
+            
             #print('.... alpha = % f -- % f -- %f -- %f '%(corr_x_u,corr_x_v,corr_y_u,corr_y_v)  )
             alpha_x_u = float( np.mean( u_gt * u_geo) / np.mean( u_geo**2 ) )
             alpha_y_v = float( np.mean( v_gt * v_geo) / np.mean( v_geo**2 ) )
             alpha_uv = float( np.mean( u_gt * u_geo + v_gt * v_geo) / np.mean( u_geo**2 + v_geo**2 ) )
 
+            print('.... R**2: %f -- %f'%(corr_u,corr_v))
             print('.... alpha = % f -- % f -- %f '%(alpha_x_u,alpha_y_v,alpha_uv)  )
 
             u_geo = alpha_uv * u_geo
@@ -825,17 +829,26 @@ class LitModelUV(pl.LightningModule):
             corr_y_u = float( np.mean( u * dssh_dy) / np.sqrt( np.mean( dssh_dy**2 ) * np.mean( u**2 ) ) )
             corr_y_v = float( np.mean( v * dssh_dy) / np.sqrt( np.mean( dssh_dy**2 ) * np.mean( v**2 ) ) )
 
-            print('.... alpha = % f -- % f -- %f -- %f '%(corr_x_u,corr_x_v,corr_y_u,corr_y_v)  )
+            #print('.... alpha = % f -- % f -- %f -- %f '%(corr_x_u,corr_x_v,corr_y_u,corr_y_v)  )
             alpha_dy_u = float( np.mean( -1. * dssh_dy * u) / np.mean( dssh_dy**2 ) )
             alpha_dx_v = float( np.mean(  1. * dssh_dx * v) / np.mean( dssh_dx**2 ) )
 
-            print('.... alpha = % f -- % f '%(alpha_dx_v,alpha_dy_u)  )
+            print('... R**2: %f -- %f'%(corr_y_u,corr_x_v))
+            print('.... alpha: %f -- %f '%(alpha_dx_v,alpha_dy_u)  )
             
             return 1.,alpha_dy_u/alpha_dx_v
             
         alpha_dx, alpha_dy = compute_dxy_scaling(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,self.test_xr_ds.gt)
 
-        sig_div = 1.
+        sig_div = 2.
+        mse_uv_ssh_gt,nmse_uv_ssh_gt,mse_div_ssh_gt, nmse_div_ssh_gt, mse_curl_ssh_gt, nmse_curl_ssh_gt = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+                                                                                                     self.test_xr_ds.gt,sigma=sig_div,
+                                                                                                     alpha_dx=alpha_dx,alpha_dy=alpha_dy)
+        
+        var_mse_uv_ssh_gt = 100. * (1. - nmse_uv_ssh_gt )
+        var_mse_div_ssh_gt = 100. * (1. - nmse_div_ssh_gt )
+        var_mse_curl_ssh_gt = 100. * (1. - nmse_curl_ssh_gt )
+
         mse_uv_oi,nmse_uv_oi,mse_div_oi, nmse_div_oi, mse_curl_oi, nmse_curl_oi = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                                                                      self.test_xr_ds.oi,sigma=sig_div,
                                                                                                      alpha_dx=alpha_dx,alpha_dy=alpha_dy)
@@ -845,13 +858,6 @@ class LitModelUV(pl.LightningModule):
         var_mse_div_oi = 100. * (1. - nmse_div_oi )
         var_mse_curl_oi = 100. * (1. - nmse_curl_oi )
 
-        mse_uv_ssh_gt,nmse_uv_ssh_gt,mse_div_ssh_gt, nmse_div_ssh_gt, mse_curl_ssh_gt, nmse_curl_ssh_gt = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                                                                     self.test_xr_ds.gt,sigma=sig_div,
-                                                                                                     alpha_dx=alpha_dx,alpha_dy=alpha_dy)
-        
-        var_mse_uv_ssh_gt = 100. * (1. - nmse_uv_ssh_gt )
-        var_mse_div_ssh_gt = 100. * (1. - nmse_div_ssh_gt )
-        var_mse_curl_ssh_gt = 100. * (1. - nmse_curl_ssh_gt )
         
         mse_div, nmse_div, mse_curl, nmse_curl =  compute_div_curl_metrics(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                                            self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,
