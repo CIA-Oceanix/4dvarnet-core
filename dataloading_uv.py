@@ -603,9 +603,14 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             u  = _ds.u_ds.ds[_ds.u_ds.var]
             v  = _ds.v_ds.ds[_ds.v_ds.var]
             
+            ssh = ssh[:,20:220,20:220]
+            u = u[:,20:220,20:220]
+            v = v[:,20:220,20:220]
             print( np.sum( np.isnan(ssh) ) )
             print( u.shape )
             print( v.shape )
+            
+            print( np.mean( ssh**2 ) )
             
             # Gaussian filtering
             u = gaussian_filter(u, sigma=sigma)
@@ -632,7 +637,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         corr_dx_v = dssh_dx_v / np.sqrt( norm_dx * norm_v  )
        
         print('... R**2: %f -- %f'%(corr_dy_u,corr_dx_v))
-        print('.... alpha: %f -- %f '%(alpha_dx_v,alpha_dy_u)  )
+        print('.... alpha: %f -- %f -- %f'%(alpha_dx_v,alpha_dy_u,alpha_dy_u/alpha_dx_v)  )
 
         return 1.,alpha_dy_u/alpha_dx_v,alpha_dx_v
 
