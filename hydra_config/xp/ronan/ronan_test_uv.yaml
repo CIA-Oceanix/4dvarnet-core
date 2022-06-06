@@ -24,14 +24,9 @@ params:
   save_rec_netcdf: False#True
   sig_filter_laplacian: 1.
   scale_dwscaling_sst: 1.
+  sig_filter_div: 1.0
   path_save_netcdf: '/gpfsscratch/rech/yrf/ulh44ct/temp/save.ckpt'
   ckpt_name: 'modelUVwSSTGF-unet1-{epoch:02d}-{val_loss:.4f}'
-datamodule:
-  aug_train_data: True  
-  u_path: ${file_paths.natl_u_daily}
-  u_var: u
-  v_path: ${file_paths.natl_v_daily}
-  v_var: v
 defaults:
   - /xp/ronan/base_xp_uv
   - /splits/dc_boost_swot@datamodule

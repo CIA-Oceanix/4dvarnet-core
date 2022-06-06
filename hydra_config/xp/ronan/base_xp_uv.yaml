@@ -38,6 +38,7 @@ params:
   alpha_proj: 0.5
   alpha_sr: 0.5
   alpha_lr: 0.5
+  sig_filter_div: 1.0
   automatic_optimization: true
   ckpt_name: 'modelCalSLAInterpGF-{epoch:02d}-{val_loss:.4f}'
   norm_obs: 'l1'

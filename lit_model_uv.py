@@ -22,6 +22,38 @@ from metrics import save_netcdf,save_netcdf_with_obs,save_netcdf_with_sst, nrmse
 from models import Model_H, Model_HwithSST, Model_HwithSSTBN,Phi_r, ModelLR, Gradient_img, Model_HwithSSTBN_nolin_tanh, Model_HwithSST_nolin_tanh, Model_HwithSSTBNandAtt
 from models import Model_HwithSSTBNAtt_nolin_tanh
 
+
+from scipy import ndimage
+from scipy.ndimage import gaussian_filter
+
+
+def compute_gradx( u, alpha_dx = 1., sigma = 0. ):
+    if sigma > 0. :
+        u = gaussian_filter(u, sigma=sigma)
+    
+    return alpha_dx * ndimage.sobel(u,axis=0)
+
+def compute_grady( u, alpha_dy= 1., sigma = 0. ):
+    
+    if sigma > 0. :
+        u = gaussian_filter(u, sigma=sigma)
+        
+    return alpha_dy * ndimage.sobel(u,axis=1)
+   
+def compute_div(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
+    du_dx = compute_gradx( u , alpha_dx = alpha_dx , sigma = sigma )
+    dv_dy = compute_grady( v , alpha_dy = alpha_dy , sigma = sigma )
+    
+    return du_dx + dv_dy
+    
+def compute_curl(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
+    du_dy = compute_grady( u , alpha_dy = alpha_dy , sigma = sigma )
+    dv_dx = compute_gradx( v , alpha_dx = alpha_dx , sigma = sigma )
+    
+    return du_dy - dv_dx
+
+
+
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
@@ -231,6 +263,7 @@ class LitModelUV(pl.LightningModule):
         self.save_rec_netcdf = self.hparams.save_rec_netcdf if hasattr(self.hparams, 'save_rec_netcdf') else './'
         self.sig_filter_laplacian = self.hparams.sig_filter_laplacian if hasattr(self.hparams, 'sig_filter_laplacian') else 0.5
         self.scale_dwscaling_sst = self.hparams.scale_dwscaling_sst if hasattr(self.hparams, 'scale_dwscaling_sst') else 1.0
+        self.sig_filter_div = self.hparams.sig_filter_div if hasattr(self.hparams, 'sig_filter_div') else 1.0
 
         if self.hparams.k_n_grad == 0 :
             self.hparams.n_fourdvar_iter = 1
@@ -258,6 +291,21 @@ class LitModelUV(pl.LightningModule):
         self.automatic_optimization = self.hparams.automatic_optimization if hasattr(self.hparams, 'automatic_optimization') else False
 
         self.median_filter_width = self.hparams.median_filter_width if hasattr(self.hparams, 'median_filter_width') else 1
+
+    def compute_div(self,u,v,sigma=1.0):
+        # siletring
+        f_u = kornia.filters.gaussian_blur2d(u, (5,5), sigma=self.sig_filter_div, border_type='reflect')
+        f_v = kornia.filters.gaussian_blur2d(v, (5,5), sigma=self.sig_filter_div, border_type='reflect')
+        
+        # gradients
+        du_dx, du_dy = self.gradient_img(f_u)
+        dv_dx, dv_dy = self.gradient_img(f_v)
+        
+        # scaling 
+        du_dx = self.alpha_dx * dv_dx
+        dv_dy = self.alpha_dy * dv_dy
+        
+        return du_dx + dv_dy  
 
     def update_filename_chkpt(self,filename_chkpt):
         
@@ -731,34 +779,6 @@ class LitModelUV(pl.LightningModule):
         #div_rec = self.div_field(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v)
         #div_gt = self.div_field(self.test_xr_ds.v_gt,self.test_xr_ds.u_gt)
 
-        from scipy import ndimage
-        from scipy.ndimage import gaussian_filter
-
-
-        def compute_gradx( u, alpha_dx = 1., sigma = 0. ):
-            if sigma > 0. :
-                u = gaussian_filter(u, sigma=sigma)
-            
-            return alpha_dx * ndimage.sobel(u,axis=0)
-
-        def compute_grady( u, alpha_dy= 1., sigma = 0. ):
-            
-            if sigma > 0. :
-                u = gaussian_filter(u, sigma=sigma)
-                
-            return alpha_dy * ndimage.sobel(u,axis=1)
-           
-        def compute_div(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
-            du_dx = compute_gradx( u , alpha_dx = alpha_dx , sigma = sigma )
-            dv_dy = compute_grady( v , alpha_dy = alpha_dy , sigma = sigma )
-            
-            return du_dx + dv_dy
-            
-        def compute_curl(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
-            du_dy = compute_grady( u , alpha_dy = alpha_dy , sigma = sigma )
-            dv_dx = compute_gradx( v , alpha_dx = alpha_dx , sigma = sigma )
-            
-            return du_dy - dv_dx
 
         def compute_div_curl_metrics(u_gt,v_gt,u_rec,v_rec,sig_div=0.5,alpha_dx=1.,alpha_dy=1.):
             
@@ -856,7 +876,7 @@ class LitModelUV(pl.LightningModule):
             alpha_dy = self.alpha_dy
             alpha_uv_geo = self.alpha_uv_geo
 
-        sig_div = 1.
+        sig_div = self.sig_filter_div
         mse_uv_ssh_gt,nmse_uv_ssh_gt,mse_div_ssh_gt, nmse_div_ssh_gt, mse_curl_ssh_gt, nmse_curl_ssh_gt = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                                                                      self.test_xr_ds.gt,sigma=sig_div,
                                                                                                      alpha_dx=alpha_dx,alpha_dy=alpha_dy,
@@ -1034,6 +1054,8 @@ class LitModelUV(pl.LightningModule):
 
     def loss_ae(self, state_out):
         return torch.mean((self.model.phi_r(state_out) - state_out) ** 2)
+
+    def 
 
     def sla_loss(self, gt, out):
         g_outputs_x, g_outputs_y = self.gradient_img(out)
