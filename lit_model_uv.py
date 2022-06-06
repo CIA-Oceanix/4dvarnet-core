@@ -777,7 +777,7 @@ class LitModelUV(pl.LightningModule):
 
             return mse_div,nmse_div,mse_curl,nmse_curl
         
-        def compute_mse_uv_geo(u_gt,v_gt,ssh,sigma=0.5,alpha_dx=1.,alpha_dy=1.):
+        def compute_mse_uv_geo(u_gt,v_gt,ssh,sigma=0.5,alpha_dx=1.,alpha_dy=1.,alpha_uv_geo = 0.):
             dssh_dx = compute_gradx( ssh , alpha_dx = alpha_dx , sigma = sigma )
             dssh_dy = compute_grady( ssh , alpha_dy = alpha_dy , sigma = sigma )
             
@@ -801,18 +801,21 @@ class LitModelUV(pl.LightningModule):
             #print('.... alpha = % f -- % f -- %f -- %f '%(corr_x_u,corr_x_v,corr_y_u,corr_y_v)  )
             alpha_x_u = float( np.mean( u_gt * u_geo) / np.mean( u_geo**2 ) )
             alpha_y_v = float( np.mean( v_gt * v_geo) / np.mean( v_geo**2 ) )
-            alpha_uv = float( np.mean( u_gt * u_geo + v_gt * v_geo) / np.mean( u_geo**2 + v_geo**2 ) )
+            
+            if alpha_uv_geo == 0. :
+                alpha_uv_geo = float( np.mean( u_gt * u_geo + v_gt * v_geo) / np.mean( u_geo**2 + v_geo**2 ) )
 
             print('.... R**2: %f -- %f'%(corr_u,corr_v))
-            print('.... alpha = % f -- % f -- %f '%(alpha_x_u,alpha_y_v,alpha_uv)  )
+            print('.... alpha = % f -- % f -- %f '%(alpha_x_u,alpha_y_v,alpha_uv_geo)  )
 
-            u_geo = alpha_uv * u_geo
-            v_geo = alpha_uv * v_geo
+            u_geo = alpha_uv_geo * u_geo
+            v_geo = alpha_uv_geo * v_geo
             
             mse_uv_geo = np.nanmean( (u_geo - u_gt)**2 + (v_geo - v_gt)**2 )
             nmse_uv_geo = mse_uv_geo / np.nanmean( (u_gt)**2 + (v_gt)**2 )
             
-            mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo =  compute_div_curl_metrics(u_gt,v_gt,u_geo,v_geo,sig_div=0.) 
+            mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo =  compute_div_curl_metrics(u_gt,v_gt,u_geo,v_geo,sig_div=0., 
+                                                                                               alpha_dx = alpha_dx , alpha_dy = alpha_dy) 
                         
             return mse_uv_geo, nmse_uv_geo, mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo
 
@@ -840,14 +843,15 @@ class LitModelUV(pl.LightningModule):
             print('... R**2: %f -- %f'%(corr_y_u,corr_x_v))
             print('.... alpha: %f -- %f '%(alpha_dx_v,alpha_dy_u)  )
             
-            return 1.,alpha_dy_u/alpha_dx_v
+            return 1.,alpha_dy_u/alpha_dx_v,alpha_dx_v
             
-        alpha_dx, alpha_dy = compute_dxy_scaling(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,self.test_xr_ds.gt)
+        alpha_dx, alpha_dy, alpha_uv_geo = compute_dxy_scaling(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,self.test_xr_ds.gt)
 
         sig_div = 4.
         mse_uv_ssh_gt,nmse_uv_ssh_gt,mse_div_ssh_gt, nmse_div_ssh_gt, mse_curl_ssh_gt, nmse_curl_ssh_gt = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                                                                      self.test_xr_ds.gt,sigma=sig_div,
-                                                                                                     alpha_dx=alpha_dx,alpha_dy=alpha_dy)
+                                                                                                     alpha_dx=alpha_dx,alpha_dy=alpha_dy,
+                                                                                                     alpha_uv_geo = alpha_uv_geo)
         
         var_mse_uv_ssh_gt = 100. * (1. - nmse_uv_ssh_gt )
         var_mse_div_ssh_gt = 100. * (1. - nmse_div_ssh_gt )
@@ -855,7 +859,8 @@ class LitModelUV(pl.LightningModule):
 
         mse_uv_oi,nmse_uv_oi,mse_div_oi, nmse_div_oi, mse_curl_oi, nmse_curl_oi = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                                                                      self.test_xr_ds.oi,sigma=sig_div,
-                                                                                                     alpha_dx=alpha_dx,alpha_dy=alpha_dy)
+                                                                                                     alpha_dx=alpha_dx,alpha_dy=alpha_dy,
+                                                                                                     alpha_uv_geo = alpha_uv_geo)
 
 
         var_mse_uv_oi = 100. * (1. - nmse_uv_oi )
