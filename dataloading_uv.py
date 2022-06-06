@@ -630,38 +630,19 @@ class FourDVarNetDataModule(pl.LightningDataModule):
 
             w = np.isnan( u + v + dssh_dy + dssh_dx ).astype(float)
             
-            if 1*1 :
-                u = u[ w == False ] 
-                v = v[ w == False ] 
-                dssh_dx = dssh_dx[ w == False ]
-                dssh_dy = dssh_dy[ w == False ]
-                        
-                dssh_dy_u += np.sum( -1. * dssh_dy * u )
-                dssh_dx_v += np.sum( 1. * dssh_dx * v )
+            u = u[ w == False ] 
+            v = v[ w == False ] 
+            dssh_dx = dssh_dx[ w == False ]
+            dssh_dy = dssh_dy[ w == False ]
+                    
+            dssh_dy_u += np.sum( -1. * dssh_dy * u )
+            dssh_dx_v += np.sum( 1. * dssh_dx * v )
 
-                norm_dy += np.sum( dssh_dy ** 2 )
-                norm_dx += np.sum( dssh_dx ** 2 )
-                
-                norm_u +=  np.sum( u ** 2)
-                norm_v +=  np.sum( v ** 2)
-            elif 1*0 :
-                dssh_dy_u += np.nansum( -1. * dssh_dy * u )       
-                dssh_dx_v += np.nansum( 1. * dssh_dx * v )
-                
-                norm_dy += np.nansum( dssh_dy ** 2 )
-                norm_dx += np.nansum( dssh_dx ** 2 )
-                
-                norm_u +=  np.nansum( u ** 2)
-                norm_v +=  np.nansum( v ** 2)
-            else:
-                dssh_dy_u += np.nansum( -1. * dssh_dy * u )       
-                dssh_dx_v += np.nansum( 1. * dssh_dx * v )
-
-                norm_dy += np.nansum( dssh_dy ** 2 + 0. * u )
-                norm_dx += np.nansum( dssh_dx ** 2  + 0. * v )
-                
-                norm_u +=  np.nansum( 0. * dssh_dy + u ** 2)
-                norm_v +=  np.nansum( 0. * dssh_dx + v ** 2)
+            norm_dy += np.sum( dssh_dy ** 2 )
+            norm_dx += np.sum( dssh_dx ** 2 )
+            
+            norm_u +=  np.sum( u ** 2)
+            norm_v +=  np.sum( v ** 2)
                 
         alpha_dy_u = dssh_dy_u / norm_dy
         alpha_dx_v = dssh_dx_v / norm_dx
