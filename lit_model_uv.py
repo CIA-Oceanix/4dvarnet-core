@@ -27,31 +27,6 @@ from scipy import ndimage
 from scipy.ndimage import gaussian_filter
 
 
-def compute_gradx( u, alpha_dx = 1., sigma = 0. ):
-    if sigma > 0. :
-        u = gaussian_filter(u, sigma=sigma)
-    
-    return alpha_dx * ndimage.sobel(u,axis=2)
-
-def compute_grady( u, alpha_dy= 1., sigma = 0. ):
-    
-    if sigma > 0. :
-        u = gaussian_filter(u, sigma=sigma)
-        
-    return alpha_dy * ndimage.sobel(u,axis=1)
-   
-def compute_div(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
-    du_dx = compute_gradx( u , alpha_dx = alpha_dx , sigma = sigma )
-    dv_dy = compute_grady( v , alpha_dy = alpha_dy , sigma = sigma )
-    
-    return du_dx + dv_dy
-    
-def compute_curl(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
-    du_dy = compute_grady( u , alpha_dy = alpha_dy , sigma = sigma )
-    dv_dx = compute_gradx( v , alpha_dx = alpha_dx , sigma = sigma )
-    
-    return du_dy - dv_dx
-
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
@@ -292,7 +267,6 @@ class LitModelUV(pl.LightningModule):
 
     def compute_div(self,u,v):
         # siletring
-        print( self.sig_filter_div )
         f_u = kornia.filters.gaussian_blur2d(u, (5,5), (self.sig_filter_div,self.sig_filter_div), border_type='reflect')
         f_v = kornia.filters.gaussian_blur2d(v, (5,5), (self.sig_filter_div,self.sig_filter_div), border_type='reflect')
         
@@ -787,6 +761,30 @@ class LitModelUV(pl.LightningModule):
         #div_rec = self.div_field(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v)
         #div_gt = self.div_field(self.test_xr_ds.v_gt,self.test_xr_ds.u_gt)
 
+        def compute_gradx( u, alpha_dx = 1., sigma = 0. ):
+            if sigma > 0. :
+                u = gaussian_filter(u, sigma=sigma)
+            
+            return alpha_dx * ndimage.sobel(u,axis=2)
+        
+        def compute_grady( u, alpha_dy= 1., sigma = 0. ):
+            
+            if sigma > 0. :
+                u = gaussian_filter(u, sigma=sigma)
+                
+            return alpha_dy * ndimage.sobel(u,axis=1)
+           
+        def compute_div(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
+            du_dx = compute_gradx( u , alpha_dx = alpha_dx , sigma = sigma )
+            dv_dy = compute_grady( v , alpha_dy = alpha_dy , sigma = sigma )
+            
+            return du_dx + dv_dy
+            
+        def compute_curl(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
+            du_dy = compute_grady( u , alpha_dy = alpha_dy , sigma = sigma )
+            dv_dx = compute_gradx( v , alpha_dx = alpha_dx , sigma = sigma )
+            
+            return du_dy - dv_dx
 
         def compute_div_curl_metrics(u_gt,v_gt,u_rec,v_rec,sig_div=0.5,alpha_dx=1.,alpha_dy=1.):
             
@@ -855,7 +853,7 @@ class LitModelUV(pl.LightningModule):
             v = gaussian_filter(v, sigma=sigma)
             ssh = gaussian_filter(ssh, sigma=sigma)
             
-            dssh_dx = 1. * ndimage.sobel(ssh,axis=0)
+            dssh_dx = 1. * ndimage.sobel(ssh,axis=2)
             dssh_dy = 1. * ndimage.sobel(ssh,axis=1)                        
         
             corr_x_u = float( np.mean( u * dssh_dx) / np.sqrt( np.mean( dssh_dx**2 ) * np.mean( u**2 ) ) )
@@ -864,7 +862,7 @@ class LitModelUV(pl.LightningModule):
             corr_y_u = float( np.mean( u * dssh_dy) / np.sqrt( np.mean( dssh_dy**2 ) * np.mean( u**2 ) ) )
             corr_y_v = float( np.mean( v * dssh_dy) / np.sqrt( np.mean( dssh_dy**2 ) * np.mean( v**2 ) ) )
 
-            #print('.... alpha = % f -- % f -- %f -- %f '%(corr_x_u,corr_x_v,corr_y_u,corr_y_v)  )
+            print('.... alpha = % f -- % f -- %f -- %f '%(corr_x_u,corr_x_v,corr_y_u,corr_y_v)  )
             alpha_dy_u = float( np.mean( -1. * dssh_dy * u) / np.mean( dssh_dy**2 ) )
             alpha_dx_v = float( np.mean(  1. * dssh_dx * v) / np.mean( dssh_dx**2 ) )
 
