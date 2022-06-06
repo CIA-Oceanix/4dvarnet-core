@@ -60,10 +60,10 @@ datamodule:
   gt_var: ${params.files_cfg.gt_var}
   sst_path: ??? # sst
   sst_var: ???
-  u_path: ??? # sst
-  u_var: ???
-  v_path: ??? # sst
-  v_var: ???
+  u_path: ${file_paths.natl_u_daily}
+  u_var: u
+  v_path: ${file_paths.natl_v_daily}
+  v_var: v
   aug_train_data: false
   resolution: 1/20
   dl_kwargs:

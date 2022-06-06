@@ -33,10 +33,6 @@ params:
   norm_prior: l2
 datamodule:
   aug_train_data: True  
-  u_path: ${file_paths.natl_u_daily}
-  u_var: u
-  v_path: ${file_paths.natl_v_daily}
-  v_var: v
 defaults:
   - /xp/ronan/base_xp_uv
   - /splits/dc_boost_swot@datamodule
