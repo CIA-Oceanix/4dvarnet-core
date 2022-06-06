@@ -591,6 +591,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         
         dssh_dy_u = 0.
         dssh_dx_v = 0.
+        dssh_dy_v = 0.
+        dssh_dx_u = 0.
         norm_dx = 0.
         norm_dy = 0.
         norm_u = 0.
@@ -622,10 +624,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             u = gaussian_filter(u, sigma=sigma)
             v = gaussian_filter(v, sigma=sigma)
             ssh = gaussian_filter(ssh, sigma=sigma)
-            
-            
+                        
             # ssh gradients
-            dssh_dx = 1. * ndimage.sobel(ssh,axis=0)
+            dssh_dx = 1. * ndimage.sobel(ssh,axis=2)
             dssh_dy = 1. * ndimage.sobel(ssh,axis=1)   
 
             w = np.isnan( u + v + dssh_dy + dssh_dx ).astype(float)
@@ -636,7 +637,10 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             dssh_dy = dssh_dy[ w == False ]
                     
             dssh_dy_u += np.sum( -1. * dssh_dy * u )
+            dssh_dy_v += np.sum( -1. * dssh_dy * v )
+
             dssh_dx_v += np.sum( 1. * dssh_dx * v )
+            dssh_dx_u += np.sum( 1. * dssh_dx * u )
 
             norm_dy += np.sum( dssh_dy ** 2 )
             norm_dx += np.sum( dssh_dx ** 2 )
@@ -648,9 +652,11 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         alpha_dx_v = dssh_dx_v / norm_dx
         
         corr_dy_u = dssh_dy_u / np.sqrt( norm_dy * norm_u  )
+        corr_dy_v = dssh_dy_v / np.sqrt( norm_dy * norm_v  )
+        corr_dx_u = dssh_dx_u / np.sqrt( norm_dx * norm_u  )
         corr_dx_v = dssh_dx_v / np.sqrt( norm_dx * norm_v  )
        
-        print('... R**2: %f -- %f'%(corr_dy_u,corr_dx_v))
+        print('... R**2: %f -- %f --  %f -- %f'%(corr_dx_u,corr_dx_v,corr_dy_u,corr_dy_v))
         print('.... alpha: %f -- %f -- %f'%(alpha_dx_v,alpha_dy_u,alpha_dy_u/alpha_dx_v)  )
 
         return 1.,alpha_dy_u/alpha_dx_v,alpha_dx_v
