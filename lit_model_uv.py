@@ -31,7 +31,7 @@ def compute_gradx( u, alpha_dx = 1., sigma = 0. ):
     if sigma > 0. :
         u = gaussian_filter(u, sigma=sigma)
     
-    return alpha_dx * ndimage.sobel(u,axis=0)
+    return alpha_dx * ndimage.sobel(u,axis=2)
 
 def compute_grady( u, alpha_dy= 1., sigma = 0. ):
     
@@ -51,8 +51,6 @@ def compute_curl(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
     dv_dx = compute_gradx( v , alpha_dx = alpha_dx , sigma = sigma )
     
     return du_dy - dv_dx
-
-
 
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
@@ -295,7 +293,7 @@ class LitModelUV(pl.LightningModule):
     def compute_div(self,u,v):
         # siletring
         print( self.sig_filter_div )
-        f_u = kornia.filters.gaussian_blur2d(u, (5,5), (1.0,1.0), border_type='reflect')
+        f_u = kornia.filters.gaussian_blur2d(u, (5,5), (self.sig_filter_div,self.sig_filter_div), border_type='reflect')
         f_v = kornia.filters.gaussian_blur2d(v, (5,5), (self.sig_filter_div,self.sig_filter_div), border_type='reflect')
         
         # gradients
@@ -306,14 +304,14 @@ class LitModelUV(pl.LightningModule):
         du_dx = self.alpha_dx * dv_dx
         dv_dy = self.alpha_dy * dv_dy
         
-        div1 = du_dx + dv_dy
-        div1 = div1.detach().cpu().numpy()
+        #div1 = du_dx + dv_dy
+        #div1 = div1[0,:,:,:].detach().cpu().numpy()
         
-        div2 = compute_div(u.detach().cpu().numpy(), v.detach().cpu().numpy(), self.sig_filter_div, self.alpha_dx, self.alpha_dy)
+        #div2 = compute_div(u[0,:,:,:].detach().cpu().numpy().squeeze(), v[0,:,:,:].detach().cpu().numpy().squeeze(), self.sig_filter_div, self.alpha_dx, self.alpha_dy)
         
-        print( div1.shape )
-        print( div2.shape )
-        print( np.mean( (div1 - div2)**2 ) )        
+        #print( div1.shape )
+        #print( div2.shape )
+        #print( np.mean( (div1 - div2)**2 ) )        
         
         return du_dx + dv_dy  
 
