@@ -734,9 +734,32 @@ class LitModelUV(pl.LightningModule):
         from scipy import ndimage
         from scipy.ndimage import gaussian_filter
 
-        def compute_mse_uv_geo(u_gt,v_gt,ssh):
-            gy_ssh = -1. * ndimage.sobel(ssh,axis=0)
-            gx_ssh = 1. * ndimage.sobel(ssh,axis=1)
+
+
+        def compute_div_curl_metrics(u_gt,v_gt,u_rec,v_rec,sig_div=0.5):
+            
+            f_u_gt =  gaussian_filter(u_gt, sigma=sig_div)   
+            f_v_gt =  gaussian_filter(v_gt, sigma=sig_div)   
+            f_u_rec =  gaussian_filter(u_rec, sigma=sig_div)   
+            f_v_rec =  gaussian_filter(v_rec, sigma=sig_div)   
+            
+            div_uv = ndimage.sobel(f_u_gt,axis=0) + ndimage.sobel(f_v_gt,axis=1)
+            div_uv_rec = ndimage.sobel(f_u_rec,axis=0) + ndimage.sobel(f_v_rec,axis=1)
+            
+            curl_uv = ndimage.sobel(f_u_gt,axis=1) - ndimage.sobel(f_v_gt,axis=0)
+            curl_uv_rec = ndimage.sobel(f_u_rec,axis=1) - ndimage.sobel(f_v_rec,axis=0)
+
+            mse_div = np.nanmean( (div_uv - div_uv_rec)**2 )
+            nmse_div = mse_div / np.nanmean( (div_uv )**2 )
+
+            mse_curl = np.nanmean( (curl_uv - curl_uv_rec)**2 )
+            nmse_curl = mse_div / np.nanmean( (curl_uv )**2 )
+
+            return mse_div,nmse_div,mse_curl,nmse_curl
+        
+        def compute_mse_uv_geo(u_gt,v_gt,ssh,sig_div=1.0):
+            gy_ssh = 1. * ndimage.sobel(ssh,axis=0)
+            gx_ssh = -1. * ndimage.sobel(ssh,axis=1)
                         
             corr_x_u = float( np.mean( u_gt * gx_ssh) / np.sqrt( np.mean( gx_ssh**2 ) * np.mean( u_gt**2 ) ) )
             corr_x_v = float( np.mean( v_gt * gx_ssh) / np.sqrt( np.mean( gx_ssh**2 ) * np.mean( v_gt**2 ) ) )
@@ -753,37 +776,30 @@ class LitModelUV(pl.LightningModule):
             mse_uv_geo = np.nanmean( (u_geo - u_gt)**2 + (v_geo - v_gt)**2 )
             nmse_uv_geo = mse_uv_geo / np.nanmean( (u_gt)**2 + (v_gt)**2 )
             
-            return mse_uv_geo, nmse_uv_geo
-
-
-        def compute_div_metrics(u_gt,v_gt,u_rec,v_rec,sig_div=0.5):
+            mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo =  compute_div_curl_metrics(u_gt,v_gt,u_geo,v_geo,sig_div=sig_div) 
             
-            f_u_gt =  gaussian_filter(u_gt, sigma=sig_div)   
-            f_v_gt =  gaussian_filter(v_gt, sigma=sig_div)   
-            f_u_rec =  gaussian_filter(u_rec, sigma=sig_div)   
-            f_v_rec =  gaussian_filter(v_rec, sigma=sig_div)   
             
-            div_uv = ndimage.sobel(f_u_gt,axis=0) + ndimage.sobel(f_v_gt,axis=1)
-            div_uv_rec = ndimage.sobel(f_u_rec,axis=0) + ndimage.sobel(f_v_rec,axis=1)
-            
-            mse_div = np.nanmean( (div_uv - div_uv_rec)**2 )
-            nmse_div = mse_div / np.nanmean( (div_uv )**2 )
+            return mse_uv_geo, nmse_uv_geo, mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo
 
-            return mse_div,nmse_div
-        
-        mse_uv_oi,nmse_uv_oi = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                       self.test_xr_ds.oi)
-        var_mse_uv_oi = 100. * (1. - nmse_uv_oi )
-        
-        mse_uv_ssh_gt,nmse_uv_ssh_gt = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                            self.test_xr_ds.gt)
-        var_mse_uv_gt = 100. * (1. - nmse_uv_ssh_gt )
-        
         sig_div = 1.
-        mse_div, nmse_div =  compute_div_metrics(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                 self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,
-                                                 sig_div=sig_div)
+        mse_uv_oi,nmse_uv_oi,mse_div_oi, nmse_div_oi, mse_curl_oi, nmse_curl_oi = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+                                                                                                     self.test_xr_ds.oi,sig_div=sig_div)
+        var_mse_uv_oi = 100. * (1. - nmse_uv_oi )
+        var_mse_div_oi = 100. * (1. - nmse_div_oi )
+        var_mse_curl_oi = 100. * (1. - nmse_curl_oi )
+
+        mse_uv_ssh_gt,nmse_uv_ssh_gt,mse_div_ssh_gt, nmse_div_ssh_gt, mse_curl_ssh_gt, nmse_curl_ssh_gt = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+                                                                                                     self.test_xr_ds.gt,sig_div=sig_div)
+        
+        var_mse_uv_ssh_gt = 100. * (1. - nmse_uv_ssh_gt )
+        var_mse_div_ssh_gt = 100. * (1. - nmse_div_ssh_gt )
+        var_mse_curl_ssh_gt = 100. * (1. - nmse_curl_ssh_gt )
+        
+        mse_div, nmse_div, mse_curl, nmse_curl =  compute_div_curl_metrics(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+                                                                           self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,
+                                                                           sig_div=sig_div)
         var_mse_div = 100. * (1. - nmse_div )
+        var_mse_curl = 100. * (1. - nmse_curl )
         
         md = {
             f'{log_pref}_spatial_res': float(spatial_res_model),
@@ -801,10 +817,15 @@ class LitModelUV(pl.LightningModule):
             f'{log_pref}_var_mse_grad_vs_oi': float(var_mse_grad_pred_vs_oi),
             f'{log_pref}_var_mse_lap_pred': float(var_mse_pred_lap),
             f'{log_pref}_var_mse_lap_oi': float(var_mse_oi_lap),
-            f'{log_pref}_var_mse_uv_gt': float(var_mse_uv_gt),
+            f'{log_pref}_var_mse_uv_gt': float(var_mse_uv_ssh_gt),
             f'{log_pref}_var_mse_uv_oi': float(var_mse_uv_oi),
             f'{log_pref}_var_mse_uv': float(var_mse_uv),
+            f'{log_pref}_var_mse_div_oi': float(var_mse_div_oi),            
+            f'{log_pref}_var_mse_div_ssh_gt': float(var_mse_div_ssh_gt),            
             f'{log_pref}_var_mse_div': float(var_mse_div),            
+            f'{log_pref}_var_mse_curl_oi': float(var_mse_curl_oi),            
+            f'{log_pref}_var_mse_curl_ssh_gt': float(var_mse_curl_ssh_gt),            
+            f'{log_pref}_var_mse_curl': float(var_mse_curl),            
         }
         print(pd.DataFrame([md]).T.to_markdown())
         return md
