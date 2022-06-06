@@ -847,8 +847,8 @@ class LitModelUV(pl.LightningModule):
             
         alpha_dx, alpha_dy, alpha_uv_geo = compute_dxy_scaling(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,self.test_xr_ds.gt,sigma=4.0)
 
-        print('.. Scaling [I] : %f -- %f -- %f '%(self.alpha_dx,self.alpha_dy,self.alpha_uv_geo))
-        print('.. Scaling [II]: %f -- %f -- %f '%(alpha_dx,alpha_dy,alpha_uv_geo))
+        print('.. Scaling [Training DS] : %f -- %f -- %f '%(self.alpha_dx,self.alpha_dy,self.alpha_uv_geo))
+        print('.. Scaling [Test DS]     : %f -- %f -- %f '%(alpha_dx,alpha_dy,alpha_uv_geo))
 
         flag_use_uv_geo_scaling_training_ds = True
         if flag_use_uv_geo_scaling_training_ds :
