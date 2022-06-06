@@ -733,7 +733,7 @@ class LitModelUV(pl.LightningModule):
 
         def compute_mse_uv_geo(u_gt,v_gt,ssh):
             gy_ssh = -1. * ndimage.sobel(ssh,axis=0)
-            gx_ssh = 1. * ndimage.sobel(ssh,axis=0)
+            gx_ssh = 1. * ndimage.sobel(ssh,axis=1)
             
             alpha_uv = np.mean( u_gt * gx_ssh + v_gt * gy_ssh ) / np.mean( gx_ssh**2 + gx_ssh**2 )
             
