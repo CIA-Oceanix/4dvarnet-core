@@ -734,27 +734,18 @@ class LitModelUV(pl.LightningModule):
         def compute_mse_uv_geo(u_gt,v_gt,ssh):
             gy_ssh = -1. * ndimage.sobel(ssh,axis=0)
             gx_ssh = 1. * ndimage.sobel(ssh,axis=1)
+                        
+            corr_x_u = float( np.mean( u_gt * gx_ssh) / np.sqrt( np.mean( gx_ssh**2 ) * np.mean( u_gt**2 ) ) )
+            corr_x_v = float( np.mean( v_gt * gx_ssh) / np.sqrt( np.mean( gx_ssh**2 ) * np.mean( v_gt**2 ) ) )
+            corr_y_u = float( np.mean( u_gt * gy_ssh) / np.sqrt( np.mean( gy_ssh**2 ) * np.mean( u_gt**2 ) ) )
+            corr_y_v = float( np.mean( v_gt * gy_ssh) / np.sqrt( np.mean( gy_ssh**2 ) * np.mean( v_gt**2 ) ) )
             
-            alpha_uv = np.mean( u_gt * gx_ssh + v_gt * gy_ssh ) / np.mean( gx_ssh**2 + gx_ssh**2 )
-            
-            alpha_x_u = np.mean( u_gt * gx_ssh) / np.sqrt( np.mean( gx_ssh**2 ) * np.mean( u_gt**2 ) )
-            alpha_x_v = np.mean( v_gt * gx_ssh) / np.sqrt( np.mean( gx_ssh**2 ) * np.mean( v_gt**2 ) )
-            alpha_y_u = np.mean( u_gt * gy_ssh) / np.sqrt( np.mean( gy_ssh**2 ) * np.mean( u_gt**2 ) )
-            alpha_y_v = np.mean( v_gt * gy_ssh) / np.sqrt( np.mean( gy_ssh**2 ) * np.mean( v_gt**2 ) )
-            
-            print('.... alpha = % f -- % f -- %f -- %f '%(alpha_x_u,alpha_x_v,alpha_y_u,alpha_y_v)  )
-            
-            print('.... alpha_uv = %f'%alpha_uv )
-            print( alpha_uv )
-            
-            print( gy_ssh.shape )
-            print( gx_ssh.shape )
-            print( u_gt.shape )
-            
-            print( alpha_uv * gx_ssh )
-            
-            u_geo = alpha_uv * gx_ssh
-            v_geo = alpha_uv * gy_ssh
+            print('.... alpha = % f -- % f -- %f -- %f '%(corr_x_u,corr_x_v,corr_y_u,corr_y_v)  )
+            alpha_x_u = float( np.mean( u_gt * gx_ssh) / np.mean( gx_ssh**2 ) )
+            alpha_y_v = float( np.mean( v_gt * gy_ssh) / np.mean( gy_ssh**2 ) )
+
+            u_geo = alpha_x_u * gx_ssh
+            v_geo = alpha_y_v * gy_ssh
             
             mse_uv_geo = np.nanmean( (u_geo - u_gt)**2 + (v_geo - v_gt)**2 )
             nmse_uv_geo = mse_uv_geo / np.nanmean( (u_gt)**2 + (v_gt)**2 )
