@@ -783,6 +783,10 @@ class LitModelUV(pl.LightningModule):
             
             u_geo = -1. * dssh_dy
             v_geo = 1.  * dssh_dx
+
+            if sigma > 0. :
+                u_gt = gaussian_filter(u_gt, sigma=sigma)
+                v_gt = gaussian_filter(v_gt, sigma=sigma)
             
             #gy_ssh = 1. * ndimage.sobel(ssh,axis=0)
             #gx_ssh = -1. * ndimage.sobel(ssh,axis=1)                        
@@ -808,7 +812,7 @@ class LitModelUV(pl.LightningModule):
             mse_uv_geo = np.nanmean( (u_geo - u_gt)**2 + (v_geo - v_gt)**2 )
             nmse_uv_geo = mse_uv_geo / np.nanmean( (u_gt)**2 + (v_gt)**2 )
             
-            mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo =  compute_div_curl_metrics(u_gt,v_gt,u_geo,v_geo,sig_div=sig_div) 
+            mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo =  compute_div_curl_metrics(u_gt,v_gt,u_geo,v_geo,sig_div=0.) 
                         
             return mse_uv_geo, nmse_uv_geo, mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo
 
