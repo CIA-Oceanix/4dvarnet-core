@@ -299,33 +299,22 @@ class LitModelUV(pl.LightningModule):
         du_dx, du_dy = self.gradient_img(f_u)
         dv_dx, dv_dy = self.gradient_img(f_v)
         
-        f_u = f_u[0,:,:,:].detach().cpu().numpy()
-        du_dx2 = ndimage.sobel(f_u,axis=2)
-        du_dx2 = du_dx2[:,1:-1,1:-1]
+        #f_u = f_u[0,:,:,:].detach().cpu().numpy()
+        #du_dx2 = ndimage.sobel(f_u,axis=2)
+        #du_dx2 = du_dx2[:,1:-1,1:-1]
         
-        du_dx3 = du_dx[0,:,:,:].detach().cpu().numpy()
-        du_dy3 = du_dy[0,:,:,:].detach().cpu().numpy()
+        #du_dx3 = du_dx[0,:,:,:].detach().cpu().numpy()
+        #du_dy3 = du_dy[0,:,:,:].detach().cpu().numpy()
         
-        print( du_dy3.shape )
-        print( du_dx2.shape )
+        #print( du_dy3.shape )
+        #print( du_dx2.shape )
         
-        print( np.mean( du_dx2*du_dx3 ) / np.sqrt( np.mean(du_dx2**2)*np.mean(du_dx3**2) ))
-        print( np.mean( du_dx2*du_dy3 ) / np.sqrt( np.mean(du_dx2**2)*np.mean(du_dy3**2) ))
+        #print( np.mean( du_dx2*du_dx3 ) / np.sqrt( np.mean(du_dx2**2)*np.mean(du_dx3**2) ))
+        #print( np.mean( du_dx2*du_dy3 ) / np.sqrt( np.mean(du_dx2**2)*np.mean(du_dy3**2) ))
                 
         # scaling 
         du_dx = self.alpha_dx * dv_dx
         dv_dy = self.alpha_dy * dv_dy
-        
-        
-        
-        #div1 = du_dx + dv_dy
-        #div1 = div1[0,:,:,:].detach().cpu().numpy()
-        
-        #div2 = compute_div(u[0,:,:,:].detach().cpu().numpy().squeeze(), v[0,:,:,:].detach().cpu().numpy().squeeze(), self.sig_filter_div, self.alpha_dx, self.alpha_dy)
-        
-        #print( div1.shape )
-        #print( div2.shape )
-        #print( np.mean( (div1 - div2)**2 ) )        
         
         return du_dx + dv_dy  
 
