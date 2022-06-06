@@ -824,6 +824,8 @@ class LitModelUV(pl.LightningModule):
             d2ssh_dydx = compute_gradx( dssh_dy, alpha_dx = alpha_dx, sigma = 0. ) 
             
             print( np.mean( (d2ssh_dxdy - d2ssh_dydx )**2 ) )
+            print( np.mean( d2ssh_dydx ** 2 )  )
+            print( np.mean( d2ssh_dxdy ** 2 )  )
             print( np.mean( (d2ssh_dxdy - d2ssh_dydx )**2 ) / np.mean( d2ssh_dydx ** 2 ) )
 
             #gy_ssh = 1. * ndimage.sobel(ssh,axis=0)
