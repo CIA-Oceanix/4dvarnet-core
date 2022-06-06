@@ -804,29 +804,28 @@ class LitModelUV(pl.LightningModule):
             return mse_div,nmse_div,mse_curl,nmse_curl
         
         def compute_mse_uv_geo(u_gt,v_gt,ssh,sigma=0.5,alpha_dx=1.,alpha_dy=1.,alpha_uv_geo = 0.):
-            dssh_dx = compute_gradx( ssh , alpha_dx = alpha_dx , sigma = sigma )
-            dssh_dy = compute_grady( ssh , alpha_dy = alpha_dy , sigma = sigma )
+            
+            # (u,v) MSE
+            dssh_dx = compute_gradx( ssh , alpha_dx = alpha_dx , sigma = 0. )
+            dssh_dy = compute_grady( ssh , alpha_dy = alpha_dy , sigma = 0. )
             
             u_geo = -1. * dssh_dy
             v_geo = 1.  * dssh_dx
             
-            if sigma > 0. :
-                u_gt = gaussian_filter(u_gt, sigma=sigma)
-                v_gt = gaussian_filter(v_gt, sigma=sigma)
-
-            div_ssh = compute_div(u_geo,v_geo,sigma=0.,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
-            print('xxx %f'%np.mean( div_ssh ** 2 ) )
-            
-            dssh_dx =  compute_gradx( ssh, alpha_dx = alpha_dx , sigma = 0. )                       
-            dssh_dy =  compute_grady( ssh, alpha_dy = alpha_dy, sigma = 0. )                       
-
-            d2ssh_dxdy = compute_grady( dssh_dx, alpha_dy = alpha_dy, sigma = 0. )                       
-            d2ssh_dydx = compute_gradx( dssh_dy, alpha_dx = alpha_dx, sigma = 0. ) 
-            
-            print( np.mean( (d2ssh_dxdy - d2ssh_dydx )**2 ) )
-            print( np.mean( d2ssh_dydx ** 2 )  )
-            print( np.mean( d2ssh_dxdy ** 2 )  )
-            print( np.mean( (d2ssh_dxdy - d2ssh_dydx )**2 ) / np.mean( d2ssh_dydx ** 2 ) )
+            if 1*0 :
+                div_ssh = compute_div(u_geo,v_geo,sigma=0.,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
+                print('xxx %f'%np.mean( div_ssh ** 2 ) )
+                
+                dssh_dx =  compute_gradx( ssh, alpha_dx = alpha_dx , sigma = 0. )                       
+                dssh_dy =  compute_grady( ssh, alpha_dy = alpha_dy, sigma = 0. )                       
+    
+                d2ssh_dxdy = compute_grady( dssh_dx, alpha_dy = alpha_dy, sigma = 0. )                       
+                d2ssh_dydx = compute_gradx( dssh_dy, alpha_dx = alpha_dx, sigma = 0. ) 
+                
+                print( np.mean( (d2ssh_dxdy - d2ssh_dydx )**2 ) )
+                print( np.mean( d2ssh_dydx ** 2 )  )
+                print( np.mean( d2ssh_dxdy ** 2 )  )
+                print( np.mean( (d2ssh_dxdy - d2ssh_dydx )**2 ) / np.mean( d2ssh_dydx ** 2 ) )
 
             #gy_ssh = 1. * ndimage.sobel(ssh,axis=0)
             #gx_ssh = -1. * ndimage.sobel(ssh,axis=1)                        
@@ -835,12 +834,12 @@ class LitModelUV(pl.LightningModule):
             #corr_y_u = float( np.mean( u_gt * gy_ssh) / np.sqrt( np.mean( gy_ssh**2 ) * np.mean( u_gt**2 ) ) )
             #corr_y_v = float( np.mean( v_gt * gy_ssh) / np.sqrt( np.mean( gy_ssh**2 ) * np.mean( v_gt**2 ) ) )
             
-            corr_v = float( np.mean( v_gt * v_geo) / np.sqrt( np.mean( v_geo**2 ) * np.mean( v_gt**2 ) ) )
-            corr_u = float( np.mean( u_gt * u_geo) / np.sqrt( np.mean( u_geo**2 ) * np.mean( u_gt**2 ) ) )
+            #corr_v = float( np.mean( v_gt * v_geo) / np.sqrt( np.mean( v_geo**2 ) * np.mean( v_gt**2 ) ) )
+            #corr_u = float( np.mean( u_gt * u_geo) / np.sqrt( np.mean( u_geo**2 ) * np.mean( u_gt**2 ) ) )
             
             #print('.... alpha = % f -- % f -- %f -- %f '%(corr_x_u,corr_x_v,corr_y_u,corr_y_v)  )
-            alpha_x_u = float( np.mean( u_gt * u_geo) / np.mean( u_geo**2 ) )
-            alpha_y_v = float( np.mean( v_gt * v_geo) / np.mean( v_geo**2 ) )
+            #alpha_x_u = float( np.mean( u_gt * u_geo) / np.mean( u_geo**2 ) )
+            #alpha_y_v = float( np.mean( v_gt * v_geo) / np.mean( v_geo**2 ) )
             
             if alpha_uv_geo == 0. :
                 alpha_uv_geo = float( np.mean( u_gt * u_geo + v_gt * v_geo) / np.mean( u_geo**2 + v_geo**2 ) )
@@ -853,6 +852,18 @@ class LitModelUV(pl.LightningModule):
             
             mse_uv_geo = np.nanmean( (u_geo - u_gt)**2 + (v_geo - v_gt)**2 )
             nmse_uv_geo = mse_uv_geo / np.nanmean( (u_gt)**2 + (v_gt)**2 )
+
+            # div/curl mse (with filtering)
+            dssh_dx = compute_gradx( ssh , alpha_dx = alpha_dx , sigma = sigma )
+            dssh_dy = compute_grady( ssh , alpha_dy = alpha_dy , sigma = sigma )
+            u_geo = -1. * dssh_dy
+            v_geo = 1.  * dssh_dx
+            u_geo = alpha_uv_geo * u_geo
+            v_geo = alpha_uv_geo * v_geo
+
+            if sigma > 0. :
+                u_gt = gaussian_filter(u_gt, sigma=sigma)
+                v_gt = gaussian_filter(v_gt, sigma=sigma)
             
             mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo =  compute_div_curl_metrics(u_gt,v_gt,u_geo,v_geo,sig_div=0, 
                                                                                                alpha_dx = alpha_dx , alpha_dy = alpha_dy) 
