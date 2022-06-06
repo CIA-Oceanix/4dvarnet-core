@@ -589,6 +589,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         from scipy import ndimage
         from scipy.ndimage import gaussian_filter
     
+    
         dssh_dy_u = 0.
         dssh_dx_v = 0.
         norm_dx = 0.
@@ -621,7 +622,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             dssh_dx = 1. * ndimage.sobel(ssh,axis=0)
             dssh_dy = 1. * ndimage.sobel(ssh,axis=1)   
 
-            dssh_dy_u += float( np.nansum( -1. * dssh_dy * u ) )         
+            dssh_dy_u += np.nansum( -1. * dssh_dy * u )       
             dssh_dx_v += np.nansum( 1. * dssh_dx * v )
             
             norm_dy += np.nansum( dssh_dy ** 2 + 0. * u )
@@ -745,7 +746,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 self.set_norm_stats(self.val_ds, self.norm_stats, self.norm_stats_sst, self.norm_stats_uv)
                 self.set_norm_stats(self.test_ds, self.norm_stats, self.norm_stats_sst, self.norm_stats_uv)
 
-            self.alpha_dx,self.alpha_dy,self.alpha_uv_geo = self.compute_scaling_uv_geo(self.train_ds)
+            self.alpha_dx,self.alpha_dy,self.alpha_uv_geo = self.compute_scaling_uv_geo(self.test_ds)
         
         self.bounding_box = self.get_domain_bounds(self.train_ds)
         self.ds_size = self.get_domain_split()
