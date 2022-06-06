@@ -736,6 +736,12 @@ class LitModelUV(pl.LightningModule):
             gx_ssh = 1. * ndimage.sobel(ssh,axis=0)
             
             alpha_uv = np.mean( u_gt * gx_ssh + v_gt * gy_ssh ) / np.mean( gx_ssh**2 + gx_ssh**2 )
+            
+            print('.... alpha_uv = %f'%alpha_uv )
+            print( gy_ssh.shape )
+            print( gx_ssh.shape )
+            print( u_gt.shape )
+            
             u_geo = alpha_uv * gx_ssh
             v_geo = alpha_uv * gy_ssh
             
