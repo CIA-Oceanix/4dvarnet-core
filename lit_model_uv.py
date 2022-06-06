@@ -847,7 +847,6 @@ class LitModelUV(pl.LightningModule):
                         
             return mse_uv_geo, nmse_uv_geo, mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo
 
-
         # compute (dx,dy) scaling for the computation of the derivative
         def compute_dxy_scaling(u,v,ssh,sigma=1.):
             
@@ -857,7 +856,6 @@ class LitModelUV(pl.LightningModule):
             
             dssh_dx = 1. * ndimage.sobel(ssh,axis=2)
             dssh_dy = 1. * ndimage.sobel(ssh,axis=1) 
-
             
             corr_x_u = float( np.mean( u * dssh_dx) / np.sqrt( np.mean( dssh_dx**2 ) * np.mean( u**2 ) ) )
             corr_x_v = float( np.mean( v * dssh_dx) / np.sqrt( np.mean( dssh_dx**2 ) * np.mean( v**2 ) ) )
@@ -872,15 +870,21 @@ class LitModelUV(pl.LightningModule):
             print('... R**2: %f -- %f'%(corr_y_u,corr_x_v))
             print('.... alpha: %f -- %f '%(alpha_dx_v,alpha_dy_u)  )
             
-            dssh_dx = alpha_dx_v * compute_gradx( ssh, alpha_dx = 1., sigma = 0. )                       
-            dssh_dy = alpha_dy_u * compute_grady( ssh, alpha_dy = 1., sigma = 0. )                       
+            dssh_dx =  compute_gradx( ssh, alpha_dx = alpha_dx_v , sigma = 0. )                       
+            dssh_dy =  compute_grady( ssh, alpha_dy = alpha_dy_u, sigma = 0. )                       
 
-            d2ssh_dxdy = alpha_dy_u * compute_grady( dssh_dx, alpha_dy = 1., sigma = 0. )                       
-            d2ssh_dydx = alpha_dx_v * compute_gradx( dssh_dy, alpha_dx = 1., sigma = 0. )                       
-
+            d2ssh_dxdy = compute_grady( dssh_dx, alpha_dy = alpha_dy_u, sigma = 0. )                       
+            d2ssh_dydx = compute_gradx( dssh_dy, alpha_dx = alpha_dx_v, sigma = 0. ) 
+            
             print( np.mean( (d2ssh_dxdy[:,20:220,20:220] - d2ssh_dydx[:,20:220,20:220] )**2 ) )
             print( np.mean( (d2ssh_dxdy[:,20:220,20:220] - d2ssh_dydx[:,20:220,20:220] )**2 ) / np.mean( d2ssh_dydx[:,20:220,20:220] ** 2 ) )
             
+            print( np.mean( (d2ssh_dxdy - d2ssh_dydx )**2 ) )
+            print( np.mean( (d2ssh_dxdy - d2ssh_dydx )**2 ) / np.mean( d2ssh_dydx ** 2 ) )
+
+            div_ssh = compute_div(-1. * dssh_dy,dssh_dx,sigma=0.,alpha_dx=alpha_dx_v,alpha_dy=alpha_dy_u)
+            print( np.mean( div_ssh ** 2 ) )
+
             return 1.,alpha_dy_u/alpha_dx_v,alpha_dx_v
             
         alpha_dx, alpha_dy, alpha_uv_geo = compute_dxy_scaling(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,self.test_xr_ds.gt,sigma=4.0)
