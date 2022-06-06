@@ -634,7 +634,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         alpha_dy_u = dssh_dy_u / norm_dy
         alpha_dx_v = dssh_dx_v / norm_dx
         
-        corr_dy_u = dssh_dy_u / np.sqrt( norm_dx * norm_u  )
+        corr_dy_u = dssh_dy_u / np.sqrt( norm_dy * norm_u  )
         corr_dx_v = dssh_dx_v / np.sqrt( norm_dx * norm_v  )
        
         print('... R**2: %f -- %f'%(corr_dy_u,corr_dx_v))
