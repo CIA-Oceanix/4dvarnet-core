@@ -604,9 +604,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             u  = _ds.u_ds.ds[_ds.u_ds.var]
             v  = _ds.v_ds.ds[_ds.v_ds.var]
             
-            ssh = ssh[:,20:220,20:220]
-            u = u[:,20:220,20:220]
-            v = v[:,20:220,20:220]
+            ssh = ssh[3:43,20:220,20:220]
+            u = u[3:43,20:220,20:220]
+            v = v[3:43,20:220,20:220]
             print( np.sum( np.isnan(ssh) ) )
             print( u.shape )
             print( v.shape )
