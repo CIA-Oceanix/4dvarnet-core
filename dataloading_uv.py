@@ -599,9 +599,13 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         for _ds in ds.datasets:
             
             # get fields
-            ssh = float( _ds.gt_ds.ds[_ds.gt_ds.var] )
-            u  = float( _ds.u_ds.ds[_ds.u_ds.var] )
-            v  = float( _ds.v_ds.ds[_ds.v_ds.var] )
+            ssh = _ds.gt_ds.ds[_ds.gt_ds.var]
+            u  = _ds.u_ds.ds[_ds.u_ds.var]
+            v  = _ds.v_ds.ds[_ds.v_ds.var]
+            
+            print( ssh )
+            print( u.shape )
+            print( v.shape )
             
             # Gaussian filtering
             u = gaussian_filter(u, sigma=sigma)
@@ -612,7 +616,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             dssh_dx = 1. * ndimage.sobel(ssh,axis=0)
             dssh_dy = 1. * ndimage.sobel(ssh,axis=1)   
 
-            dssh_dy_u += np.nansum( -1. * dssh_dy * u )            
+            dssh_dy_u += float( np.nansum( -1. * dssh_dy * u ) )         
             dssh_dx_v += np.nansum( 1. * dssh_dx * v )
             
             norm_dy += np.nansum( dssh_dy ** 2 + 0. * u )
