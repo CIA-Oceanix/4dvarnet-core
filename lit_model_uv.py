@@ -827,7 +827,7 @@ class LitModelUV(pl.LightningModule):
             
             return 1.,alpha_dy_u/alpha_dx_v
             
-        alpha_dx, alpha_dy = compute_dxy_scaling(self.test_xr_ds.u_gt,self.test_xr_ds.u_gt,self.test_xr_ds.gt)
+        alpha_dx, alpha_dy = compute_dxy_scaling(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,self.test_xr_ds.gt)
 
         sig_div = 1.
         mse_uv_oi,nmse_uv_oi,mse_div_oi, nmse_div_oi, mse_curl_oi, nmse_curl_oi = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
