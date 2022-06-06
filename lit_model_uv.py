@@ -735,61 +735,113 @@ class LitModelUV(pl.LightningModule):
         from scipy.ndimage import gaussian_filter
 
 
-
-        def compute_div_curl_metrics(u_gt,v_gt,u_rec,v_rec,sig_div=0.5):
+        def compute_gradx( u, alpha_dx = 1., sigma = 0. ):
+            if sigma > 0. :
+                u = gaussian_filter(u, sigma=sigma)
             
-            f_u_gt =  gaussian_filter(u_gt, sigma=sig_div)   
-            f_v_gt =  gaussian_filter(v_gt, sigma=sig_div)   
-            f_u_rec =  gaussian_filter(u_rec, sigma=sig_div)   
-            f_v_rec =  gaussian_filter(v_rec, sigma=sig_div)   
-            
-            div_uv = ndimage.sobel(f_u_gt,axis=0) + ndimage.sobel(f_v_gt,axis=1)
-            div_uv_rec = ndimage.sobel(f_u_rec,axis=0) + ndimage.sobel(f_v_rec,axis=1)
-            
-            curl_uv = ndimage.sobel(f_u_gt,axis=1) - ndimage.sobel(f_v_gt,axis=0)
-            curl_uv_rec = ndimage.sobel(f_u_rec,axis=1) - ndimage.sobel(f_v_rec,axis=0)
+            return alpha_dx * ndimage.sobel(u,axis=0)
 
-            mse_div = np.nanmean( (div_uv - div_uv_rec)**2 )
-            nmse_div = mse_div / np.nanmean( (div_uv )**2 )
+        def compute_grady( u, alpha_dy= 1., sigma = 0. ):
+            
+            if sigma > 0. :
+                u = gaussian_filter(u, sigma=sigma)
+                
+            return alpha_dy * ndimage.sobel(u,axis=1)
+           
+        def compute_div(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
+            du_dx = compute_gradx( u , alpha_dx = alpha_dx , sigma = sigma )
+            dv_dy = compute_grady( v , alpha_dy = alpha_dy , sigma = sigma )
+            
+            return du_dx + dv_dy
+            
+        def compute_curl(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
+            du_dy = compute_grady( u , alpha_dy = alpha_dy , sigma = sigma )
+            dv_dx = compute_gradx( v , alpha_dx = alpha_dx , sigma = sigma )
+            
+            return du_dy - dv_dx
 
-            mse_curl = np.nanmean( (curl_uv - curl_uv_rec)**2 )
-            nmse_curl = mse_div / np.nanmean( (curl_uv )**2 )
+        def compute_div_curl_metrics(u_gt,v_gt,u_rec,v_rec,sig_div=0.5,alpha_dx=1.,alpha_dy=1.):
+            
+            div_uv_gt = compute_div(u_gt,v_gt,sigma=sig_div,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
+            div_uv_rec = compute_div(u_rec,v_rec,sigma=sig_div,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
+                    
+            curl_uv_gt = compute_curl(u_gt,v_gt,sigma=sig_div,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
+            curl_uv_rec = compute_curl(u_rec,v_rec,sigma=sig_div,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
+            
+
+            mse_div = np.nanmean( (div_uv_gt - div_uv_rec)**2 )
+            nmse_div = mse_div / np.nanmean( (div_uv_gt )**2 )
+
+            mse_curl = np.nanmean( (curl_uv_gt - curl_uv_rec)**2 )
+            nmse_curl = mse_div / np.nanmean( (curl_uv_gt )**2 )
 
             return mse_div,nmse_div,mse_curl,nmse_curl
         
-        def compute_mse_uv_geo(u_gt,v_gt,ssh,sig_div=1.0):
-            gy_ssh = 1. * ndimage.sobel(ssh,axis=0)
-            gx_ssh = -1. * ndimage.sobel(ssh,axis=1)
-                        
-            corr_x_u = float( np.mean( u_gt * gx_ssh) / np.sqrt( np.mean( gx_ssh**2 ) * np.mean( u_gt**2 ) ) )
-            corr_x_v = float( np.mean( v_gt * gx_ssh) / np.sqrt( np.mean( gx_ssh**2 ) * np.mean( v_gt**2 ) ) )
-            corr_y_u = float( np.mean( u_gt * gy_ssh) / np.sqrt( np.mean( gy_ssh**2 ) * np.mean( u_gt**2 ) ) )
-            corr_y_v = float( np.mean( v_gt * gy_ssh) / np.sqrt( np.mean( gy_ssh**2 ) * np.mean( v_gt**2 ) ) )
+        def compute_mse_uv_geo(u_gt,v_gt,ssh,sigma=0.5,alpha_dx=1.,alpha_dy=1.):
+            dssh_dx = compute_gradx( ssh , alpha_dx = alpha_dx , sigma = sigma )
+            dssh_dy = compute_grady( ssh , alpha_dy = alpha_dy , sigma = sigma )
             
-            print('.... alpha = % f -- % f -- %f -- %f '%(corr_x_u,corr_x_v,corr_y_u,corr_y_v)  )
-            alpha_x_u = float( np.mean( u_gt * gx_ssh) / np.mean( gx_ssh**2 ) )
-            alpha_y_v = float( np.mean( v_gt * gy_ssh) / np.mean( gy_ssh**2 ) )
+            u_geo = -1. * dssh_dy
+            v_geo = 1.  * dssh_dx
+            
+            #gy_ssh = 1. * ndimage.sobel(ssh,axis=0)
+            #gx_ssh = -1. * ndimage.sobel(ssh,axis=1)                        
+            #corr_x_u = float( np.mean( u_gt * gx_ssh) / np.sqrt( np.mean( gx_ssh**2 ) * np.mean( u_gt**2 ) ) )
+            #corr_x_v = float( np.mean( v_gt * gx_ssh) / np.sqrt( np.mean( gx_ssh**2 ) * np.mean( v_gt**2 ) ) )
+            #corr_y_u = float( np.mean( u_gt * gy_ssh) / np.sqrt( np.mean( gy_ssh**2 ) * np.mean( u_gt**2 ) ) )
+            #corr_y_v = float( np.mean( v_gt * gy_ssh) / np.sqrt( np.mean( gy_ssh**2 ) * np.mean( v_gt**2 ) ) )
+            
+            #print('.... alpha = % f -- % f -- %f -- %f '%(corr_x_u,corr_x_v,corr_y_u,corr_y_v)  )
+            alpha_x_u = float( np.mean( u_gt * u_geo) / np.mean( u_geo**2 ) )
+            alpha_y_v = float( np.mean( v_gt * v_geo) / np.mean( v_geo**2 ) )
+            alpha_uv = float( np.mean( u_gt * u_geo + v_gt * v_geo) / np.mean( u_geo**2 + v_geo**2 ) )
 
-            u_geo = alpha_x_u * gx_ssh
-            v_geo = alpha_y_v * gy_ssh
+            print('.... alpha = % f -- % f -- %f '%(alpha_x_u,alpha_y_v,alpha_uv)  )
+
+            u_geo = alpha_uv * u_geo
+            v_geo = alpha_uv * v_geo
             
             mse_uv_geo = np.nanmean( (u_geo - u_gt)**2 + (v_geo - v_gt)**2 )
             nmse_uv_geo = mse_uv_geo / np.nanmean( (u_gt)**2 + (v_gt)**2 )
             
             mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo =  compute_div_curl_metrics(u_gt,v_gt,u_geo,v_geo,sig_div=sig_div) 
-            
-            
+                        
             return mse_uv_geo, nmse_uv_geo, mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo
+
+
+        # compute (dx,dy) scaling for the computation of the derivative
+        def compute_dxy_scaling(u,v,ssh):
+            dssh_dx = 1. * ndimage.sobel(ssh,axis=0)
+            dssh_dy = 1. * ndimage.sobel(ssh,axis=1)                        
+        
+            corr_x_u = float( np.mean( u * dssh_dx) / np.sqrt( np.mean( dssh_dx**2 ) * np.mean( u**2 ) ) )
+            corr_x_v = float( np.mean( v * dssh_dx) / np.sqrt( np.mean( dssh_dx**2 ) * np.mean( v**2 ) ) )
+            corr_y_u = float( np.mean( u * dssh_dy) / np.sqrt( np.mean( dssh_dy**2 ) * np.mean( u**2 ) ) )
+            corr_y_v = float( np.mean( u * dssh_dy) / np.sqrt( np.mean( dssh_dy**2 ) * np.mean( u**2 ) ) )
+
+            print('.... alpha = % f -- % f -- %f -- %f '%(corr_x_u,corr_x_v,corr_y_u,corr_y_v)  )
+            alpha_dy_u = float( np.mean( -1. * dssh_dy * u) / np.mean( dssh_dy**2 ) )
+            alpha_dx_v = float( np.mean(  1. * dssh_dx * v) / np.mean( dssh_dx**2 ) )
+
+            print('.... alpha = % f -- % f '%(alpha_dx_v,alpha_dy_u)  )
+            
+            return 1.,alpha_dy_u/alpha_dx_v
+            
+        alpha_dx, alpha_dy = compute_dxy_scaling(self.test_xr_ds.u_gt,self.test_xr_ds.u_gt,self.test_xr_ds.gt)
 
         sig_div = 1.
         mse_uv_oi,nmse_uv_oi,mse_div_oi, nmse_div_oi, mse_curl_oi, nmse_curl_oi = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                                                                     self.test_xr_ds.oi,sig_div=sig_div)
+                                                                                                     self.test_xr_ds.oi,sig_div=sig_div,
+                                                                                                     alpha_dx=alpha_dx,alpha_dy=alpha_dy)
+
+
         var_mse_uv_oi = 100. * (1. - nmse_uv_oi )
         var_mse_div_oi = 100. * (1. - nmse_div_oi )
         var_mse_curl_oi = 100. * (1. - nmse_curl_oi )
 
         mse_uv_ssh_gt,nmse_uv_ssh_gt,mse_div_ssh_gt, nmse_div_ssh_gt, mse_curl_ssh_gt, nmse_curl_ssh_gt = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                                                                     self.test_xr_ds.gt,sig_div=sig_div)
+                                                                                                     self.test_xr_ds.gt,sig_div=sig_div,
+                                                                                                     alpha_dx=alpha_dx,alpha_dy=alpha_dy)
         
         var_mse_uv_ssh_gt = 100. * (1. - nmse_uv_ssh_gt )
         var_mse_div_ssh_gt = 100. * (1. - nmse_div_ssh_gt )
@@ -797,7 +849,8 @@ class LitModelUV(pl.LightningModule):
         
         mse_div, nmse_div, mse_curl, nmse_curl =  compute_div_curl_metrics(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                                            self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,
-                                                                           sig_div=sig_div)
+                                                                           sig_div=sig_div,
+                                                                           alpha_dx=alpha_dx,alpha_dy=alpha_dy)
         var_mse_div = 100. * (1. - nmse_div )
         var_mse_curl = 100. * (1. - nmse_curl )
         
