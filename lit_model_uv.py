@@ -292,7 +292,7 @@ class LitModelUV(pl.LightningModule):
 
         self.median_filter_width = self.hparams.median_filter_width if hasattr(self.hparams, 'median_filter_width') else 1
 
-    def compute_div(self,u,v,sigma=1.0):
+    def compute_div(self,u,v):
         # siletring
         f_u = kornia.filters.gaussian_blur2d(u, (5,5), sigma=self.sig_filter_div, border_type='reflect')
         f_v = kornia.filters.gaussian_blur2d(v, (5,5), sigma=self.sig_filter_div, border_type='reflect')
@@ -304,6 +304,15 @@ class LitModelUV(pl.LightningModule):
         # scaling 
         du_dx = self.alpha_dx * dv_dx
         dv_dy = self.alpha_dy * dv_dy
+        
+        div1 = du_dx + dv_dy
+        div1 = div1.detach().cpu().numpy()
+        
+        div2 = compute_div(u.detach().cpu().numpy(), v.detach().cpu().numpy(), self.sig_filter_div, self.alpha_dx, self.alpha_dy)
+        
+        print( div1.shape )
+        print( div2.shape )
+        print( np.mean( (div1 - div2)**2 ) )        
         
         return du_dx + dv_dy  
 
