@@ -623,12 +623,28 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             v = gaussian_filter(v, sigma=sigma)
             ssh = gaussian_filter(ssh, sigma=sigma)
             
+            
             # ssh gradients
             dssh_dx = 1. * ndimage.sobel(ssh,axis=0)
             dssh_dy = 1. * ndimage.sobel(ssh,axis=1)   
 
+            w = np.isnan( u + v + dssh_dy + dssh_dx ).astype(float)
             
             if 1*1 :
+                u = u[ w == False ] 
+                v = v[ w == False ] 
+                dssh_dx = dssh_dx[ w == False ]
+                dssh_dy = dssh_dy[ w == False ]
+                        
+                dssh_dy_u += np.sum( -1. * dssh_dy * u )
+                dssh_dx_v += np.sum( 1. * dssh_dx * v )
+
+                norm_dy += np.sum( dssh_dy ** 2 )
+                norm_dx += np.sum( dssh_dx ** 2 )
+                
+                norm_u +=  np.sum( u ** 2)
+                norm_v +=  np.sum( v ** 2)
+            elif 1*0 :
                 dssh_dy_u += np.nansum( -1. * dssh_dy * u )       
                 dssh_dx_v += np.nansum( 1. * dssh_dx * v )
                 
