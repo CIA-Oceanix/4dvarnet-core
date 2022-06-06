@@ -817,6 +817,15 @@ class LitModelUV(pl.LightningModule):
             div_ssh = compute_div(u_geo,v_geo,sigma=0.,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
             print('xxx %f'%np.mean( div_ssh ** 2 ) )
             
+            dssh_dx =  compute_gradx( ssh, alpha_dx = alpha_dx , sigma = 0. )                       
+            dssh_dy =  compute_grady( ssh, alpha_dy = alpha_dy, sigma = 0. )                       
+
+            d2ssh_dxdy = compute_grady( dssh_dx, alpha_dy = alpha_dy, sigma = 0. )                       
+            d2ssh_dydx = compute_gradx( dssh_dy, alpha_dx = alpha_dx, sigma = 0. ) 
+            
+            print( np.mean( (d2ssh_dxdy - d2ssh_dydx )**2 ) )
+            print( np.mean( (d2ssh_dxdy - d2ssh_dydx )**2 ) / np.mean( d2ssh_dydx ** 2 ) )
+
             #gy_ssh = 1. * ndimage.sobel(ssh,axis=0)
             #gx_ssh = -1. * ndimage.sobel(ssh,axis=1)                        
             #corr_x_u = float( np.mean( u_gt * gx_ssh) / np.sqrt( np.mean( gx_ssh**2 ) * np.mean( u_gt**2 ) ) )
