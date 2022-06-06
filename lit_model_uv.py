@@ -792,7 +792,7 @@ class LitModelUV(pl.LightningModule):
             #corr_y_v = float( np.mean( v_gt * gy_ssh) / np.sqrt( np.mean( gy_ssh**2 ) * np.mean( v_gt**2 ) ) )
             
             corr_v = float( np.mean( v_gt * v_geo) / np.sqrt( np.mean( v_geo**2 ) * np.mean( v_gt**2 ) ) )
-            corr_u = float( np.mean( v_gt * v_geo) / np.sqrt( np.mean( v_geo**2 ) * np.mean( v_gt**2 ) ) )
+            corr_u = float( np.mean( u_gt * u_geo) / np.sqrt( np.mean( u_geo**2 ) * np.mean( u_gt**2 ) ) )
             
             #print('.... alpha = % f -- % f -- %f -- %f '%(corr_x_u,corr_x_v,corr_y_u,corr_y_v)  )
             alpha_x_u = float( np.mean( u_gt * u_geo) / np.mean( u_geo**2 ) )
@@ -816,9 +816,9 @@ class LitModelUV(pl.LightningModule):
         # compute (dx,dy) scaling for the computation of the derivative
         def compute_dxy_scaling(u,v,ssh):
             
-            u = gaussian_filter(u, sigma=2.)
-            v = gaussian_filter(v, sigma=2.)
-            ssh = gaussian_filter(ssh, sigma=2.)
+            u = gaussian_filter(u, sigma=4.)
+            v = gaussian_filter(v, sigma=4.)
+            ssh = gaussian_filter(ssh, sigma=4.)
             
             dssh_dx = 1. * ndimage.sobel(ssh,axis=0)
             dssh_dy = 1. * ndimage.sobel(ssh,axis=1)                        
@@ -840,7 +840,7 @@ class LitModelUV(pl.LightningModule):
             
         alpha_dx, alpha_dy = compute_dxy_scaling(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,self.test_xr_ds.gt)
 
-        sig_div = 2.
+        sig_div = 4.
         mse_uv_ssh_gt,nmse_uv_ssh_gt,mse_div_ssh_gt, nmse_div_ssh_gt, mse_curl_ssh_gt, nmse_curl_ssh_gt = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                                                                      self.test_xr_ds.gt,sigma=sig_div,
                                                                                                      alpha_dx=alpha_dx,alpha_dy=alpha_dy)
