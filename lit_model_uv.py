@@ -817,7 +817,7 @@ class LitModelUV(pl.LightningModule):
             corr_x_u = float( np.mean( u * dssh_dx) / np.sqrt( np.mean( dssh_dx**2 ) * np.mean( u**2 ) ) )
             corr_x_v = float( np.mean( v * dssh_dx) / np.sqrt( np.mean( dssh_dx**2 ) * np.mean( v**2 ) ) )
             corr_y_u = float( np.mean( u * dssh_dy) / np.sqrt( np.mean( dssh_dy**2 ) * np.mean( u**2 ) ) )
-            corr_y_v = float( np.mean( u * dssh_dy) / np.sqrt( np.mean( dssh_dy**2 ) * np.mean( u**2 ) ) )
+            corr_y_v = float( np.mean( v * dssh_dy) / np.sqrt( np.mean( dssh_dy**2 ) * np.mean( v**2 ) ) )
 
             print('.... alpha = % f -- % f -- %f -- %f '%(corr_x_u,corr_x_v,corr_y_u,corr_y_v)  )
             alpha_dy_u = float( np.mean( -1. * dssh_dy * u) / np.mean( dssh_dy**2 ) )
@@ -831,7 +831,7 @@ class LitModelUV(pl.LightningModule):
 
         sig_div = 1.
         mse_uv_oi,nmse_uv_oi,mse_div_oi, nmse_div_oi, mse_curl_oi, nmse_curl_oi = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                                                                     self.test_xr_ds.oi,sig_div=sig_div,
+                                                                                                     self.test_xr_ds.oi,sigma=sig_div,
                                                                                                      alpha_dx=alpha_dx,alpha_dy=alpha_dy)
 
 
@@ -840,7 +840,7 @@ class LitModelUV(pl.LightningModule):
         var_mse_curl_oi = 100. * (1. - nmse_curl_oi )
 
         mse_uv_ssh_gt,nmse_uv_ssh_gt,mse_div_ssh_gt, nmse_div_ssh_gt, mse_curl_ssh_gt, nmse_curl_ssh_gt = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                                                                     self.test_xr_ds.gt,sig_div=sig_div,
+                                                                                                     self.test_xr_ds.gt,sigma=sig_div,
                                                                                                      alpha_dx=alpha_dx,alpha_dy=alpha_dy)
         
         var_mse_uv_ssh_gt = 100. * (1. - nmse_uv_ssh_gt )
