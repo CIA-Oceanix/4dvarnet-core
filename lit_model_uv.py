@@ -864,8 +864,9 @@ class LitModelUV(pl.LightningModule):
             d2ssh_dxdy = compute_grady( dssh_dx, alpha_dy = 1., sigma = 0. )                       
             d2ssh_dydx = compute_gradx( dssh_dy, alpha_dx = 1., sigma = 0. )                       
             
-            print( np.sqrt( np.mean( (d2ssh_dxdy - d2ssh_dydx )**2 ) ) )
-        
+            print( np.sqrt( np.mean( (d2ssh_dxdy[:,20:220,20:220] - d2ssh_dydx[:,20:220,20:220] )**2 ) ) )
+            print( np.sqrt( np.mean( d2ssh_dydx[:,20:220,20:220] ** 2 ) ) )
+            
             corr_x_u = float( np.mean( u * dssh_dx) / np.sqrt( np.mean( dssh_dx**2 ) * np.mean( u**2 ) ) )
             corr_x_v = float( np.mean( v * dssh_dx) / np.sqrt( np.mean( dssh_dx**2 ) * np.mean( v**2 ) ) )
             
