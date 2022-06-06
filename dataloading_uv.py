@@ -603,7 +603,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             u  = _ds.u_ds.ds[_ds.u_ds.var]
             v  = _ds.v_ds.ds[_ds.v_ds.var]
             
-            print( ssh )
+            print( np.sum( np.isnan(ssh) ) )
             print( u.shape )
             print( v.shape )
             
