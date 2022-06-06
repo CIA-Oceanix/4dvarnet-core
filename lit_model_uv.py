@@ -1248,11 +1248,11 @@ class LitModelUV(pl.LightningModule):
                 
                 loss_div = self.div_loss( div_rec , div_gt ) 
 
-                print('.....')
-                print( loss_All )
-                print( loss_GAll )
-                print( loss_uv )
-                print( loss_div )
+                #print('.....')
+                #print( loss_All )
+                #print( loss_GAll )
+                #print( loss_uv )
+                #print( loss_div )
 
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
                 loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
