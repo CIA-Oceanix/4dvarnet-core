@@ -913,7 +913,7 @@ class LitModelUV(pl.LightningModule):
             alpha_dy = self.alpha_dy
             alpha_uv_geo = self.alpha_uv_geo
 
-        sig_div = 4.0#self.sig_filter_div
+        sig_div = 1.0#self.sig_filter_div
         mse_uv_ssh_gt,nmse_uv_ssh_gt,mse_div_ssh_gt, nmse_div_ssh_gt, mse_curl_ssh_gt, nmse_curl_ssh_gt = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                                                                      self.test_xr_ds.gt,sigma=sig_div,
                                                                                                      alpha_dx=alpha_dx,alpha_dy=alpha_dy,
