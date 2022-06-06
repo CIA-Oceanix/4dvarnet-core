@@ -1173,8 +1173,12 @@ class LitModelUV(pl.LightningModule):
                     outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
 
                 # compute divergence for current field    
-                div_rec = self.div_field(outputs_u,outputs_v)
-                div_gt = self.div_field(u_gt_wo_nan,v_gt_wo_nan)
+                #div_rec = self.div_field(outputs_u,outputs_v)
+                #div_gt = self.div_field(u_gt_wo_nan,v_gt_wo_nan)
+                
+                
+                div_rec =  self.compute_div(outputs_u,outputs_v)
+                div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
                 
                 # median filter
                 if self.median_filter_width > 1:
