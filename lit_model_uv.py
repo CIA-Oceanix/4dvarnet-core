@@ -812,9 +812,9 @@ class LitModelUV(pl.LightningModule):
         # compute (dx,dy) scaling for the computation of the derivative
         def compute_dxy_scaling(u,v,ssh):
             
-            u = gaussian_filter(u, sigma=1.)
-            v = gaussian_filter(v, sigma=1.)
-            ssh = gaussian_filter(ssh, sigma=1.)
+            u = gaussian_filter(u, sigma=2.)
+            v = gaussian_filter(v, sigma=2.)
+            ssh = gaussian_filter(ssh, sigma=2.)
             
             dssh_dx = 1. * ndimage.sobel(ssh,axis=0)
             dssh_dy = 1. * ndimage.sobel(ssh,axis=1)                        
