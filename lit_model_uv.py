@@ -805,8 +805,8 @@ class LitModelUV(pl.LightningModule):
             if alpha_uv_geo == 0. :
                 alpha_uv_geo = float( np.mean( u_gt * u_geo + v_gt * v_geo) / np.mean( u_geo**2 + v_geo**2 ) )
 
-            print('.... R**2: %f -- %f'%(corr_u,corr_v))
-            print('.... alpha = % f -- % f -- %f '%(alpha_x_u,alpha_y_v,alpha_uv_geo)  )
+            #print('.... R**2: %f -- %f'%(corr_u,corr_v))
+            #print('.... alpha = % f -- % f -- %f '%(alpha_x_u,alpha_y_v,alpha_uv_geo)  )
 
             u_geo = alpha_uv_geo * u_geo
             v_geo = alpha_uv_geo * v_geo
@@ -814,18 +814,18 @@ class LitModelUV(pl.LightningModule):
             mse_uv_geo = np.nanmean( (u_geo - u_gt)**2 + (v_geo - v_gt)**2 )
             nmse_uv_geo = mse_uv_geo / np.nanmean( (u_gt)**2 + (v_gt)**2 )
             
-            mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo =  compute_div_curl_metrics(u_gt,v_gt,u_geo,v_geo,sig_div=0., 
+            mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo =  compute_div_curl_metrics(u_gt,v_gt,u_geo,v_geo,sig_div=sigma, 
                                                                                                alpha_dx = alpha_dx , alpha_dy = alpha_dy) 
                         
             return mse_uv_geo, nmse_uv_geo, mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo
 
 
         # compute (dx,dy) scaling for the computation of the derivative
-        def compute_dxy_scaling(u,v,ssh):
+        def compute_dxy_scaling(u,v,ssh,sigma=1.):
             
-            u = gaussian_filter(u, sigma=4.)
-            v = gaussian_filter(v, sigma=4.)
-            ssh = gaussian_filter(ssh, sigma=4.)
+            u = gaussian_filter(u, sigma=sigma)
+            v = gaussian_filter(v, sigma=sigma)
+            ssh = gaussian_filter(ssh, sigma=sigma)
             
             dssh_dx = 1. * ndimage.sobel(ssh,axis=0)
             dssh_dy = 1. * ndimage.sobel(ssh,axis=1)                        
@@ -845,9 +845,9 @@ class LitModelUV(pl.LightningModule):
             
             return 1.,alpha_dy_u/alpha_dx_v,alpha_dx_v
             
-        alpha_dx, alpha_dy, alpha_uv_geo = compute_dxy_scaling(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,self.test_xr_ds.gt)
+        alpha_dx, alpha_dy, alpha_uv_geo = compute_dxy_scaling(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,self.test_xr_ds.gt,sigma=4.0)
 
-        sig_div = 4.
+        sig_div = 1.
         mse_uv_ssh_gt,nmse_uv_ssh_gt,mse_div_ssh_gt, nmse_div_ssh_gt, mse_curl_ssh_gt, nmse_curl_ssh_gt = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                                                                      self.test_xr_ds.gt,sigma=sig_div,
                                                                                                      alpha_dx=alpha_dx,alpha_dy=alpha_dy,
@@ -861,7 +861,6 @@ class LitModelUV(pl.LightningModule):
                                                                                                      self.test_xr_ds.oi,sigma=sig_div,
                                                                                                      alpha_dx=alpha_dx,alpha_dy=alpha_dy,
                                                                                                      alpha_uv_geo = alpha_uv_geo)
-
 
         var_mse_uv_oi = 100. * (1. - nmse_uv_oi )
         var_mse_div_oi = 100. * (1. - nmse_div_oi )
