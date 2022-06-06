@@ -301,6 +301,8 @@ class LitModelUV(pl.LightningModule):
         
         f_u = f_u[0,:,:,:].detach().cpu().numpy()
         du_dx2 = ndimage.sobel(f_u,axis=2)
+        du_dx2 = du_dx2[:,1:-1,1:-1]
+        
         du_dx3 = du_dx[0,:,:,:].detach().cpu().numpy()
         du_dy3 = du_dy[0,:,:,:].detach().cpu().numpy()
         
