@@ -724,6 +724,9 @@ class LitModelUV(pl.LightningModule):
         var_uv = np.nanmean((self.test_xr_ds.u_gt) ** 2 + (self.test_xr_ds.v_gt) ** 2 )
         var_mse_uv = 100. * ( 1. - mse_uv / var_uv )
 
+        psd_ds_u, lamb_x_u, lamb_t_u = metrics.psd_based_scores(self.test_xr_ds.pred_u, self.test_xr_ds.u_gt)
+        psd_ds_v, lamb_x_v, lamb_t_v = metrics.psd_based_scores(self.test_xr_ds.pred_v, self.test_xr_ds.v_gt)
+
         # MSE Div of (U,V) fields        
         #div_rec = self.div_field(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v)
         #div_gt = self.div_field(self.test_xr_ds.v_gt,self.test_xr_ds.u_gt)
@@ -787,6 +790,10 @@ class LitModelUV(pl.LightningModule):
             f'{log_pref}_spatial_res_imp': float(spatial_res_model / spatial_res_oi),
             f'{log_pref}_lambda_x': lamb_x,
             f'{log_pref}_lambda_t': lamb_t,
+            f'{log_pref}_lambda_x_u': lamb_x_u,
+            f'{log_pref}_lambda_t_u': lamb_t_v,
+            f'{log_pref}_lambda_x_v': lamb_x_u,
+            f'{log_pref}_lambda_t_v': lamb_t_v,
             f'{log_pref}_mu': mu,
             f'{log_pref}_sigma': sig,
             **mdf.to_dict(),
