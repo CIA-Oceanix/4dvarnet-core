@@ -585,6 +585,53 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         elif self.pp == 'norm':
             return self.min_max(ds)
 
+    def compute_scaling_uv_geo(self,ds,sigma=4.):
+        from scipy import ndimage
+        from scipy.ndimage import gaussian_filter
+    
+        dssh_dy_u = 0.
+        dssh_dx_v = 0.
+        norm_dx = 0.
+        norm_dy = 0.
+        norm_u = 0.
+        norm_v = 0.
+        
+        for _ds in ds.datasets:
+            
+            # get fields
+            ssh = float( _ds.gt_ds.ds[_ds.gt_ds.var] )
+            u  = float( _ds.u_ds.ds[_ds.u_ds.var] )
+            v  = float( _ds.v_ds.ds[_ds.v_ds.var] )
+            
+            # Gaussian filtering
+            u = gaussian_filter(u, sigma=sigma)
+            v = gaussian_filter(v, sigma=sigma)
+            ssh = gaussian_filter(ssh, sigma=sigma)
+            
+            # ssh gradients
+            dssh_dx = 1. * ndimage.sobel(ssh,axis=0)
+            dssh_dy = 1. * ndimage.sobel(ssh,axis=1)   
+
+            dssh_dy_u += np.nansum( -1. * dssh_dy * u )            
+            dssh_dx_v += np.nansum( 1. * dssh_dx * v )
+            
+            norm_dy += np.nansum( dssh_dy ** 2 + 0. * u )
+            norm_dx += np.nansum( dssh_dx ** 2  + 0. * v )
+            
+            norm_u +=  np.nansum( 0. * dssh_dy + u ** 2)
+            norm_v +=  np.nansum( 0. * dssh_dx + v ** 2)
+            
+        alpha_dy_u = dssh_dy_u / norm_dy
+        alpha_dx_v = dssh_dx_v / norm_dx
+        
+        corr_dy_u = dssh_dy_u / np.sqrt( norm_dx * norm_u  )
+        corr_dx_v = dssh_dx_v / np.sqrt( norm_dx * norm_v  )
+       
+        print('... R**2: %f -- %f'%(corr_dy_u,corr_dx_v))
+        print('.... alpha: %f -- %f '%(alpha_dx_v,alpha_dy_u)  )
+
+        return 1.,alpha_dy_u/alpha_dx_v,alpha_dx_v
+
     def set_norm_stats(self, ds, ns, ns_sst=None,ns_uv=None):
         for _ds in ds.datasets:
             _ds.set_norm_stats(ns, ns_sst, ns_uv)
@@ -689,9 +736,13 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 self.set_norm_stats(self.val_ds, self.norm_stats, self.norm_stats_sst, self.norm_stats_uv)
                 self.set_norm_stats(self.test_ds, self.norm_stats, self.norm_stats_sst, self.norm_stats_uv)
 
+            self.alpha_dx,self.alpha_dy,self.alpha_uv_geo = self.compute_scaling_uv_geo(self.train_ds)
+        
         self.bounding_box = self.get_domain_bounds(self.train_ds)
         self.ds_size = self.get_domain_split()
-
+    def get_scaling_ssh_uv(self):
+        return self.alpha_dx,self.alpha_dy,self.alpha_uv_geo
+    
     def train_dataloader(self):
         return DataLoader(self.train_ds, **{**dict(shuffle=True), **self.dl_kwargs})
 

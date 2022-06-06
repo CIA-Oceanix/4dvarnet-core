@@ -200,7 +200,8 @@ class LitModelUV(pl.LightningModule):
         self.var_Val = self.hparams.var_Val
         self.var_Tr = self.hparams.var_Tr
         self.var_Tt = self.hparams.var_Tt
-        self.var_tr_uv = self.hparams.var_tr_uv
+        self.var_tr_uv = self.hparams.var_tr_uv       
+        self.alpha_dx,self.alpha_dy,self.alpha_uv_geo = self.hparams.scaling_ssh_uv
 
         # create longitudes & latitudes coordinates
         self.test_domain=test_domain
@@ -222,7 +223,6 @@ class LitModelUV(pl.LightningModule):
         self.mean_Tt = self.hparams.mean_Tt
 
         # main model
-
         self.model_name = self.hparams.model if hasattr(self.hparams, 'model') else '4dvarnet'
         self.use_sst = self.hparams.sst if hasattr(self.hparams, 'sst') else False
         self.use_sst_obs = self.hparams.use_sst_obs if hasattr(self.hparams, 'use_sst_obs') else False
@@ -846,6 +846,9 @@ class LitModelUV(pl.LightningModule):
             return 1.,alpha_dy_u/alpha_dx_v,alpha_dx_v
             
         alpha_dx, alpha_dy, alpha_uv_geo = compute_dxy_scaling(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,self.test_xr_ds.gt,sigma=4.0)
+
+        print('.. Scaling [I] : %f -- %f -- %f '%(self.alpha_dx,self.alpha_dy,self.alpha_uv_geo))
+        print('.. Scaling [II]: %f -- %f -- %f '%(alpha_dx,alpha_dy,alpha_uv_geo))
 
         sig_div = 1.
         mse_uv_ssh_gt,nmse_uv_ssh_gt,mse_div_ssh_gt, nmse_div_ssh_gt, mse_curl_ssh_gt, nmse_curl_ssh_gt = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
