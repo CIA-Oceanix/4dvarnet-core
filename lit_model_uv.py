@@ -810,11 +810,12 @@ class LitModelUV(pl.LightningModule):
             u_geo = -1. * dssh_dy
             v_geo = 1.  * dssh_dx
             
-            
-
             if sigma > 0. :
                 u_gt = gaussian_filter(u_gt, sigma=sigma)
                 v_gt = gaussian_filter(v_gt, sigma=sigma)
+
+            div_ssh = compute_div(u_geo,v_geo,sigma=0.,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
+            print('xxx %f'%np.mean( div_ssh ** 2 ) )
             
             #gy_ssh = 1. * ndimage.sobel(ssh,axis=0)
             #gx_ssh = -1. * ndimage.sobel(ssh,axis=1)                        
@@ -883,6 +884,9 @@ class LitModelUV(pl.LightningModule):
             print( np.mean( (d2ssh_dxdy - d2ssh_dydx )**2 ) / np.mean( d2ssh_dydx ** 2 ) )
 
             div_ssh = compute_div(-1. * dssh_dy,dssh_dx,sigma=0.,alpha_dx=alpha_dx_v,alpha_dy=alpha_dy_u)
+            print( np.mean( div_ssh ** 2 ) )
+
+            div_ssh = compute_div(-1. * dssh_dy,dssh_dx,sigma=0.,alpha_dx=1.,alpha_dy=alpha_dy_u/alpha_dx_v)
             print( np.mean( div_ssh ** 2 ) )
 
             return 1.,alpha_dy_u/alpha_dx_v,alpha_dx_v
