@@ -6,37 +6,26 @@ entrypoint:
    weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_2/checkpoints/modelSLAwSSTGF-unet1_050-augdata-DirectInv-wSST-dT07-epoch=145-val_loss=0.5605.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_8/checkpoints/modelSLAwSSTGF-unet-std_050-augdata-DirectInv-wSST-dT07-epoch=76-val_loss=0.4715.ckpt'   
+   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_14/checkpoints/modelUVwSSTGF-unet-std_025-augdata-augstate-dT07-sstobs-nolinear-tanh-bn-att_10-grad_02_03_100-epoch=59-val_loss=2.1407.ckpt'
+
 params:
-  sst_model: 'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
+  sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'  #'linear-bn'#''linear'# 
+  patch_weight:
+    _target_: lit_model_augstate.get_cropped_hanning_mask
+    patch_size: ${datamodule.slice_win}
+    crop:
+      time: 3
   k_n_grad: 3
   n_grad: 5
   dT: 7
-  DimAE: 25
-  dim_obs_sst_feat: 10
-  dim_grad_solver: 100
-  phi_param: 'unet1'#'unet-std'#
-  ckpt_name: 'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
-  use_sst_obs: True
-  use_sst_state: False
-  patch_weight:
-    _target_: lit_model_uv.get_cropped_hanning_mask
-    patch_size: ${datamodule.slice_win}
-    crop:
-      time: 1
-  val_diag_freq: 5 
-  padding_mode: reflect
-  alpha_mse_ssh: 50. # loss
-  alpha_mse_gssh: 1000.
-  alpha_mse_uv: 50.
-  alpha_mse_div: 1.
-  norm_obs: l2
-  norm_prior: l2
-datamodule:
-  aug_train_data: True  
-  u_path: ${file_paths.natl_u_daily}
-  u_var: u
-  v_path: ${file_paths.natl_v_daily}
-  v_var: v
+  DimAE: 50
+  dim_obs_sst_feat: 2#10
+  dim_grad_solver: 150
+  save_rec_netcdf: False#True
+  sig_filter_laplacian: 1.
+  scale_dwscaling_sst: 1.
+  path_save_netcdf: '/gpfsscratch/rech/yrf/ulh44ct/temp/save.ckpt'
+  ckpt_name: 'modelUVwSSTGF-unet1-{epoch:02d}-{val_loss:.4f}'
 defaults:
   - /xp/ronan/base_xp_uv
   - /splits/dc_boost_swot@datamodule

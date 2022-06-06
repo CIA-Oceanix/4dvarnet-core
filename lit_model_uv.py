@@ -629,7 +629,7 @@ class LitModelUV(pl.LightningModule):
                 .assign(mse_ratio=lambda df: df / df.loc[ref])
         )
 
-    def sla_diag(self, t_idx=3, log_pref='test'):
+    def sla_uv_diag(self, t_idx=3, log_pref='test'):
         path_save0 = self.logger.log_dir + '/maps.png'
         t_idx = 3
         fig_maps = plot_maps(
@@ -709,6 +709,8 @@ class LitModelUV(pl.LightningModule):
         mse_metrics_lap_oi = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.oi,sig_lap=self.sig_filter_laplacian)
         mse_metrics_lap_pred = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.pred,sig_lap=self.sig_filter_laplacian)        
 
+        mse_metrics_pred = metrics.compute_metrics(self.test_xr_ds.gt, self.test_xr_ds.pred)
+
         #dw_lap = 20
         
         #mse_metrics_lap_oi = metrics.compute_laplacian_metrics(self.test_xr_ds.gt[:,dw_lap:self.test_xr_ds.gt.shape[1]-dw_lap,dw_lap:self.test_xr_ds.gt.shape[2]-dw_lap],self.test_xr_ds.oi[:,dw_lap:self.test_xr_ds.gt.shape[1]-dw_lap,dw_lap:self.test_xr_ds.gt.shape[2]-dw_lap],sig_lap=sig_lap)
@@ -717,6 +719,61 @@ class LitModelUV(pl.LightningModule):
         var_mse_pred_lap = 100. * (1. - mse_metrics_lap_pred['mse'] / mse_metrics_lap_pred['var_lap'] )
         var_mse_oi_lap = 100. * (1. - mse_metrics_lap_oi['mse'] / mse_metrics_lap_pred['var_lap'] )
 
+        # MSE (U,V) fields
+        mse_uv = np.nanmean((self.test_xr_ds.u_gt - self.test_xr_ds.pred_u) ** 2 + (self.test_xr_ds.v_gt - self.test_xr_ds.pred_v) ** 2 )
+        var_uv = np.nanmean((self.test_xr_ds.u_gt) ** 2 + (self.test_xr_ds.v_gt) ** 2 )
+        var_mse_uv = 100. * ( 1. - mse_uv / var_uv )
+
+        # MSE Div of (U,V) fields        
+        #div_rec = self.div_field(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v)
+        #div_gt = self.div_field(self.test_xr_ds.v_gt,self.test_xr_ds.u_gt)
+
+        from scipy import ndimage
+        from scipy.ndimage import gaussian_filter
+
+        def compute_mse_uv_geo(u_gt,v_gt,ssh):
+            gy_ssh = -1. * ndimage.sobel(ssh,axis=0)
+            gx_ssh = 1. * ndimage.sobel(ssh,axis=0)
+            
+            alpha_uv = np.mean( u_gt * gx_ssh + v_gt * gy_ssh ) / np.mean( gx_ssh**2 + gx_ssh**2 )
+            u_geo = alpha_uv * gx_ssh
+            v_geo = alpha_uv * gy_ssh
+            
+            mse_uv_geo = np.nanmean( (u_geo - u_gt)**2 + (v_geo - v_gt)**2 )
+            nmse_uv_geo = mse_uv_geo / np.nanmean( (u_gt)**2 + (v_gt)**2 )
+            
+            return mse_uv_geo, nmse_uv_geo
+
+
+        def compute_div_metrics(u_gt,v_gt,u_rec,v_rec,sig_div=0.5):
+            
+            f_u_gt =  gaussian_filter(u_gt, sigma=sig_div)   
+            f_v_gt =  gaussian_filter(v_gt, sigma=sig_div)   
+            f_u_rec =  gaussian_filter(u_rec, sigma=sig_div)   
+            f_v_rec =  gaussian_filter(v_rec, sigma=sig_div)   
+            
+            div_uv = ndimage.sobel(f_u_gt,axis=0) + ndimage.sobel(f_v_gt,axis=1)
+            div_uv_rec = ndimage.sobel(f_u_rec,axis=0) + ndimage.sobel(f_v_rec,axis=1)
+            
+            mse_div = np.nanmean( (div_uv - div_uv_rec)**2 )
+            nmse_div = mse_div / np.nanmean( (div_uv )**2 )
+
+            return mse_div,nmse_div
+        
+        mse_uv_oi,nmse_uv_oi = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+                                       self.test_xr_ds.oi)
+        var_mse_uv_oi = 100. * (1. - nmse_uv_oi )
+        
+        mse_uv_ssh_gt,nmse_uv_ssh_gt = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+                                            self.test_xr_ds.gt)
+        var_mse_uv_gt = 100. * (1. - nmse_uv_ssh_gt )
+        
+        sig_div = 1.
+        mse_div, nmse_div =  compute_div_metrics(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+                                                 self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,
+                                                 sig_div=sig_div)
+        var_mse_div = 100. * (1. - nmse_div )
+        
         md = {
             f'{log_pref}_spatial_res': float(spatial_res_model),
             f'{log_pref}_spatial_res_imp': float(spatial_res_model / spatial_res_oi),
@@ -729,6 +786,10 @@ class LitModelUV(pl.LightningModule):
             f'{log_pref}_var_mse_grad_vs_oi': float(var_mse_grad_pred_vs_oi),
             f'{log_pref}_var_mse_lap_pred': float(var_mse_pred_lap),
             f'{log_pref}_var_mse_lap_oi': float(var_mse_oi_lap),
+            f'{log_pref}_var_mse_uv_gt': float(var_mse_uv_gt),
+            f'{log_pref}_var_mse_uv_oi': float(var_mse_uv_oi),
+            f'{log_pref}_var_mse_uv': float(var_mse_uv),
+            f'{log_pref}_var_mse_div': float(var_mse_div),            
         }
         print(pd.DataFrame([md]).T.to_markdown())
         return md
@@ -768,7 +829,8 @@ class LitModelUV(pl.LightningModule):
         self.test_lon = self.test_coords['lon'].data
         self.test_dates = self.test_coords['time'].data#[2:42]
 
-        md = self.sla_diag(t_idx=3, log_pref=log_pref)
+        md = self.sla_uv_diag(t_idx=3, log_pref=log_pref)
+        
         self.latest_metrics.update(md)
         self.logger.log_metrics(md, step=self.current_epoch)
 
