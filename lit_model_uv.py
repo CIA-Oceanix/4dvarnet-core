@@ -26,6 +26,30 @@ from models import Model_HwithSSTBNAtt_nolin_tanh
 from scipy import ndimage
 from scipy.ndimage import gaussian_filter
 
+def compute_gradx( u, alpha_dx = 1., sigma = 0. ):
+    if sigma > 0. :
+        u = gaussian_filter(u, sigma=sigma)
+    
+    return alpha_dx * ndimage.sobel(u,axis=2)
+
+def compute_grady( u, alpha_dy= 1., sigma = 0. ):
+    
+    if sigma > 0. :
+        u = gaussian_filter(u, sigma=sigma)
+        
+    return alpha_dy * ndimage.sobel(u,axis=1)
+   
+def compute_div(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
+    du_dx = compute_gradx( u , alpha_dx = alpha_dx , sigma = sigma )
+    dv_dy = compute_grady( v , alpha_dy = alpha_dy , sigma = sigma )
+    
+    return du_dx + dv_dy
+    
+def compute_curl(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
+    du_dy = compute_grady( u , alpha_dy = alpha_dy , sigma = sigma )
+    dv_dx = compute_gradx( v , alpha_dx = alpha_dx , sigma = sigma )
+    
+    return du_dy - dv_dx
 
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
@@ -132,6 +156,7 @@ def get_cropped_hanning_mask(patch_size, crop, **kwargs):
 
     patch_weight = t_msk[:, None, None] * pw
     return patch_weight.cpu().numpy()
+
 
 class Div_uv(torch.nn.Module):
     def __init__(self):
@@ -274,9 +299,22 @@ class LitModelUV(pl.LightningModule):
         du_dx, du_dy = self.gradient_img(f_u)
         dv_dx, dv_dy = self.gradient_img(f_v)
         
+        f_u = f_u[0,:,:,:].detach().cpu().numpy()
+        du_dx2 = ndimage.sobel(f_u,axis=2)
+        du_dx3 = du_dx[0,:,:,:].detach().cpu().numpy()
+        du_dy3 = du_dy[0,:,:,:].detach().cpu().numpy()
+        
+        print( du_dy3.shape )
+        print( du_dx2.shape )
+        
+        print( np.mean( du_dx2*du_dx3 ) / np.sqrt( np.mean(du_dx2**2)*np.mean(du_dx3**2) ))
+        print( np.mean( du_dx2*du_dy3 ) / np.sqrt( np.mean(du_dx2**2)*np.mean(du_dy3**2) ))
+                
         # scaling 
         du_dx = self.alpha_dx * dv_dx
         dv_dy = self.alpha_dy * dv_dy
+        
+        
         
         #div1 = du_dx + dv_dy
         #div1 = div1[0,:,:,:].detach().cpu().numpy()
@@ -761,30 +799,6 @@ class LitModelUV(pl.LightningModule):
         #div_rec = self.div_field(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v)
         #div_gt = self.div_field(self.test_xr_ds.v_gt,self.test_xr_ds.u_gt)
 
-        def compute_gradx( u, alpha_dx = 1., sigma = 0. ):
-            if sigma > 0. :
-                u = gaussian_filter(u, sigma=sigma)
-            
-            return alpha_dx * ndimage.sobel(u,axis=2)
-        
-        def compute_grady( u, alpha_dy= 1., sigma = 0. ):
-            
-            if sigma > 0. :
-                u = gaussian_filter(u, sigma=sigma)
-                
-            return alpha_dy * ndimage.sobel(u,axis=1)
-           
-        def compute_div(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
-            du_dx = compute_gradx( u , alpha_dx = alpha_dx , sigma = sigma )
-            dv_dy = compute_grady( v , alpha_dy = alpha_dy , sigma = sigma )
-            
-            return du_dx + dv_dy
-            
-        def compute_curl(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
-            du_dy = compute_grady( u , alpha_dy = alpha_dy , sigma = sigma )
-            dv_dx = compute_gradx( v , alpha_dx = alpha_dx , sigma = sigma )
-            
-            return du_dy - dv_dx
 
         def compute_div_curl_metrics(u_gt,v_gt,u_rec,v_rec,sig_div=0.5,alpha_dx=1.,alpha_dy=1.):
             
