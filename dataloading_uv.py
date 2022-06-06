@@ -588,8 +588,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
     def compute_scaling_uv_geo(self,ds,sigma=4.):
         from scipy import ndimage
         from scipy.ndimage import gaussian_filter
-    
-    
+        
         dssh_dy_u = 0.
         dssh_dx_v = 0.
         norm_dx = 0.
@@ -604,14 +603,20 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             u  = _ds.u_ds.ds[_ds.u_ds.var]
             v  = _ds.v_ds.ds[_ds.v_ds.var]
             
-            ssh = ssh[3:43,20:220,20:220]
-            u = u[3:43,20:220,20:220]
-            v = v[3:43,20:220,20:220]
-            print( np.sum( np.isnan(ssh) ) )
-            print( u.shape )
-            print( v.shape )
+            if 1*0 :
+                ssh = ssh[3:43,20:220,20:220]
+                u = u[3:43,20:220,20:220]
+                v = v[3:43,20:220,20:220]
+            else:
+                ssh = ssh[:,20:220,20:220]
+                u = u[:,20:220,20:220]
+                v = v[:,20:220,20:220]
+
+            #print( np.sum( np.isnan(ssh) ) )
+            #print( u.shape )
+            #print( v.shape )
             
-            print( np.mean( ssh**2 ) )
+            #print( np.mean( ssh**2 ) )
             
             # Gaussian filtering
             u = gaussian_filter(u, sigma=sigma)
@@ -622,15 +627,26 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             dssh_dx = 1. * ndimage.sobel(ssh,axis=0)
             dssh_dy = 1. * ndimage.sobel(ssh,axis=1)   
 
-            dssh_dy_u += np.nansum( -1. * dssh_dy * u )       
-            dssh_dx_v += np.nansum( 1. * dssh_dx * v )
             
-            norm_dy += np.nansum( dssh_dy ** 2 + 0. * u )
-            norm_dx += np.nansum( dssh_dx ** 2  + 0. * v )
-            
-            norm_u +=  np.nansum( 0. * dssh_dy + u ** 2)
-            norm_v +=  np.nansum( 0. * dssh_dx + v ** 2)
-            
+            if 1*1 :
+                dssh_dy_u += np.nansum( -1. * dssh_dy * u )       
+                dssh_dx_v += np.nansum( 1. * dssh_dx * v )
+                
+                norm_dy += np.nansum( dssh_dy ** 2 )
+                norm_dx += np.nansum( dssh_dx ** 2 )
+                
+                norm_u +=  np.nansum( u ** 2)
+                norm_v +=  np.nansum( v ** 2)
+            else:
+                dssh_dy_u += np.nansum( -1. * dssh_dy * u )       
+                dssh_dx_v += np.nansum( 1. * dssh_dx * v )
+
+                norm_dy += np.nansum( dssh_dy ** 2 + 0. * u )
+                norm_dx += np.nansum( dssh_dx ** 2  + 0. * v )
+                
+                norm_u +=  np.nansum( 0. * dssh_dy + u ** 2)
+                norm_v +=  np.nansum( 0. * dssh_dx + v ** 2)
+                
         alpha_dy_u = dssh_dy_u / norm_dy
         alpha_dx_v = dssh_dx_v / norm_dx
         
