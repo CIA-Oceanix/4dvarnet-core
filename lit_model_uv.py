@@ -858,14 +858,6 @@ class LitModelUV(pl.LightningModule):
             dssh_dx = 1. * ndimage.sobel(ssh,axis=2)
             dssh_dy = 1. * ndimage.sobel(ssh,axis=1) 
 
-            dssh_dx = compute_gradx( ssh, alpha_dx = 1., sigma = 0. )                       
-            dssh_dy = compute_grady( ssh, alpha_dy = 1., sigma = 0. )                       
-
-            d2ssh_dxdy = compute_grady( dssh_dx, alpha_dy = 1., sigma = 0. )                       
-            d2ssh_dydx = compute_gradx( dssh_dy, alpha_dx = 1., sigma = 0. )                       
-            
-            print( np.sqrt( np.mean( (d2ssh_dxdy[:,20:220,20:220] - d2ssh_dydx[:,20:220,20:220] )**2 ) ) )
-            print( np.sqrt( np.mean( d2ssh_dydx[:,20:220,20:220] ** 2 ) ) )
             
             corr_x_u = float( np.mean( u * dssh_dx) / np.sqrt( np.mean( dssh_dx**2 ) * np.mean( u**2 ) ) )
             corr_x_v = float( np.mean( v * dssh_dx) / np.sqrt( np.mean( dssh_dx**2 ) * np.mean( v**2 ) ) )
@@ -879,6 +871,15 @@ class LitModelUV(pl.LightningModule):
 
             print('... R**2: %f -- %f'%(corr_y_u,corr_x_v))
             print('.... alpha: %f -- %f '%(alpha_dx_v,alpha_dy_u)  )
+            
+            dssh_dx = alpha_dx_v * compute_gradx( ssh, alpha_dx = 1., sigma = 0. )                       
+            dssh_dy = alpha_dy_u * compute_grady( ssh, alpha_dy = 1., sigma = 0. )                       
+
+            d2ssh_dxdy = alpha_dy_u * compute_grady( dssh_dx, alpha_dy = 1., sigma = 0. )                       
+            d2ssh_dydx = alpha_dx_v * compute_gradx( dssh_dy, alpha_dx = 1., sigma = 0. )                       
+
+            print( np.mean( (d2ssh_dxdy[:,20:220,20:220] - d2ssh_dydx[:,20:220,20:220] )**2 ) )
+            print( np.mean( (d2ssh_dxdy[:,20:220,20:220] - d2ssh_dydx[:,20:220,20:220] )**2 ) / np.mean( d2ssh_dydx[:,20:220,20:220] ** 2 ) )
             
             return 1.,alpha_dy_u/alpha_dx_v,alpha_dx_v
             
