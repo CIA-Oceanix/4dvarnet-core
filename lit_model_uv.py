@@ -293,6 +293,9 @@ class LitModelUV(pl.LightningModule):
 
         self.median_filter_width = self.hparams.median_filter_width if hasattr(self.hparams, 'median_filter_width') else 1
 
+        print('..... div. computation (sigma): %f'%self.sig_filter_div)
+
+
     def compute_div(self,u,v):
         # siletring
         f_u = kornia.filters.gaussian_blur2d(u, (5,5), (self.sig_filter_div,self.sig_filter_div), border_type='reflect')
