@@ -265,6 +265,7 @@ class LitModelUV(pl.LightningModule):
         self.sig_filter_laplacian = self.hparams.sig_filter_laplacian if hasattr(self.hparams, 'sig_filter_laplacian') else 0.5
         self.scale_dwscaling_sst = self.hparams.scale_dwscaling_sst if hasattr(self.hparams, 'scale_dwscaling_sst') else 1.0
         self.sig_filter_div = self.hparams.sig_filter_div if hasattr(self.hparams, 'sig_filter_div') else 1.0
+        self.sig_filter_div_diag = self.hparams.sig_filter_div_diag if hasattr(self.hparams, 'sig_filter_div_diag') else self.hparams.sig_filter_div
 
         if self.hparams.k_n_grad == 0 :
             self.hparams.n_fourdvar_iter = 1
@@ -293,7 +294,7 @@ class LitModelUV(pl.LightningModule):
 
         self.median_filter_width = self.hparams.median_filter_width if hasattr(self.hparams, 'median_filter_width') else 1
 
-        print('..... div. computation (sigma): %f'%self.sig_filter_div)
+        print('..... div. computation (sigma): %f -- %f'%(self.sig_filter_div,self.sig_filter_div_diag))
 
 
     def compute_div(self,u,v):
@@ -936,8 +937,8 @@ class LitModelUV(pl.LightningModule):
             alpha_dy = self.alpha_dy
             alpha_uv_geo = self.alpha_uv_geo
 
-        sig_div = self.sig_filter_div
-        print('..... div. computation (sigma): %f'%self.sig_filter_div)
+        sig_div = self.sig_filter_div_diag
+        print('..... div. computation (sigma): %f -- %f'%(self.sig_filter_div,self.sig_filter_div_diag))
         mse_uv_ssh_gt,nmse_uv_ssh_gt,mse_div_ssh_gt, nmse_div_ssh_gt, mse_curl_ssh_gt, nmse_curl_ssh_gt = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                                                                      self.test_xr_ds.gt,sigma=sig_div,
                                                                                                      alpha_dx=alpha_dx,alpha_dy=alpha_dy,
