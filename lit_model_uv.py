@@ -40,6 +40,9 @@ def compute_grady( u, alpha_dy= 1., sigma = 0. ):
     return alpha_dy * ndimage.sobel(u,axis=1)
    
 def compute_div(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
+    
+    print('..... compute_div (sigma): %f'%sigma)
+
     du_dx = compute_gradx( u , alpha_dx = alpha_dx , sigma = sigma )
     dv_dy = compute_grady( v , alpha_dy = alpha_dy , sigma = sigma )
     
@@ -811,8 +814,8 @@ class LitModelUV(pl.LightningModule):
         def compute_mse_uv_geo(u_gt,v_gt,ssh,sigma=0.5,alpha_dx=1.,alpha_dy=1.,alpha_uv_geo = 0.):
             
             # (u,v) MSE
-            dssh_dx = compute_gradx( ssh , alpha_dx = alpha_dx , sigma = 0. )
-            dssh_dy = compute_grady( ssh , alpha_dy = alpha_dy , sigma = 0. )
+            dssh_dx = compute_gradx( ssh , alpha_dx = alpha_dx , sigma = sigma )
+            dssh_dy = compute_grady( ssh , alpha_dy = alpha_dy , sigma = sigma )
             
             u_geo = -1. * dssh_dy
             v_geo = 1.  * dssh_dx
@@ -931,6 +934,7 @@ class LitModelUV(pl.LightningModule):
             alpha_uv_geo = self.alpha_uv_geo
 
         sig_div = self.sig_filter_div
+        print('..... div. computation (sigma): %f'%self.sig_filter_div)
         mse_uv_ssh_gt,nmse_uv_ssh_gt,mse_div_ssh_gt, nmse_div_ssh_gt, mse_curl_ssh_gt, nmse_curl_ssh_gt = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                                                                      self.test_xr_ds.gt,sigma=sig_div,
                                                                                                      alpha_dx=alpha_dx,alpha_dy=alpha_dy,
