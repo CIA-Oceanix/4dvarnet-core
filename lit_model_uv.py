@@ -1371,6 +1371,7 @@ class LitModelUV(pl.LightningModule):
             else:
                 l0_samp = 0. * mse
                 l1_samp = 0. * mse
+                
             metrics = dict([
                 ('mse', mse),
                 ('mse_uv', mse_uv),
