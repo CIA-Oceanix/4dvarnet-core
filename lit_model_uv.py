@@ -54,6 +54,7 @@ def compute_curl(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
     
     return du_dy - dv_dx
 
+
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
@@ -117,6 +118,23 @@ def get_4dvarnet_sst(hparams):
 
     else:
        return get_4dvarnet(hparams)
+
+
+class ModelSamplingFromSST(torch.nn.Module):
+    def __init__(self,dT):
+        super(ModelSamplingFromSST, self).__init__()
+        self.Tr     = torch.nn.Threshold(0.1, 0.)
+        self.S      = torch.nn.Sigmoid()#torch.nn.Softmax(dim=1)
+        self.conv1  = torch.nn.Conv2d(dT,10,(3,3),padding=1)
+        self.conv2  = torch.nn.Conv2d(10,dT,(1,1),padding=0,bias=True)
+
+    def forward(self , y ):
+        yconv = self.conv2( F.relu( self.conv1( y ) ) )
+
+        yout1 = self.S( yconv )
+        yout2 = self.Tr( yout1 )
+
+        return [yout1,yout2]
        
 def get_phi(hparams):
     class PhiPassThrough(torch.nn.Module):
@@ -266,6 +284,10 @@ class LitModelUV(pl.LightningModule):
         self.scale_dwscaling_sst = self.hparams.scale_dwscaling_sst if hasattr(self.hparams, 'scale_dwscaling_sst') else 1.0
         self.sig_filter_div = self.hparams.sig_filter_div if hasattr(self.hparams, 'sig_filter_div') else 1.0
         self.sig_filter_div_diag = self.hparams.sig_filter_div_diag if hasattr(self.hparams, 'sig_filter_div_diag') else self.hparams.sig_filter_div
+
+        self.learning_sampling_uv = self.hparams.learning_sampling_uv if hasattr(self.hparams, 'learning_sampling_uv') else False
+        if self.learning_sampling_uv == True :
+            self.model_sampling_uv = ModelSamplingFromSST(self.hparams.dT)
 
         if self.hparams.k_n_grad == 0 :
             self.hparams.n_fourdvar_iter = 1
