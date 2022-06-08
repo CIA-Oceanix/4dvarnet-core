@@ -359,6 +359,10 @@ class LitModelUV(pl.LightningModule):
         old_suffix = '-{epoch:02d}-{val_loss:.4f}'
 
         suffix_chkpt = '-'+self.hparams.phi_param+'_%03d-augdata'%self.hparams.DimAE
+        
+        if self.model_sampling_uv is not None:
+            suffix_chkpt = suffix_chkpt+'-sampling_sst_%d_%02f_'%(self.hparams.nb_feat_sampling_operator,self.hparams.thr_l1_sampling_uv)
+        
         if self.hparams.n_grad > 0 :
             
             if self.hparams.aug_state :
@@ -514,8 +518,8 @@ class LitModelUV(pl.LightningModule):
         self.log("tr_loss", loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log("tr_mse", metrics[-1]['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
         self.log("tr_mse_uv", metrics[-1]['mse_uv'] , on_step=False, on_epoch=True, prog_bar=True)
-        self.log("tr_l0_samp", metrics[-1]['l0_samp'] , on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log("tr_l1_samp", metrics[-1]['l1_samp'] , on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log("tr_l0_samp", metrics[-1]['l0_samp'] , on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_l1_samp", metrics[-1]['l1_samp'] , on_step=False, on_epoch=True, prog_bar=True, logger=True)
         self.log("tr_mseG", metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
 
         return loss
@@ -1240,7 +1244,11 @@ class LitModelUV(pl.LightningModule):
         if self.model_sampling_uv is not None :
             mask_sampling_uv = self.model_sampling_uv( sst_gt )
             mask_sampling_uv = mask_sampling_uv[1]
-            mask_sampling_uv = 1. - torch.nn.functional.threshold( 1.0 - mask_sampling_uv , 0.9 , 0.)
+            
+            mask_sampling_uv = torch.bernoulli( mask_sampling_uv )
+            
+            print( torch.mean( mask_sampling_uv) )
+            #mask_sampling_uv = 1. - torch.nn.functional.threshold( 1.0 - mask_sampling_uv , 0.9 , 0.)
         else:
             mask_sampling_uv = torch.zeros_like(u_gt) 
             
