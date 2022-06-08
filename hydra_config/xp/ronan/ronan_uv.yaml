@@ -34,6 +34,9 @@ params:
   sig_filter_div: 1.
   norm_obs: l2
   norm_prior: l2
+  sampling_model: 'sampling-from-sst'
+  nb_feat_sampling_operator: 10
+  alpha_sampling_uv: 0.1
 datamodule:
   aug_train_data: True  
 defaults:

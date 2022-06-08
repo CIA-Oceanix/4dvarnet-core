@@ -288,9 +288,13 @@ class LitModelUV(pl.LightningModule):
         self.learning_sampling_uv = self.hparams.learning_sampling_uv if hasattr(self.hparams, 'learning_sampling_uv') else 'no_sammpling_learning'
         self.nb_feat_sampling_operator = self.hparams.nb_feat_sampling_operator if hasattr(self.hparams, 'nb_feat_sampling_operator') else -1.
         if self.nb_feat_sampling_operator > 0 :
-            self.model_sampling_uv = ModelSamplingFromSST(self.hparams.dT,self.nb_feat_sampling_operator)
+            if self.hparams.sampling_model == 'sampling-from-sst':
+                self.model_sampling_uv = ModelSamplingFromSST(self.hparams.dT,self.nb_feat_sampling_operator)
+            else:
+                print('..... something is not expected with the sampling model')
         else:
             self.model_sampling_uv = None
+        
             
         if self.hparams.k_n_grad == 0 :
             self.hparams.n_fourdvar_iter = 1
@@ -510,6 +514,7 @@ class LitModelUV(pl.LightningModule):
         self.log("tr_loss", loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log("tr_mse", metrics[-1]['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
         self.log("tr_mse_uv", metrics[-1]['mse_uv'] , on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_l_samp", metrics[-1]['l_samp'] , on_step=False, on_epoch=True, prog_bar=True)
         self.log("tr_mseG", metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
 
         return loss
@@ -530,6 +535,8 @@ class LitModelUV(pl.LightningModule):
             self.log(f'{log_pref}_loss', loss)
             self.log(f'{log_pref}_mse', metrics[-1]["mse"] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_mse_uv', metrics[-1]["mse_uv"] , on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{log_pref}_l1_samp', metrics[-1]["l1_samp"] , on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{log_pref}_l0_samp', metrics[-1]["l0_samp"] , on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
 
         if not self.use_sst :
@@ -1215,7 +1222,9 @@ class LitModelUV(pl.LightningModule):
                         ('meanGrad', 1.),
                         ('mseOI', 0.),
                         ('mse_uv', 0.),
-                        ('mseGOI', 0.)])
+                        ('mseGOI', 0.),
+                        ('l0_samp', 0.),
+                        ('l1_samp', 0.)])
                     )
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
         u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
@@ -1315,8 +1324,9 @@ class LitModelUV(pl.LightningModule):
                 )
                 
                 if self.model_sampling_uv is not None :
-                    loss_sampling_uv = torch.mean( mask_sampling_uv )
-                    loss_sampling_uv = torch.nn.functional.relu( loss_sampling_uv - self.hparams.thr_l1_sampling_uv )
+                    loss_l1_sampling_uv = torch.mean( mask_sampling_uv )
+                    loss_l1_sampling_uv = torch.nn.functional.relu( loss_l1_sampling_uv - self.hparams.thr_l1_sampling_uv )
+                    loss_l0_sampling_uv = torch.mean(1. - torch.nn.functional.threshold( 1. - mask_sampling_uv , 0.9 , 0. )) 
                 else:
                     loss_sampling_uv = 0.
                 # total loss
@@ -1355,6 +1365,12 @@ class LitModelUV(pl.LightningModule):
             mseGrad = loss_GAll.detach()
             mse_uv = loss_uv.detach()
             mse_div = loss_div.detach()
+            if self.model_sampling_uv is not None :
+                l1_samp = loss_l1_sampling_uv.detach()
+                l0_samp = loss_l0_sampling_uv.detach()
+            else:
+                l0_samp = 0. * mse
+                l1_samp = 0. * mse
             metrics = dict([
                 ('mse', mse),
                 ('mse_uv', mse_uv),
@@ -1362,7 +1378,9 @@ class LitModelUV(pl.LightningModule):
                 ('mseGrad', mseGrad),
                 ('meanGrad', mean_GAll),
                 ('mseOI', loss_OI.detach()),
-                ('mseGOI', loss_GOI.detach())])
+                ('mseGOI', loss_GOI.detach()),
+                ('l0_samp', l0_samp),
+                ('l1_samp', l1_samp)])
 
         if ( (phase == 'val') or (phase == 'test') ) & ( self.use_sst == True ) :
             sst_feat = sst_gt[:,int(self.hparams.dT/2),:,:].view(-1,1,sst_gt.size(2),sst_gt.size(3))
