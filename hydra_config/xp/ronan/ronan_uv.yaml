@@ -10,12 +10,12 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_23/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=85-val_loss=1.1946.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_36/checkpoints/modelUVwSSTGF-unet1_050-augdata-sampling_sst_10_005_-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=05-val_loss=1.8202.ckpt'
 params:
-  sst_model: 'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
+  sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
   k_n_grad: 3
   n_grad: 5
   dT: 7
   DimAE: 50
-  dim_obs_sst_feat: 10
+  dim_obs_sst_feat: 20
   dim_grad_solver: 150
   phi_param: 'unet1'#'unet-std'#
   ckpt_name: 'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
