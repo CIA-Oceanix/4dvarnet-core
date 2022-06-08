@@ -134,7 +134,7 @@ class ModelSamplingFromSST(torch.nn.Module):
 
         yout1 = self.S( yconv )
         
-        yout1 = torch.cat( (torch.zeros_like(y[:,:int(self.dT/2),:,:]),yout1) )
+        yout1 = torch.cat( (torch.zeros_like(y[:,:int(self.dT/2),:,:]),yout1) , dim=1)
         yout2 = self.Tr( yout1 )
         
         return [yout1,yout2]
