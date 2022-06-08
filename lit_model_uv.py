@@ -1327,15 +1327,14 @@ class LitModelUV(pl.LightningModule):
                     loss_l1_sampling_uv = torch.mean( mask_sampling_uv )
                     loss_l1_sampling_uv = torch.nn.functional.relu( loss_l1_sampling_uv - self.hparams.thr_l1_sampling_uv )
                     loss_l0_sampling_uv = torch.mean(1. - torch.nn.functional.threshold( 1. - mask_sampling_uv , 0.9 , 0. )) 
-                else:
-                    loss_sampling_uv = 0.
+
                 # total loss
                 loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
                 loss += self.hparams.alpha_mse_uv * loss_uv + self.hparams.alpha_mse_div * loss_div
                 loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
                 loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
                 if self.model_sampling_uv is not None :
-                    loss += self.hparams.alpha_sampling_uv * loss_sampling_uv
+                    loss += self.hparams.alpha_sampling_uv * loss_l1_sampling_uv
             else:                
                 outputs = self.model.phi_r(obs)
                 outputs = outputs[:, 0:self.hparams.dT, :, :] + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
