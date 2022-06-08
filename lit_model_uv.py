@@ -121,9 +121,9 @@ def get_4dvarnet_sst(hparams):
 
 
 class ModelSamplingFromSST(torch.nn.Module):
-    def __init__(self,dT,nb_feat=10):
+    def __init__(self,dT,nb_feat=10,thr=0.1):
         super(ModelSamplingFromSST, self).__init__()
-        self.Tr     = torch.nn.Threshold(0.1, 0.)
+        self.Tr     = torch.nn.Threshold(thr, 0.)
         self.S      = torch.nn.Sigmoid()#torch.nn.Softmax(dim=1)
         self.conv1  = torch.nn.Conv2d(dT,nb_feat,(3,3),padding=1)
         self.conv2  = torch.nn.Conv2d(nb_feat,dT,(1,1),padding=0,bias=True)
@@ -1246,8 +1246,7 @@ class LitModelUV(pl.LightningModule):
             w_sampling_uv = w_sampling_uv[1]
             
             mask_sampling_uv = torch.bernoulli( w_sampling_uv )
-            
-            print('.. %f %f -- %f '%(sst_gt[0,4,100,100],torch.mean( w_sampling_uv ),torch.mean( mask_sampling_uv )) )
+            #print('.. %f -- %f '%(torch.mean( w_sampling_uv ),torch.mean( mask_sampling_uv )) )
             #mask_sampling_uv = 1. - torch.nn.functional.threshold( 1.0 - mask_sampling_uv , 0.9 , 0.)
         else:
             mask_sampling_uv = torch.zeros_like(u_gt) 
