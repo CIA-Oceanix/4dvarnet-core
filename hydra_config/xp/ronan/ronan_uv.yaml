@@ -18,7 +18,7 @@ params:
   dim_obs_sst_feat: 20
   dim_grad_solver: 150
   phi_param: 'unet1'#'unet-std'#
-  ckpt_name: 'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
+  ckpt_name: 'modelUVwoSSTGF-{epoch:02d}-{val_loss:.4f}'
   use_sst_obs: False
   use_sst_state: False
   patch_weight:
@@ -36,7 +36,7 @@ params:
   norm_obs: l2
   norm_prior: l2
   sampling_model: 'sampling-from-sst'
-  nb_feat_sampling_operator: 10
+  nb_feat_sampling_operator: -1 #10
   alpha_sampling_uv: 10.
   thr_l1_sampling_uv: 0.02
 datamodule:
