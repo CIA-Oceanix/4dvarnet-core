@@ -121,12 +121,12 @@ def get_4dvarnet_sst(hparams):
 
 
 class ModelSamplingFromSST(torch.nn.Module):
-    def __init__(self,dT):
+    def __init__(self,dT,nb_feat=10):
         super(ModelSamplingFromSST, self).__init__()
         self.Tr     = torch.nn.Threshold(0.1, 0.)
         self.S      = torch.nn.Sigmoid()#torch.nn.Softmax(dim=1)
-        self.conv1  = torch.nn.Conv2d(dT,10,(3,3),padding=1)
-        self.conv2  = torch.nn.Conv2d(10,dT,(1,1),padding=0,bias=True)
+        self.conv1  = torch.nn.Conv2d(dT,nb_feat,(3,3),padding=1)
+        self.conv2  = torch.nn.Conv2d(nb_feat,dT,(1,1),padding=0,bias=True)
 
     def forward(self , y ):
         yconv = self.conv2( F.relu( self.conv1( y ) ) )
@@ -285,10 +285,13 @@ class LitModelUV(pl.LightningModule):
         self.sig_filter_div = self.hparams.sig_filter_div if hasattr(self.hparams, 'sig_filter_div') else 1.0
         self.sig_filter_div_diag = self.hparams.sig_filter_div_diag if hasattr(self.hparams, 'sig_filter_div_diag') else self.hparams.sig_filter_div
 
-        self.learning_sampling_uv = self.hparams.learning_sampling_uv if hasattr(self.hparams, 'learning_sampling_uv') else False
-        if self.learning_sampling_uv == True :
-            self.model_sampling_uv = ModelSamplingFromSST(self.hparams.dT)
-
+        self.learning_sampling_uv = self.hparams.learning_sampling_uv if hasattr(self.hparams, 'learning_sampling_uv') else 'no_sammpling_learning'
+        self.nb_feat_sampling_operator = self.hparams.nb_feat_sampling_operator if hasattr(self.hparams, 'nb_feat_sampling_operator') else -1.
+        if self.nb_feat_sampling_operator > 0 :
+            self.model_sampling_uv = ModelSamplingFromSST(self.hparams.dT,self.nb_feat_sampling_operator)
+        else:
+            self.model_sampling_uv = None
+            
         if self.hparams.k_n_grad == 0 :
             self.hparams.n_fourdvar_iter = 1
 
@@ -404,20 +407,34 @@ class LitModelUV(pl.LightningModule):
         if hasattr(self.hparams, 'opt'):
             opt = lambda p: hydra.utils.call(self.hparams.opt, p)
         if self.model_name == '4dvarnet':
-            optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
-                {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
-                {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
-                {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
-                ])
-
+            if self.model_sampling_uv is not None :
+                optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                    {'params': self.model_sampling_uv.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                    ])
+            else:
+                optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                    ])
             return optimizer
         elif self.model_name == '4dvarnet_sst':
-
-            optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
-                                {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
-                                {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
-                                {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
-                                ])
+            if self.model_sampling_uv is not None :
+                optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                    {'params': self.model_sampling_uv.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                    ])
+            else:
+                optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                                    {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                                    {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
+                                    {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                                    ])
 
             return optimizer
         else:
@@ -1210,6 +1227,14 @@ class LitModelUV(pl.LightningModule):
 
         obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI),0. * targets_OI,0. * targets_OI) ,dim=1)
         new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, torch.zeros_like(inputs_Mask), torch.zeros_like(inputs_Mask)) , dim=1)
+        if self.model_sampling_uv is not None :
+            mask_sampling_uv = self.model_sampling_uv( sst_gt )
+            mask_sampling_uv = mask_sampling_uv[1]
+            mask_sampling_uv = 1. - torch.nn.functional.threshold( 1.0 - mask_sampling_uv , 0.9 , 0.)
+        else:
+            mask_sampling_uv = torch.zeros_like(u_gt) 
+            
+        new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
 
         if self.aug_state :
             obs = torch.cat( (obs, 0. * targets_OI,) ,dim=1)
@@ -1288,12 +1313,18 @@ class LitModelUV(pl.LightningModule):
                 loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
                     yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
                 )
-                        
+                
+                if self.model_sampling_uv is not None :
+                    loss_sampling_uv = torch.mean( mask_sampling_uv )
+                    loss_sampling_uv = torch.nn.functional.relu( loss_sampling_uv - self.hparams.thr_l1_sampling_uv )
+                else:
+                    loss_sampling_uv = 0.
                 # total loss
                 loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
                 loss += self.hparams.alpha_mse_uv * loss_uv + self.hparams.alpha_mse_div * loss_div
                 loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
                 loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
+                loss += self.hparams.alpha_sampling_uv * loss_sampling_uv
             else:                
                 outputs = self.model.phi_r(obs)
                 outputs = outputs[:, 0:self.hparams.dT, :, :] + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
