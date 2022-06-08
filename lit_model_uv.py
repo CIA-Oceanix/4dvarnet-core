@@ -123,17 +123,20 @@ def get_4dvarnet_sst(hparams):
 class ModelSamplingFromSST(torch.nn.Module):
     def __init__(self,dT,nb_feat=10,thr=0.1):
         super(ModelSamplingFromSST, self).__init__()
+        self.dT     = dT
         self.Tr     = torch.nn.Threshold(thr, 0.)
         self.S      = torch.nn.Sigmoid()#torch.nn.Softmax(dim=1)
-        self.conv1  = torch.nn.Conv2d(dT,nb_feat,(3,3),padding=1)
-        self.conv2  = torch.nn.Conv2d(nb_feat,dT,(1,1),padding=0,bias=True)
+        self.conv1  = torch.nn.Conv2d(int(dT/2),nb_feat,(3,3),padding=1)
+        self.conv2  = torch.nn.Conv2d(nb_feat,dT-int(dT/2),(1,1),padding=0,bias=True)
 
     def forward(self , y ):
-        yconv = self.conv2( F.relu( self.conv1( y ) ) )
+        yconv = self.conv2( F.relu( self.conv1( y[:,:int(self.dT/2),:,:] ) ) )
 
         yout1 = self.S( yconv )
+        
+        yout1 = torch.cat( (torch.zeros_like(y[:,:int(self.dT/2),:,:]),yout1) )
         yout2 = self.Tr( yout1 )
-
+        
         return [yout1,yout2]
        
 def get_phi(hparams):
@@ -1332,9 +1335,11 @@ class LitModelUV(pl.LightningModule):
                 )
                 
                 if self.model_sampling_uv is not None :
-                    loss_l1_sampling_uv = torch.mean( w_sampling_uv )
+                    loss_l1_sampling_uv = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) *  torch.mean( w_sampling_uv )
                     loss_l1_sampling_uv = torch.nn.functional.relu( loss_l1_sampling_uv - self.hparams.thr_l1_sampling_uv )
-                    loss_l0_sampling_uv = torch.mean( mask_sampling_uv ) 
+                    loss_l0_sampling_uv = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean( mask_sampling_uv ) 
+                    
+                    print( loss_l1_sampling_uv )
 
                 # total loss
                 loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
