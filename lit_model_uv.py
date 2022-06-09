@@ -544,7 +544,7 @@ class LitModelUV(pl.LightningModule):
             self.log(f'{log_pref}_mse', metrics[-1]["mse"] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_mse_uv', metrics[-1]["mse_uv"] , on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_l1_samp', metrics[-1]["l1_samp"] , on_step=False, on_epoch=True, prog_bar=True)
-            #self.log(f'{log_pref}_l0_samp', metrics[-1]["l0_samp"] , on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{log_pref}_l0_samp', metrics[-1]["l0_samp"] , on_step=False, on_epoch=True, prog_bar=True)
             #self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
 
         if not self.use_sst :
@@ -1401,6 +1401,8 @@ class LitModelUV(pl.LightningModule):
                 sst_feat = torch.cat( (sst_feat,self.model.model_H.extract_sst_feature( sst_gt )) , dim = 1 )
                 ssh_feat = self.model.model_H.extract_state_feature( outputsSLRHR )
                 sst_feat = torch.cat( (sst_feat,ssh_feat) , dim=1)
+                
+                sst_feat = torch.cat( (sst_feat,w_sampling_uv) , dim=1)
             
             return loss, [outputs,outputs_u,outputs_v], [outputsSLRHR, hidden_new, cell_new, normgrad], metrics, sst_feat
             
