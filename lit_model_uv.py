@@ -1080,6 +1080,15 @@ class LitModelUV(pl.LightningModule):
         self.v_rec = self.test_xr_ds.pred_v.data#[2:42,:,:]
 
         self.x_rec_ssh = self.x_rec
+
+        def extract_seq(out,key,dw=20):
+            seq = torch.cat([chunk[key] for chunk in outputs]).numpy()
+            seq = seq[:,:,dw:seq.shape[2]-dw,dw:seq.shape[2]-dw]
+            
+            return seq
+        
+        self.x_sst_feat_ssh = extract_seq(outputs,'sst_feat',dw=20)
+
         
         #print('..... Shape evaluated tensors: %dx%dx%d'%(self.x_gt.shape[0],self.x_gt.shape[1],self.x_gt.shape[2]))
         
@@ -1097,7 +1106,6 @@ class LitModelUV(pl.LightningModule):
         if self.scale_dwscaling_sst > 1. :
             print('.... Using downscaled SST by %.1f'%self.scale_dwscaling_sst)
         print('..... Log directory: '+self.logger.log_dir)
-        print( self.save_rec_netcdf )
         
         if self.save_rec_netcdf == True :
             #path_save1 = self.logger.log_dir + f'/test_res_all.nc'
