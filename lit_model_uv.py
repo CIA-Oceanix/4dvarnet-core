@@ -26,18 +26,24 @@ from models import Model_HwithSSTBNAtt_nolin_tanh
 from scipy import ndimage
 from scipy.ndimage import gaussian_filter
 
-def compute_gradx( u, alpha_dx = 1., sigma = 0. ):
+def compute_gradx( u, alpha_dx = 1., sigma = 0. , _filter='diff-non-centered'):
     if sigma > 0. :
         u = gaussian_filter(u, sigma=sigma)
-    
-    return alpha_dx * ndimage.sobel(u,axis=2)
+    if _filter == 'sobel' :
+        return alpha_dx * ndimage.sobel(u,axis=2)
+    elif _filter == 'diff-non-centered' :
+        return alpha_dx * ndimage.convolve1d(u,weights=[0.3,0.4,-0.7],axis=2)
 
-def compute_grady( u, alpha_dy= 1., sigma = 0. ):
+
+def compute_grady( u, alpha_dy= 1., sigma = 0., _filter='diff-non-centered' ):
     
     if sigma > 0. :
         u = gaussian_filter(u, sigma=sigma)
         
-    return alpha_dy * ndimage.sobel(u,axis=1)
+    if _filter == 'sobel' :
+         return alpha_dy * ndimage.sobel(u,axis=1)
+    elif _filter == 'diff-non-centered' :
+        return alpha_dy * ndimage.convolve1d(u,weights=[0.3,0.4,-0.7],axis=1)
    
 def compute_div(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
     
@@ -183,10 +189,10 @@ def get_cropped_hanning_mask(patch_size, crop, **kwargs):
 
 
 class Div_uv(torch.nn.Module):
-    def __init__(self):
-        super(Div_uv, self).__init__(filter='diff-non-centered')
+    def __init__(self,_filter='diff-non-centered'):
+        super(Div_uv, self).__init__()
 
-        if filter == 'sobel':
+        if _filter == 'sobel':
             a = np.array([[1., 0., -1.], [2., 0., -2.], [1., 0., -1.]])
             self.convGx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
             self.convGx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
@@ -194,7 +200,7 @@ class Div_uv(torch.nn.Module):
             b = np.array([[1., 2., 1.], [0., 0., 0.], [-1., -2., -1.]])
             self.convGy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
             self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
-        elif filter == 'diff-non-centered':
+        elif _filter == 'diff-non-centered':
             a = np.array([[0., 0., 0.], [0.3, 0.4, -0.7], [0., 0., 0.]])
             self.convGx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
             self.convGx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
