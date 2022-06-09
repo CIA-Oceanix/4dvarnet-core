@@ -1286,8 +1286,6 @@ class LitModelUV(pl.LightningModule):
         
         state = self.get_init_state(batch, state_init)
 
-        #state = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
-
         obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI),0. * targets_OI,0. * targets_OI) ,dim=1)
         new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, torch.zeros_like(inputs_Mask), torch.zeros_like(inputs_Mask)) , dim=1)
         if self.model_sampling_uv is not None :
@@ -1296,8 +1294,6 @@ class LitModelUV(pl.LightningModule):
             #w_sampling_uv = w_sampling_uv[1]
             
             mask_sampling_uv = torch.bernoulli( w_sampling_uv )
-            #print('.. %f -- %f '%(torch.mean( w_sampling_uv ),torch.mean( mask_sampling_uv )) )
-            #mask_sampling_uv = 1. - torch.nn.functional.threshold( 1.0 - mask_sampling_uv , 0.9 , 0.)
         else:
             mask_sampling_uv = torch.zeros_like(u_gt) 
             
