@@ -1400,11 +1400,15 @@ class LitModelUV(pl.LightningModule):
                 #sst_feat = self.model.model_H.conv21( inputs_SST )
                 sst_feat = torch.cat( (sst_feat,self.model.model_H.extract_sst_feature( sst_gt )) , dim = 1 )
                 ssh_feat = self.model.model_H.extract_state_feature( outputsSLRHR )
-                sst_feat = torch.cat( (sst_feat,ssh_feat) , dim=1)
+                out_feat = torch.cat( (sst_feat,ssh_feat) , dim=1)
                 
-                sst_feat = torch.cat( (sst_feat,w_sampling_uv) , dim=1)
-            
-            return loss, [outputs,outputs_u,outputs_v], [outputsSLRHR, hidden_new, cell_new, normgrad], metrics, sst_feat
+                if self.model_sampling_uv is not None :
+                    out_feat = torch.cat( (sst_feat,w_sampling_uv) , dim=1)
+            else:
+                if self.model_sampling_uv is not None :
+                    out_feat = w_sampling_uv
+                    
+            return loss, [outputs,outputs_u,outputs_v], [outputsSLRHR, hidden_new, cell_new, normgrad], metrics, out_feat
             
         else:
             return loss, [outputs,outputs_u,outputs_v], [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
