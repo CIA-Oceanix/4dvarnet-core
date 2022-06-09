@@ -18,7 +18,7 @@ from scipy import stats
 import solver as NN_4DVar
 import metrics
 from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps_oi, animate_maps, get_psd_score
-from models import Model_H, Phi_r_OI, Gradient_img
+from models import Model_H, Phi_r_OI, Phi_r, Phi_r_OI_UNet, Gradient_img
 
 from lit_model_augstate import LitModelAugstate
 
@@ -30,10 +30,30 @@ def get_4dvarnet_OI(hparams):
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+                
+def get_4dvarnet_OI_aug(hparams):
+    return NN_4DVar.Solver_Grad_4DVarNN(
+                Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+                Model_H(hparams.shape_state[0]),
+                NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+                    hparams.dim_grad_solver, hparams.dropout),
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+                
+def get_4dvarnet_OI_unet(hparams):
+    return NN_4DVar.Solver_Grad_4DVarNN(
+                Phi_r_OI_UNet(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+                Model_H(hparams.shape_state[0]),
+                NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+                    hparams.dim_grad_solver, hparams.dropout),
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
 class LitModelOI(LitModelAugstate):
     MODELS = {
             '4dvarnet_OI': get_4dvarnet_OI,
+            '4dvarnet_OI_aug': get_4dvarnet_OI_aug,
+            '4dvarnet_OI_unet': get_4dvarnet_OI_unet,
              }
 
     def __init__(self, *args, **kwargs):
@@ -43,7 +63,7 @@ class LitModelOI(LitModelAugstate):
         opt = torch.optim.Adam
         if hasattr(self.hparams, 'opt'):
             opt = lambda p: hydra.utils.call(self.hparams.opt, p)
-        if self.model_name == '4dvarnet_OI':
+        if self.model_name in {'4dvarnet_OI','4dvarnet_OI_aug','4dvarnet_OI_unet'}:
             optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
@@ -137,12 +157,10 @@ class LitModelOI(LitModelAugstate):
             return state[0]
 
         _, inputs_Mask, inputs_obs, _ = batch
-
         init_state = inputs_Mask * inputs_obs
         return init_state
 
     def compute_loss(self, batch, phase, state_init=(None,)):
-
         _, inputs_Mask, inputs_obs, targets_GT = batch
 
         # handle patch with no observation
@@ -164,9 +182,8 @@ class LitModelOI(LitModelAugstate):
 
         obs = inputs_Mask * inputs_obs
         new_masks =  inputs_Mask
-
-        # gradient norm field
         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
+        
 
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
@@ -175,7 +192,7 @@ class LitModelOI(LitModelAugstate):
 
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
-
+            
             loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
             loss_AE = self.loss_ae(outputs)
 
@@ -194,5 +211,4 @@ class LitModelOI(LitModelAugstate):
                 ('mseGrad', mseGrad),
                 ('meanGrad', mean_GAll),
                 ])
-
         return loss, outputs, [outputs, hidden_new, cell_new, normgrad], metrics

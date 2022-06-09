@@ -9,6 +9,8 @@ from scipy import stats
 import solver as NN_4DVar
 from metrics import save_netcdf, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, plot_ensemble, maps_score
 
+import matplotlib.pyplot as plt
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class BiLinUnit(torch.nn.Module):
@@ -36,7 +38,6 @@ class BiLinUnit(torch.nn.Module):
 class Encoder(torch.nn.Module):
     def __init__(self, dim_inp, dim_out, dim_ae, dw, dw2, ss, nb_blocks, rateDropout=0.):
         super(Encoder, self).__init__()
-
         self.nb_blocks = nb_blocks
         self.dim_ae = dim_ae
         # self.conv1HR  = torch.nn.Conv2d(dim_inp,self.dim_ae,(2*dw+1,2*dw+1),padding=dw,bias=False)
@@ -66,7 +67,6 @@ class Encoder(torch.nn.Module):
 
         # HR component
         x_hr = self.nn_hr(xinp)
-
         return x_lr + x_hr
 
 class Encoder_OI(torch.nn.Module):
@@ -140,6 +140,7 @@ class Phi_r(torch.nn.Module):
         if self.stochastic == True:
             # pure white noise
             z = torch.randn([x.shape[0],x.shape[1],x.shape[2],x.shape[3]]).to(device)
+            print(z.shape)
             # correlated noise with regularization of the variance
             # z = torch.mul(self.regularize_variance(x),self.correlate_noise(z))
             z = z/torch.std(x)
@@ -169,6 +170,24 @@ class Phi_r_OI(torch.nn.Module):
             x = self.encoder(x)
         x = self.decoder(x)
         return x
+        
+class Phi_r_OI_UNet(torch.nn.Module):
+    def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic=False):
+        super().__init__()
+        self.stochastic = stochastic
+        self.unet = UNet(shape_data, DimAE, dw)
+        self.correlate_noise = CorrelateNoise(shape_data, 10)
+        self.regularize_variance = RegularizeVariance(shape_data, 10)
+
+    def forward(self, x):
+        white = True
+        if self.stochastic == True:
+            # pure white noise
+            z = torch.randn([x.shape[0],x.shape[1],x.shape[2],x.shape[3]]).to(device)
+            z = z/torch.std(x)
+            return self.unet(x+z)
+        else:
+            return self.unet(x)
 
 class Model_H(torch.nn.Module):
     def __init__(self, shape_data):
@@ -249,3 +268,53 @@ class ModelLR(torch.nn.Module):
     def forward(self, im):
         return self.pool(im)
 
+## UNet
+class UNet(torch.nn.Module):
+      def __init__(self,shape_data, DimAE, dW):
+          super(UNet, self).__init__()
+          self.pool1  = torch.nn.AvgPool2d((4,4))
+          #self.conv1  = ConstrainedConv2d(shape_data,2*shape_data*DimAE,(2*dW+1,1),padding=(dW,0),bias=False)
+          self.conv1  = torch.nn.Conv2d(shape_data,2*shape_data*DimAE,(2*dW+1,2*dW+1),padding=(dW,dW),bias=False)
+          self.conv2  = torch.nn.Conv2d(2*shape_data*DimAE,shape_data*DimAE,1,padding=0,bias=False)
+          
+          self.conv21 = torch.nn.Conv2d(shape_data*DimAE,shape_data*DimAE,1,padding=0,bias=False)
+          self.conv22 = torch.nn.Conv2d(shape_data*DimAE,shape_data*DimAE,1,padding=0,bias=False)
+          self.conv23 = torch.nn.Conv2d(shape_data*DimAE,shape_data*DimAE,1,padding=0,bias=False)
+          self.conv3  = torch.nn.Conv2d(2*shape_data*DimAE,shape_data*DimAE,1,padding=0,bias=False)
+          #self.conv4 = torch.nn.Conv1d(4*shape_data*DimAE,8*shape_data*DimAE,1,padding=0,bias=False)
+
+          self.conv2Tr = torch.nn.ConvTranspose2d(shape_data*DimAE,shape_data,(4,4),stride=(4,4),bias=False)          
+          #self.conv5 = torch.nn.Conv1d(2*shape_data*DimAE,2*shape_data*DimAE,3,padding=1,bias=False)
+          #self.conv6 = torch.nn.Conv1d(2*shape_data*DimAE,shape_data,1,padding=0,bias=False)
+          #self.conv6 = torch.nn.Conv1d(16*shape_data*DimAE,shape_data,3,padding=1,bias=False)
+
+          #self.convHR1  = ConstrainedConv2d(shape_data,2*shape_data*DimAE,(2*dW+1,1),padding=(dW,0),bias=False)
+          #self.convHR1  = ConstrainedConv2d(shape_data,2*shape_data*DimAE,(2*dW+1,1),padding=(dW,0),bias=False)
+          self.convHR1  = torch.nn.Conv2d(shape_data,2*shape_data*DimAE,(2*dW+1,1),padding=(dW,0),bias=False)
+          self.convHR2  = torch.nn.Conv2d(2*shape_data*DimAE,shape_data*DimAE,1,padding=0,bias=False)
+          
+          self.convHR21 = torch.nn.Conv2d(shape_data*DimAE,shape_data*DimAE,1,padding=0,bias=False)
+          self.convHR22 = torch.nn.Conv2d(shape_data*DimAE,shape_data*DimAE,1,padding=0,bias=False)
+          self.convHR23 = torch.nn.Conv2d(shape_data*DimAE,shape_data*DimAE,1,padding=0,bias=False)
+          self.convHR3  = torch.nn.Conv2d(2*shape_data*DimAE,shape_data,1,padding=0,bias=False)
+
+      def forward(self, xinp):
+          #x = self.fc1( torch.nn.Flatten(x) )
+          #x = self.pool1( xinp )
+          x = self.pool1( xinp )
+          x = self.conv1( x )
+          x = self.conv2( F.relu(x) )
+          x = torch.cat((self.conv21(x), self.conv22(x) * self.conv23(x)),dim=1)
+          x = self.conv3( x )
+          x = self.conv2Tr( x )
+          #x = self.conv5( F.relu(x) )
+          #x = self.conv6( F.relu(x) )
+          
+          xHR = self.convHR1( xinp )
+          xHR = self.convHR2( F.relu(xHR) )
+          xHR = torch.cat((self.convHR21(xHR), self.convHR22(xHR) * self.convHR23(xHR)),dim=1)
+          xHR = self.convHR3( xHR )
+          
+          x   = torch.add(x,1.,xHR)
+          #x = x.view(-1,shape_data,shapeData[1],1)
+          return x
