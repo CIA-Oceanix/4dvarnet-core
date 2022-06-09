@@ -515,7 +515,8 @@ def save_netcdf_with_sst(saved_path1, gt, obs, oi, pred, sst_feat, lon, lat, tim
     xrdata.to_netcdf(path=saved_path1, mode='w')
     print('... file saved',flush=True)
 
-def save_netcdf_uv_with_sst(saved_path1, gt, u_gt, v_gt, obs, oi, pred, u_pred, v_pred, sst_feat, lon, lat, time,
+def save_netcdf_uv(saved_path1, gt, u_gt, v_gt, obs, oi, pred, lon, lat, time, 
+                   u_pred=None, v_pred=None, sst_feat=None,
                 time_units='days since 2012-10-01 00:00:00'):
     '''
     saved_path1: string
@@ -546,7 +547,9 @@ def save_netcdf_uv_with_sst(saved_path1, gt, u_gt, v_gt, obs, oi, pred, u_pred, 
                    'v_rec': (('time', 'lat', 'lon'), v_pred),
                    'sst_feat': (('time', 'feat', 'lat', 'lon'), sst_feat)}, \
         coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred)),'feat':np.arange(sst_feat.shape[1])})
-
+        
+    if  sst_feat is not None :
+        xrdata['sst_feat'] = (['time', 'feat', 'lat', 'lon'],  sst_feat)
     #xrdata = xr.Dataset( \
     #    data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
     #               'latitude': (('lat', 'lon'), mesh_lat), \
