@@ -1394,19 +1394,16 @@ class LitModelUV(pl.LightningModule):
                 ('l1_samp', l1_samp)])
 
         if ( (phase == 'val') or (phase == 'test') ) & ( self.use_sst == True ) :
-            sst_feat = sst_gt[:,int(self.hparams.dT/2),:,:].view(-1,1,sst_gt.size(2),sst_gt.size(3))
+            out_feat = sst_gt[:,int(self.hparams.dT/2),:,:].view(-1,1,sst_gt.size(2),sst_gt.size(3))
             
             if self.use_sst_obs :
                 #sst_feat = self.model.model_H.conv21( inputs_SST )
-                sst_feat = torch.cat( (sst_feat,self.model.model_H.extract_sst_feature( sst_gt )) , dim = 1 )
+                out_feat = torch.cat( (out_feat,self.model.model_H.extract_sst_feature( sst_gt )) , dim = 1 )
                 ssh_feat = self.model.model_H.extract_state_feature( outputsSLRHR )
-                out_feat = torch.cat( (sst_feat,ssh_feat) , dim=1)
+                out_feat = torch.cat( (out_feat,ssh_feat) , dim=1)
                 
-                if self.model_sampling_uv is not None :
-                    out_feat = torch.cat( (sst_feat,w_sampling_uv) , dim=1)
-            else:
-                if self.model_sampling_uv is not None :
-                    out_feat = w_sampling_uv
+            if self.model_sampling_uv is not None :
+                out_feat = torch.cat( (out_feat,w_sampling_uv) , dim=1)
                     
             return loss, [outputs,outputs_u,outputs_v], [outputsSLRHR, hidden_new, cell_new, normgrad], metrics, out_feat
             
