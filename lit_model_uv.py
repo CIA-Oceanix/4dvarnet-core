@@ -184,18 +184,31 @@ def get_cropped_hanning_mask(patch_size, crop, **kwargs):
 
 class Div_uv(torch.nn.Module):
     def __init__(self):
-        super(Div_uv, self).__init__()
+        super(Div_uv, self).__init__(filter='diff-non-centered')
 
-        a = np.array([[1., 0., -1.], [2., 0., -2.], [1., 0., -1.]])
-        self.convGx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
-        self.convGx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+        if filter == 'sobel':
+            a = np.array([[1., 0., -1.], [2., 0., -2.], [1., 0., -1.]])
+            self.convGx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+            self.convGx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
 
-        b = np.array([[1., 2., 1.], [0., 0., 0.], [-1., -2., -1.]])
-        self.convGy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
-        self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
-
+            b = np.array([[1., 2., 1.], [0., 0., 0.], [-1., -2., -1.]])
+            self.convGy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+            self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+        elif filter == 'diff-non-centered':
+            a = np.array([[0., 0., 0.], [0.3, 0.4, -0.7], [0., 0., 0.]])
+            self.convGx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+            self.convGx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+            b = np.array([[0., 0.3, 0.], [0., 0.4, 0.], [0., -0.7, 0.]])
+            self.convGy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+            self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+        elif filter == 'diff':
+            a = np.array([[0., 0., 0.], [0., 1., -1.], [0., 0., 0.]])
+            self.convGx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+            self.convGx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+            b = np.array([[0., 0.3, 0.], [0., 1., 0.], [0., -1., 0.]])
+            self.convGy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+            self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
     def forward(self, u,v):
-
         
         if u.size(1) == 1:
             G_x = self.convGx(u)
