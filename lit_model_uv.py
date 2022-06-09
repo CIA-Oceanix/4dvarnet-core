@@ -18,7 +18,7 @@ from omegaconf import OmegaConf
 from scipy import stats
 import solver as NN_4DVar
 import metrics
-from metrics import save_netcdf,save_netcdf_with_obs,save_netcdf_with_sst, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
+from metrics import save_netcdf,save_netcdf_with_obs,save_netcdf_uv_with_sst, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
 from models import Model_H, Model_HwithSST, Model_HwithSSTBN,Phi_r, ModelLR, Gradient_img, Model_HwithSSTBN_nolin_tanh, Model_HwithSST_nolin_tanh, Model_HwithSSTBNandAtt
 from models import Model_HwithSSTBNAtt_nolin_tanh
 
@@ -1073,6 +1073,12 @@ class LitModelUV(pl.LightningModule):
         self.obs_inp = self.test_xr_ds.obs_inp.data#[2:42,:,:]
         self.x_oi = self.test_xr_ds.oi.data#[2:42,:,:]
         self.x_rec = self.test_xr_ds.pred.data#[2:42,:,:]
+        
+        self.u_gt = self.test_xr_ds.u_gt.data
+        self.v_gt = self.test_xr_ds.v_gt.data
+        self.u_rec = self.test_xr_ds.pred_u.data#[2:42,:,:]
+        self.v_rec = self.test_xr_ds.pred_v.data#[2:42,:,:]
+
         self.x_rec_ssh = self.x_rec
         
         #print('..... Shape evaluated tensors: %dx%dx%d'%(self.x_gt.shape[0],self.x_gt.shape[1],self.x_gt.shape[2]))
@@ -1099,37 +1105,48 @@ class LitModelUV(pl.LightningModule):
                 save_netcdf_with_obs(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh,
                          lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
             else:
-                if 1*1 :
-                    def extract_seq(out,key,dw=20):
-                        seq = torch.cat([chunk[key] for chunk in outputs]).numpy()
-                        seq = seq[:,:,dw:seq.shape[2]-dw,dw:seq.shape[2]-dw]
+                if 1*0 : 
+                    if 1*0 :
+                        def extract_seq(out,key,dw=20):
+                            seq = torch.cat([chunk[key] for chunk in outputs]).numpy()
+                            seq = seq[:,:,dw:seq.shape[2]-dw,dw:seq.shape[2]-dw]
+                            
+                            return seq
                         
-                        return seq
-                    
-                    self.x_sst_feat_ssh = extract_seq(outputs,'sst_feat',dw=20)
-        
-                    self.x_gt = extract_seq(outputs,'gt',dw=20)
-                    self.x_gt = self.x_gt[:,int(self.hparams.dT/2),:,:]
-        
-                    self.obs_inp = extract_seq(outputs,'obs_inp',dw=20)
-                    self.obs_inp = self.obs_inp[:,int(self.hparams.dT/2),:,:]
-        
-                    self.x_oi = extract_seq(outputs,'oi',dw=20)
-                    self.x_oi = self.x_oi[:,int(self.hparams.dT/2),:,:]
-        
-                    self.x_rec = extract_seq(outputs,'pred',dw=20)
-                    self.x_rec = self.x_rec[:,int(self.hparams.dT/2),:,:]
-                    self.x_rec_ssh = self.x_rec
-                else:
-                    self.x_gt = self.x_gt[2:42,:,:]
-                    self.obs_inp = self.obs_inp[2:42,:,:]
-                    self.x_oi = self.x_oi[2:42,:,:]
-                    self.x_rec = self.x_rec[2:42,:,:]
-                    self.x_rec_ssh = self.x_rec[2:42,:,:]
+                        self.x_sst_feat_ssh = extract_seq(outputs,'sst_feat',dw=20)
+            
+                        self.x_gt = extract_seq(outputs,'gt',dw=20)
+                        self.x_gt = self.x_gt[:,int(self.hparams.dT/2),:,:]
+            
+                        self.obs_inp = extract_seq(outputs,'obs_inp',dw=20)
+                        self.obs_inp = self.obs_inp[:,int(self.hparams.dT/2),:,:]
+            
+                        self.x_oi = extract_seq(outputs,'oi',dw=20)
+                        self.x_oi = self.x_oi[:,int(self.hparams.dT/2),:,:]
+            
+                        self.x_rec = extract_seq(outputs,'pred',dw=20)
+                        self.x_rec = self.x_rec[:,int(self.hparams.dT/2),:,:]
+                        self.x_rec_ssh = self.x_rec
+                        
+                    else:
+                        
+                        
+                        self.x_gt = self.x_gt[2:42,:,:]
+                        self.obs_inp = self.obs_inp[2:42,:,:]
+                        self.x_oi = self.x_oi[2:42,:,:]
+                        self.x_rec = self.x_rec[2:42,:,:]
+                        self.x_rec_ssh = self.x_rec[2:42,:,:]
 
                 print('... Save nc file with all results : '+path_save1)
-                save_netcdf_with_sst(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh, sst_feat=self.x_sst_feat_ssh,
-                         lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
+                print( self.x_rec.shape )
+                print( self.v_rec.shape )
+                print( self.u_gt.shape )
+                save_netcdf_uv_with_sst(saved_path1=path_save1, 
+                                        gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh, 
+                                        u_gt=self.u_gt, v_gt=self.v_gt, 
+                                        u_rec=self.u_rec, v_rec=self.v_rec,
+                                        sst_feat=self.x_sst_feat_ssh,
+                                        lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
 
 
     def teardown(self, stage='test'):
