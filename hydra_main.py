@@ -11,38 +11,27 @@ from omegaconf import OmegaConf
 import hydra_config
 import numpy as np
 
+
 def get_profiler():
     from pytorch_lightning.profiler import PyTorchProfiler
     print( torch.profiler.ProfilerActivity.CPU,)
     return PyTorchProfiler(
             "results/profile_report",
             schedule=torch.profiler.schedule(
-<<<<<<< HEAD
                 skip_first=2,
                 wait=2,
                 warmup=2,
                 active=2),
-=======
-                wait=1,
-                warmup=1,
-                active=1),
->>>>>>> ac1510c... generate first profiles
             activities=[
                 torch.profiler.ProfilerActivity.CPU,
                 torch.profiler.ProfilerActivity.CUDA,
             ],
-<<<<<<< HEAD
             # with_stack=True,
-=======
->>>>>>> ac1510c... generate first profiles
             on_trace_ready=torch.profiler.tensorboard_trace_handler('./tb_profile'),
             record_shapes=True,
             profile_memory=True,
     )
-<<<<<<< HEAD
-=======
 
->>>>>>> ac1510c... generate first profiles
 class FourDVarNetHydraRunner:
     def __init__(self, params, dm, lit_mod_cls, callbacks=None, logger=None):
         self.cfg = params
@@ -184,7 +173,9 @@ class FourDVarNetHydraRunner:
 
         num_gpus = gpus if isinstance(gpus, (int, float)) else  len(gpus) if hasattr(gpus, '__len__') else 0
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
-        trainer_kwargs_final = {**dict(num_nodes=num_nodes, gpus=gpus, logger=self.logger, strategy=accelerator, auto_select_gpus=(num_gpus * num_nodes) > 0,
+        #trainer_kwargs_final = {**dict(num_nodes=num_nodes, gpus=gpus, logger=self.logger, strategy=accelerator, auto_select_gpus=(num_gpus * num_nodes) > 0,
+        #                     callbacks=[checkpoint_callback, lr_monitor]),  **trainer_kwargs}
+        trainer_kwargs_final = {**dict(num_nodes=num_nodes, gpus=gpus, logger=self.logger, auto_select_gpus=(num_gpus * num_nodes) > 0,
                              callbacks=[checkpoint_callback, lr_monitor]),  **trainer_kwargs}
         print(trainer_kwargs)
         print(trainer_kwargs_final)
@@ -199,7 +190,7 @@ class FourDVarNetHydraRunner:
         :param dataloader: Dataloader on which to run the test Checkpoint from which to resume
         :param trainer_kwargs: (Optional)
         """
-
+    
         if _trainer is not None:
             _trainer.test(mod, dataloaders=self.dataloaders[dataloader])
             return

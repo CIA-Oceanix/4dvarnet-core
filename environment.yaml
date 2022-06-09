@@ -31,8 +31,6 @@ dependencies:
     - torchmetrics=0.6.0
     - --find-links https://data.pyg.org/whl/torch-1.10.0+cu113.html
     - eccodes==1.2.0
-    - pytorch-lightning==1.4.9
-    - cupy-cuda113
     - omegaconf
     - einops
     - hydra-submitit-launcher

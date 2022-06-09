@@ -1,10 +1,11 @@
 # @package _global_
-xp_name: oi_gp_ref
+xp_name: oi_gp_4dvarnet
 datamodule:
   resize_factor: 1
 defaults:
   - /params: fourdvarnet_oi_gp
   - /domain@datamodule.dim_range: gp
-  - /training: oi_gp_ref
+  - /domain@params.test_domain: gp
+  - /training: oi_gp_4dvarnet
   - _self_
 

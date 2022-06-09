@@ -4,17 +4,16 @@ params:
   norm_obs: 'l2'
   norm_prior: 'l2'
   n_fourdvar_iter: 2
-lit_mod_cls: lit_model_sst.LitModelWithSST
+  patch_weight:
+    _target_: lit_model_augstate.get_constant_crop
+    patch_size: ${datamodule.slice_win}
+    crop:
+      lat: 20
+      lon: 20
+      time: 2
+
+lit_mod_cls: lit_model_augstate.LitModelAugstate
 datamodule:
-  _target_: dataloading.FourDVarNetDataModule
-  slice_win:
-    lat: 200
-    lon: 200
-    time: 5
-  strides:
-    lat: 200
-    lon: 200
-    time: 1
   train_slices: ${splits.train_slices}
   test_slices: ${splits.test_slices}
   val_slices: ${splits.val_slices}

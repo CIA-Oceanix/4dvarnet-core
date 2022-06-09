@@ -14,6 +14,7 @@ defaults:
   - /params: fourdvarnet_stoch_osse
   - /splits: osse
   - /domain@datamodule.dim_range: gf
-  - /training: stoch_4DEnVar_osse
+  - /domain@params.test_domain: gf
+  - /training: stoch_En4DVar_osse
   - _self_
 

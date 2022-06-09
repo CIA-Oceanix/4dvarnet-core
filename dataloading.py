@@ -169,7 +169,6 @@ class XrDataset(Dataset):
             self.ds = self.ds_reflected.assign_coords(
                 lon=self.padded_coords['lon'], lat=self.padded_coords['lat']
             )
-
             # III) get lon-lat for the final reconstruction
             dX = ((slice_win['lon']-strides['lon'])/2)*self.resolution
             dY = ((slice_win['lat']-strides['lat'])/2)*self.resolution
@@ -180,12 +179,14 @@ class XrDataset(Dataset):
 
 
         self.ds = self.ds.transpose("time", "lat", "lon")
-
         if self.interp_na:
             self.ds = interpolate_na_2D(self.ds)
 
         if compute:
             self.ds = self.ds.compute()
+
+        self.ds = self.ds.transpose("time", "lat", "lon")
+
 
         self.slice_win = slice_win
         self.strides = strides or {}
@@ -275,8 +276,9 @@ class FourDVarNetDataset(Dataset):
             resize_factor=resize_factor,
             compute=compute,
             auto_padding=use_auto_padding,
-            interp_na=True,
+            interp_na=False,
         )
+
         self.obs_mask_ds = XrDataset(
             obs_mask_path, obs_mask_var,
             slice_win=slice_win,
@@ -287,6 +289,7 @@ class FourDVarNetDataset(Dataset):
             resize_factor=resize_factor,
             compute=compute,
             auto_padding=use_auto_padding,
+            interp_na=False,
         )
 
         self.oi_ds = XrDataset(
@@ -313,7 +316,7 @@ class FourDVarNetDataset(Dataset):
                 resize_factor=resize_factor,
                 compute=compute,
                 auto_padding=use_auto_padding,
-                interp_na=True,
+                interp_na=False,
             )
         else:
             self.sst_ds = None
@@ -393,7 +396,6 @@ class FourDVarNetDataset(Dataset):
             pp_sst = self.get_pp(self.norm_stats_sst)
             _sst_item = pp_sst(self.sst_ds[item % length])
             sst_item = np.where(~np.isnan(_sst_item), _sst_item, 0.)
-
             return oi_item, obs_mask_item, obs_item, gt_item, sst_item
 
 class FourDVarNetDataModule(pl.LightningDataModule):
@@ -572,7 +574,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     resolution=self.resolution,
                     resize_factor=self.resize_factor,
                     compute=self.compute,
-                    use_auto_padding=self.use_auto_padding,
+                    #use_auto_padding=self.use_auto_padding,
+                    use_auto_padding=True,
                     pp=self.pp,
                 ) for sl in slices]
             )

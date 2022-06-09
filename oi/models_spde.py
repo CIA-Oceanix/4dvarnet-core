@@ -365,9 +365,8 @@ class Phi_r3(torch.nn.Module):
             H = torch.reshape(H,(n_b,2,2,n_x,n_y,n_t))
             return x, [kappa, m, H]
         else:
-            with torch.no_grad():
-                H = torch.stack(n_b*[self.H])
-                H = torch.reshape(H,(n_b,2,2,n_x,n_y))
+            H = torch.stack(n_b*[self.H])
+            H = torch.reshape(H,(n_b,2,2,n_x,n_y))
             return x, [H]
 
 class Model_H(torch.nn.Module):

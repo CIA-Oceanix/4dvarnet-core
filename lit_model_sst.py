@@ -1,5 +1,6 @@
 from models import *
 from lit_model import LitModel
+import kornia
 
 class LitModelWithSST(LitModel):
 
@@ -9,7 +10,7 @@ class LitModelWithSST(LitModel):
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
             Phi_r(self.shapeData[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
                   self.hparams.nbBlocks, self.hparams.dropout_phi_r),
-            Model_HwithSST(self.shapeData[0], self.shapeData[0]),
+            Model_HwithSST(self.shapeData[0], dT=self.hparams.dT),
             NN_4DVar.model_GradUpdateLSTM(self.shapeData, self.hparams.UsePriodicBoundary,
                                           self.hparams.dim_grad_solver, self.hparams.dropout),
             None, None, self.shapeData, self.hparams.n_grad)
@@ -88,6 +89,8 @@ class LitModelWithSST(LitModel):
             outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
             outputs = outputsSLR + outputs[:, self.hparams.dT:, :, :]
 
+            outputs = kornia.filters.median_blur(outputs, (5,5))
+
             # reconstruction losses
             g_outputs = self.gradient_img(outputs)
             loss_All = NN_4DVar.compute_WeightedLoss((outputs - targets_GT), self.w_loss)
@@ -127,7 +130,7 @@ class LitModelWithSST(LitModel):
                 loss_Grad = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
 
                 #loss = self.hparams.alpha_mse_ssh * loss + self.hparams.alpha_mse_gssh * loss_Grad + 0.5 * self.hparams.alpha_proj * loss_AE + self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
-                loss = self.hparams.alpha_mse_ssh * loss  + 0.5 * self.hparams.alpha_proj * loss_AE + self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
+                loss = self.hparams.alpha_mse_ssh * loss  + self.hparams.alpha_mse_gssh *loss_Grad + 0.5 * self.hparams.alpha_proj * loss_AE + self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR 
 
             # metrics
             mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_GT, self.w_loss)

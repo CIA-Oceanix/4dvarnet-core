@@ -1,0 +1,54 @@
+# @package _global_
+xp_name: ose_gf_wsst
+
+lit_mod_cls: lit_model_augstate.LitModelAugstate
+
+datamodule:
+  dl_kwargs:
+    batch_size: 2
+  aug_train_data: False
+
+params:
+  files_cfg:
+    oi_path: ${file_paths.oi_ose_osse_nadswot_path}
+    oi_var: ssh
+    oi_decode: false
+    obs_mask_path: ${file_paths.obs_mask_ose_osse_nadswot_path}
+    obs_mask_var: ssh
+    obs_mask_decode: false
+    gt_path: ${file_paths.gt_ose_osse_path}
+    gt_var: ssh
+    gt_decode: false
+    sst_path: ${file_paths.sst_ose_osse_path}
+    sst_var: sst
+    sst_decode: false
+  dT: 7
+  patch_weight:
+    _target_: lit_model_augstate.get_constant_crop
+    patch_size: ${datamodule.slice_win}
+    crop:
+      lat: 20
+      lon: 20
+      time: 2
+  model: 4dvarnet_sst
+  sst: true
+  k_n_grad: 3
+  n_grad: 5
+  val_diag_freq: 5
+  padding_mode: reflect
+  alpha_mse_ssh: 1. # loss
+  alpha_mse_gssh: .1
+  norm_obs: l2
+  norm_prior: l2
+  automatic_optimization: true
+
+defaults:
+  - /xp/xp_aug/base_xp
+  - /splits/ose_osse
+  - /xp/xp_aug/aug/with_aug_state
+  - /xp/xp_aug/dl/d240_p240x5_s240x1_osmosis
+  - /params/fourdvarnet_ose
+  - /training/ose
+  - /xp/xp_aug/loss/map
+  - _self_
+

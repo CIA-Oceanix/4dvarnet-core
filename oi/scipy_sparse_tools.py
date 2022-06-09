@@ -87,6 +87,7 @@ class cupy_solve_sparse(Function):
         A, b, x = ctx.saved_tensors
         gradb = cupy_solve_sparse.apply(A.t(), xbar)
         gradA = -gradb[:,None] * x[None,:]
+        print(gradA)
         return gradA.to(device), gradb.to(device)
 
 # provide Cholesky decomposition of sparse matrix

@@ -14,6 +14,7 @@ defaults:
   - /params: fourdvarnet_osse_wuc.yaml
   - /splits: osse
   - /domain@datamodule.dim_range: gf
+  - /domain@params.test_domain: gf
   - /training: 4DEnVar_osse_wuc
   - _self_
 
