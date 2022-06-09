@@ -29,7 +29,7 @@ params:
   n_grad: 5
   val_diag_freq: 5
   padding_mode: reflect
-  alpha_mse_ssh: 5. 
+  alpha_mse_ssh: 20. 
   alpha_mse_gssh: 1000.
   norm_obs: l2
   norm_prior: l2

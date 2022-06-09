@@ -446,7 +446,9 @@ class LitModel(pl.LightningModule):
                                   xtQ
                                  )
                 xtQx.append(torch.log(xtQx_[0,0]))
-            loss_ML = torch.mean(torch.stack(xtQx))
+            L = cholesky_sparse(Q)
+            det_Q = torch.sum(torch.diag(L))**2
+            loss_ML = det_Q + torch.mean(torch.stack(xtQx))
             # variance loss
             loss_var = torch.abs(1.-torch.var(x_simu))
             '''

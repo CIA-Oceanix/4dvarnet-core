@@ -5,7 +5,7 @@
 #SBATCH --gres=gpu:1                # nombre de GPU à réserver (un unique GPU ici)
 #SBATCH --ntasks-per-node=1         # nombre de coeurs à réserver (un quart du noeud)
 #SBATCH --cpus-per-task=10
-#SBATCH --time=06:00:00
+#SBATCH --time=01:00:00
 #SBATCH --hint=nomultithread
 #SBATCH -C v100-32g
 #SBATCH --qos=qos_gpu-t3
@@ -27,13 +27,8 @@ export HYDRA_FULL_ERROR=1
 # config files stored in config_q --> examples: --config=q.nad_swot
 
 # train the model
-#srun python main.py --config=$1 --max_epochs=30 --progress_bar_refresh_rate=5 run
-#srun python hydra_main.py xp=ose_gf_wsst file_paths=jz_ose entrypoint=run entrypoint.max_epochs=1
-#srun python hydra_main.py xp=stoch_En4DVar_osse_gf file_paths=jz_osse entrypoint=run entrypoint.max_epochs=3
-srun python hydra_main.py xp=xp_ose/ose_osse_nadswot_gf_wsst file_paths=jz_ose entrypoint=run entrypoint.max_epochs=120
-#srun python hydra_main.py xp=xp_ose/ose_osse_nadswot_natl_wsst file_paths=jz_ose entrypoint=test #entrypoint.max_epochs=30
-#srun python hydra_main.py xp=sla_natl file_paths=jz_osse entrypoint=run entrypoint.max_epochs=50
+#srun python hydra_main.py xp=xp_stoch/stoch_En4DVar_osse_gf file_paths=jz_osse entrypoint=run entrypoint.max_epochs=3
+#srun python hydra_main.py xp=xp_ose/ose_osse_nadswot_gf_wsst file_paths=jz_ose entrypoint=run entrypoint.max_epochs=120
 # test the model
-#srun python main.py --config=$1 --ckpt_path=checkpoints/GF_OSE_OSSE.ckpt --progress_bar_refresh_rate=5 test
-#srun python hydra_main.py xp=sla_natl file_paths=jz_osse entrypoint=test entrypoint.ckpt_path="lightning_logs/version_1011512/checkpoints/modelSLAInterpGF-Exp3-epoch\=05-val_loss\=0.16.ckpt"
+srun python hydra_main.py xp=xp_ose/osse_nadswot_gf_wosst file_paths=jz_ose entrypoint=test entrypoint.ckpt_path="/gpfsstore/rech/yrf/commun/repo_xp_new/4DVarNet_ckpt_GF_4nadirs1swot.ckpt"
 

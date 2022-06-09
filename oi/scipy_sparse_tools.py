@@ -55,10 +55,10 @@ def spspmm(A,B):
 
     return torch.sparse.FloatTensor(indexC.long(), valueC, torch.Size([m,n])).to(device)
 
-# cast torch_sparse COO matrix to scipy sparse csc matrix
+# cast torch_sparse COO matrix to scipy sparse csc matrix
 def sparse_torch2scipy(A):
-    B = scipy.sparse.csc_matrix((A.detach().cpu().coalesce().values().data.numpy(),
-                         A.detach().cpu().coalesce().indices().data.numpy()),
+    B = scipy.sparse.csc_matrix((A.coalesce().values(),
+                         A.coalesce().indices()),
                          shape=(A.size()[0],A.size()[0]))
     return B
 
@@ -111,7 +111,7 @@ class cholesky_sparse(Function):
 
     @staticmethod
     def backward(ctx, grad):
-        Lbar = grad.detach().cpu()
+        Lbar = grad
         A, L = ctx.saved_tensor
         sp_L = scipy.sparse.csc_matrix((L.coalesce().values(),
                                 L.coalesce().indices()),
