@@ -300,8 +300,8 @@ class LitModelAugstate(pl.LightningModule):
 
     def validation_epoch_end(self, outputs):
         print(f'epoch end {self.global_rank} {len(outputs)}')
-        if (self.current_epoch + 1) % self.hparams.val_diag_freq == 0:
-            return self.diag_epoch_end(outputs, log_pref='val')
+        # if (self.current_epoch + 1) % self.hparams.val_diag_freq == 0:
+            # return self.diag_epoch_end(outputs, log_pref='val')
 
 
     def gather_outputs(self, outputs, log_pref):
@@ -565,6 +565,7 @@ class LitModelAugstate(pl.LightningModule):
 
         #targets_OI, inputs_Mask, targets_GT = batch
         # handle patch with no observation
+        # print(f'{targets_GT.isnan().sum(axis=(1,2,3))}')
         if inputs_Mask.sum().item() == 0:
             return (
                     None,

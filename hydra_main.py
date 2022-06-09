@@ -173,7 +173,7 @@ class FourDVarNetHydraRunner:
         num_gpus = gpus if isinstance(gpus, (int, float)) else  len(gpus) if hasattr(gpus, '__len__') else 0
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
         trainer_kwargs_final = {**dict(num_nodes=num_nodes, gpus=gpus, logger=self.logger, strategy=accelerator, auto_select_gpus=(num_gpus * num_nodes) > 0,
-                             callbacks=[checkpoint_callback, lr_monitor]),  **trainer_kwargs}
+                             callbacks=[checkpoint_callback, lr_monitor], gradient_clip_val=0.5),  **trainer_kwargs}
         print(trainer_kwargs)
         print(trainer_kwargs_final)
         trainer = pl.Trainer(**trainer_kwargs_final)

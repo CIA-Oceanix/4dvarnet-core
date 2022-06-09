@@ -6,7 +6,7 @@ params:
   dT: 29
   patch_weight:
     crop:
-      time: 3
+      time: 10
   k_n_grad: 3
   n_grad: 5
   val_diag_freq: 5 
