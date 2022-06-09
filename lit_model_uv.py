@@ -1097,6 +1097,8 @@ class LitModelUV(pl.LightningModule):
         if self.scale_dwscaling_sst > 1. :
             print('.... Using downscaled SST by %.1f'%self.scale_dwscaling_sst)
         print('..... Log directory: '+self.logger.log_dir)
+        print( self.save_rec_netcdf )
+        
         if self.save_rec_netcdf == True :
             #path_save1 = self.logger.log_dir + f'/test_res_all.nc'
             path_save1 = self.hparams.path_save_netcdf.replace('.ckpt','_res_4dvarnet_all.nc')

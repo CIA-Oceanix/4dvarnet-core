@@ -29,7 +29,7 @@ params:
   DimAE: 50
   dim_obs_sst_feat: 2#10
   dim_grad_solver: 150
-  save_rec_netcdf: True#False#
+  save_rec_netcdf: True #False#
   sig_filter_laplacian: 1.
   scale_dwscaling_sst: 1.
   sig_filter_div_diag: 1.
