@@ -1297,7 +1297,7 @@ class LitModelUV(pl.LightningModule):
             mask_sampling_uv = 1. - torch.nn.functional.threshold( 1.0 - w_sampling_uv , 0.8 , 0.)
             obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI) , u_gt_wo_nan , v_gt_wo_nan ) ,dim=1)
             
-            print('%f '%torch.mean(w_sampling_uv))
+            #print('%f '%torch.mean(w_sampling_uv))
         else:
             mask_sampling_uv = torch.zeros_like(u_gt) 
             obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI), 0. * targets_OI ,  0. * targets_OI ) ,dim=1)
