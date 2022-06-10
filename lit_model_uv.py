@@ -1289,7 +1289,6 @@ class LitModelUV(pl.LightningModule):
         u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
         v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
         
-        state = self.get_init_state(batch, state_init)
 
         obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI),0. * targets_OI,0. * targets_OI) ,dim=1)
         new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, torch.zeros_like(inputs_Mask), torch.zeros_like(inputs_Mask)) , dim=1)
@@ -1303,6 +1302,8 @@ class LitModelUV(pl.LightningModule):
             mask_sampling_uv = torch.zeros_like(u_gt) 
             
         new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
+
+        state = self.get_init_state(batch, state_init)
 
         if self.aug_state :
             obs = torch.cat( (obs, 0. * targets_OI,) ,dim=1)
@@ -1381,7 +1382,7 @@ class LitModelUV(pl.LightningModule):
                 loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
                     yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
                 )
-                print('  %f'%torch.mean( w_sampling_uv ))
+                #print('  %f'%torch.mean( w_sampling_uv ))
                 
                 if self.model_sampling_uv is not None :
                     loss_l1_sampling_uv = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) *  torch.mean( w_sampling_uv )
