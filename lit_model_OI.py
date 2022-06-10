@@ -31,7 +31,7 @@ def get_4dvarnet_OI(hparams):
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
                 
-def get_4dvarnet_OI_aug(hparams):
+def get_4dvarnet_OI_phir(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                     hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
@@ -52,7 +52,7 @@ def get_4dvarnet_OI_unet(hparams):
 class LitModelOI(LitModelAugstate):
     MODELS = {
             '4dvarnet_OI': get_4dvarnet_OI,
-            '4dvarnet_OI_aug': get_4dvarnet_OI_aug,
+            '4dvarnet_OI_phir': get_4dvarnet_OI_phir,
             '4dvarnet_OI_unet': get_4dvarnet_OI_unet,
              }
 
@@ -63,7 +63,7 @@ class LitModelOI(LitModelAugstate):
         opt = torch.optim.Adam
         if hasattr(self.hparams, 'opt'):
             opt = lambda p: hydra.utils.call(self.hparams.opt, p)
-        if self.model_name in {'4dvarnet_OI','4dvarnet_OI_aug','4dvarnet_OI_unet'}:
+        if self.model_name in {'4dvarnet_OI','4dvarnet_OI_phir','4dvarnet_OI_unet'}:
             optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
