@@ -1185,7 +1185,7 @@ class LitModelUV(pl.LightningModule):
                 self.latest_metrics
     )
 
-    def get_init_state(self, batch, state=(None,)):
+    def get_init_state(self, batch, state=(None,),mask_sampling = None):
         if state[0] is not None:
             return state[0]
 
@@ -1193,19 +1193,24 @@ class LitModelUV(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt = batch
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt = batch
-
+        
+        if mask_sampling is not None :
+            init_u = mask_sampling * u_gt
+            init_v = mask_sampling * v_gt
+        else:
+            init_u = torch.zeros_like(targets_GT)
+            init_v = torch.zeros_like(targets_GT)
+            
         if self.aug_state :
             init_state = torch.cat((targets_OI,
                                     inputs_Mask * (inputs_obs - targets_OI),
                                     inputs_Mask * (inputs_obs - targets_OI),
-                                    torch.zeros_like(targets_GT),
-                                    torch.zeros_like(targets_GT)),
+                                    init_u,init_v),
                                    dim=1)
         else:
             init_state = torch.cat((targets_OI,
                                     inputs_Mask * (inputs_obs - targets_OI),
-                                    torch.zeros_like(targets_GT),
-                                    torch.zeros_like(targets_GT)),
+                                    init_u,init_v),
                                    dim=1)
 
         if self.use_sst_state :
@@ -1376,11 +1381,13 @@ class LitModelUV(pl.LightningModule):
                 loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
                     yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
                 )
+                print('  %f'%torch.mean( w_sampling_uv ))
                 
                 if self.model_sampling_uv is not None :
                     loss_l1_sampling_uv = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) *  torch.mean( w_sampling_uv )
                     loss_l1_sampling_uv = torch.nn.functional.relu( loss_l1_sampling_uv - self.hparams.thr_l1_sampling_uv )
                     loss_l0_sampling_uv = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean( mask_sampling_uv ) 
+
 
                 # total loss
                 loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
