@@ -962,8 +962,11 @@ class LitModelUV(pl.LightningModule):
             v = gaussian_filter(v, sigma=sigma)
             ssh = gaussian_filter(ssh, sigma=sigma)
             
-            dssh_dx = 1. * ndimage.sobel(ssh,axis=2)
-            dssh_dy = 1. * ndimage.sobel(ssh,axis=1) 
+            #dssh_dx = 1. * ndimage.sobel(ssh,axis=2)
+            #dssh_dy = 1. * ndimage.sobel(ssh,axis=1) 
+            dssh_dx = compute_gradx(ssh)
+            dssh_dy = compute_grady(ssh)
+
             
             corr_x_u = float( np.mean( u * dssh_dx) / np.sqrt( np.mean( dssh_dx**2 ) * np.mean( u**2 ) ) )
             corr_x_v = float( np.mean( v * dssh_dx) / np.sqrt( np.mean( dssh_dx**2 ) * np.mean( v**2 ) ) )
