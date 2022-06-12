@@ -9,7 +9,8 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_18/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn-att_10-grad_05_03_150-epoch=106-val_loss=1.3091.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_23/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=85-val_loss=1.1946.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_36/checkpoints/modelUVwSSTGF-unet1_050-augdata-sampling_sst_10_005_-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=05-val_loss=1.8202.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_55/checkpoints/modelUVwSSTGF-unet1_050-augdata-sampling_sst_10_010-augstate-dT07-grad_05_03_150-epoch=109-val_loss=1.4693.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_55/checkpoints/modelUVwSSTGF-unet1_050-augdata-sampling_sst_10_010-augstate-dT07-grad_05_03_150-epoch=109-val_loss=1.4693.ckpt'
+   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_56/checkpoints/modelUVwSSTGF-unet1_050-augdata-sampling_sst_10_010-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=95-val_loss=0.8696.ckpt'
 params:
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
   k_n_grad: 3
