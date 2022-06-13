@@ -169,6 +169,11 @@ class FourDVarNetHydraRunner:
 
         mod = self._get_model(ckpt_path=ckpt_path)
         print('...... Current ckpt filename '+self.filename_chkpt)
+        
+        if 1*1 :
+            print('.... Update parameters after loading chkpt model')
+            mod.hparams.thr_l1_sampling_uv =  self.cfg.thr_l1_sampling_uv
+                
         self.filename_chkpt = mod.update_filename_chkpt( self.filename_chkpt )
         print('...... New ckpt filename '+self.filename_chkpt)
         
