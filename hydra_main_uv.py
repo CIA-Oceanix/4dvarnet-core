@@ -92,6 +92,8 @@ class FourDVarNetHydraRunner:
         :param dataloader: Dataloader on which to run the test Checkpoint from which to resume
         :param trainer_kwargs: (Optional)
         """
+        print('XXXXXXX run')
+
         mod, trainer = self.train(ckpt_path, **trainer_kwargs)
         self.test(dataloader=dataloader, _mod=mod, _trainer=trainer)
 
@@ -101,7 +103,7 @@ class FourDVarNetHydraRunner:
         :param ckpt_path: (Optional) Checkpoint path to load
         :return: lightning module
         """
-        print('XXXXXXX XXXXXXXXXXXXXXXXXXXXX')
+        print('XXXXXXX get_model')
         print('get_model: ', ckpt_path)
         if ckpt_path:
             mod = self.lit_cls.load_from_checkpoint(ckpt_path,
@@ -168,7 +170,7 @@ class FourDVarNetHydraRunner:
         :return:
         """
         
-        print('XXXXXXX XXXXXXXXXXXXXXXXXXXXX')
+        print('XXXXXXX train')
 
         mod = self._get_model(ckpt_path=ckpt_path)
         print('...... Current ckpt filename (test): '+self.filename_chkpt)
