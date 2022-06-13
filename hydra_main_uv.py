@@ -101,6 +101,7 @@ class FourDVarNetHydraRunner:
         :param ckpt_path: (Optional) Checkpoint path to load
         :return: lightning module
         """
+        print('XXXXXXX XXXXXXXXXXXXXXXXXXXXX')
         print('get_model: ', ckpt_path)
         if ckpt_path:
             mod = self.lit_cls.load_from_checkpoint(ckpt_path,
