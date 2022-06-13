@@ -166,6 +166,8 @@ class FourDVarNetHydraRunner:
         :param trainer_kwargs: (Optional) Trainer arguments
         :return:
         """
+        
+        print('XXXXXXX XXXXXXXXXXXXXXXXXXXXX')
 
         mod = self._get_model(ckpt_path=ckpt_path)
         print('...... Current ckpt filename (test): '+self.filename_chkpt)
