@@ -325,7 +325,6 @@ def plot_maps_oi(gt,obs,pred,lon,lat,resfile,grad=False,
 
 def animate_maps(gt, obs, oi, pred, lon, lat, resfile,
                  crop=None, orthographic=True, dw=4, grad=False, supervised=True):
-
     if dw>1:
         # decrease the resolution
         Nlon = len(lon)
@@ -421,12 +420,127 @@ def animate_maps(gt, obs, oi, pred, lon, lat, resfile,
     sm = plt.cm.ScalarMappable(cmap=cm, norm=norm)
     sm._A = []
     cbar = fig.colorbar(sm, cax=cbar_ax, orientation='horizontal', pad=3.0)
+    ani = animation.FuncAnimation(fig, animate, frames=len(gt), interval=200, repeat=False)
+    writergif = animation.PillowWriter(fps=3)
+    writer = animation.FFMpegWriter(fps=3)
+    ani.save(resfile, writer = writer)
+    plt.close()
+
+
+def animate_maps_OI(gt, obs, pred, lon, lat, resfile,
+                 crop=None, orthographic=True, dw=1, grad=False, supervised=True):
+    if dw>1:
+        # decrease the resolution
+        Nlon = len(lon)
+        Nlat = len(lat)
+        ilon = np.arange(0,Nlon,dw)
+        ilat = np.arange(0,Nlat,dw)
+        gt = (gt[:,ilat,:])[:,:,ilon]
+        obs = (obs[:,ilat,:])[:,:,ilon]
+        pred = (pred[:,ilat,:])[:,:,ilon]
+        lon = lon[ilon]
+        lat = lat[ilat]
+
+    if crop is not None:
+        ilon = np.where((lon>=crop[0]) & (lon<=crop[1]))[0]
+        ilat = np.where((lat>=crop[2]) & (lat<=crop[3]))[0]
+        gt = (gt[:,ilat,:])[:,:,ilon]
+        obs = (obs[:,ilat,:])[:,:,ilon]
+        pred = (pred[:,ilat,:])[:,:,ilon]
+        lon = lon[ilon]
+        lat = lat[ilat]
+    extent = [np.min(lon)-1,np.max(lon)+1,np.min(lat)-1,np.max(lat)+1]
+    central_lon = np.mean(extent[:2])
+    central_lat = np.mean(extent[2:])
+
+    # ~ if grad:
+        # ~ vmax = np.nanmax([np.nanmax(np.abs(gradient(oi[i], 2))) for i in range(len(oi))])  #########
+        # ~ vmin = 0
+        # ~ cm = plt.cm.viridis
+        # ~ norm = colors.PowerNorm(gamma=0.7, vmin=vmin, vmax=vmax)
+    # ~ else:
+        # ~ vmax = np.nanmax(np.abs(oi))  #########
+        # ~ vmin = -1.*vmax
+        # ~ cm = plt.cm.coolwarm
+        # ~ norm = colors.Normalize(vmin=vmin, vmax=vmax)
+
+    if grad:
+        vmax = np.nanmax(np.abs(gradient(gt, 2)))
+        vmin = 0
+        cm = plt.cm.viridis
+        norm = colors.PowerNorm(gamma=0.7, vmin=vmin, vmax=vmax)
+    else:
+        vmax = np.nanmax(np.abs(gt))
+        vmin = -1.*vmax
+        cm = plt.cm.coolwarm
+        norm = colors.Normalize(vmin=vmin, vmax=vmax)
+
+    def animate(i):
+        print(i)
+        if supervised:
+            ax1.clear()
+            ax2.clear()
+            # ~ ax3.clear()
+            ax4.clear()
+            if grad==False:
+                plot(ax1, lon, lat, gt[i], 'GT', extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax2, lon, lat, obs[i], 'OBS', extent=extent, cmap=cm, norm=norm, colorbar=False)
+                # ~ plot(ax3, lon, lat, oi[i], 'OI', extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax4, lon, lat, pred[i], '4DVarNet', extent=extent, cmap=cm, norm=norm, colorbar=False)
+            else:
+                plot(ax1, lon, lat, gradient(gt[i], 2), r"$\nabla_{GT}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax2, lon, lat, np.where(np.isnan(obs[i]), np.nan, 0.), "OBS (mask)", extent=extent, cmap=cm, norm=norm, colorbar=False)
+                # ~ plot(ax3, lon, lat, gradient(oi[i], 2), r"$\nabla_{OI}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax4, lon, lat, gradient(pred[i], 2), r"$\nabla_{4DVarNet}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+        else:
+            ax1.clear()
+            ax2.clear()
+            ax3.clear()
+            if grad==False:
+                plot(ax1, lon, lat, obs[i], 'OBS', extent=extent, cmap=cm, norm=norm, colorbar=False)
+                # ~ plot(ax2, lon, lat, oi[i], 'OI', extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax3, lon, lat, pred[i], '4DVarNet', extent=extent, cmap=cm, norm=norm, colorbar=False)
+            else:
+                #plot(ax1, lon, lat, gradient(obs[i], 2), r"$\nabla_{OBS}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax1, lon, lat, np.where(np.isnan(obs[i]), np.nan, 0.), "OBS (mask)", extent=extent, cmap=cm, norm=norm, colorbar=False)
+                # ~ plot(ax2, lon, lat, gradient(oi[i], 2), r"$\nabla_{OI}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax3, lon, lat, gradient(pred[i], 2), r"$\nabla_{4DVarNet}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+
+    fig = plt.figure(figsize=(15,9))
+    gs = gridspec.GridSpec(2, 4)
+    gs.update(wspace=0.1)
+    if orthographic:
+        crs = ccrs.Orthographic(central_lon,central_lat)
+        #crs = ccrs.Orthographic(-30,45)
+    else:
+        crs = ccrs.PlateCarree(central_longitude=central_lon)
+    if supervised:
+        ax1 = fig.add_subplot(gs[0, :2], projection=crs)
+        ax2 = fig.add_subplot(gs[0, 2:], projection=crs)
+        # ~ ax3 = fig.add_subplot(gs[1, :2], projection=crs)
+        ax4 = fig.add_subplot(gs[1, 2:], projection=crs)
+    else:
+        ax1 = fig.add_subplot(gs[0, 1:3], projection=crs)
+        ax1.set_extent(extent)
+        # ~ ax2 = fig.add_subplot(gs[1, :2], projection=crs)
+        # ~ ax2.set_extent(extent)
+        ax3 = fig.add_subplot(gs[1, 2:], projection=crs)
+        ax3.set_extent(extent)
+
+    plt.subplots_adjust(hspace=0.05)
+    # Colorbar
+    cbar_ax = fig.add_axes([0.1, 0.05, 0.8, 0.02])
+    sm = plt.cm.ScalarMappable(cmap=cm, norm=norm)
+    sm._A = []
+    cbar = fig.colorbar(sm, cax=cbar_ax, orientation='horizontal', pad=3.0)
 
     ani = animation.FuncAnimation(fig, animate, frames=len(gt), interval=200, repeat=False)
     writergif = animation.PillowWriter(fps=3)
     writer = animation.FFMpegWriter(fps=3)
     ani.save(resfile, writer = writer)
     plt.close()
+
+
 
 def plot_ensemble(pred,lon,lat,resfile,crop=None,
                    orthographic=True):

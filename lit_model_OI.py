@@ -17,7 +17,7 @@ from omegaconf import OmegaConf
 from scipy import stats
 import solver as NN_4DVar
 import metrics
-from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps_oi, animate_maps, get_psd_score
+from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps_oi, animate_maps, animate_maps_OI, get_psd_score
 from models import Model_H, Phi_r_OI, Phi_r, Phi_r_OI_UNet, Gradient_img
 
 from lit_model_augstate import LitModelAugstate
@@ -86,7 +86,6 @@ class LitModelOI(LitModelAugstate):
                 'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def sla_diag(self, t_idx=3, log_pref='test'):
-
         path_save0 = self.logger.log_dir + '/maps.png'
         t_idx = 3
         fig_maps = plot_maps_oi(
@@ -104,6 +103,11 @@ class LitModelOI(LitModelAugstate):
         self.test_figs['maps_grad'] = fig_maps_grad
         self.logger.experiment.add_figure(f'{log_pref} Maps', fig_maps, global_step=self.current_epoch)
         self.logger.experiment.add_figure(f'{log_pref} Maps Grad', fig_maps_grad, global_step=self.current_epoch)
+        ###############
+        # animate maps
+        ###############
+        path_save0 = self.logger.log_dir + '/animation.mp4'
+        animate_maps_OI(self.x_gt, self.obs_inp, self.x_rec, self.test_lon, self.test_lat, path_save0)
 
         psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
         psd_fig = metrics.plot_psd_score(psd_ds)
@@ -162,7 +166,6 @@ class LitModelOI(LitModelAugstate):
 
     def compute_loss(self, batch, phase, state_init=(None,)):
         _, inputs_Mask, inputs_obs, targets_GT = batch
-
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:
             return (
