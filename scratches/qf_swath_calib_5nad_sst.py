@@ -56,7 +56,7 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
             model = utils.get_model(cfg.fourdvar_cfg, cfg.fourdvar_mod_ckpt, dm=dm, add_overrides=overrides)
 
             
-            trainer = pl.Trainer(gpus=[7], logger=False)
+            trainer = pl.Trainer(gpus=[6], logger=False)
                 
             swath_data = {}
             for stage, dl in [
@@ -82,6 +82,7 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
 
         # Train calib model
         ns = (0.31446309894037083, 0.3886609494201447)
+        # ns = (0., 1.)
         # train_ds = swath_calib.dataset.SmoothSwathDataset(swath_data['train'], **cfg.swath_ds_cfg, norm_stats=ns) 
         # val_ds = swath_calib.dataset.SmoothSwathDataset(swath_data['val'], **cfg.swath_ds_cfg, norm_stats=train_ds.stats) 
         val_ds = swath_calib.dataset.SmoothSwathDataset(swath_data['val'], **cfg.swath_ds_cfg, norm_stats=ns) 
@@ -95,8 +96,9 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
                 **cfg.net_cfg
         )
         normnet = torch.nn.Sequential(
-            torch.nn.BatchNorm2d(num_features=len(train_ds.pp_vars), affine=False, momentum=0.1),
-            net
+            torch.nn.BatchNorm2d(num_features=len(train_ds.pp_vars), affine=True, momentum=0.1),
+            net,
+            # torch.nn.BatchNorm2d(num_features=1, affine=True, momentum=0.1),
         )
 
         cal_mod = swath_calib.models.LitDirectCNN(
@@ -104,6 +106,7 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
                 normnet,
                 # gt_var_stats=[s[train_ds.gt_vars].to_array().data for s in train_ds.stats],
                 gt_var_stats=[np.array([ns[0]]), np.array([ns[1]])],
+                # gt_var_stats=[np.array([0.]), np.array([1.])],
                 **cfg.lit_cfg
             )
         cal_mod.use_ff = cfg.train_with_ff
@@ -128,6 +131,7 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
             train_dataloaders=train_dl,
             val_dataloaders=val_dl
         )
+
         uid = str(uuid.uuid4())
         print(uid, " - Best model saved at: ", trainer.checkpoint_callback.best_model_path)
         
@@ -147,6 +151,7 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
         Path(f'trained_cfgs/{uid}.yaml').write_text(OmegaConf.to_yaml(trained_cfg))
 
         print(cal_mod.load_state_dict(torch.load(trained_cfg.cal_mod_ckpt)['state_dict']))
+        # print(cal_mod.load_state_dict(torch.load(ckpt)['state_dict']))
         # Testing
         def compute_metrics(cfg, cal_mod):
             fourdvar_dm = utils.get_dm(cfg.fourdvar_cfg, add_overrides=overrides)
@@ -154,7 +159,8 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
             grid_metrics = []
             swath_metrics = []
             figs = []
-            for niter in range(3):
+            niter=0
+            for niter in range(1):
                 trainer.test(fourdvar_model, fourdvar_dm.test_dataloader())[0]
                 print(fourdvar_model.latest_metrics)
                 grid_metrics = grid_metrics + [{
@@ -194,6 +200,7 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
                 )
 
                 # TODO: Do inference 
+                # obs_ds.assign(cal=new_obs).to_netcdf('tmp/obs_ds_w_cal.nc')
                 fourdvar_dm.test_ds.datasets[0].obs_mask_ds.ds = obs_ds.assign(cal=new_obs)
                 fourdvar_dm.test_ds.datasets[0].obs_mask_ds.var = 'cal'
             
@@ -290,7 +297,7 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
         return locals()
 
 if __name__ == '__main__':
-    xp_num=117
+    xp_num=120
     cfgs = swath_calib.configs.register_configs()
     for cfgn in cfgs:
         locals().update(full_from_scratch(xp_num, cfgn))

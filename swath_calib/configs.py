@@ -60,10 +60,20 @@ for xp, cfgn in (
     #     'qxp19_aug2_dp240_5nad_map_no_sst_ng5x3cas_l2_dp025_00_no_dataaug',
     #     'qxp19_aug2_dp240_swot_cal_no_sst_ng5x3cas_l2_dp025_00_dataaug',
     # ])) +
+    # list(zip(
+    # [20]*100,
+    # [
+    #     'qxp20_5nad_no_sst',
+    #     # 'qxp20_swot_no_sst',
+    #     # 'qxp20_swot_sst',
+    #     # 'qxp20_5nad_sst',
+    #     # 'qxp20_noisy_sst',
+    #     # 'qxp20_noisy_no_sst',
+# ])) + 
     list(zip(
-    [20]*100,
+    [21]*100,
     [
-        'qxp20_5nad_no_sst',
+        'qxp21_5nad_no_sst_11',
         # 'qxp20_swot_no_sst',
         # 'qxp20_swot_sst',
         # 'qxp20_5nad_sst',
@@ -77,8 +87,10 @@ for xp, cfgn in (
         cal_mod_ckpt=None,
         swath_ds_cfg=dict(
             sigmas_gt=(0,),
-            gt_var='gt_res',
-            ref_var='ref_res',
+            gt_var='gt',
+            ref_var='pred',
+            # gt_var='gt_res',
+            # ref_var='ref_res',
             xb_var='pred',
         ),
     ))

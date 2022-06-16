@@ -42,7 +42,7 @@ def prepare_oi_batch(
 
     for bounds in gen_patch():
         (ts, te), (los, loe), (las, lae) = bounds
-        print(f'{(ts.item(), los.item(), las.item())=}')
+        # print(f'{(ts.item(), los.item(), las.item())=}')
         msk_grid = (grid_time.ge(ts) & grid_time.lt(te)) & (grid_lon.ge(los) & grid_lon.lt(loe)) & (grid_lat.ge(las) & grid_lat.lt(lae))
         msk_obs = (
                 (obs_time.ge(ts - 2 * Lt) & obs_time.lt(te + 2 * Lt))
@@ -88,7 +88,7 @@ def torch_oi(
 
     
     Coo = HBHt + R
-    print(f'{Coo.isnan().sum()=}')
+    # print(f'{Coo.isnan().sum()=}')
     Mi = torch.linalg.inv(Coo)
     # print(f'{Mi=}')
     Iw = torch.mm(BHt, Mi).float()
@@ -138,6 +138,7 @@ def main():
         inputs = '../sla-data-registry/CalData/cal_data_new_errs.nc'
 
 
+        inputs = 'tmp/obs_ds_w_cal.nc'
         ds_obs = (
                 xr.open_dataset(inputs)
                 .sel(lat=slice(lat_min - 2*Ly, lat_max + 2*Ly))
@@ -150,9 +151,10 @@ def main():
         for obs_var in [
                 # 'swot_nadirs_new_errors_w_wet_tropo',
                 # 'four_nadirs',
-                'five_nadirs',
+                # 'cal',
+                # 'five_nadirs',
                 # 'swot_nadirs_old_errors',
-                # 'swot_nadirs_no_noise',
+                'swot_nadirs_no_noise',
                 # 'swot_nadirs_new_errors_no_wet_tropo',
                 ]:
             # break
@@ -170,9 +172,9 @@ def main():
                 for batch in prepare_oi_batch(
                         obs_values, obs_time, obs_lon, obs_lat,
                         gtime, glon, glat,
-                        {'time': 1, 'lon': 12, 'lat': 12},
+                        {'time': 1, 'lon': 1, 'lat': 1},
                         Lt, Lx, Ly):
-                    print(f'{len(batch[0])=}')
+                    # print(f'{len(batch[0])=}')
                     # if 'cuda' in device:
                     #     print(torch.cuda.memory_summary(device))
                     #     print(torch.cuda.list_gpu_processes(device))
@@ -202,11 +204,32 @@ def main():
             ref_daily = ref_daily_ds.interp(out_ds[['time', 'lat', 'lon']].coords)
             duacs = duacs_ds.interp(out_ds[['time', 'lat', 'lon']].coords)
 
-            duacs_mse = (duacs.ssh_mod - ref_daily.ssh).pipe(lambda da: np.sqrt(np.mean(da**2))).compute()
-            mse = (out_ds.ssh - ref_daily.ssh).pipe(lambda da: np.sqrt(np.mean(da**2))).compute()
+            duacs_mse = (duacs.ssh_mod - ref_daily.ssh).pipe(lambda da: np.sqrt(np.mean(da**2))).compute().item()
+            mse = (out_ds.ssh - ref_daily.ssh).pipe(lambda da: np.sqrt(np.mean(da**2))).compute().item()
             full_outs[obs_var] = (out_ds, mse, mse/duacs_mse)
 
             print([(k, v[1], v[2]) for k,v in full_outs.items()])
+
+            crop = lambda ds: ds 
+            duacs_mse = crop(duacs.ssh_mod - ref_daily.ssh).pipe(lambda da: np.sqrt(np.mean(da**2))).compute().item()
+            mse_cal = crop(full_outs['cal'][0].ssh - ref_daily.ssh).pipe(lambda da: np.sqrt(np.mean(da**2))).compute().item()
+            mse_5nad = crop(full_outs['five_nadirs'][0].ssh - ref_daily.ssh).pipe(lambda da: np.sqrt(np.mean(da**2))).compute().item()
+            mse_swot = crop(full_outs['swot_nadirs_no_noise'][0].ssh - ref_daily.ssh).pipe(lambda da: np.sqrt(np.mean(da**2))).compute().item()
+            print(duacs_mse, mse_cal, mse_5nad, mse_swot)
+            print(mse_cal/duacs_mse, mse_5nad/duacs_mse, mse_swot/duacs_mse)
+            ds = xr.Dataset(
+                {'duacs_4nad': duacs.ssh_mod, 'gt': ref_daily.ssh.compute(), **{k: full_outs[k][0].ssh for k in full_outs}}
+            )
+            ds.to_netcdf('results/oi_w_cal.nc')
+            ds_obs[['four_nadirs', 'five_nadirs', 'cal', 'swot_nadirs_no_noise']].to_array().isel(time=19).plot.pcolormesh('lon', 'lat', col='variable', col_wrap=2)
+            sobel = lambda da: np.hypot(ndi.sobel(da, -1), ndi.sobel(da, -2))
+            ds.map(sobel).to_array().isel(time=19).plot.pcolormesh('lon', 'lat', col='variable', col_wrap=2)
+            (ds - ds.gt).drop('gt').to_array().isel(time=19).plot.pcolormesh('lon', 'lat', col='variable', col_wrap=2)
+            ds.map(sobel).pipe(lambda ds:(ds - ds.gt).drop('gt').pipe(lambda ds: ds**2).mean().pipe(np.sqrt))
+
+            (ds - ds.gt).drop('gt').pipe(lambda ds: ds**2).mean().pipe(np.sqrt)
+            
+
     except Exception as e:
         print(traceback.format_exc()) 
     finally:

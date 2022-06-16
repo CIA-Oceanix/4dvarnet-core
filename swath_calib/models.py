@@ -171,11 +171,13 @@ class LitDirectCNN(pl.LightningModule):
                 self.loss_w = loss_w
                 self.gt_means = nn.Parameter(torch.from_numpy(gt_var_stats[0])[None, :, None, None], requires_grad=False)
                 self.gt_stds = nn.Parameter(torch.from_numpy(gt_var_stats[1])[None, :, None, None], requires_grad=False)
+                print(gt_var_stats)
                 self.save_hyperparameters()
 
             def forward(self, batch):
-                x, *_ = batch 
-                out = self.net(x)
+                x, xb, *_ = batch 
+                # out = self.net(x)
+                out = self.net(x) + xb
                 if self.use_ff:
                     out = self.ff(out)
                 return out
@@ -207,12 +209,13 @@ class LitDirectCNN(pl.LightningModule):
                 return rmse, rmse_grad, rmse_lap
 
             def process_batch(self, batch, phase='val', ff=False):
-                _, y, raw_gt, raw_ref = batch 
+                _, xb, y, raw_gt, raw_ref = batch 
                 out = self.forward(batch)
                 losses = {}
-                losses['err_tot'], losses['g_err_tot'], losses['l_err_tot'] = self.loss(out, y)
+                losses['err_tot'], losses['g_err_tot'], losses['l_err_tot'] = self.loss(out, y )
 
-                rec_out = (out * self.gt_stds + self.gt_means).sum(dim=1)
+                rec_out = ((out) * self.gt_stds + self.gt_means).sum(dim=1)
+                # rec_out = (out *self.gt_stds + raw_ref).sum(dim=1)
                 losses['err_rec'], losses['g_err_rec'], losses['l_err_rec'] = self.loss(rec_out, raw_gt)
 
                 for ln, l in losses.items():
@@ -241,10 +244,13 @@ class LitDirectCNN(pl.LightningModule):
                 return self.process_batch(batch, phase='val')
 
             def predict_step(self, batch, batch_idx):
+                # *_, raw_ref = batch
+
                 out = self.forward(batch)
                 # print(f'{out.isnan().sum()=}')
 
-                rec_out = (out * self.gt_stds + self.gt_means).sum(dim=1)
+                rec_out = (out * self.gt_stds  + self.gt_means).sum(dim=1)
+                # rec_out = (out * self.gt_stds + raw_ref).sum(dim=1)
                 return rec_out.cpu().numpy()
 
 

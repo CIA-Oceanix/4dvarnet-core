@@ -21,6 +21,8 @@ params:
 datamodule:
   pp: std
 
+entrypoint._target_: toto
+
 defaults:
   - /xp/base_xp
   - /splits/dc_boost_swot@datamodule

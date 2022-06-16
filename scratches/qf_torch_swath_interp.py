@@ -363,9 +363,15 @@ def get_4dvarnet_cal_grid(hparams):
                 CalibrationModelObsGridGeometry(hparams.shape_state[0], hparams=hparams),
                 solver.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
-                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter + hparams.joint_step)
 
 class LitModMixGeom(lit_model_augstate.LitModelAugstate):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.joint_model = self.create_model(self, *args, **kwargs)
+
+    def on_train_epoch_start(self):
+        pass
 
     def diag_step(self, batch, batch_idx, log_pref='test'):
         oi, gt, sgt, go, *y = batch
@@ -379,90 +385,81 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
             self.log(f'{log_pref}_cal_joint', metrics_w_cal['mseCal'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
 
+        pred = out if ((self.hparams.joint_step==0) or (self.current_epoch > self.hparams.warmup_epochs)) else out_w_cal 
         return {'gt'    : (gt.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'oi'    : (oi.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'obs_inp'    : (go.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'pred' : (out_w_cal.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'pred' : (pred.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 # 'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'pred_wo_cal' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
+                # 'pred_wo_cal' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_T
+                }
 
     def forward(self, batch, phase='test'):
         losses = []
         metrics = []
         state_init = [None]
         out=None
+        if phase == 'train':
+            if not self.automatic_optimization:
+                opt, opt_cal, joint_opt, joint_opt_cal = self.optimizers()
+                opt.zero_grad()
         for _ in range(self.hparams.n_fourdvar_iter):
-            _loss, out, state, _metrics = self.compute_loss(
-                    batch, phase='train', state_init=state_init, use_swot=False, compute_cal=((_+1)==self.hparams.n_fourdvar_iter)
+            (_loss, _loss_cal), out, state, _metrics = self.compute_loss(
+                    batch, phase=phase, state_init=state_init, use_swot=False, compute_cal=((_+1)==self.hparams.n_fourdvar_iter)
             )
             state_init = [None if s is None else s.detach() for s in state]
+            if phase == 'train':
+                if not self.automatic_optimization and self.hparams.train_map_mod:
+                    self.manual_backward(_loss)
             losses.append(_loss)
             metrics.append(_metrics)
 
+        if phase == 'train':
+            if not self.automatic_optimization:
 
-        _loss, out_w_cal, state, metrics_w_cal = self.compute_loss(
+                if self.hparams.train_map_mod:
+                    opt.step()
+                    if self.current_epoch > self.hparams.warmup_epochs:
+                        if _loss_cal > 0:
+                            opt_cal.zero_grad()
+                            self.manual_backward(_loss_cal)
+                            opt_cal.step()
+
+        (_loss, _loss_cal), out_w_cal, state, metrics_w_cal = self.compute_loss(
                 batch,
                 phase='train',
                 state_init=state_init,
                 use_swot=True,
-                compute_cal=True
+                compute_cal=True,
+                model=self.joint_model
         )
+        if (phase == 'train') and (self.hparams.joint_step>0) and (self.current_epoch > self.hparams.start_join):
+            if not self.automatic_optimization:
+                opt.zero_grad()
+                self.manual_backward(_loss)
+                opt.step()
+                if _loss_cal > 0:
+                    opt_cal.zero_grad()
+                    self.manual_backward(_loss_cal)
+                    opt_cal.step()
+        # if (phase == 'train'):
+                # opt_cal.step()
         return losses, out, out_w_cal, metrics, metrics_w_cal
 
 
-    def training_step(self, train_batch, batch_idx, optimizer_idx=0):
+    def training_step(self, train_batch, batch_idx):
 
         # compute loss and metrics
+        losses, _, _, metrics, metrics_w_cal = self(train_batch, phase='train')
 
-        if not self.automatic_optimization:
-            opt = self.optimizers()
-            opt.zero_grad()
-
-        losses = []
-        metrics = []
-        state_init = [None]
-        out=None
-        for _ in range(self.hparams.n_fourdvar_iter):
-            _loss, out, state, _metrics = self.compute_loss(
-                    train_batch, phase='train', state_init=state_init, use_swot=False, compute_cal=((_+1)==self.hparams.n_fourdvar_iter)
-            )
-            if not self.automatic_optimization:
-                self.manual_backward(_loss)
-            state_init = [None if s is None else s.detach() for s in state]
-            losses.append(_loss)
-            metrics.append(_metrics)
-
-        # if not self.automatic_optimization:
-        #     opt.step()
-
-        _loss, out_w_cal, state, metrics_w_cal = self.compute_loss(
-                train_batch,
-                phase='train',
-                state_init=state_init,
-                use_swot=True,
-                compute_cal=True
-        )
-        if not self.automatic_optimization:
-            self.manual_backward(5 * _loss)
-
-        if not self.automatic_optimization:
-            opt.step()
-        # losses, _, metrics = self(train_batch, phase='train')
-        # if losses[-1] is None:
-        #     print("None loss")
-        #     return None
-        # # loss = torch.stack(losses).sum()
-        loss = 2*torch.stack(losses).sum() - losses[0]
-
-        self.log("tr_loss_wo_cal", losses[-1], on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log("tr_loss_w_cal", _loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log("tr_loss", losses[-1], on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log("tr_mse", metrics[-1]['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
         self.log("tr_mse_w_cal", metrics_w_cal['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
         self.log("tr_cal", metrics[-1]['mseCal'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
         self.log("tr_cal_joint", metrics_w_cal['mseCal'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
         self.log("tr_mseG", metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+        return losses[-1]
 
-        return loss
 
     def predict_step(self, batch, batch_idx):
         return self.diag_step(batch, batch_idx, log_pref=None)
@@ -483,13 +480,15 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
         oi, _, _, go, *_ = batch
         msk = go.isfinite()
         
-        go_oi = msk.float() * (go.where(msk, torch.zeros_like(go)) - oi)
+        go_oi = lambda:  msk.float() * (go.where(msk, torch.zeros_like(go)) - oi)
+        if self.hparams.rand_init:
+            go_oi = lambda:  (go.where(msk, torch.zeros_like(go)) - oi).where(msk, 0.1*torch.randn_like(go))
 
-        init_state = torch.cat((oi,go_oi), dim=1)
+        init_state = torch.cat((oi,go_oi()), dim=1)
         if self.hparams.aug_cal_obs:
-            init_state = torch.cat((init_state, torch.zeros_like(go_oi)), dim=1)
+            init_state = torch.cat((init_state, torch.zeros_like(go_oi())), dim=1)
         if self.aug_state:
-            init_state = torch.cat((init_state, go_oi), dim=1)
+            init_state = torch.cat((init_state, go_oi()), dim=1)
         return init_state
 
     def cal_out(self, y, xb):
@@ -501,7 +500,7 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
         pw = einops.repeat(self.patch_weight, '... -> b ...', b=xb.size(0))
         sw = swath_calib.interp.batch_torch_interpolate_with_fmt(pw, *[cc[si] for cc in gc], *sc)
         sw = fna(sw, sw.isfinite())
-        return cal_out, cal_msk, cal_idx, sw
+        return cal_out, s_vb, cal_msk, cal_idx, sw
 
     def loss_cal(self, sgt, y, xb):
 
@@ -510,7 +509,7 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
             return torch.tensor(0.), torch.tensor(0.), torch.tensor(0.)
 
         fna = lambda t, m: t.where(m, torch.zeros_like(t))
-        cal_out, cal_msk, cal_idx, sw = self.cal_out(y, xb)
+        cal_out, _, cal_msk, cal_idx, sw = self.cal_out(y, xb)
 
         t1, t2, tw = cal_out, fna(sgt[:,:, cal_idx, :], cal_msk), fna(sw[:,:, cal_idx, :], cal_msk)
         if tw.sum().item() == 0:
@@ -547,20 +546,52 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
 
         optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                             {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
-                            {'params': self.model.model_H.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                            # {'params': self.model.model_H.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                             {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                             ])
+        optimizer_cal = opt([
+                            # {'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                            # {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                            {'params': self.model.model_H.parameters(), 'lr': 1 * self.hparams.lr_update[0]},
+                            # {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                            ])
 
-        return {
-            'optimizer': optimizer,
-            'lr_scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, verbose=True, patience=25, cooldown=10, factor=0.5),
-            'monitor': 'val_loss'
-        }
+        joint_optimizer = opt([{'params': self.joint_model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                            {'params': self.joint_model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                            # {'params': self.model.model_H.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                            {'params': self.joint_model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                            ])
+        joint_optimizer_cal = opt([
+                            # {'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                            # {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                            {'params': self.joint_model.model_H.parameters(), 'lr': 1 * self.hparams.lr_update[0]},
+                            # {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                            ])
+
+        return [
+            {
+                'optimizer': optimizer,
+                'lr_scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, verbose=True, patience=25, cooldown=10, factor=0.5),
+                'monitor': 'val_loss'
+            },{
+                'optimizer': optimizer_cal,
+                'lr_scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer_cal, verbose=True, patience=25, cooldown=10, factor=0.5),
+                'monitor': 'val_loss'
+            },
+            {
+                'optimizer': joint_optimizer,
+                'lr_scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(joint_optimizer, verbose=True, patience=25, cooldown=10, factor=0.5),
+                'monitor': 'val_loss'
+            },{
+                'optimizer': joint_optimizer_cal,
+                'lr_scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(joint_optimizer_cal, verbose=True, patience=25, cooldown=10, factor=0.5),
+                'monitor': 'val_loss'
+            }
+        ]
 
 
-    def compute_loss(self, batch, phase, state_init=(None,), use_swot=False, compute_cal=False):
+    def compute_loss(self, batch, phase, state_init=(None,), use_swot=False, compute_cal=False, opt_map_for_cal=False, model=None):
         oi, gt, sgt, *y = batch
-
 
         # handle patch with no observation
         gt_wo_nan = gt.where(~ gt.isnan(), oi)
@@ -581,7 +612,9 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
             state = torch.autograd.Variable(state, requires_grad=True)
-            x_out, hidden_new, cell_new, normgrad = self.model(state, obs, msks, *state_init[1:])
+            if model is None:
+                model = self.model
+            x_out, hidden_new, cell_new, normgrad = model(state, obs, msks, *state_init[1:])
 
             if (phase == 'val') or (phase == 'test'):
                 x_out = x_out.detach()
@@ -606,6 +639,9 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
         if not compute_cal:
             (go, gc, _, *_) = y
             lcal_in = (go, gc, None, *_)
+
+        if not self.hparams.joint_step or opt_map_for_cal:
+            xb = xb.detach()
         loss_cal, g_loss_cal, l_loss_cal = self.loss_cal(sgt, lcal_in, xb)
 
         yGT = torch.cat((oi_wo_nan, gt_wo_nan - xlr), dim=1)
@@ -626,7 +662,7 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
         loss += self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
         loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
         loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
-        loss += self.hparams.alpha_cal * (loss_cal + 0.5*g_loss_cal + 0.5*l_loss_cal)
+        loss_cal = self.hparams.alpha_cal * (loss_cal + 0.5*g_loss_cal + 0.5*l_loss_cal)
 
         # metrics
         # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
@@ -642,36 +678,46 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
             ('mseGOI', loss_GOI.detach()),
             ('mseCal', loss_cal.detach())])
 
-        return loss, outputs, [x_out, hidden_new, cell_new, normgrad], metrics
+        return (loss, loss_cal), outputs, [x_out, hidden_new, cell_new, normgrad], metrics
 
 class CalibrationModelObsGridGeometry(torch.nn.Module):
 
-    def __init__(self, shape_data, hparams=None, min_size=500, sigs=tuple([8* (i+1) for i in range(10)])):
+    def __init__(self, shape_data, hparams=None, min_size=300, sigs=tuple([8* (i+1) for i in range(10)])):
         super().__init__()
         self.hparams = hparams
         sst_ch = hparams.dT
         # self.dim_obs_channel = np.array([shape_data, sst_ch])
         # self.dim_obs = 3
-        self.dim_obs = 2
-        self.dim_obs_channel = np.array([shape_data, shape_data])
+        # self.dim_obs = 2
+        # self.dim_obs_channel = np.array([shape_data, shape_data])
+        self.dim_obs = 1
+        self.dim_obs_channel = np.array([shape_data])
         self.min_size = min_size
         self.num_feat = 2*(len(sigs)+1)
-        self.norm = torch.nn.BatchNorm2d(num_features=self.num_feat, affine=False, momentum=0.1)
+        self.norm_in = torch.nn.BatchNorm2d(num_features=self.num_feat, affine=True, momentum=0.1)
+        # self.norm_out = torch.nn.BatchNorm2d(num_features=1, affine=True, momentum=0.1)
+        self.norm_out = torch.nn.Identity()
 
         self.gaussian = StackedGaussian(sigs)
         self.calnet = torch.nn.Sequential(
-            self.norm,
+            self.norm_in,
             swath_calib.models.build_net(
                 in_channels=self.num_feat,
                 out_channels=1,
                 mix=True,
             ),# nhidden = 32, depth = 2,),
+            self.norm_out,
         )
         self.downsamp = self.hparams.obscost_downsamp
 
         self.patch_weight = torch.nn.Parameter(
                 torch.from_numpy(hydra.utils.call(self.hparams.patch_weight)), requires_grad=False)
+        self.scale_cal = torch.nn.Parameter(torch.scalar_tensor(self.hparams.scale_cal), requires_grad=self.hparams.train_scale_cal)
         self.ns = (0.31446309894037083, 0.3886609494201447)
+        # self.conv11 = torch.nn.Conv2d(shape_data, hparams.dT, (3, 3), padding=1, bias=False)
+        # self.conv21 = torch.nn.Conv2d(hparams.dT, hparams.dT, (3, 3), padding=1, bias=False)
+        # self.conv_m = torch.nn.Conv2d(hparams.dT, self.dim_obs_channel[1], (3, 3), padding=1, bias=False)
+        # self.sigmoid = torch.nn.Sigmoid()  # torch.nn.Softmax(dim=1)
 
 
     def cal_inp(self, sv_uncal, sv_bg):
@@ -701,14 +747,16 @@ class CalibrationModelObsGridGeometry(torch.nn.Module):
         idx = fs_xlr[ msk, ...].isfinite().all(3).all(1).all(0)
 
         gy =  self.gaussian(fy[msk][:, :, idx])
-        inp_gy = torch.cat((gy.diff(dim=1), -gy[:, -1:, ...]), 1)
+        inp_gy = torch.cat((gy.diff(dim=1), gy[:, -1:, ...]), 1)
 
         gs_xlr = self.gaussian(fs_xlr[msk][:, :, idx])
-        inp_gs_xlr = torch.cat((gy.diff(dim=1), -gs_xlr[:, -1:, ...]), 1)
+        inp_gs_xlr = torch.cat((gs_xlr.diff(dim=1), gs_xlr[:, -1:, ...]), 1)
 
         cal_input = -torch.cat((inp_gy, inp_gs_xlr), dim=1)
         _out_cal = self.calnet(cal_input)
-        _out_cal = _out_cal + self.ns[0]/self.ns[1] + fs_xlr[msk][:,:,idx]
+        _out_cal = _out_cal  + fs_xlr[msk][:,:,idx]
+        # _out_cal = _out_cal / self.scale_cal + self.ns[0]/self.ns[1] + fs_xlr[msk][:,:,idx]
+        # _out_cal = _out_cal + self.ns[0]/self.ns[1] + fs_xlr[msk][:,:,idx]
         out_cal = torch.zeros_like(fy[:, :, idx])
         out_msk = torch.zeros_like(fy[:, :, idx])
         # print(out_cal.shape, _out_cal.shape, cal_input.shape)
@@ -794,12 +842,12 @@ class CalibrationModelObsGridGeometry(torch.nn.Module):
         else:
             dyout1 = torch.zeros_like(x)
 
-        return dyout, dyout1
+        return dyout.abs() +  dyout1.abs()
         # return [dyoutlr, dyout, dyout1]
         
 class CalibrationModelObsSensorGeometry(torch.nn.Module):
 
-    def __init__(self, shape_data, hparams=None, min_size=500, sigs=tuple([8* (i+1) for i in range(10)])):
+    def __init__(self, shape_data, hparams=None, min_size=450, sigs=tuple([8* (i+1) for i in range(10)])):
         super().__init__()
         self.hparams = hparams
         self.dim_obs = 3
@@ -890,9 +938,10 @@ class CalibrationModelObsSensorGeometry(torch.nn.Module):
 
 
 class StackedGaussian(torch.nn.Module):
-    def __init__(self, sigs= tuple([8 * (i+1) for i in range(20)]), size=75, min_size=600):
+    def __init__(self, sigs= tuple([8 * (i+1) for i in range(20)]), size=75, min_size=300):
         super().__init__()
         assert size % 2 ==1, 'same pad not yet implemnted here for even kernels'
+        size=max(sigs)*6 //2 *2 +1
         self.size = size
         self.min_size = min_size
         self.kernel = torch.nn.Parameter(torch.stack([
@@ -902,7 +951,7 @@ class StackedGaussian(torch.nn.Module):
 
   
     def forward(self, fx):
-        px = F.pad(fx, (0,0, self.size//2, self.size//2), mode='replicate')
+        px = F.pad(fx.nan_to_num(), (0,0, self.size//2, self.size//2), mode='reflect')
         return  torch.cat((fx, F.conv2d(px, self.kernel)), dim=1)
 
 if __name__ == '__main__':
@@ -922,9 +971,15 @@ if __name__ == '__main__':
         '+params.alpha_cal=10',
         '+params.swot_obs_w=0.1',
         '+params.warmup_epochs=0',
+        '+params.train_map_mod=True',
+        '+params.start_join=0',
         '+params.compat_base=False',
+        '+params.joint_step=1',
+        '+params.rand_init=0',
         '+params.obscost_downsamp=1',
         '+params.aug_cal_obs=0',
+        '+params.scale_cal=1',
+        '+params.train_scale_cal=False',
         "params.shape_state.0='${mul:${datamodule.slice_win.time},3}'",
         "params.shape_data.0='${mul:${datamodule.slice_win.time},3}'",
         '+params.calref=x',
@@ -936,8 +991,8 @@ if __name__ == '__main__':
         'params.dT=11',
         'params.patch_weight.crop.time=3',
     ]
-    map_cfg_n, map_ckpt = 'qxp20_5nad_no_sst', 'results/xp20/qxp20_5nad_no_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=85-val_loss=0.7589.ckpt'
-    map_cfg_n, map_ckpt = 'qxp20_swot_no_sst', 'results/xp20/qxp20_swot_no_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=131-val_loss=0.4958.ckpt'
+    map_cfg_n, map_ckpt = 'qxp21_5nad_no_sst_11', 'dashboard/qxp21_5nad_no_sst_11/version_0/checkpoints/modelCalSLAInterpGF-epoch=80-val_loss=1.7154.ckpt'
+    # map_cfg_n, map_ckpt = 'qxp20_swot_no_sst', 'results/xp20/qxp20_swot_no_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=131-val_loss=0.4958.ckpt'
     mapmod = utils.get_model(
         map_cfg_n,
         map_ckpt,
@@ -945,7 +1000,7 @@ if __name__ == '__main__':
     )
     
     print(swath_calib.configs.register_configs())
-    cal_cfg_n, cal_ckpt = 'ffFalse_swath_calib_qxp20_5nad_no_sst', 'lightning_logs/117_ffFalse_swath_calib_qxp20_5nad_no_sst/checkpoints/last.ckpt'
+    cal_cfg_n, cal_ckpt = 'ffFalse_swath_calib_qxp21_5nad_no_sst_11', 'lightning_logs/120_ffFalse_swath_calib_qxp21_5nad_no_sst_11/checkpoints/epoch=114-step=916.ckpt'
     cal_cfg = utils.get_cfg(cal_cfg_n)
 
     net = swath_calib.models.build_net(
@@ -954,7 +1009,7 @@ if __name__ == '__main__':
             **cal_cfg.net_cfg
     )
     normnet = torch.nn.Sequential(
-        torch.nn.BatchNorm2d(num_features=22, affine=False, momentum=0.1),
+        torch.nn.BatchNorm2d(num_features=22, affine=True, momentum=0.1),
         net
     )
 
@@ -981,7 +1036,7 @@ if __name__ == '__main__':
         # nadir_paths=tuple([f'../sla-data-registry/sensor_zarr/zarr/nadir/{name}' for name in ['swot', 'en', 'tpn', 'g2', 'j1']]),
         # swot_path=None,
         swot_path=f'../sla-data-registry/sensor_zarr/zarr/new_swot',
-        min_swot_length=500,
+        min_swot_length=450,
         crop_time=cfg_4dvar.params.patch_weight.crop.time,
         nadir_var='ssh_model',
         swot_gt_vars=('ssh_model',),
@@ -995,7 +1050,7 @@ if __name__ == '__main__':
     print(ds_kwargs)
     dm = FourDVarMixedGeometryDatamodule(ds_kwargs=ds_kwargs, dl_kwargs=dl_kwargs, **hydra.utils.call(splits),)
     
-    xp_num = 6 
+    xp_num = 10 
 
     ################ TRAIN ####################
     def train():
@@ -1007,38 +1062,129 @@ if __name__ == '__main__':
         # print(lit_mod.model.load_state_dict(mapmod.model.state_dict(), strict=False))
         # print(lit_mod.model.model_H.calnet.load_state_dict(cal_mod.net.state_dict(), strict=False))
 
+        # print(lit_mod.joint_model.load_state_dict(mapmod.model.state_dict(), strict=False))
+        # print(lit_mod.joint_model.model_H.calnet.load_state_dict(cal_mod.net.state_dict(), strict=False))
 
         vcb = swath_calib.versioning_cb.VersioningCallback()
         lrcb = pl.callbacks.LearningRateMonitor()
+        from pytorch_lightning import callbacks
+        mckptcb = callbacks.ModelCheckpoint(save_top_k=5, monitor='val_loss', save_last=True)
         logger = pl.loggers.TensorBoardLogger(
             'mixed_geom_logs',
             name=f'{xp_num}_{int(sensor_kwargs["swot_path"] is None)}_{cfg_4dvar.params.calref}',
         )
-        trainer = pl.Trainer(gpus=1, logger=logger, weights_summary='full', callbacks=[vcb, lrcb])
+        trainer = pl.Trainer(gpus=1, max_epochs=300, logger=logger, weights_summary='full', callbacks=[vcb, lrcb, mckptcb])
         trainer.fit(lit_mod, datamodule=dm)
 
 
     #####               TEST #########################
-    def test():
+    def test_one():
+        vnum=1
         # ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_10/checkpoints').glob('*.ckpt')))
         # ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_21/checkpoints').glob('*.ckpt')))
-        ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_39/checkpoints').glob('*.ckpt')))
+        # ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_40/checkpoints').glob('*.ckpt')))
+        # ckpt = str(next(Path('mixed_geom_logs/6_1_x/version_1/checkpoints').glob('*.ckpt')))
+        # ckpt = str(next(Path(f'mixed_geom_logs/7_0_x/version_{vnum}/checkpoints').glob('last.ckpt')))
+        # ckpt = str(next(Path(f'mixed_geom_logs/10_0_x/version_{vnum}/checkpoints').glob('last.ckpt')))
+        # ckpt = next(Path('mixed_geom_logs/7_0_x/version_5/checkpoints').glob('last.ckpt'))
+        # ckpt = str(next(Path('mixed_geom_logs/7_0_x/version_6/checkpoints').glob('epoch=59-step=6840.ckpt')))
+        # ckpt = 'joint.ckpt'
         # cfg_4dvar.params.patch_weight._target_='lit_model_augstate.get_cropped_hanning_mask'
-        cfg_4dvar.params.patch_weight.crop.time=cfg_4dvar.params.dT//2
-        pw = hydra.utils.call(cfg_4dvar.params.patch_weight)
-        print(ckpt)
-        lit_mod = utils.get_model(cfgn, ckpt=ckpt, dm=dm, add_overrides=overrides+['lit_mod_cls=__main__.LitModMixGeom'])
-        lit_mod.patch_weight.data = torch.from_numpy(pw)
-        logger = pl.loggers.TensorBoardLogger(
-            'mixed_geom_logs',
-            name=f'test_{xp_num}_{int(sensor_kwargs["swot_path"] is None)}_{cfg_4dvar.params.calref}',
-        )
-        trainer = pl.Trainer(gpus=[7], logger=logger, weights_summary='full')
-        trainer.test(lit_mod, datamodule=dm)
+        ckpt =None
+        metrics ={}
+        for cal in [False]:
+            lit_mod = utils.get_model(cfgn, ckpt=ckpt, dm=dm, add_overrides=overrides+['lit_mod_cls=__main__.LitModMixGeom'])
+            print(lit_mod.model.load_state_dict(mapmod.model.state_dict(), strict=False))
+            print(lit_mod.model.model_H.calnet.load_state_dict(cal_mod.net.state_dict(), strict=False))
+            lit_mod.hparams.rand_init=0
+            ckpt=str(ckpt)
+            if cal:
+                bak = cfg_4dvar.params.patch_weight.crop.time
+                cfg_4dvar.params.patch_weight.crop.time=cfg_4dvar.params.dT//2
+                pw = hydra.utils.call(cfg_4dvar.params.patch_weight)
+                lit_mod.patch_weight.data = torch.from_numpy(pw)
+                cfg_4dvar.params.patch_weight.crop.time=bak
+
+            # name = f'test_{xp_num}_{vnum}_{torch.load(ckpt)["epoch"]}_{cal}'
+            name = f'test_baseline'
+            import pytorch_lightning.loggers
+            logger = pytorch_lightning.loggers.TensorBoardLogger(
+                'mixed_geom_logs',
+                name=name,
+                default_hp_metric=False
+            )
+            trainer = pl.Trainer(gpus=[6], logger=logger, weights_summary='full')
+            print(ckpt)
+
+            test_out = trainer.test(lit_mod, datamodule=dm)
+            metrics[name] = dict(
+                ckpt=ckpt,
+                test_out=test_out,
+                test_xrds=lit_mod.test_xr_ds,
+                metrics=lit_mod.latest_metrics,
+            )
+            with open(f'tmp/results_{name}', 'wb') as f:
+                pickle.dump(metrics, f)
+
+    def test_all():
+        # ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_10/checkpoints').glob('*.ckpt')))
+        # ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_21/checkpoints').glob('*.ckpt')))
+        # ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_40/checkpoints').glob('*.ckpt')))
+        # ckpt = str(next(Path('mixed_geom_logs/6_1_x/version_1/checkpoints').glob('*.ckpt')))
+        # ckpt = str(next(Path('mixed_geom_logs/9_0_x/version_10/checkpoints').glob('last.ckpt')))
+        # ckpt = next(Path('mixed_geom_logs/7_0_x/version_5/checkpoints').glob('last.ckpt'))
+        # ckpt = str(next(Path('mixed_geom_logs/7_0_x/version_6/checkpoints').glob('epoch=59-step=6840.ckpt')))
+        # ckpt = 'joint.ckpt'
+        # cfg_4dvar.params.patch_weight._target_='lit_model_augstate.get_cropped_hanning_mask'
+        metrics = {}
+        for version, joint_step in [
+                # (5, 0),
+                # (6, 1),
+                # (8, 1),
+                (2,1),
+                # (3,1),
+            ]:
+            for ckpt in Path(f'mixed_geom_logs/10_0_x/version_{version}/checkpoints').glob('*.ckpt'):
+                print(ckpt)
+
+                if ckpt.name == 'last.ckpt': continue
+                for cal in [False]:#, True]:
+                    lit_mod = utils.get_model(cfgn, ckpt=ckpt, dm=dm, add_overrides=overrides+['lit_mod_cls=__main__.LitModMixGeom'])
+                    print(lit_mod.hparams.rand_init)
+                    lit_mod.hparams.rand_init=0
+                    print(lit_mod.hparams.joint_step)
+                    ckpt=str(ckpt)
+                    if cal:
+                        bak = cfg_4dvar.params.patch_weight.crop.time
+                        cfg_4dvar.params.patch_weight.crop.time=cfg_4dvar.params.dT//2
+                        pw = hydra.utils.call(cfg_4dvar.params.patch_weight)
+                        lit_mod.patch_weight.data = torch.from_numpy(pw)
+                        cfg_4dvar.params.patch_weight.crop.time=bak
 
 
-    train()
-    # test()
+                    name = f'test_{xp_num}_{version}_{torch.load(ckpt)["epoch"]}_{cal}'
+                    import pytorch_lightning.loggers
+                    logger = pytorch_lightning.loggers.TensorBoardLogger(
+                        'mixed_geom_logs',
+                        name=f'test_{xp_num}_{version}_{torch.load(ckpt)["epoch"]}_{cal}',
+                        default_hp_metric=False
+                    )
+                    trainer = pl.Trainer(gpus=[6], logger=logger, weights_summary='full')
+                    print(ckpt)
+
+                    test_out = trainer.test(lit_mod, datamodule=dm)
+                    metrics[name] = dict(
+                        ckpt=ckpt,
+                        test_out=test_out,
+                        test_xrds=lit_mod.test_xr_ds,
+                        metrics=lit_mod.latest_metrics,
+                    )
+                    with open('tmp/resultsbis0906', 'wb') as f:
+                        pickle.dump(metrics, f)
+            return metrics
+
+
+
     # trainer.test(lit_mod, dataloaders=dm.test_dataloader())
     # out = trainer.predict(lit_mod, dataloaders=dm.val_dataloader())
     def s2xr(v, c):                                              
@@ -1062,3 +1208,192 @@ if __name__ == '__main__':
           'y': ((dims[0], dims[-1]), c[2]),                    
         })                                                       
         return ds                                                
+
+    class LitTestCal(LitModMixGeom):
+        def predict_step(self, batch, batch_idx):
+            oi, gt, sgt, *y = batch
+            _, gc, sv, sc, si, _, _, ni = y
+            if sv is None:
+                return None
+            losses, out, out_w_cal, metrics, metrics_w_cal = self.forward(batch, phase='predict')
+            if out is None or sv is None:
+                return None
+            print(metrics)
+            cal_out, sv_b, cal_msk, cal_idx, sw = self.cal_out(y, out)
+            fna = lambda t, m: t.where(m, torch.zeros_like(t))
+            fmt = lambda t: fna(t[:,:, cal_idx, :], cal_msk)
+            cout, cgt, sc, tw, cin = cal_out, fmt(sgt),[fmt(cc) for cc in sc], fmt(sw), fmt(sv_b)
+
+            cal_out_joint, sv_b_joint, *_ = self.cal_out(y, out_w_cal)
+            cout_joint, cin_joint = cal_out_joint, fmt(sv_b_joint)
+
+            ds = xr.merge([
+                    s2xr(cout, sc).rename(value='cal'),
+                    s2xr(cin, sc).rename(value='map'),
+                    s2xr(cout_joint, sc).rename(value='cal_joint'),
+                    s2xr(cin_joint, sc).rename(value='map_joint'),
+                    s2xr(cgt, sc).rename(value='gt'),
+                    s2xr(tw, sc).rename(value='weight'),
+            ])
+            return ds
+
+    def predict():
+        # ckpt = str(next(Path('mixed_geom_logs/10_0_x/version_1/checkpoints').glob('*.ckpt')))
+        ckpt = None
+        ckpt = Path('mixed_geom_logs/10_0_x/version_3/checkpoints/epoch=98-step=43480.ckpt')
+        # ckpt = Path('mixed_geom_logs/10_0_x/version_2/checkpoints/epoch=22-step=9870.ckpt')
+        # ckpt = str(Path('mixed_geom_logs/7_0_x/version_9/checkpoints/epoch=156-step=17898.ckpt'))
+        lit_mod = utils.get_model(cfgn, ckpt=ckpt, dm=dm, add_overrides=overrides+['lit_mod_cls=__main__.LitTestCal'])
+        # print(lit_mod.model.load_state_dict(mapmod.model.state_dict(), strict=False))
+        # print(lit_mod.model.model_H.calnet.load_state_dict(cal_mod.net.state_dict(), strict=False))
+        # bak = cfg_4dvar.params.patch_weight.crop.time
+        # cfg_4dvar.params.patch_weight.crop.time=cfg_4dvar.params.dT//2
+        # pw = hydra.utils.call(cfg_4dvar.params.patch_weight)
+        # lit_mod.patch_weight.data = torch.from_numpy(pw)
+        # cfg_4dvar.params.patch_weight.crop.time=bak
+        trainer = pl.Trainer(gpus=[6], logger=False, weights_summary='full')
+
+        predictions = trainer.predict(lit_mod, dm.test_dataloader())
+
+    
+        ns = (0.31446309894037083, 0.3886609494201447)
+        sobel = lambda da: np.hypot(ndi.sobel(da, -1), ndi.sobel(da, -2))
+        sums = []
+        for p in [p for p in predictions if p is not None]:
+            if p.weight.pipe(lambda da: da ==0).all().item(): continue
+            sums.append(
+                    p[['map', 'cal','map_joint', 'cal_joint', 'gt', 'weight']]
+                    .pipe(lambda ds: ds * p.weight)
+                    # .map(sobel)
+                    .pipe(lambda ds: ds - ds.gt).drop('gt')
+                    .pipe(lambda ds: ds**2).sum()
+            )
+
+
+        print(xr.concat(sums, dim='batch').sum().pipe(lambda ds: ds/ds.weight).drop('weight').pipe(np.sqrt).pipe(lambda da: da*ns[1]))
+        return predictions
+
+    train()
+    # metrics = test_all()
+    # test_one()
+    # preds = predict()
+
+    # ckpt = None
+    # # ckpt = str(next(Path('mixed_geom_logs/7_0_x/version_6/checkpoints').glob('epoch=125-step=14364.ckpt')))
+    # # ckpt = str(Path('mixed_geom_logs/7_0_x/version_9/checkpoints/epoch=156-step=17898.ckpt'))
+    # lit_mod = utils.get_model(cfgn, ckpt=ckpt, dm=dm, add_overrides=overrides+['lit_mod_cls=__main__.LitTestCal'])
+    # print(lit_mod.model.load_state_dict(mapmod.model.state_dict(), strict=False))
+    # print(lit_mod.model.model_H.calnet.load_state_dict(cal_mod.net.state_dict(), strict=False))
+    # # trainer = pl.Trainer(gpus=[6], weights_summary='full')
+    # # trainer.test(lit_mod, dm.test_dataloader())
+    # tmp_test = 'tmp/test.nc'
+    # # lit_mod.test_xr_ds.to_netcdf(tmp_test)
+    # new_grid_kwargs = {
+    #     'slice_win': {'lat': 200, 'lon': 200, 'time': 11}, 
+    #     'strides': {'lat': 200, 'lon': 200, 'time': 1},
+    #     'dim_range': {'lat': slice(33.0, 43.0, None), 'lon': slice(-65.0, -55.0, None)}
+    # }
+
+    # ns = (0.31446309894037083, 0.3886609494201447)
+    # ds = FourDVarMixedGeometryDataset(
+    #     slice(None, None),
+    #     tmp_test, 'gt',
+    #     tmp_test, 'oi',
+    #     tmp_test, 'pred',
+    #     new_grid_kwargs, sensor_kwargs, norm_stats=ns,
+    # )
+    # len(ds)
+    # dl = torch.utils.data.DataLoader(ds, batch_size=2, shuffle=False, collate_fn=ds.collate_fn)
+    # lit_mod = lit_mod.to('cuda:7')
+    # lit_mod.eval()
+    # with torch.no_grad():
+    #     for batch in dl:
+    #         batch = lit_mod.transfer_batch_to_device(batch, lit_mod.device,0)
+    #         oi, gt, sgt, *y = batch
+    #         (go, gc, sv, sc, si, nv, nc, ni) = y
+    #         if sv is None:
+    #             continue
+    #         xb=go
+    #         fna = lambda t, m: t.where(m, torch.zeros_like(t))
+    #         cal_out, _, cal_msk, cal_idx, sw = lit_mod.cal_out(y, xb)
+    #         s_xb = swath_calib.interp.batch_torch_interpolate_with_fmt(xb[si], *[cc[si] for cc in gc], *sc)
+    #         t1, t2, ref, tw = cal_out, fna(sgt[:,:, cal_idx, :], cal_msk), fna(s_xb[:,:, cal_idx, :], cal_msk), fna(sw[:,:, cal_idx, :], cal_msk)
+    #         if tw.sum().item() == 0:
+    #             continue
+
+    #         ((t1 -ref)**2 *tw).sum() /tw.sum()
+
+    #         mse = ((t1-t2)**2 * tw).sum() / tw.sum()
+    #         mse_ref = ((t1-ref)**2 * tw).sum() / tw.sum()
+    #         print(mse.sqrt() * ns[1])
+    #         print(mse_ref.sqrt() * ns[1])
+    #         # print(mse.sqrt() * ns[1])
+    #         # print(mse.sqrt() * ns[1], tw.sum((2,3)))
+
+    
+
+    
+    # xrgf = lambda da, sig: da if sig==0 else xr.apply_ufunc(
+    #         lambda nda: ndi.gaussian_filter1d(nda, axis=2, sigma=sig, order=0, mode='mirror', truncate=3.0), da)
+
+    # (xrgf(s2xr(sv.nan_to_num(), sc), sig=80)-xrgf(s2xr(sv.nan_to_num(), sc), sig=70)).value.isel(dict(d0=0, d1=0)).T.plot(figsize=(10,3))
+    # s2xr(sgt.nan_to_num(), sc).value.isel(dict(d0=0, d1=0)).T.plot(figsize=(10,3))
+    # gaus = StackedGaussian([70,80]).to(sv.device)
+
+    # s2xr(gaus(sv[:1, :1].nan_to_num()).diff(dim=1)[:, -1:], [cc[:1, :1] for cc in sc]).value.isel(dict(d0=0, d1=0)).T.plot(figsize=(10,3))
+
+
+    # it = val_ds[0]
+
+    # it.shape
+
+    # cal_inp = lit_mod.model.model_H.cal_inp(sv, s_xb)
+    # cal_inp.shape
+    # cal_mod=cal_mod.to(lit_mod.device)
+    # cal_out = cal_mod.net(cal_inp)
+
+    # cm_cal_inp, cm_s_xb, s_gt, raw_gt, raw_ref = lit_mod.transfer_batch_to_device(
+    #     next(iter(torch.utils.data.DataLoader(val_ds, batch_size=1, shuffle=0))), lit_mod.device, 0
+    # )
+
+    # cal_out = cal_mod.net(cal_inp)
+    # cal_inp.std((0,2,3))
+    # cal_inp.mean((0,2,3))
+
+    # cm_cal_inp.std((0, 2, 3))
+    # plt.imshow(cal_out.squeeze().T.detach().cpu())
+    # plt.imshow((s_xb - s_gt).squeeze().T.detach().cpu())
+    
+    # cal_inp.abs().mean((2,3))
+    # cal_inp.std((2,3))
+    # my_cal_inp = lit_mod.model.model_H.cal_inp(sv, s_xb)
+    # F.mse_loss(s_xb, s_gt)
+    # F.mse_loss(s_xb+cal_out, s_gt)
+
+
+# #     preds[1].weight.any(dim=['d2', 'd3'])
+# #     # preds[1].isel(d0=0, d1=2).weight.any(dim=['d2', 'd3'])
+# #     preds[1].isel(d0=1, d1=2).weight.T.plot(figsize=(10, 3))
+# #     preds[1].isel(d0=1, d1=2).pipe(lambda ds: ds.cal - ds['map']).T.plot(figsize=(10, 3))
+# #     preds[1].isel(d0=1, d1=2).pipe(lambda ds: ds.gt - ds['map']).T.plot(figsize=(10, 3))
+# #     preds[1].isel(d0=1, d1=2).pipe(lambda ds: ds.gt ).T.plot(figsize=(10, 3))
+# #     preds[1].isel(d0=1, d1=2).pipe(lambda ds: ds['map']).T.plot(figsize=(10, 3))
+    # # mse = lambda t1, t2, tw: ((t1-t2)**2 * tw).sum() / tw.sum()
+    # # np.sqrt(np.mean(
+    # #     [1. if p is None else (((p.cal - p.gt)**2 * p.weight).sum() / p.weight.sum()).item() for p in preds 
+    # #         if p is not None
+    # #         ]
+    # # ) )* ns[1]
+
+    # # [np.sqrt(((p.gt - p['map'])**2 * p.weight).sum() / p.weight.sum()).item() for p in preds if p is not None ]
+
+
+    # # with open('tmp/resultsbis0906', 'rb') as f:
+    # #     metrics  = pickle.load(f)
+
+    # # for k in metrics:
+    # #     print(metrics[k]['test_out'])
+
+    pd.DataFrame([{'ckpt': k, **metrics[k]['test_out'][0], **metrics[k]['metrics']} for k in metrics])#.to_csv('tmp/joint_metrics.csv')
+
+
