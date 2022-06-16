@@ -1,4 +1,5 @@
 import einops
+import tqdm
 import matplotlib.pyplot as plt
 import hydra
 import torch.distributed as dist
@@ -353,7 +354,7 @@ class LitModelAugstate(pl.LightningModule):
                 {v: (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
             )
 
-        for ds in dses:
+        for ds in tqdm.tqdm(dses):
             ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
             xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.gt.dims)
             _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
@@ -417,7 +418,7 @@ class LitModelAugstate(pl.LightningModule):
         # animate maps
         if self.hparams.animate == True:
             path_save0 = self.logger.log_dir + '/animation.mp4'
-            animate_maps(self.x_gt, self.obs_inp, self.x_oi, self.x_rec, self.lon, self.lat, path_save0)
+            animate_maps(self.x_gt, self.obs_inp, self.x_oi, self.x_rec, self.test_lon, self.test_lat, path_save0)
             # save NetCDF
         # PENDING: replace hardcoded 60
         # save_netcdf(saved_path1=path_save1, pred=self.x_rec,
@@ -691,48 +692,18 @@ if __name__ =='__main__':
     importlib.reload(hydra_main)
     from utils import get_cfg, get_dm, get_model
     from omegaconf import OmegaConf
-    OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
+    # OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
     import hydra_config
-    # cfg_n, ckpt = 'qxp16_aug2_dp240_swot_w_oi_map_no_sst_ng5x3cas_l2_dp025_00', 'archive_dash/qxp16_aug2_dp240_swot_w_oi_map_no_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=170-val_loss=0.0164.ckpt'
+
     cfg_n, ckpt = 'full_core', 'results/xpmultigpus/xphack4g_augx4/version_0/checkpoints/modelCalSLAInterpGF-epoch=26-val_loss=1.4156.ckpt'
-    # cfg_n, ckpt = 'full_core', 'archive_dash/xp_interp_dt7_240_h/version_5/checkpoints/modelCalSLAInterpGF-epoch=47-val_loss=1.3773.ckpt'
-
-    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=181-val_loss=0.0101.ckpt'
-    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=191-val_loss=0.0101.ckpt'
-    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=192-val_loss=0.0102.ckpt'
-    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=192-val_loss=0.0102.ckpt'
-
-    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=187-val_loss=0.0105.ckpt'
-    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=198-val_loss=0.0103.ckpt'
-    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=194-val_loss=0.0106.ckpt'
-
-    # cfg_n, ckpt = 'full_core_sst', 'archive_dash/xp_interp_dt7_240_h_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=114-val_loss=0.6698.ckpt'
-    # cfg_n = f"xp_aug/xp_repro/{cfg_n}"
-    # cfg_n, ckpt = 'full_core_hanning_sst', 'results/xpnew/hanning_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=95-val_loss=0.3419.ckpt'
-    # cfg_n, ckpt = 'full_core_hanning_sst', 'results/xpnew/hanning_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=92-val_loss=0.3393.ckpt'
-    # cfg_n, ckpt = 'full_core_hanning_sst', 'results/xpnew/hanning_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=99-val_loss=0.3438.ckpt'
-    # cfg_n, ckpt = 'full_core_sst_fft', 'results/xpnew/sst_fft/version_0/checkpoints/modelCalSLAInterpGF-epoch=59-val_loss=2.0084.ckpt'
-    # cfg_n, ckpt = 'full_core_sst_fft', 'results/xpnew/sst_fft/version_0/checkpoints/modelCalSLAInterpGF-epoch=92-val_loss=2.0447.ckpt'
-    # cfg_n, ckpt = 'cycle_lr_sst', 'results/xpnew/xp_cycle_lr_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=103-val_loss=0.9093.ckpt'
-    # cfg_n, ckpt = 'full_core_hanning', 'results/xpnew/hanning/version_0/checkpoints/modelCalSLAInterpGF-epoch=91-val_loss=0.5461.ckpt'
-    # cfg_n, ckpt = 'full_core_hanning', 'results/xpnew/hanning/version_2/checkpoints/modelCalSLAInterpGF-epoch=88-val_loss=0.5654.ckpt'
-    # cfg_n, ckpt = 'full_core_hanning', 'results/xpnew/hanning/version_2/checkpoints/modelCalSLAInterpGF-epoch=129-val_loss=0.5692.ckpt'
-    # cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_hannAdamW/version_0/checkpoints/modelCalSLAInterpGF-epoch=129-val_loss=0.5664.ckpt'
-    # cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_daugx3hann/version_1/checkpoints/modelCalSLAInterpGF-epoch=32-val_loss=0.5734.ckpt'
-    # cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_daugx3hann/version_1/checkpoints/modelCalSLAInterpGF-epoch=34-val_loss=0.5793.ckpt'
-    # cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_daugx3hann/version_1/checkpoints/modelCalSLAInterpGF-epoch=43-val_loss=0.5658.ckpt'
-    cfg_n, ckpt = 'qxp20_swot_sst', 'results/xp20/qxp20_swot_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=129-val_loss=0.2785.ckpt'
-    cfg_n, ckpt = 'qxp20_swot_no_sst', 'results/xp20/qxp20_swot_no_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=131-val_loss=0.4958.ckpt'
-    # cfg_n, ckpt = 'qxp20_5nad_no_sst', 'results/xp20/qxp20_5nad_no_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=85-val_loss=0.7589.ckpt'
-    # cfg_n, ckpt = 'full_core_hanning_t_grad', 'results/xpnew/hanning_grad/version_0/checkpoints/modelCalSLAInterpGF-epoch=102-val_loss=3.7019.ckpt'
-    # cfg_n = f"xp_aug/xp_repro/{cfg_n}"
+    cfg_n = f"baseline/{cfg_n}"
+    cfg_n, ckpt = 'qxp21_5nad_sst_11', 'dashboard/qxp21_5nad_sst_11/version_0/checkpoints/modelCalSLAInterpGF-epoch=17-val_loss=1.3117.ckpt'
+    cfg_n, ckpt = 'qxp21_5nad_no_sst_11', 'dashboard/qxp21_5nad_no_sst_11/version_0/checkpoints/modelCalSLAInterpGF-epoch=80-val_loss=1.7154.ckpt'
+    # cfg_n, ckpt = 'qxp21_5nad_no_sst_11', 'dashboard/qxp21_5nad_no_sst_11/version_0/checkpoints/modelCalSLAInterpGF-epoch=102-val_loss=1.7432.ckpt'
+    # cfg_n, ckpt = 'qxp21_5nad_no_sst_11', 'dashboard/qxp21_5nad_no_sst_11/version_0/checkpoints/modelCalSLAInterpGF-epoch=37-val_loss=1.7465.ckpt'
     dm = get_dm(cfg_n, setup=False,
             add_overrides=[
-                # 'params.files_cfg.obs_mask_path=/gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/CalData/cal_data_new_errs.nc',
-                # 'params.files_cfg.obs_mask_path=/gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d.nc',
-                'params.files_cfg.obs_mask_var=five_nadirs',
-                # 'params.files_cfg.obs_mask_var=swot_nadirs_no_noise',
-                'file_paths=dgx_ifremer'
+                'file_paths=dgx_ifremer',
             ]
 
 
@@ -741,11 +712,23 @@ if __name__ =='__main__':
             cfg_n,
             ckpt,
             dm=dm)
-    mod.hparams
-    cfg = get_cfg(cfg_n)
-    # cfg = get_cfg("xp_aug/xp_repro/quentin_repro")
+    cfg = get_cfg(
+        cfg_n,
+        overrides=[
+            'file_paths=dgx_ifremer',
+            # 'params.patch_weight._target_=lit_model_augstate.get_cropped_hanning_mask',
+            # 'params.patch_weight.crop.time=4',
+    ])
+
     print(OmegaConf.to_yaml(cfg))
     lit_mod_cls = get_class(cfg.lit_mod_cls)
     runner = hydra_main.FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls)
-    mod = runner.test(ckpt)
+    mod = runner._get_model(ckpt_path=ckpt)
+    mod.patch_weight.data = torch.tensor(hydra.utils.call(cfg.params.patch_weight))
+    mod = runner.test(ckpt, _mod=mod)
     mod.test_figs['psd']
+
+    # self = mod
+    # animate_maps(self.x_gt, self.obs_inp, self.x_oi, self.x_rec, self.test_lon, self.test_lat, 'animation.mp4')
+
+
