@@ -106,8 +106,10 @@ class LitModelOI(LitModelAugstate):
         ###############
         # animate maps
         ###############
-        path_save0 = self.logger.log_dir + '/animation.mp4'
-        animate_maps_OI(self.x_gt, self.obs_inp, self.x_rec, self.test_lon, self.test_lat, path_save0)
+        #print(self.hparams)
+        if self.hparams.animate:
+            path_save0 = self.logger.log_dir + '/animation.mp4'
+            animate_maps_OI(self.x_gt, self.obs_inp, self.x_rec, self.test_lon, self.test_lat, path_save0)
 
         psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
         psd_fig = metrics.plot_psd_score(psd_ds)
@@ -215,3 +217,4 @@ class LitModelOI(LitModelAugstate):
                 ('meanGrad', mean_GAll),
                 ])
         return loss, outputs, [outputs, hidden_new, cell_new, normgrad], metrics
+

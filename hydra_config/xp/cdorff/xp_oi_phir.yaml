@@ -15,6 +15,7 @@ params:
   alpha_mse_gssh: 1000.
   norm_obs: l2
   norm_prior: l2
+  animate: false
   shape_state:
     - ${datamodule.slice_win.time}
     - ${datamodule.slice_win.lon}

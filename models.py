@@ -270,33 +270,34 @@ class ModelLR(torch.nn.Module):
 
 ## UNet
 class UNet(torch.nn.Module):
-      def __init__(self,shape_data, DimAE, dW):
+      def __init__(self,shapeData, DimAE, dW):
           super(UNet, self).__init__()
-          self.pool1  = torch.nn.AvgPool2d((4,4))
-          #self.conv1  = ConstrainedConv2d(shape_data,2*shape_data*DimAE,(2*dW+1,1),padding=(dW,0),bias=False)
-          self.conv1  = torch.nn.Conv2d(shape_data,2*shape_data*DimAE,(2*dW+1,2*dW+1),padding=(dW,dW),bias=False)
-          self.conv2  = torch.nn.Conv2d(2*shape_data*DimAE,shape_data*DimAE,1,padding=0,bias=False)
+          self.pool1  = torch.nn.AvgPool2d((4,1))
+          #self.conv1  = ConstrainedConv2d(shapeData[0],2*shapeData[0]*DimAE,(2*dW+1,1),padding=(dW,0),bias=False)
+          self.conv1  = torch.nn.Conv2d(shapeData,2*shapeData*DimAE,(2*dW+1,1),padding=(dW,0),bias=False)
+          self.conv2  = torch.nn.Conv2d(2*shapeData*DimAE,shapeData*DimAE,1,padding=0,bias=False)
           
-          self.conv21 = torch.nn.Conv2d(shape_data*DimAE,shape_data*DimAE,1,padding=0,bias=False)
-          self.conv22 = torch.nn.Conv2d(shape_data*DimAE,shape_data*DimAE,1,padding=0,bias=False)
-          self.conv23 = torch.nn.Conv2d(shape_data*DimAE,shape_data*DimAE,1,padding=0,bias=False)
-          self.conv3  = torch.nn.Conv2d(2*shape_data*DimAE,shape_data*DimAE,1,padding=0,bias=False)
-          #self.conv4 = torch.nn.Conv1d(4*shape_data*DimAE,8*shape_data*DimAE,1,padding=0,bias=False)
+          self.conv21 = torch.nn.Conv2d(shapeData*DimAE,shapeData*DimAE,1,padding=0,bias=False)
+          self.conv22 = torch.nn.Conv2d(shapeData*DimAE,shapeData*DimAE,1,padding=0,bias=False)
+          self.conv23 = torch.nn.Conv2d(shapeData*DimAE,shapeData*DimAE,1,padding=0,bias=False)
+          self.conv3  = torch.nn.Conv2d(2*shapeData*DimAE,shapeData*DimAE,1,padding=0,bias=False)
+          #self.conv4 = torch.nn.Conv1d(4*shapeData[0]*DimAE,8*shapeData[0]*DimAE,1,padding=0,bias=False)
 
-          self.conv2Tr = torch.nn.ConvTranspose2d(shape_data*DimAE,shape_data,(4,4),stride=(4,4),bias=False)          
-          #self.conv5 = torch.nn.Conv1d(2*shape_data*DimAE,2*shape_data*DimAE,3,padding=1,bias=False)
-          #self.conv6 = torch.nn.Conv1d(2*shape_data*DimAE,shape_data,1,padding=0,bias=False)
-          #self.conv6 = torch.nn.Conv1d(16*shape_data*DimAE,shape_data,3,padding=1,bias=False)
+          self.conv2Tr = torch.nn.ConvTranspose2d(shapeData*DimAE,shapeData,(4,1),stride=(4,1),bias=False)          
+          #self.conv5 = torch.nn.Conv1d(2*shapeData[0]*DimAE,2*shapeData[0]*DimAE,3,padding=1,bias=False)
+          #self.conv6 = torch.nn.Conv1d(2*shapeData[0]*DimAE,shapeData[0],1,padding=0,bias=False)
+          #self.conv6 = torch.nn.Conv1d(16*shapeData[0]*DimAE,shapeData[0],3,padding=1,bias=False)
 
-          #self.convHR1  = ConstrainedConv2d(shape_data,2*shape_data*DimAE,(2*dW+1,1),padding=(dW,0),bias=False)
-          #self.convHR1  = ConstrainedConv2d(shape_data,2*shape_data*DimAE,(2*dW+1,1),padding=(dW,0),bias=False)
-          self.convHR1  = torch.nn.Conv2d(shape_data,2*shape_data*DimAE,(2*dW+1,1),padding=(dW,0),bias=False)
-          self.convHR2  = torch.nn.Conv2d(2*shape_data*DimAE,shape_data*DimAE,1,padding=0,bias=False)
+          #self.convHR1  = ConstrainedConv2d(shapeData[0],2*shapeData[0]*DimAE,(2*dW+1,1),padding=(dW,0),bias=False)
+          #self.convHR1  = ConstrainedConv2d(shapeData[0],2*shapeData[0]*DimAE,(2*dW+1,1),padding=(dW,0),bias=False)
+          self.convHR1  = torch.nn.Conv2d(shapeData,2*shapeData*DimAE,(2*dW+1,1),padding=(dW,0),bias=False)
+          self.convHR2  = torch.nn.Conv2d(2*shapeData*DimAE,shapeData*DimAE,1,padding=0,bias=False)
           
-          self.convHR21 = torch.nn.Conv2d(shape_data*DimAE,shape_data*DimAE,1,padding=0,bias=False)
-          self.convHR22 = torch.nn.Conv2d(shape_data*DimAE,shape_data*DimAE,1,padding=0,bias=False)
-          self.convHR23 = torch.nn.Conv2d(shape_data*DimAE,shape_data*DimAE,1,padding=0,bias=False)
-          self.convHR3  = torch.nn.Conv2d(2*shape_data*DimAE,shape_data,1,padding=0,bias=False)
+          self.convHR21 = torch.nn.Conv2d(shapeData*DimAE,shapeData*DimAE,1,padding=0,bias=False)
+          self.convHR22 = torch.nn.Conv2d(shapeData*DimAE,shapeData*DimAE,1,padding=0,bias=False)
+          self.convHR23 = torch.nn.Conv2d(shapeData*DimAE,shapeData*DimAE,1,padding=0,bias=False)
+          self.convHR3  = torch.nn.Conv2d(2*shapeData*DimAE,shapeData,1,padding=0,bias=False)
+
 
       def forward(self, xinp):
           #x = self.fc1( torch.nn.Flatten(x) )
@@ -316,5 +317,6 @@ class UNet(torch.nn.Module):
           xHR = self.convHR3( xHR )
           
           x   = torch.add(x,1.,xHR)
-          #x = x.view(-1,shape_data,shapeData[1],1)
+          
+          # ~ x = x.view(-1,shapeData[0],shapeData[1],1)
           return x
