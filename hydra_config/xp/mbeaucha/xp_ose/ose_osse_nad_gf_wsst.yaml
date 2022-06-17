@@ -1,5 +1,5 @@
 # @package _global_
-xp_name: ose_gf_wosst
+xp_name: ose_gf_wsst
 
 lit_mod_cls: lit_model_augstate.LitModelAugstate
 
@@ -10,18 +10,18 @@ datamodule:
 
 params:
   files_cfg:
-    oi_path: ${file_paths.oi_ose_nad_path}
+    oi_path: ${file_paths.oi_ose_osse_nad_path}
     oi_var: ssh
     oi_decode: false
-    obs_mask_path: ${file_paths.obs_mask_ose_nad_path}
+    obs_mask_path: ${file_paths.obs_mask_ose_osse_nad_path}
     obs_mask_var: ssh
     obs_mask_decode: false
-    gt_path: ${file_paths.gt_ose_path}
+    gt_path: ${file_paths.gt_ose_osse_path}
     gt_var: ssh
     gt_decode: false
-    sst_path: null
-    sst_var: null
-    sst_decode: null
+    sst_path: ${file_paths.sst_ose_osse_path}
+    sst_var: sst
+    sst_decode: false
   dT: 7
   patch_weight:
     _target_: lit_model_augstate.get_constant_crop
@@ -30,8 +30,8 @@ params:
       lat: 20
       lon: 20
       time: 2
-  model: 4dvarnet
-  sst: false
+  model: 4dvarnet_sst
+  sst: true
   k_n_grad: 3
   n_grad: 5
   val_diag_freq: 5
@@ -41,15 +41,14 @@ params:
   norm_obs: l2
   norm_prior: l2
   automatic_optimization: true
-  supervised: false
 
 defaults:
-  - /xp/xp_aug/base_xp
-  - /splits/ose
-  - /xp/xp_aug/aug/without_aug_state
-  - /xp/xp_aug/dl/d240_p240x5_s240x1
+  - /xp/base_xp
+  - /splits/ose_osse
+  - /xp/baseline/aug/without_aug_state
+  - /xp/baseline/dl/d240_p240x5_s240x1
   - /params/fourdvarnet_ose
   - /training/ose
-  - /xp/xp_aug/loss/map
+  - /xp/baseline/loss/map
   - _self_
 

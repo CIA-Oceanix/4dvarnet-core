@@ -6,14 +6,17 @@ class LitModelWithSST(LitModel):
 
     def __init__(self, hparam, *args, **kwargs):
         LitModel.__init__(self, hparam, *args, **kwargs)
+
+        self.aug_state = self.hparams.aug_state if hasattr(self.hparams, 'aug_state') else False
+
         # adapt main model with SST
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
-            Phi_r(self.shapeData[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
-                  self.hparams.nbBlocks, self.hparams.dropout_phi_r),
-            Model_HwithSST(self.shapeData[0], dT=self.hparams.dT),
-            NN_4DVar.model_GradUpdateLSTM(self.shapeData, self.hparams.UsePriodicBoundary,
+                    Phi_r(self.hparams.shape_data[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
+                    self.hparams.nbBlocks, self.hparams.dropout_phi_r),
+                    Model_HwithSST(self.hparams.shape_data[0], dT=self.hparams.dT),
+                    NN_4DVar.model_GradUpdateLSTM(self.hparams.shape_data, self.hparams.UsePriodicBoundary,
                                           self.hparams.dim_grad_solver, self.hparams.dropout),
-            None, None, self.shapeData, self.hparams.n_grad)
+                    None, None, self.hparams.shape_data, self.hparams.n_grad)
 
     def configure_optimizers(self):
 
@@ -69,8 +72,16 @@ class LitModelWithSST(LitModel):
         new_masks = torch.cat((1. + 0. * inputs_Mask, inputs_Mask), dim=1)
         mask_SST = 1. + 0. * sst_GT
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
-        inputs_init = torch.cat((targets_OI, inputs_obs), dim=1)
-        inputs_missing = torch.cat((targets_OI, inputs_obs), dim=1)
+        if self.aug_state:
+            inputs_init = torch.cat((targets_OI, inputs_obs, inputs_obs),dim=1)
+        else:
+            inputs_init = torch.cat((targets_OI, inputs_obs), dim=1)
+        if self.aug_state:
+            inputs_missing = torch.cat((targets_OI, inputs_obs, 0.*targets_OI), dim=1)
+            new_masks = torch.cat((1. + 0. * inputs_Mask, inputs_Mask,torch.zeros_like(inputs_Mask)), dim=1)
+        else:
+            inputs_missing = torch.cat((targets_OI, inputs_obs), dim=1)
+            new_masks = torch.cat((1. + 0. * inputs_Mask, inputs_Mask), dim=1)
 
         # gradient norm field
         g_targets_GT = self.gradient_img(targets_GT)
@@ -82,14 +93,21 @@ class LitModelWithSST(LitModel):
             outputs, hidden_new, cell_new, normgrad = self.model(inputs_init, [inputs_missing, sst_GT],
                                                                  [new_masks, mask_SST])
 
+
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
 
             outputsSLRHR = outputs
             outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
-            outputs = outputsSLR + outputs[:, self.hparams.dT:, :, :]
+            outputsSHR = outputs[:, 2*self.hparams.dT:, :, :]
+            if self.aug_state:
+                outputsSHR = outputs[:, 2*self.hparams.dT:, :, :]
+                outputs = outputsSLR + outputs[:, 2*self.hparams.dT:, :, :]
+            else:
+                outputsSHR = outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
+                outputs = outputsSLR + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
 
-            outputs = kornia.filters.median_blur(outputs, (5,5))
+            #outputs = kornia.filters.median_blur(outputs, (5,5))
 
             # reconstruction losses
             g_outputs = self.gradient_img(outputs)
@@ -101,36 +119,39 @@ class LitModelWithSST(LitModel):
 
             # projection losses
             loss_AE = torch.mean((self.model.phi_r(outputsSLRHR) - outputsSLRHR) ** 2)
-            yGT = torch.cat((targets_GT_wo_nan, outputsSLR - targets_GT_wo_nan), dim=1)
-            # yGT        = torch.cat((targets_OI,targets_GT-targets_OI),dim=1)
+            if self.hparams.supervised==True:
+                yGT = torch.cat((targets_OI,
+                                 targets_GT_wo_nan - outputsSLR),
+                                dim=1)
+                if self.aug_state:
+                    yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
+            else:
+                yGT = torch.cat((targets_OI,
+                                 outputsSHR),
+                                 dim=1)
+                if self.aug_state:
+                    yGT = torch.cat((yGT, outputsSHR), dim=1)
             loss_AE_GT = torch.mean((self.model.phi_r(yGT) - yGT) ** 2)
-
             # low-resolution loss
             loss_SR = NN_4DVar.compute_WeightedLoss(outputsSLR - targets_OI, self.w_loss)
             targets_GTLR = self.model_LR(targets_OI)
             loss_LR = NN_4DVar.compute_WeightedLoss(self.model_LR(outputs) - targets_GTLR, self.w_loss)
 
-            # supervised loss
-            if self.hparams.supervised==True:
-                loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
-                loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
-                loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
-
-            # unsupervised loss
-            else:
+            if self.hparams.supervised==False:
                 # MSE
                 mask = (targets_GT_wo_nan!=0.)
                 iT = int(self.hparams.dT / 2)
                 new_tensor = torch.masked_select(outputs[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(targets_GT[:,iT,:,:],mask[:,iT,:,:])
-                loss = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
+                loss_All = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
                 # GradMSE
                 mask = (self.gradient_img(targets_GT_wo_nan)!=0.)
                 iT = int(self.hparams.dT / 2)
                 new_tensor = torch.masked_select(self.gradient_img(outputs)[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(self.gradient_img(targets_GT)[:,iT,:,:],mask[:,iT,:,:])
-                loss_Grad = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
+                loss_GAll = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
 
-                #loss = self.hparams.alpha_mse_ssh * loss + self.hparams.alpha_mse_gssh * loss_Grad + 0.5 * self.hparams.alpha_proj * loss_AE + self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
-                loss = self.hparams.alpha_mse_ssh * loss  + self.hparams.alpha_mse_gssh *loss_Grad + 0.5 * self.hparams.alpha_proj * loss_AE + self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR 
+            loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
+            loss += 10 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
+            loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
 
             # metrics
             mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_GT, self.w_loss)

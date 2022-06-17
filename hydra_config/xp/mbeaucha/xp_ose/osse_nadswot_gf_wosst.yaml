@@ -1,5 +1,5 @@
 # @package _global_
-xp_name: ose_gf_wosst
+xp_name: osse_gf_wosst
 
 lit_mod_cls: lit_model_augstate.LitModelAugstate
 
@@ -10,13 +10,13 @@ datamodule:
 
 params:
   files_cfg:
-    oi_path: ${file_paths.oi_ose_osse_nad_path}
+    oi_path: ${file_paths.oi_ose_nad_path}
     oi_var: ssh
     oi_decode: false
-    obs_mask_path: ${file_paths.obs_mask_ose_osse_nad_path}
+    obs_mask_path: ${file_paths.obs_mask_ose_nad_path}
     obs_mask_var: ssh
     obs_mask_decode: false
-    gt_path: ${file_paths.gt_ose_osse_path}
+    gt_path: ${file_paths.gt_ose_path}
     gt_var: ssh
     gt_decode: false
     sst_path: null
@@ -44,12 +44,12 @@ params:
   supervised: false
 
 defaults:
-  - /xp/xp_aug/base_xp
-  - /splits/ose_osse
-  - /xp/xp_aug/aug/without_aug_state
-  - /xp/xp_aug/dl/d240_p240x5_s240x1
+  - /xp/base_xp
+  - /splits/ose
+  - /xp/baseline/aug/with_aug_state
+  - /xp/baseline/dl/d240_p240x5_s240x1
   - /params/fourdvarnet_ose
   - /training/ose
-  - /xp/xp_aug/loss/map
+  - /xp/baseline/loss/map
   - _self_
 

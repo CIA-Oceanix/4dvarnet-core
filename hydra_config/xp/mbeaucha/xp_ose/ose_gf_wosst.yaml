@@ -1,7 +1,7 @@
 # @package _global_
-xp_name: osse_gf_wosst
+xp_name: ose_gf_wosst
 
-lit_mod_cls: lit_model_augstate.LitModelAugstate
+lit_mod_cls: lit_model.LitModel
 
 datamodule:
   dl_kwargs:
@@ -44,12 +44,11 @@ params:
   supervised: false
 
 defaults:
-  - /xp/xp_aug/base_xp
+  - /xp/base_xp
   - /splits/ose
-  - /xp/xp_aug/aug/with_aug_state
-  - /xp/xp_aug/dl/d240_p240x5_s240x1
+  - /xp/baseline/aug/with_aug_state
+  - /xp/baseline/dl/d200_p200x5_s200x1
   - /params/fourdvarnet_ose
   - /training/ose
-  - /xp/xp_aug/loss/map
   - _self_
 

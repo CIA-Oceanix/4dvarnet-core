@@ -1,5 +1,5 @@
 # @package _global_
-xp_name: ose_gf_wsst
+xp_name: ose_gf_wosst
 
 lit_mod_cls: lit_model_augstate.LitModelAugstate
 
@@ -19,9 +19,9 @@ params:
     gt_path: ${file_paths.gt_ose_osse_path}
     gt_var: ssh
     gt_decode: false
-    sst_path: ${file_paths.sst_ose_osse_path}
-    sst_var: sst
-    sst_decode: false
+    sst_path: null
+    sst_var: null
+    sst_decode: null
   dT: 7
   patch_weight:
     _target_: lit_model_augstate.get_constant_crop
@@ -30,8 +30,8 @@ params:
       lat: 20
       lon: 20
       time: 2
-  model: 4dvarnet_sst
-  sst: true
+  model: 4dvarnet
+  sst: false
   k_n_grad: 3
   n_grad: 5
   val_diag_freq: 5
@@ -41,14 +41,15 @@ params:
   norm_obs: l2
   norm_prior: l2
   automatic_optimization: true
+  supervised: false
 
 defaults:
-  - /xp/xp_aug/base_xp
+  - /xp/base_xp
   - /splits/ose_osse
-  - /xp/xp_aug/aug/without_aug_state
-  - /xp/xp_aug/dl/d240_p240x5_s240x1
+  - /xp/baseline/aug/without_aug_state
+  - /xp/baseline/dl/d240_p240x5_s240x1
   - /params/fourdvarnet_ose
   - /training/ose
-  - /xp/xp_aug/loss/map
+  - /xp/baseline/loss/map
   - _self_
 

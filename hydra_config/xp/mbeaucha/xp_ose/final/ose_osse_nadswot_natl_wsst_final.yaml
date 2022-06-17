@@ -36,19 +36,19 @@ params:
   n_grad: 5
   val_diag_freq: 5
   padding_mode: reflect
-  alpha_mse_ssh: 1. # loss
-  alpha_mse_gssh: .1
+  alpha_mse_ssh: 50. # loss
+  alpha_mse_gssh: 1000.
   norm_obs: l2
   norm_prior: l2
   automatic_optimization: true
 
 defaults:
-  - /xp/xp_aug/base_xp
-  - /splits/ose_osse
-  - /xp/xp_aug/aug/with_aug_state
-  - /xp/xp_aug/dl/d240_p240x5_s240x1_osmosis
+  - /xp/base_xp
+  - /splits/ose_osse_natl
+  - /xp/baseline/aug/with_aug_state
+  - /xp/baseline/dl/dl_natl
   - /params/fourdvarnet_ose
   - /training/ose
-  - /xp/xp_aug/loss/map
+  - /xp/baseline/loss/map
   - _self_
 

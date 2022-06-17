@@ -146,6 +146,10 @@ class LitModelAugstate(pl.LightningModule):
         self.grad_crop = lambda t: t[...,1:-1, 1:-1]
         self.gradient_img = lambda t: torch.unbind(
                 self.grad_crop(2.*kornia.filters.spatial_gradient(t, normalized=True)), 2)
+        '''
+        self.grad_crop = lambda t: t[...,:, :]
+        self.gradient_img = lambda t: torch.unbind( kornia.filters.sobel(t))
+        '''
         # loss weghing wrt time
 
         # self._w_loss = torch.nn.Parameter(torch.Tensor(self.patch_weight), requires_grad=False)  # duplicate for automatic upload to gpu
@@ -652,18 +656,22 @@ class LitModelAugstate(pl.LightningModule):
                 loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
                 loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
                 loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
+                        # unsupervised loss
             else:
-                # MSE
+                # MSE
                 mask = (targets_GT_wo_nan!=0.)
                 iT = int(self.hparams.dT / 2)
                 new_tensor = torch.masked_select(outputs[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(targets_GT[:,iT,:,:],mask[:,iT,:,:])
                 loss = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
                 # GradMSE
+                '''
                 mask = (self.gradient_img(targets_GT_wo_nan)!=0.)
                 iT = int(self.hparams.dT / 2)
-                #new_tensor = torch.masked_select(self.gradient_img(outputs)[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(self.gradient_img(targets_GT)[:,iT,:,:],mask[:,iT,:,:])
-                #loss_Grad = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
-                loss = self.hparams.alpha_mse_ssh * loss  + 0.5 * self.hparams.alpha_proj * loss_AE + self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
+                new_tensor = torch.masked_select(self.gradient_img(outputs)[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(self.gradient_img(targets_GT)[:,iT,:,:],mask[:,iT,:,:])
+                loss_Grad = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
+                '''
+                loss_Grad = 0.
+                loss = self.hparams.alpha_mse_ssh * loss  + self.hparams.alpha_mse_gssh *loss_Grad + 0.5 * self.hparams.alpha_proj * loss_AE + self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
 
             # metrics
             # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)

@@ -1,7 +1,7 @@
 # @package _global_
-xp_name: ose_osse_nadswot_natl_wsst
+xp_name: ose_gf_wsst
 
-lit_mod_cls: lit_model_sst.LitModelWithSST
+lit_mod_cls: lit_model_augstate.LitModelAugstate
 
 datamodule:
   dl_kwargs:
@@ -23,23 +23,32 @@ params:
     sst_var: sst
     sst_decode: false
   dT: 7
+  patch_weight:
+    _target_: lit_model_augstate.get_constant_crop
+    patch_size: ${datamodule.slice_win}
+    crop:
+      lat: 20
+      lon: 20
+      time: 2
   model: 4dvarnet_sst
   sst: true
   k_n_grad: 3
   n_grad: 5
   val_diag_freq: 5
   padding_mode: reflect
-  alpha_mse_ssh: 50. 
-  alpha_mse_gssh: 1000.
+  alpha_mse_ssh: 1. # loss
+  alpha_mse_gssh: .1
   norm_obs: l2
   norm_prior: l2
   automatic_optimization: true
 
 defaults:
-  - /xp/xp_aug/base_xp
-  - /splits/ose_osse_natl
-  - /xp/xp_aug/aug/without_aug_state
-  - /xp/xp_aug/dl/dl_natl2
+  - /xp/base_xp
+  - /splits/ose_osse
+  - /xp/baseline/aug/with_aug_state
+  - /xp/baseline/dl/d240_p240x5_s240x1_osmosis
   - /params/fourdvarnet_ose
   - /training/ose
+  - /xp/baseline/loss/map
   - _self_
+
