@@ -162,7 +162,7 @@ class FourDVarNetHydraRunner:
                                )
         return mod
 
-    def train2(self, ckpt_path=None, **trainer_kwargs):
+    def train(self, ckpt_path=None, **trainer_kwargs):
         """
         Train a model
         :param ckpt_path: (Optional) Checkpoint from which to resume
