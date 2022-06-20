@@ -884,7 +884,7 @@ class LitModelUV(pl.LightningModule):
             nmse_div = mse_div / np.nanmean( (div_uv_gt )**2 )
 
             mse_curl = np.nanmean( (curl_uv_gt - curl_uv_rec)**2 )
-            nmse_curl = mse_div / np.nanmean( (curl_uv_gt )**2 )
+            nmse_curl = mse_curl / np.nanmean( (curl_uv_gt )**2 )
 
             return mse_div,nmse_div,mse_curl,nmse_curl
         
@@ -1041,13 +1041,13 @@ class LitModelUV(pl.LightningModule):
         var_mse_div_pred = 100. * (1. - nmse_div_pred )
         var_mse_curl_pred = 100. * (1. - nmse_curl_pred )
 
-        print(' %f %f %f %f'%(mse_curl_oi,mse_curl_pred,nmse_curl_oi,nmse_curl_pred ) )
 
         
         mse_div, nmse_div, mse_curl, nmse_curl =  compute_div_curl_metrics(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                                            self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,
                                                                            sig_div=sig_div,
                                                                            alpha_dx=alpha_dx,alpha_dy=alpha_dy)
+
         var_mse_div = 100. * (1. - nmse_div )
         var_mse_curl = 100. * (1. - nmse_curl )
         
