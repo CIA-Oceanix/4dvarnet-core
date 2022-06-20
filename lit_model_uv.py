@@ -1071,11 +1071,11 @@ class LitModelUV(pl.LightningModule):
             f'{log_pref}_var_mse_uv': float(var_mse_uv),
             f'{log_pref}_var_mse_div_ssh_gt': float(var_mse_div_ssh_gt),            
             f'{log_pref}_var_mse_div_oi': float(var_mse_div_oi),            
-            f'{log_pref}_var_mse_div_oi': float(var_mse_div_pred),            
+            f'{log_pref}_var_mse_div_pred': float(var_mse_div_pred),            
             f'{log_pref}_var_mse_div': float(var_mse_div),            
             f'{log_pref}_var_mse_curl_ssh_gt': float(var_mse_curl_ssh_gt),            
             f'{log_pref}_var_mse_curl_oi': float(var_mse_curl_oi),            
-            f'{log_pref}_var_mse_curl_oi': float(var_mse_curl_pred),            
+            f'{log_pref}_var_mse_curl_pred': float(var_mse_curl_pred),            
             f'{log_pref}_var_mse_curl': float(var_mse_curl),            
         }
         print(pd.DataFrame([md]).T.to_markdown())
