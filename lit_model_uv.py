@@ -1028,10 +1028,18 @@ class LitModelUV(pl.LightningModule):
                                                                                                      self.test_xr_ds.oi,sigma=sig_div,
                                                                                                      alpha_dx=alpha_dx,alpha_dy=alpha_dy,
                                                                                                      alpha_uv_geo = alpha_uv_geo)
-
         var_mse_uv_oi = 100. * (1. - nmse_uv_oi )
         var_mse_div_oi = 100. * (1. - nmse_div_oi )
         var_mse_curl_oi = 100. * (1. - nmse_curl_oi )
+
+        mse_uv_pred,nmse_uv_pred,mse_div_pred, nmse_div_pred, mse_curl_pred, nmse_curl_pred = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+                                                                                                     self.test_xr_ds.pred,sigma=sig_div,
+                                                                                                     alpha_dx=alpha_dx,alpha_dy=alpha_dy,
+                                                                                                     alpha_uv_geo = alpha_uv_geo)
+
+        var_mse_uv_pred = 100. * (1. - nmse_uv_pred )
+        var_mse_div_pred = 100. * (1. - nmse_div_pred )
+        var_mse_curl_pred = 100. * (1. - nmse_curl_pred )
 
         
         mse_div, nmse_div, mse_curl, nmse_curl =  compute_div_curl_metrics(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
@@ -1059,12 +1067,15 @@ class LitModelUV(pl.LightningModule):
             f'{log_pref}_var_mse_lap_oi': float(var_mse_oi_lap),
             f'{log_pref}_var_mse_uv_gt': float(var_mse_uv_ssh_gt),
             f'{log_pref}_var_mse_uv_oi': float(var_mse_uv_oi),
+            f'{log_pref}_var_mse_uv_pred': float(var_mse_uv_pred),
             f'{log_pref}_var_mse_uv': float(var_mse_uv),
-            f'{log_pref}_var_mse_div_oi': float(var_mse_div_oi),            
             f'{log_pref}_var_mse_div_ssh_gt': float(var_mse_div_ssh_gt),            
+            f'{log_pref}_var_mse_div_oi': float(var_mse_div_oi),            
+            f'{log_pref}_var_mse_div_oi': float(var_mse_div_pred),            
             f'{log_pref}_var_mse_div': float(var_mse_div),            
-            f'{log_pref}_var_mse_curl_oi': float(var_mse_curl_oi),            
             f'{log_pref}_var_mse_curl_ssh_gt': float(var_mse_curl_ssh_gt),            
+            f'{log_pref}_var_mse_curl_oi': float(var_mse_curl_oi),            
+            f'{log_pref}_var_mse_curl_oi': float(var_mse_curl_pred),            
             f'{log_pref}_var_mse_curl': float(var_mse_curl),            
         }
         print(pd.DataFrame([md]).T.to_markdown())
