@@ -1041,7 +1041,7 @@ class LitModelUV(pl.LightningModule):
         var_mse_div_pred = 100. * (1. - nmse_div_pred )
         var_mse_curl_pred = 100. * (1. - nmse_curl_pred )
 
-        print(' %f %f %f '%(np.mean( (self.test_xr_ds.pred - self.test_xr_ds.oi)**2 ), mse_curl_oi,mse_curl_pred ) )
+        print(' %f %f %f %f'%(mse_curl_oi,mse_curl_pred,nmse_curl_oi,nmse_curl_pred ) )
 
         
         mse_div, nmse_div, mse_curl, nmse_curl =  compute_div_curl_metrics(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
