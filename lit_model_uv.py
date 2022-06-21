@@ -969,7 +969,7 @@ class LitModelUV(pl.LightningModule):
             
             mse_stat =  compute_div_curl_strain_metrics(u_gt,v_gt,u_geo,v_geo,sig_div=0, 
                                                         alpha_dx = alpha_dx , alpha_dy = alpha_dy,
-                                                        compute_strain=True) 
+                                                        flag_compute_strain=True) 
             mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo    = mse_stat   
             
             return mse_uv_geo, nmse_uv_geo, mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo
@@ -1070,7 +1070,7 @@ class LitModelUV(pl.LightningModule):
                                                                     self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,
                                                                     sig_div=sig_div,
                                                                     alpha_dx=alpha_dx,alpha_dy=alpha_dy,
-                                                                    compute_strain = True)
+                                                                    flag_compute_strain = True)
 
         mse_div, nmse_div, mse_curl, nmse_curl, mse_strain, nmse_strain =  stat_mse_div_curl_strain
 
