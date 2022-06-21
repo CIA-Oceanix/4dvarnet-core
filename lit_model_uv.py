@@ -60,6 +60,14 @@ def compute_curl(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
     
     return du_dy - dv_dx
 
+def compute_strain(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
+    du_dx = compute_gradx( u , alpha_dx = alpha_dx , sigma = sigma )
+    dv_dy = compute_grady( v , alpha_dy = alpha_dy , sigma = sigma )
+
+    du_dy = compute_grady( u , alpha_dy = alpha_dy , sigma = sigma )
+    dv_dx = compute_gradx( v , alpha_dx = alpha_dx , sigma = sigma )
+
+    return np.sqrt( ( dv_dx + du_dy ) **2 +  (du_dx - dv_dy) **2 )
 
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
@@ -871,7 +879,7 @@ class LitModelUV(pl.LightningModule):
         #div_gt = self.div_field(self.test_xr_ds.v_gt,self.test_xr_ds.u_gt)
 
 
-        def compute_div_curl_metrics(u_gt,v_gt,u_rec,v_rec,sig_div=0.5,alpha_dx=1.,alpha_dy=1.):
+        def compute_div_curl_strain_metrics(u_gt,v_gt,u_rec,v_rec,sig_div=0.5,alpha_dx=1.,alpha_dy=1.,compute_strain = False):
             
             div_uv_gt = compute_div(u_gt,v_gt,sigma=sig_div,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
             div_uv_rec = compute_div(u_rec,v_rec,sigma=sig_div,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
@@ -879,14 +887,22 @@ class LitModelUV(pl.LightningModule):
             curl_uv_gt = compute_curl(u_gt,v_gt,sigma=sig_div,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
             curl_uv_rec = compute_curl(u_rec,v_rec,sigma=sig_div,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
             
-
             mse_div = np.nanmean( (div_uv_gt - div_uv_rec)**2 )
             nmse_div = mse_div / np.nanmean( (div_uv_gt )**2 )
 
             mse_curl = np.nanmean( (curl_uv_gt - curl_uv_rec)**2 )
             nmse_curl = mse_curl / np.nanmean( (curl_uv_gt )**2 )
 
-            return mse_div,nmse_div,mse_curl,nmse_curl
+            if compute_strain :
+                strain_uv_gt = compute_strain(u_gt,v_gt,sigma=sig_div,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
+                strain_uv_rec = compute_strain(u_rec,v_rec,sigma=sig_div,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
+
+                mse_strain = np.nanmean( (strain_uv_gt - strain_uv_rec)**2 )
+                nmse_strain = mse_curl / np.nanmean( ( strain_uv_gt )**2 )
+                
+                return mse_div,nmse_div,mse_curl,nmse_curl,mse_strain,nmse_strain
+            else:
+                return mse_div,nmse_div,mse_curl,nmse_curl
         
         def compute_mse_uv_geo(u_gt,v_gt,ssh,sigma=0.5,alpha_dx=1.,alpha_dy=1.,alpha_uv_geo = 0.):
             
@@ -950,10 +966,12 @@ class LitModelUV(pl.LightningModule):
                 u_gt = gaussian_filter(u_gt, sigma=sigma)
                 v_gt = gaussian_filter(v_gt, sigma=sigma)
             
-            mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo =  compute_div_curl_metrics(u_gt,v_gt,u_geo,v_geo,sig_div=0, 
-                                                                                               alpha_dx = alpha_dx , alpha_dy = alpha_dy) 
-                        
-            return mse_uv_geo, nmse_uv_geo, mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo
+            mse_stat =  compute_div_curl_strain_metrics(u_gt,v_gt,u_geo,v_geo,sig_div=0, 
+                                                        alpha_dx = alpha_dx , alpha_dy = alpha_dy,
+                                                        compute_strain=True) 
+            mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo    = mse_stat   
+            
+            return mse_uv_geo, nmse_uv_geo, mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo
 
         # compute (dx,dy) scaling for the computation of the derivative
         def compute_dxy_scaling(u,v,ssh,sigma=1.):
@@ -1015,41 +1033,49 @@ class LitModelUV(pl.LightningModule):
 
         sig_div = self.sig_filter_div_diag
         print('..... div. computation (sigma): %f -- %f'%(self.sig_filter_div,self.sig_filter_div_diag))
-        mse_uv_ssh_gt,nmse_uv_ssh_gt,mse_div_ssh_gt, nmse_div_ssh_gt, mse_curl_ssh_gt, nmse_curl_ssh_gt = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                                                                     self.test_xr_ds.gt,sigma=sig_div,
-                                                                                                     alpha_dx=alpha_dx,alpha_dy=alpha_dy,
-                                                                                                     alpha_uv_geo = alpha_uv_geo)
+        mse_stat = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+                                      self.test_xr_ds.gt,sigma=sig_div,
+                                      alpha_dx=alpha_dx,alpha_dy=alpha_dy,
+                                      alpha_uv_geo = alpha_uv_geo)
+        mse_uv_ssh_gt,nmse_uv_ssh_gt,mse_div_ssh_gt, nmse_div_ssh_gt, mse_curl_ssh_gt, nmse_curl_ssh_gt,  mse_strain_ssh_gt, nmse_strain_ssh_gt = mse_stat
         
         var_mse_uv_ssh_gt = 100. * (1. - nmse_uv_ssh_gt )
         var_mse_div_ssh_gt = 100. * (1. - nmse_div_ssh_gt )
         var_mse_curl_ssh_gt = 100. * (1. - nmse_curl_ssh_gt )
+        var_mse_strain_ssh_gt = 100. * (1. - nmse_strain_ssh_gt )
 
-        mse_uv_oi,nmse_uv_oi,mse_div_oi, nmse_div_oi, mse_curl_oi, nmse_curl_oi = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                                                                     self.test_xr_ds.oi,sigma=sig_div,
-                                                                                                     alpha_dx=alpha_dx,alpha_dy=alpha_dy,
-                                                                                                     alpha_uv_geo = alpha_uv_geo)
+        mse_stat = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+                                      self.test_xr_ds.oi,sigma=sig_div,
+                                      alpha_dx=alpha_dx,alpha_dy=alpha_dy,
+                                      alpha_uv_geo = alpha_uv_geo)
+        mse_uv_oi,nmse_uv_oi,mse_div_oi, nmse_div_oi, mse_curl_oi, nmse_curl_oi, mse_strain_oi, nmse_strain_oi = mse_stat
+        
         var_mse_uv_oi = 100. * (1. - nmse_uv_oi )
         var_mse_div_oi = 100. * (1. - nmse_div_oi )
         var_mse_curl_oi = 100. * (1. - nmse_curl_oi )
+        var_mse_strain_oi = 100. * (1. - nmse_strain_oi )
 
-        mse_uv_pred,nmse_uv_pred,mse_div_pred, nmse_div_pred, mse_curl_pred, nmse_curl_pred = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                                                                     self.test_xr_ds.pred,sigma=sig_div,
-                                                                                                     alpha_dx=alpha_dx,alpha_dy=alpha_dy,
-                                                                                                     alpha_uv_geo = alpha_uv_geo)
-
-        var_mse_uv_pred = 100. * (1. - nmse_uv_pred )
-        var_mse_div_pred = 100. * (1. - nmse_div_pred )
-        var_mse_curl_pred = 100. * (1. - nmse_curl_pred )
-
-
+        mse_stat = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+                                      self.test_xr_ds.pred,sigma=sig_div,
+                                      alpha_dx=alpha_dx,alpha_dy=alpha_dy,
+                                      alpha_uv_geo = alpha_uv_geo)
+        mse_uv_pred,nmse_uv_pred,mse_div_pred, nmse_div_pred, mse_curl_pred, nmse_curl_pred, mse_strain_pred, nmse_strain_pred = mse_stat
+        var_mse_uv_pred     = 100. * (1. - nmse_uv_pred )
+        var_mse_div_pred    = 100. * (1. - nmse_div_pred )
+        var_mse_curl_pred   = 100. * (1. - nmse_curl_pred )
+        var_mse_strain_pred = 100. * (1. - nmse_strain_pred )
         
-        mse_div, nmse_div, mse_curl, nmse_curl =  compute_div_curl_metrics(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                                           self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,
-                                                                           sig_div=sig_div,
-                                                                           alpha_dx=alpha_dx,alpha_dy=alpha_dy)
+        stat_mse_div_curl_strain =  compute_div_curl_strain_metrics(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+                                                                    self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,
+                                                                    sig_div=sig_div,
+                                                                    alpha_dx=alpha_dx,alpha_dy=alpha_dy,
+                                                                    compute_strain = True)
+
+        mse_div, nmse_div, mse_curl, nmse_curl, mse_strain, nmse_strain =  stat_mse_div_curl_strain
 
         var_mse_div = 100. * (1. - nmse_div )
         var_mse_curl = 100. * (1. - nmse_curl )
+        var_mse_strain = 100. * (1. - nmse_strain )
         
         md = {
             f'{log_pref}_spatial_res': float(spatial_res_model),
@@ -1075,6 +1101,10 @@ class LitModelUV(pl.LightningModule):
             f'{log_pref}_var_mse_div_oi': float(var_mse_div_oi),            
             f'{log_pref}_var_mse_div_pred': float(var_mse_div_pred),            
             f'{log_pref}_var_mse_div': float(var_mse_div),            
+            f'{log_pref}_var_mse_div_ssh_gt': float(var_mse_strain_ssh_gt),            
+            f'{log_pref}_var_mse_div_oi': float(var_mse_strain_oi),            
+            f'{log_pref}_var_mse_div_pred': float(var_mse_strain_pred),            
+            f'{log_pref}_var_mse_div': float(var_mse_strain),            
             f'{log_pref}_var_mse_curl_ssh_gt': float(var_mse_curl_ssh_gt),            
             f'{log_pref}_var_mse_curl_oi': float(var_mse_curl_oi),            
             f'{log_pref}_var_mse_curl_pred': float(var_mse_curl_pred),            
