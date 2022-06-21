@@ -67,7 +67,6 @@ def compute_strain(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
     du_dy = compute_grady( u , alpha_dy = alpha_dy , sigma = sigma )
     dv_dx = compute_gradx( v , alpha_dx = alpha_dx , sigma = sigma )
 
-    print( np.sqrt( ( dv_dx + du_dy ) **2 +  (du_dx - dv_dy) **2 ) )
     return np.sqrt( ( dv_dx + du_dy ) **2 +  (du_dx - dv_dy) **2 )
 
 def get_4dvarnet(hparams):
@@ -1102,10 +1101,10 @@ class LitModelUV(pl.LightningModule):
             f'{log_pref}_var_mse_div_oi': float(var_mse_div_oi),            
             f'{log_pref}_var_mse_div_pred': float(var_mse_div_pred),            
             f'{log_pref}_var_mse_div': float(var_mse_div),            
-            f'{log_pref}_var_mse_div_ssh_gt': float(var_mse_strain_ssh_gt),            
-            f'{log_pref}_var_mse_div_oi': float(var_mse_strain_oi),            
-            f'{log_pref}_var_mse_div_pred': float(var_mse_strain_pred),            
-            f'{log_pref}_var_mse_div': float(var_mse_strain),            
+            f'{log_pref}_var_mse_strain_ssh_gt': float(var_mse_strain_ssh_gt),            
+            f'{log_pref}_var_mse_strain_oi': float(var_mse_strain_oi),            
+            f'{log_pref}_var_mse_strain_pred': float(var_mse_strain_pred),            
+            f'{log_pref}_var_mse_strain': float(var_mse_strain),            
             f'{log_pref}_var_mse_curl_ssh_gt': float(var_mse_curl_ssh_gt),            
             f'{log_pref}_var_mse_curl_oi': float(var_mse_curl_oi),            
             f'{log_pref}_var_mse_curl_pred': float(var_mse_curl_pred),            
