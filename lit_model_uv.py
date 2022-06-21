@@ -67,6 +67,7 @@ def compute_strain(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
     du_dy = compute_grady( u , alpha_dy = alpha_dy , sigma = sigma )
     dv_dx = compute_gradx( v , alpha_dx = alpha_dx , sigma = sigma )
 
+    print( np.sqrt( ( dv_dx + du_dy ) **2 +  (du_dx - dv_dy) **2 ) )
     return np.sqrt( ( dv_dx + du_dy ) **2 +  (du_dx - dv_dy) **2 )
 
 def get_4dvarnet(hparams):
@@ -879,7 +880,7 @@ class LitModelUV(pl.LightningModule):
         #div_gt = self.div_field(self.test_xr_ds.v_gt,self.test_xr_ds.u_gt)
 
 
-        def compute_div_curl_strain_metrics(u_gt,v_gt,u_rec,v_rec,sig_div=0.5,alpha_dx=1.,alpha_dy=1.,compute_strain = False):
+        def compute_div_curl_strain_metrics(u_gt,v_gt,u_rec,v_rec,sig_div=0.5,alpha_dx=1.,alpha_dy=1.,flag_compute_strain = False):
             
             div_uv_gt = compute_div(u_gt,v_gt,sigma=sig_div,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
             div_uv_rec = compute_div(u_rec,v_rec,sigma=sig_div,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
@@ -893,7 +894,7 @@ class LitModelUV(pl.LightningModule):
             mse_curl = np.nanmean( (curl_uv_gt - curl_uv_rec)**2 )
             nmse_curl = mse_curl / np.nanmean( (curl_uv_gt )**2 )
 
-            if compute_strain :
+            if flag_compute_strain :
                 strain_uv_gt = compute_strain(u_gt,v_gt,sigma=sig_div,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
                 strain_uv_rec = compute_strain(u_rec,v_rec,sigma=sig_div,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
 
