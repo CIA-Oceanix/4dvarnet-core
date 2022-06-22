@@ -5,6 +5,8 @@ __pycache__
 .idea
 results
 tb_profile
+**/*.ipynb
+**/.ipynb_checkpoints
 *err
 *out
 log

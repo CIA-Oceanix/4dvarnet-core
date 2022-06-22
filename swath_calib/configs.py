@@ -69,7 +69,8 @@ for xp, cfgn in (
     #     # 'qxp20_5nad_sst',
     #     # 'qxp20_noisy_sst',
     #     # 'qxp20_noisy_no_sst',
-# ])) + 
+# ]))
+    # + 
     list(zip(
     [21]*100,
     [
@@ -199,6 +200,27 @@ overrides_cfg = dict(
     no_mix=OmegaConf.create(dict(net_cfg=dict(mix='False',))),
     relu_act=OmegaConf.create(dict(net_cfg=dict(act_type='relu',))),
 )
+
+def register_configs_tgrs():
+    from hydra.core.config_store import ConfigStore
+    from omegaconf import OmegaConf
+    from pathlib import Path
+    from itertools import product
+
+    cs = ConfigStore.instance()
+    xpns = []
+    basic_overrides = [overrides_cfg[o] for o in ['no_norm', 'no_mix', 'relu_act']]
+    for xp_name, cfg in cfgs.items():
+        for train_with_ff in [False]: #True, False]:
+            xpns.append(f'ff{train_with_ff}_swath_calib_{xp_name}')
+            cs.store(name=xpns[-1], node=OmegaConf.merge(
+                common_cfg,
+                cfg,
+                size_overrides_cfg['pp10x8'],
+                *basic_overrides,
+                {'train_with_ff': train_with_ff}
+            ), group='xp', package='_global_')
+    return xpns
 
 def register_configs():
     from hydra.core.config_store import ConfigStore

@@ -223,7 +223,7 @@ class XrDataset(Dataset):
         }
         if self.return_coords:
             return self.ds.isel(**sl).coords
-        return self.ds.isel(**sl)[self.var].data.astype(np.float32)
+        return self.ds.isel(**sl)[self.var].transpose("time", "lat", "lon").data.astype(np.float32)
 
 
 class FourDVarNetDataset(Dataset):

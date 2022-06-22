@@ -46,14 +46,25 @@ newfig = mod.test_xr_ds.isel(time=1).to_array().plot.pcolormesh(
 
 import holoviews as hv
 from holoviews import opts
+
 hv.extension('matplotlib')
-hvds = hv.Dataset(mod.test_xr_ds)
+
+import xarray as xr
+from scipy import ndimage
+import numpy as np
+def sobel(da):
+    dx_ac = xr.apply_ufunc(lambda _da: ndimage.sobel(_da, -1), da) /2
+    dx_al = xr.apply_ufunc(lambda _da: ndimage.sobel(_da, -2), da) /2
+    return np.hypot(dx_ac, dx_al)
+hvds = hv.Dataset(mod.test_xr_ds.pipe(sobel).isel(time=slice(None, 6)))
 images = hv.Layout([
         hvds
         .to(hv.QuadMesh, ['lon', 'lat'], v).relabel(v)
         .options(cmap='RdYlBu')
-        for v in ['pred', 'gt', 'oi', 'obs_inp']
+        for v in ['pred', 'gt', 'obs_inp']
         ]).cols(2).opts(sublabel_format="")
+images
+
 hv.output(images, holomap='mp4', fps=3)
 
 

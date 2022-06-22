@@ -389,8 +389,8 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
         return {'gt'    : (gt.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'oi'    : (oi.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'obs_inp'    : (go.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'pred' : (pred.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                # 'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                # 'pred' : (pred.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 # 'pred_wo_cal' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_T
                 }
 
@@ -418,30 +418,30 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
             if not self.automatic_optimization:
 
                 if self.hparams.train_map_mod:
-                    opt.step()
                     if self.current_epoch > self.hparams.warmup_epochs:
                         if _loss_cal > 0:
                             opt_cal.zero_grad()
                             self.manual_backward(_loss_cal)
                             opt_cal.step()
+                    opt.step()
 
         (_loss, _loss_cal), out_w_cal, state, metrics_w_cal = self.compute_loss(
                 batch,
                 phase='train',
-                state_init=state_init,
+                state_init=state_init[:1],
                 use_swot=True,
                 compute_cal=True,
                 model=self.joint_model
         )
         if (phase == 'train') and (self.hparams.joint_step>0) and (self.current_epoch > self.hparams.start_join):
             if not self.automatic_optimization:
-                opt.zero_grad()
+                joint_opt.zero_grad()
+                joint_opt_cal.zero_grad()
                 self.manual_backward(_loss)
-                opt.step()
                 if _loss_cal > 0:
-                    opt_cal.zero_grad()
                     self.manual_backward(_loss_cal)
-                    opt_cal.step()
+                    joint_opt_cal.step()
+                joint_opt.step()
         # if (phase == 'train'):
                 # opt_cal.step()
         return losses, out, out_w_cal, metrics, metrics_w_cal
@@ -640,7 +640,7 @@ class LitModMixGeom(lit_model_augstate.LitModelAugstate):
             (go, gc, _, *_) = y
             lcal_in = (go, gc, None, *_)
 
-        if not self.hparams.joint_step or opt_map_for_cal:
+        if (not self.hparams.joint_step) or (not opt_map_for_cal):
             xb = xb.detach()
         loss_cal, g_loss_cal, l_loss_cal = self.loss_cal(sgt, lcal_in, xb)
 
@@ -729,10 +729,10 @@ class CalibrationModelObsGridGeometry(torch.nn.Module):
         idx = fs_xlr[ msk, ...].isfinite().all(3).all(1).all(0)
 
         gy =  self.gaussian(fy[msk][:, :, idx])
-        inp_gy = torch.cat((gy.diff(dim=1), -gy[:, -1:, ...]), 1)
+        inp_gy = torch.cat((gy.diff(dim=1), gy[:, -1:, ...]), 1)
 
         gs_xlr = self.gaussian(fs_xlr[msk][:, :, idx])
-        inp_gs_xlr = torch.cat((gy.diff(dim=1), -gs_xlr[:, -1:, ...]), 1)
+        inp_gs_xlr = torch.cat((gs_xlr.diff(dim=1), gs_xlr[:, -1:, ...]), 1)
 
         cal_input = -torch.cat((inp_gy, inp_gs_xlr), dim=1)
         return cal_input
@@ -1059,11 +1059,11 @@ if __name__ == '__main__':
         lit_mod = utils.get_model(cfgn, ckpt=ckpt, dm=dm, add_overrides=overrides+['lit_mod_cls=__main__.LitModMixGeom'])
 
 
-        # print(lit_mod.model.load_state_dict(mapmod.model.state_dict(), strict=False))
-        # print(lit_mod.model.model_H.calnet.load_state_dict(cal_mod.net.state_dict(), strict=False))
+        print(lit_mod.model.load_state_dict(mapmod.model.state_dict(), strict=False))
+        print(lit_mod.model.model_H.calnet.load_state_dict(cal_mod.net.state_dict(), strict=False))
 
-        # print(lit_mod.joint_model.load_state_dict(mapmod.model.state_dict(), strict=False))
-        # print(lit_mod.joint_model.model_H.calnet.load_state_dict(cal_mod.net.state_dict(), strict=False))
+        print(lit_mod.joint_model.load_state_dict(mapmod.model.state_dict(), strict=False))
+        print(lit_mod.joint_model.model_H.calnet.load_state_dict(cal_mod.net.state_dict(), strict=False))
 
         vcb = swath_calib.versioning_cb.VersioningCallback()
         lrcb = pl.callbacks.LearningRateMonitor()
@@ -1079,14 +1079,14 @@ if __name__ == '__main__':
 
     #####               TEST #########################
     def test_one():
-        vnum=1
+        vnum=6
         # ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_10/checkpoints').glob('*.ckpt')))
         # ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_21/checkpoints').glob('*.ckpt')))
         # ckpt = str(next(Path('mixed_geom_logs/6_0_x/version_40/checkpoints').glob('*.ckpt')))
         # ckpt = str(next(Path('mixed_geom_logs/6_1_x/version_1/checkpoints').glob('*.ckpt')))
         # ckpt = str(next(Path(f'mixed_geom_logs/7_0_x/version_{vnum}/checkpoints').glob('last.ckpt')))
-        # ckpt = str(next(Path(f'mixed_geom_logs/10_0_x/version_{vnum}/checkpoints').glob('last.ckpt')))
-        # ckpt = next(Path('mixed_geom_logs/7_0_x/version_5/checkpoints').glob('last.ckpt'))
+        ckpt = str(next(Path(f'mixed_geom_logs/10_0_x/version_{vnum}/checkpoints').glob('last.ckpt')))
+        # ckpt = next(Path('mixed_geom_logs/10_0_x/version_5/checkpoints').glob('last.ckpt'))
         # ckpt = str(next(Path('mixed_geom_logs/7_0_x/version_6/checkpoints').glob('epoch=59-step=6840.ckpt')))
         # ckpt = 'joint.ckpt'
         # cfg_4dvar.params.patch_weight._target_='lit_model_augstate.get_cropped_hanning_mask'
@@ -1094,8 +1094,8 @@ if __name__ == '__main__':
         metrics ={}
         for cal in [False]:
             lit_mod = utils.get_model(cfgn, ckpt=ckpt, dm=dm, add_overrides=overrides+['lit_mod_cls=__main__.LitModMixGeom'])
-            print(lit_mod.model.load_state_dict(mapmod.model.state_dict(), strict=False))
-            print(lit_mod.model.model_H.calnet.load_state_dict(cal_mod.net.state_dict(), strict=False))
+            # print(lit_mod.model.load_state_dict(mapmod.model.state_dict(), strict=False))
+            # print(lit_mod.model.model_H.calnet.load_state_dict(cal_mod.net.state_dict(), strict=False))
             lit_mod.hparams.rand_init=0
             ckpt=str(ckpt)
             if cal:
@@ -1105,8 +1105,8 @@ if __name__ == '__main__':
                 lit_mod.patch_weight.data = torch.from_numpy(pw)
                 cfg_4dvar.params.patch_weight.crop.time=bak
 
-            # name = f'test_{xp_num}_{vnum}_{torch.load(ckpt)["epoch"]}_{cal}'
-            name = f'test_baseline'
+            name = f'test_{xp_num}_{vnum}_{torch.load(ckpt)["epoch"]}_{cal}'
+            # name = f'test_baseline'
             import pytorch_lightning.loggers
             logger = pytorch_lightning.loggers.TensorBoardLogger(
                 'mixed_geom_logs',
@@ -1273,7 +1273,7 @@ if __name__ == '__main__':
         print(xr.concat(sums, dim='batch').sum().pipe(lambda ds: ds/ds.weight).drop('weight').pipe(np.sqrt).pipe(lambda da: da*ns[1]))
         return predictions
 
-    train()
+    # train()
     # metrics = test_all()
     # test_one()
     # preds = predict()
@@ -1284,10 +1284,13 @@ if __name__ == '__main__':
     # lit_mod = utils.get_model(cfgn, ckpt=ckpt, dm=dm, add_overrides=overrides+['lit_mod_cls=__main__.LitTestCal'])
     # print(lit_mod.model.load_state_dict(mapmod.model.state_dict(), strict=False))
     # print(lit_mod.model.model_H.calnet.load_state_dict(cal_mod.net.state_dict(), strict=False))
-    # # trainer = pl.Trainer(gpus=[6], weights_summary='full')
-    # # trainer.test(lit_mod, dm.test_dataloader())
+
+    # print(lit_mod.joint_model.load_state_dict(mapmod.model.state_dict(), strict=False))
+    # print(lit_mod.joint_model.model_H.calnet.load_state_dict(cal_mod.net.state_dict(), strict=False))
+    # trainer = pl.Trainer(gpus=[6], weights_summary='full')
+    # trainer.test(lit_mod, dm.test_dataloader())
     # tmp_test = 'tmp/test.nc'
-    # # lit_mod.test_xr_ds.to_netcdf(tmp_test)
+    # lit_mod.test_xr_ds.to_netcdf(tmp_test)
     # new_grid_kwargs = {
     #     'slice_win': {'lat': 200, 'lon': 200, 'time': 11}, 
     #     'strides': {'lat': 200, 'lon': 200, 'time': 1},
@@ -1303,7 +1306,9 @@ if __name__ == '__main__':
     #     new_grid_kwargs, sensor_kwargs, norm_stats=ns,
     # )
     # len(ds)
-    # dl = torch.utils.data.DataLoader(ds, batch_size=2, shuffle=False, collate_fn=ds.collate_fn)
+    # # dl = torch.utils.data.DataLoader(ds, batch_size=2, shuffle=False, collate_fn=ds.collate_fn)
+    # # dm.setup()
+    # dl = dm.val_dataloader()
     # lit_mod = lit_mod.to('cuda:7')
     # lit_mod.eval()
     # with torch.no_grad():
@@ -1311,11 +1316,51 @@ if __name__ == '__main__':
     #         batch = lit_mod.transfer_batch_to_device(batch, lit_mod.device,0)
     #         oi, gt, sgt, *y = batch
     #         (go, gc, sv, sc, si, nv, nc, ni) = y
+    #         break
+
+    # 1/0
+    # g2xr(go.nan_to_num(), gc).value.isel(dict(d0=1, d1=2)).T.plot(figsize=(5,5))
+    # s2xr(sgt.nan_to_num(), sc).value.isel(dict(d0=1, d1=2)).T.plot(figsize=(15,3))
+    # s2xr(sv.nan_to_num(), sc).value.isel(dict(d0=1, d1=2)).T.plot(figsize=(15,3))
+    # xb=go
+    # s_xb = swath_calib.interp.batch_torch_interpolate_with_fmt(xb[si], *[cc[si] for cc in gc], *sc)
+    # s2xr(s_xb.nan_to_num(), sc).value.isel(dict(d0=1, d1=2)).T.plot(figsize=(15,3))
+    # cal_inp = lit_mod.model.model_H.cal_inp(sv, s_xb)
+
+    # cal_out = lit_mod.model.model_H.calnet(cal_inp)
+    # cal_inp.shape
+    # v= sv.detach().cpu().numpy()
+    # vinn= lit_mod.model.model_H.calnet[0](cal_inp).detach().cpu().numpy()
+    # vin = cal_inp.detach().cpu().numpy()
+    # vp = cal_out.detach().cpu().numpy()
+    # vgt = (sgt - s_xb).detach().cpu().numpy()
+    # dims = tuple([f'd{di}' for di, _ in enumerate(v.shape)]) 
+    # ds = xr.Dataset({'value': (dims, v)},)                                                       
+    # dsin = xr.Dataset({'value': (dims, vin)},)                                                       
+    # dsinn = xr.Dataset({ 'value': (dims, vinn), })
+    # dsp = xr.Dataset({ 'value': (dims, vp), })
+    # dsgt = xr.Dataset({ 'value': (dims, vgt), })
+    # idx=0
+    # dsgt.isel(d0=0, d1=idx).value.plot.pcolormesh(x='d2', y='d3', robust=True, figsize=(15, 3))
+    # dsp.isel(d0=idx, d1=0).value.plot.pcolormesh(x='d2', y='d3', robust=False, figsize=(15, 3))
+    # (dsp**2).mean(('d1', 'd2', 'd3')).pipe(np.sqrt).to_array().values
+    # (dsgt**2).mean(('d2', 'd3')).pipe(np.sqrt).to_array().values
+    # ds.isel(d0=idx, d1=0).value.plot.pcolormesh(x='d2', y='d3', figsize=(15, 3))
+    # dsin.isel(d0=idx, d1=slice(None, 11)).value.plot.pcolormesh(x='d2', y='d3', col='d1', col_wrap=1, figsize=(15, 15))
+    # dsin.isel(d0=idx, d1=slice(11, None)).value.plot.pcolormesh(x='d2', y='d3', col='d1', col_wrap=1, figsize=(15, 15))
+    # dsinn.isel(d0=idx, d1=slice(None, 11)).value.plot.pcolormesh(x='d2', y='d3', col='d1', col_wrap=1, figsize=(15, 15))
+    # dsinn.isel(d0=idx, d1=slice(11, None)).value.plot.pcolormesh(x='d2', y='d3', col='d1', col_wrap=1, figsize=(15, 15))
+    # list(lit_mod.model.model_H.calnet[0].named_buffers())
+    # list(lit_mod.model.model_H.calnet[0].named_parameters())
+    # plt.plot([8 * (i+1)*2 for i in range(10)], lit_mod.model.model_H.calnet[0].weight[:10].detach().cpu(), label='obs')
+    # plt.plot([8 * (i+1)*2 for i in range(10)], lit_mod.model.model_H.calnet[0].weight[11:-1].detach().cpu(), label='grid product')
+    # plt.title("Learnt rescaling if function of $\sigma_1$ (km)")
+    # plt.legend()
     #         if sv is None:
     #             continue
     #         xb=go
     #         fna = lambda t, m: t.where(m, torch.zeros_like(t))
-    #         cal_out, _, cal_msk, cal_idx, sw = lit_mod.cal_out(y, xb)
+            # cal_out, _, cal_msk, cal_idx, sw = lit_mod.cal_out(y, xb)
     #         s_xb = swath_calib.interp.batch_torch_interpolate_with_fmt(xb[si], *[cc[si] for cc in gc], *sc)
     #         t1, t2, ref, tw = cal_out, fna(sgt[:,:, cal_idx, :], cal_msk), fna(s_xb[:,:, cal_idx, :], cal_msk), fna(sw[:,:, cal_idx, :], cal_msk)
     #         if tw.sum().item() == 0:
@@ -1344,7 +1389,42 @@ if __name__ == '__main__':
 
 
     # it = val_ds[0]
+    # len(it)
+    # len(it)
+    # x, xb, gt, rgt, rxb = it
+    # with val_ds.get_coords():
+    #     c = val_ds[0]
+    # c[['gt', 'syst_error_uncalibrated', 'wet_tropo_res']].to_array().T.plot.pcolormesh(col='variable', col_wrap=1, figsize=(15,8), robust=True)
+    # add_inter_sw = lambda ds:(
+    #             ds
+    #         .assign_coords(x_ac=lambda ds: ('nC', ds.x_ac.isel(time=0).data))
+    #         .swap_dims(nC='x_ac')
+    #         .reindex(x_ac=np.arange(-60, 62, 2), fill_value=np.nan)
+    # )
+    # c.pipe(add_inter_sw)[['gt', 'syst_error_uncalibrated', 'wet_tropo_res']].to_array().sum('variable').T.plot(figsize=(10, 3))
+    # dm.setup()
+    # dl = dm.train_dataloader()
+    # dl.dataset.datasets[0].gt_ds.ds.ssh
 
+    # def anim(ds):
+    #     def sobel(da):
+    #         dx_ac = xr.apply_ufunc(lambda _da: ndimage.sobel(_da, -1), da) /2
+    #         dx_al = xr.apply_ufunc(lambda _da: ndimage.sobel(_da, -2), da) /2
+    #         return np.hypot(dx_ac, dx_al)
+    #     hvds = hv.Dataset(ds.assign(grad=sobel(ds.ssh)).isel(time=slice(None, 50, 1 )))
+    #     images = hv.Layout([
+    #             hvds
+    #             .to(hv.QuadMesh, ['lon', 'lat'], v).relabel(v)
+    #             .options(cmap={'ssh': 'RdYlBu', 'grad':'viridis'}[v])
+    #             for v in ['ssh', 'grad']
+    #             ]).cols(2).opts(sublabel_format="")
+    #     return images
+
+    # images = anim( dl.dataset.datasets[0].gt_ds.ds)
+    # # images
+    # hv.output(images, holomap='gif', fps=5)
+
+    # hv.save(images, filename='ssh_anim.gif', fps=5)
     # it.shape
 
     # cal_inp = lit_mod.model.model_H.cal_inp(sv, s_xb)
@@ -1394,6 +1474,6 @@ if __name__ == '__main__':
     # # for k in metrics:
     # #     print(metrics[k]['test_out'])
 
-    pd.DataFrame([{'ckpt': k, **metrics[k]['test_out'][0], **metrics[k]['metrics']} for k in metrics])#.to_csv('tmp/joint_metrics.csv')
+    # pd.DataFrame([{'ckpt': k, **metrics[k]['test_out'][0], **metrics[k]['metrics']} for k in metrics])#.to_csv('tmp/joint_metrics.csv')
 
-
+    
