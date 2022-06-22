@@ -3,7 +3,6 @@ import os
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import ModelCheckpoint
-
 import hydra
 import pandas as pd
 from datetime import datetime, timedelta
@@ -11,6 +10,7 @@ from hydra.utils import get_class, instantiate, call
 from omegaconf import OmegaConf
 import hydra_config
 import numpy as np
+
 
 def get_profiler():
     from pytorch_lightning.profiler import PyTorchProfiler
@@ -31,6 +31,7 @@ def get_profiler():
             record_shapes=True,
             profile_memory=True,
     )
+
 class FourDVarNetHydraRunner:
     def __init__(self, params, dm, lit_mod_cls, callbacks=None, logger=None):
         self.cfg = params
@@ -172,7 +173,9 @@ class FourDVarNetHydraRunner:
 
         num_gpus = gpus if isinstance(gpus, (int, float)) else  len(gpus) if hasattr(gpus, '__len__') else 0
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
-        trainer_kwargs_final = {**dict(num_nodes=num_nodes, gpus=gpus, logger=self.logger, strategy=accelerator, auto_select_gpus=(num_gpus * num_nodes) > 0,
+        #trainer_kwargs_final = {**dict(num_nodes=num_nodes, gpus=gpus, logger=self.logger, strategy=accelerator, auto_select_gpus=(num_gpus * num_nodes) > 0,
+        #                     callbacks=[checkpoint_callback, lr_monitor]),  **trainer_kwargs}
+        trainer_kwargs_final = {**dict(num_nodes=num_nodes, gpus=gpus, logger=self.logger, auto_select_gpus=(num_gpus * num_nodes) > 0,
                              callbacks=[checkpoint_callback, lr_monitor]),  **trainer_kwargs}
         print(trainer_kwargs)
         print(trainer_kwargs_final)
@@ -187,12 +190,12 @@ class FourDVarNetHydraRunner:
         :param dataloader: Dataloader on which to run the test Checkpoint from which to resume
         :param trainer_kwargs: (Optional)
         """
+ 
+        mod = _mod or self._get_model(ckpt_path=ckpt_path)
 
         if _trainer is not None:
             _trainer.test(mod, dataloaders=self.dataloaders[dataloader])
             return
-
-        mod = _mod or self._get_model(ckpt_path=ckpt_path)
 
         trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs)
         trainer.test(mod, dataloaders=self.dataloaders[dataloader])
@@ -229,6 +232,7 @@ class FourDVarNetHydraRunner:
 def _main(cfg):
     print(OmegaConf.to_yaml(cfg))
     pl.seed_everything(seed=cfg.get('seed', None))
+    print(OmegaConf.to_yaml(cfg))
     dm = instantiate(cfg.datamodule)
     if cfg.get('callbacks') is not None:
         callbacks = [instantiate(cb_cfg) for cb_cfg in cfg.callbacks]
@@ -242,7 +246,13 @@ def _main(cfg):
     else:
         logger=True
     lit_mod_cls = get_class(cfg.lit_mod_cls)
+    if cfg.params.resize_factor!=1:
+            cfg.datamodule.slice_win['lat'] =  int(cfg.datamodule.slice_win['lat']/cfg.datamodule.resize_factor)
+            cfg.datamodule.slice_win['lon'] =  int(cfg.datamodule.slice_win['lon']/cfg.datamodule.resize_factor)
+            cfg.datamodule.strides['lat'] =  int(cfg.datamodule.strides['lat']/cfg.datamodule.resize_factor)
+            cfg.datamodule.strides['lon'] =  int(cfg.datamodule.strides['lon']/cfg.datamodule.resize_factor)
     runner = FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls, callbacks=callbacks, logger=logger)
+    
     call(cfg.entrypoint, self=runner)
 
 

@@ -1,0 +1,5 @@
+obs_path: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset.nc
+gt_path: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset.nc
+spde_params_path: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset.nc
+
+

@@ -3,6 +3,9 @@ cal_data: /gpfswork/rech/yrf/commun/CalData/full_cal_obs.nc
 noisy_swot: /gpfswork/rech/yrf/commun/CalData/cal_data_karin_noise_only.nc
 natl_ssh: /gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc
 natl_sst: /gpfsdsstore/projects/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_sst_y2013.1y.nc
+obs_path: /gpfswork/rech/ubn/commun/xp_gp/spde_diffusion_dataset.nc
+gt_path: /gpfswork/rech/ubn/commun/xp_gp/spde_diffusion_dataset.nc
+spde_params_path: /gpfswork/rech/ubn/commun/xp_gp/spde_diffusion_dataset.nc
 
 oi_swot_4nadir: /gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc
 pseudo_obs: /gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d_swot.nc
