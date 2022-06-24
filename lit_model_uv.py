@@ -997,8 +997,8 @@ class LitModelUV(pl.LightningModule):
                                                         flag_compute_strain=True) 
             mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo    = mse_stat   
 
-            psd_ds_ugeo, lamb_x_ugeo, lamb_t_ugeo = metrics.psd_based_scores(self.test_xr_ds.pred_u, self.test_xr_ds.u_gt)
-            psd_ds_vgeo, lamb_x_vgeo, lamb_t_vgeo = metrics.psd_based_scores(self.test_xr_ds.pred_v, self.test_xr_ds.v_gt)
+            psd_ds_ugeo, lamb_x_ugeo, lamb_t_ugeo = metrics.psd_based_scores(u_geo,u_gt)
+            psd_ds_vgeo, lamb_x_vgeo, lamb_t_vgeo = metrics.psd_based_scores(v_geo,v_gt)
 
             
             print('......... lambda ugeo =  %.3f   / %.3f '%(lamb_x_ugeo,lamb_t_ugeo))
