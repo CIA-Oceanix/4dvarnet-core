@@ -6,7 +6,7 @@ params:
   dT: 29
   patch_weight:
     crop:
-      time: 3
+      time: 10 #3
   k_n_grad: 3
   n_grad: 5
   val_diag_freq: 5 
@@ -27,7 +27,7 @@ params:
 
 lit_mod_cls: lit_model_OI.LitModelOI
 datamodule:
-  resize_factor: 4
+  resize_factor: 2 #4
 
 defaults:
   - /xp/base_xp

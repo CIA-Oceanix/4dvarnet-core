@@ -111,6 +111,10 @@ class LitModelOI(LitModelAugstate):
             path_save0 = self.logger.log_dir + '/animation.mp4'
             animate_maps_OI(self.x_gt, self.obs_inp, self.x_rec, self.test_lon, self.test_lat, path_save0)
 
+            path_save0 = self.logger.log_dir + '/animation_grad.mp4'
+            animate_maps_OI(self.x_gt, self.obs_inp, self.x_rec, self.test_lon, self.test_lat, path_save0, grad=True)
+
+
         psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
         psd_fig = metrics.plot_psd_score(psd_ds)
         self.test_figs['psd'] = psd_fig
