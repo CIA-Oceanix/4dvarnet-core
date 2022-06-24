@@ -26,6 +26,23 @@ from models import Model_HwithSSTBNAtt_nolin_tanh
 from scipy import ndimage
 from scipy.ndimage import gaussian_filter
 
+def compute_coriols_force(lat):
+    omega = 7.2921e-5 # rad/s
+    f = 2 * omega * np.sin(np.radians(lat))
+    
+    return f
+
+def compute_dx_dy_dlat_dlon(lat,lon,dlat,dlon):
+    
+    def compute_c(lat,lon,dlat,dlon):
+        a = np.sin(dlat / 2)**2 + np.cos(lat) ** 2 * np.sin(dlon / 2)**2
+        return 2 * np.atan2( np.sqrt(a), np.sqrt(1. - a))        
+
+    dx_from_dlat =  compute_c(lat,lon,dlat,0.)
+    dy_from_dlon =  compute_c(lat,lon,0.,dlon)
+    
+    return dx_from_dlat , dy_from_dlon
+
 def compute_gradx( u, alpha_dx = 1., sigma = 0. , _filter='diff-non-centered'):
     if sigma > 0. :
         u = gaussian_filter(u, sigma=sigma)
@@ -33,7 +50,6 @@ def compute_gradx( u, alpha_dx = 1., sigma = 0. , _filter='diff-non-centered'):
         return alpha_dx * ndimage.sobel(u,axis=2)
     elif _filter == 'diff-non-centered' :
         return alpha_dx * ndimage.convolve1d(u,weights=[0.3,0.4,-0.7],axis=2)
-
 
 def compute_grady( u, alpha_dy= 1., sigma = 0., _filter='diff-non-centered' ):
     
@@ -912,6 +928,15 @@ class LitModelUV(pl.LightningModule):
             
             u_geo = -1. * dssh_dy
             v_geo = 1.  * dssh_dx
+
+            # correction for latidude-dependent coriolis force
+            f_c = compute_coriols_force(self.test_lat)
+            
+            print( f_c[20,0:20])
+            print( f_c[20,200:220])
+            
+            u_geo = 1/f_c * u_geo
+            v_geo = 1/f_c * u_geo
             
             if 1*0 :
                 div_ssh = compute_div(u_geo,v_geo,sigma=0.,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
@@ -1026,6 +1051,7 @@ class LitModelUV(pl.LightningModule):
         print('.. Scaling [Test DS]     : %f -- %f -- %f '%(alpha_dx,alpha_dy,alpha_uv_geo))
 
         flag_use_uv_geo_scaling_training_ds = False# True
+        
         if flag_use_uv_geo_scaling_training_ds :
             alpha_dx = self.alpha_dx
             alpha_dy = self.alpha_dy
