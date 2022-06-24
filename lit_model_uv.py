@@ -930,13 +930,14 @@ class LitModelUV(pl.LightningModule):
             v_geo = 1.  * dssh_dx
 
             # correction for latidude-dependent coriolis force
-            f_c = compute_coriols_force(self.test_lat)
+            if 1*0 :
+                f_c = compute_coriols_force(self.test_lat)
             
-            print( f_c[20,0:20])
-            print( f_c[20,200:220])
+                print( f_c[20,0:20])
+                print( f_c[20,200:220])
             
-            u_geo = 1/f_c * u_geo
-            v_geo = 1/f_c * u_geo
+                u_geo = 1/f_c * u_geo
+                v_geo = 1/f_c * u_geo
             
             if 1*0 :
                 div_ssh = compute_div(u_geo,v_geo,sigma=0.,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
@@ -1050,7 +1051,7 @@ class LitModelUV(pl.LightningModule):
         print('.. Scaling [Training DS] : %f -- %f -- %f '%(self.alpha_dx,self.alpha_dy,self.alpha_uv_geo))
         print('.. Scaling [Test DS]     : %f -- %f -- %f '%(alpha_dx,alpha_dy,alpha_uv_geo))
 
-        flag_use_uv_geo_scaling_training_ds = False# True
+        flag_use_uv_geo_scaling_training_ds = True #False# 
         
         if flag_use_uv_geo_scaling_training_ds :
             alpha_dx = self.alpha_dx
