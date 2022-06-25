@@ -930,7 +930,7 @@ class LitModelUV(pl.LightningModule):
             v_geo = 1.  * dssh_dx
 
             # correction for latidude-dependent coriolis force
-            if 1*0 :
+            if 1*1 :
                 f_c = compute_coriols_force(self.test_lat)
             
                 print( f_c.shape )
