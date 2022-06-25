@@ -931,13 +931,15 @@ class LitModelUV(pl.LightningModule):
 
             # correction for latidude-dependent coriolis force
             if 1*1 :
-                f_c = compute_coriols_force(self.test_lat)
+                f_c = compute_coriols_force(self.test_lat).reshape((1,u_geo.shape[1],1))
+                f_c = np.tile( f_c , (u_geo.shape[0],1,u_geo.shape[2]) )    
             
-                print( np.mean( self.x_sst_feat_ssh[:,0,0:200,0]) )
-                print( np.mean( self.x_sst_feat_ssh[:,0,0:200,199]) )
+                print( f_c.shape )
+                #print( np.mean( self.x_sst_feat_ssh[:,0,0:200,0]) )
+                #print( np.mean( self.x_sst_feat_ssh[:,0,0:200,199]) )
                 
-                print( np.mean( self.x_sst_feat_ssh[:,0,0,0:200]) )
-                print( np.mean( self.x_sst_feat_ssh[:,0,199,0:200]) )
+                #print( np.mean( self.x_sst_feat_ssh[:,0,0,0:200]) )
+                #print( np.mean( self.x_sst_feat_ssh[:,0,199,0:200]) )
 
                 u_geo = 1/f_c * u_geo
                 v_geo = 1/f_c * u_geo
