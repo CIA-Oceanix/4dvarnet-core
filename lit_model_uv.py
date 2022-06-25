@@ -1058,7 +1058,7 @@ class LitModelUV(pl.LightningModule):
         print('.. Scaling [Training DS] : %f -- %f -- %f '%(self.alpha_dx,self.alpha_dy,self.alpha_uv_geo))
         print('.. Scaling [Test DS]     : %f -- %f -- %f '%(alpha_dx,alpha_dy,alpha_uv_geo))
 
-        flag_use_uv_geo_scaling_training_ds = False# True #
+        flag_use_uv_geo_scaling_training_ds = True # False# 
         
         if flag_use_uv_geo_scaling_training_ds :
             alpha_dx = self.alpha_dx
