@@ -942,7 +942,7 @@ class LitModelUV(pl.LightningModule):
                 #print( np.mean( self.x_sst_feat_ssh[:,0,199,0:200]) )
 
                 u_geo = 1/f_c * u_geo
-                v_geo = 1/f_c * u_geo
+                v_geo = 1/f_c * v_geo
             
             if 1*0 :
                 div_ssh = compute_div(u_geo,v_geo,sigma=0.,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
@@ -1023,7 +1023,20 @@ class LitModelUV(pl.LightningModule):
             dssh_dx = compute_gradx(ssh)
             dssh_dy = compute_grady(ssh)
 
+            if 1*1 :
+                f_c = compute_coriols_force(self.test_lat).reshape((1,u.shape[1],1))
+                f_c = np.tile( f_c , (u.shape[0],1,u.shape[2]) )    
             
+                print( f_c.shape )
+                #print( np.mean( self.x_sst_feat_ssh[:,0,0:200,0]) )
+                #print( np.mean( self.x_sst_feat_ssh[:,0,0:200,199]) )
+                
+                #print( np.mean( self.x_sst_feat_ssh[:,0,0,0:200]) )
+                #print( np.mean( self.x_sst_feat_ssh[:,0,199,0:200]) )
+
+                dssh_dx = 1/f_c * dssh_dx
+                dssh_dy = 1/f_c * dssh_dy
+             
             corr_x_u = float( np.mean( u * dssh_dx) / np.sqrt( np.mean( dssh_dx**2 ) * np.mean( u**2 ) ) )
             corr_x_v = float( np.mean( v * dssh_dx) / np.sqrt( np.mean( dssh_dx**2 ) * np.mean( v**2 ) ) )
             
