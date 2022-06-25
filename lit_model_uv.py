@@ -988,6 +988,13 @@ class LitModelUV(pl.LightningModule):
             u_geo = alpha_uv_geo * u_geo
             v_geo = alpha_uv_geo * v_geo
 
+            psd_ds_ugeo, lamb_x_ugeo, lamb_t_ugeo = metrics.psd_based_scores(u_geo,u_gt)
+            psd_ds_vgeo, lamb_x_vgeo, lamb_t_vgeo = metrics.psd_based_scores(v_geo,v_gt)
+
+            
+            print('......... lambda ugeo =  %.3f   / %.3f '%(lamb_x_ugeo,lamb_t_ugeo))
+            print('......... lambda vgeo =  %.3f   / %.3f '%(lamb_x_vgeo,lamb_t_vgeo))
+            
             if sigma > 0. :
                 u_gt = gaussian_filter(u_gt, sigma=sigma)
                 v_gt = gaussian_filter(v_gt, sigma=sigma)
@@ -997,12 +1004,6 @@ class LitModelUV(pl.LightningModule):
                                                         flag_compute_strain=True) 
             mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo    = mse_stat   
 
-            psd_ds_ugeo, lamb_x_ugeo, lamb_t_ugeo = metrics.psd_based_scores(u_geo,u_gt)
-            psd_ds_vgeo, lamb_x_vgeo, lamb_t_vgeo = metrics.psd_based_scores(v_geo,v_gt)
-
-            
-            print('......... lambda ugeo =  %.3f   / %.3f '%(lamb_x_ugeo,lamb_t_ugeo))
-            print('......... lambda vgeo =  %.3f   / %.3f '%(lamb_x_vgeo,lamb_t_vgeo))
 
             return mse_uv_geo, nmse_uv_geo, mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo
 
