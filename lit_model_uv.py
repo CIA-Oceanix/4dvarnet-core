@@ -988,12 +988,11 @@ class LitModelUV(pl.LightningModule):
             u_geo = alpha_uv_geo * u_geo
             v_geo = alpha_uv_geo * v_geo
 
-            psd_ds_ugeo, lamb_x_ugeo, lamb_t_ugeo = metrics.psd_based_scores(u_geo,self.test_xr_ds.u_gt)
-            psd_ds_vgeo, lamb_x_vgeo, lamb_t_vgeo = metrics.psd_based_scores(v_geo,self.test_xr_ds.v_gt)
-
+            #psd_ds_ugeo, lamb_x_ugeo, lamb_t_ugeo = metrics.psd_based_scores(u_geo,self.test_xr_ds.u_gt)
+            #psd_ds_vgeo, lamb_x_vgeo, lamb_t_vgeo = metrics.psd_based_scores(v_geo,self.test_xr_ds.v_gt)
             
-            print('......... lambda ugeo =  %.3f   / %.3f '%(lamb_x_ugeo,lamb_t_ugeo))
-            print('......... lambda vgeo =  %.3f   / %.3f '%(lamb_x_vgeo,lamb_t_vgeo))
+            #print('......... lambda ugeo =  %.3f   / %.3f '%(lamb_x_ugeo,lamb_t_ugeo))
+            #print('......... lambda vgeo =  %.3f   / %.3f '%(lamb_x_vgeo,lamb_t_vgeo))
             
             if sigma > 0. :
                 u_gt = gaussian_filter(u_gt, sigma=sigma)
@@ -1059,7 +1058,7 @@ class LitModelUV(pl.LightningModule):
         print('.. Scaling [Training DS] : %f -- %f -- %f '%(self.alpha_dx,self.alpha_dy,self.alpha_uv_geo))
         print('.. Scaling [Test DS]     : %f -- %f -- %f '%(alpha_dx,alpha_dy,alpha_uv_geo))
 
-        flag_use_uv_geo_scaling_training_ds = True #False# 
+        flag_use_uv_geo_scaling_training_ds = False# True #
         
         if flag_use_uv_geo_scaling_training_ds :
             alpha_dx = self.alpha_dx
