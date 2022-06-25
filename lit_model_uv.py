@@ -933,6 +933,7 @@ class LitModelUV(pl.LightningModule):
             if 1*0 :
                 f_c = compute_coriols_force(self.test_lat)
             
+                print( f_c.shape )
                 print( f_c[20,0:20])
                 print( f_c[20,200:220])
             
