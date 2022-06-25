@@ -933,10 +933,12 @@ class LitModelUV(pl.LightningModule):
             if 1*1 :
                 f_c = compute_coriols_force(self.test_lat)
             
-                print( f_c.shape )
-                print( f_c[20,0:20])
-                print( f_c[20,200:220])
-            
+                print( np.mean( self.x_sst_feat_ssh[:,0,0:200,0]) )
+                print( np.mean( self.x_sst_feat_ssh[:,0,0:200,199]) )
+                
+                print( np.mean( self.x_sst_feat_ssh[:,0,0,0:200]) )
+                print( np.mean( self.x_sst_feat_ssh[:,0,199,0:200]) )
+
                 u_geo = 1/f_c * u_geo
                 v_geo = 1/f_c * u_geo
             
