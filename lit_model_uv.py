@@ -26,11 +26,47 @@ from models import Model_HwithSSTBNAtt_nolin_tanh
 from scipy import ndimage
 from scipy.ndimage import gaussian_filter
 
-def compute_coriols_force(lat):
+def compute_coriolis_force(lat):
     omega = 7.2921e-5 # rad/s
     f = 2 * omega * np.sin(np.radians(lat))
     
     return f
+
+def compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.5,alpha_uv_geo = 1.):
+
+    # coriolis / lat/lon scaling
+    grid_lat = lat.reshape( (1,ssh.shape[1],1))
+    grid_lat = np.tile( grid_lat , (ssh.shape[0],1,ssh.shape[2]) )
+    grid_lon = lat.reshape( (1,1,ssh.shape[2]))
+    grid_lon = np.tile( grid_lon , (ssh.shape[0],ssh.shape[1],1) )
+
+    grid_lat = np.radians(grid_lat) 
+    grid_lon = np.radians(grid_lon) 
+        
+    f_c = compute_coriolis_force(grid_lat)
+    dy_from_dlat , dx_from_dlon = compute_dx_dy_dlat_dlon(grid_lat,grid_lon,np.radians(1./20),np.radians(1./20) )     
+
+    # (u,v) MSE
+    ssh = gaussian_filter(ssh, sigma=sigma)
+    dssh_dx = compute_gradx( ssh )
+    dssh_dy = compute_grady( ssh )
+
+    if 1*1 :
+        dssh_dx = dssh_dx / dx_from_dlon 
+        dssh_dy = dssh_dy / dy_from_dlat  
+
+    if 1*1 :
+         dssh_dy = ( 1. / f_c ) * dssh_dy
+         dssh_dx = ( 1. / f_c  )* dssh_dx
+
+    u_geo = -1. * dssh_dy
+    v_geo = 1. * dssh_dx
+
+    u_geo = alpha_uv_geo * u_geo
+    v_geo = alpha_uv_geo * v_geo
+
+    return u_geo,v_geo
+
 
 def compute_dx_dy_dlat_dlon(lat,lon,dlat,dlon):
     
@@ -919,7 +955,7 @@ class LitModelUV(pl.LightningModule):
                 return mse_div,nmse_div,mse_curl,nmse_curl,mse_strain,nmse_strain
             else:
                 return mse_div,nmse_div,mse_curl,nmse_curl
-        
+         
         def compute_mse_uv_geo(u_gt,v_gt,ssh,sigma=0.5,alpha_dx=1.,alpha_dy=1.,alpha_uv_geo = 0.):
             
             # (u,v) MSE
@@ -931,7 +967,7 @@ class LitModelUV(pl.LightningModule):
 
             # correction for latidude-dependent coriolis force
             if 1*1 :
-                f_c = compute_coriols_force(self.test_lat).reshape((1,u_geo.shape[1],1))
+                f_c = compute_coriolis_force(self.test_lat).reshape((1,u_geo.shape[1],1))
                 f_c = np.tile( f_c , (u_geo.shape[0],1,u_geo.shape[2]) )    
             
                 print( f_c.shape )
@@ -1011,6 +1047,31 @@ class LitModelUV(pl.LightningModule):
 
             return mse_uv_geo, nmse_uv_geo, mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo
 
+        def compute_mse_uv_geo_with_coriolis(u_gt,v_gt,ssh,lat,lon,sigma=0.5,alpha_uv_geo = 1.):
+            
+            ssh = gaussian_filter(ssh, sigma=sigma)        
+            u_geo,v_geo = compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.,alpha_uv_geo = alpha_uv_geo)
+            
+            mse_uv_geo = np.nanmean( (u_geo - u_gt)**2 + (v_geo - v_gt)**2 )
+            nmse_uv_geo = mse_uv_geo / np.nanmean( (u_gt)**2 + (v_gt)**2 )
+ 
+            psd_ds_ugeo, lamb_x_ugeo, lamb_t_ugeo = metrics.psd_based_scores(u_geo,self.test_xr_ds.u_gt)
+            psd_ds_vgeo, lamb_x_vgeo, lamb_t_vgeo = metrics.psd_based_scores(v_geo,self.test_xr_ds.v_gt)
+            
+            print('......... lambda ugeo =  %.3f   / %.3f '%(lamb_x_ugeo,lamb_t_ugeo))
+            print('......... lambda vgeo =  %.3f   / %.3f '%(lamb_x_vgeo,lamb_t_vgeo))
+            
+            if sigma > 0. :
+                u_gt = gaussian_filter(u_gt, sigma=sigma)
+                v_gt = gaussian_filter(v_gt, sigma=sigma)
+            
+            mse_stat =  compute_div_curl_strain_metrics(u_gt,v_gt,u_geo,v_geo,lat,lon,sig_div=0, 
+                                                        flag_compute_strain=True) 
+            mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo    = mse_stat   
+
+
+            return mse_uv_geo, nmse_uv_geo, mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo
+
         # compute (dx,dy) scaling for the computation of the derivative
         def compute_dxy_scaling(u,v,ssh,sigma=1.):
             
@@ -1022,20 +1083,6 @@ class LitModelUV(pl.LightningModule):
             #dssh_dy = 1. * ndimage.sobel(ssh,axis=1) 
             dssh_dx = compute_gradx(ssh)
             dssh_dy = compute_grady(ssh)
-
-            if 1*1 :
-                f_c = compute_coriols_force(self.test_lat).reshape((1,u.shape[1],1))
-                f_c = np.tile( f_c , (u.shape[0],1,u.shape[2]) )    
-            
-                print( f_c.shape )
-                #print( np.mean( self.x_sst_feat_ssh[:,0,0:200,0]) )
-                #print( np.mean( self.x_sst_feat_ssh[:,0,0:200,199]) )
-                
-                #print( np.mean( self.x_sst_feat_ssh[:,0,0,0:200]) )
-                #print( np.mean( self.x_sst_feat_ssh[:,0,199,0:200]) )
-
-                dssh_dx = 1/f_c * dssh_dx
-                dssh_dy = 1/f_c * dssh_dy
              
             corr_x_u = float( np.mean( u * dssh_dx) / np.sqrt( np.mean( dssh_dx**2 ) * np.mean( u**2 ) ) )
             corr_x_v = float( np.mean( v * dssh_dx) / np.sqrt( np.mean( dssh_dx**2 ) * np.mean( v**2 ) ) )
@@ -1050,39 +1097,70 @@ class LitModelUV(pl.LightningModule):
             print('... R**2: %f -- %f'%(corr_y_u,corr_x_v))
             print('.... alpha: %f -- %f '%(alpha_dx_v,alpha_dy_u)  )
             
-            if 1*0 :
-                dssh_dx =  compute_gradx( ssh, alpha_dx = alpha_dx_v , sigma = 0. )                       
-                dssh_dy =  compute_grady( ssh, alpha_dy = alpha_dy_u, sigma = 0. )                       
-    
-                d2ssh_dxdy = compute_grady( dssh_dx, alpha_dy = alpha_dy_u, sigma = 0. )                       
-                d2ssh_dydx = compute_gradx( dssh_dy, alpha_dx = alpha_dx_v, sigma = 0. ) 
-                
-                #print( np.mean( (d2ssh_dxdy[:,20:220,20:220] - d2ssh_dydx[:,20:220,20:220] )**2 ) )
-                #print( np.mean( (d2ssh_dxdy[:,20:220,20:220] - d2ssh_dydx[:,20:220,20:220] )**2 ) / np.mean( d2ssh_dydx[:,20:220,20:220] ** 2 ) )
-                
-                print( np.mean( (d2ssh_dxdy - d2ssh_dydx )**2 ) )
-                print( np.mean( (d2ssh_dxdy - d2ssh_dydx )**2 ) / np.mean( d2ssh_dydx ** 2 ) )
-    
-                div_ssh = compute_div(-1. * dssh_dy,dssh_dx,sigma=0.,alpha_dx=alpha_dx_v,alpha_dy=alpha_dy_u)
-                print( np.mean( div_ssh ** 2 ) )
-    
-                div_ssh = compute_div(-1. * dssh_dy,dssh_dx,sigma=0.,alpha_dx=1.,alpha_dy=alpha_dy_u/alpha_dx_v)
-                print( np.mean( div_ssh ** 2 ) )
-
             return 1.,alpha_dy_u/alpha_dx_v,alpha_dx_v
-            
-        alpha_dx, alpha_dy, alpha_uv_geo = compute_dxy_scaling(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,self.test_xr_ds.gt,sigma=4.0)
 
-        print('.. Scaling [Training DS] : %f -- %f -- %f '%(self.alpha_dx,self.alpha_dy,self.alpha_uv_geo))
-        print('.. Scaling [Test DS]     : %f -- %f -- %f '%(alpha_dx,alpha_dy,alpha_uv_geo))
-
-        flag_use_uv_geo_scaling_training_ds = False#  True # 
+        def compute_dxy_scaling_with_coriolis(u,v,ssh,lat,lon,sigma=1.):
         
-        if flag_use_uv_geo_scaling_training_ds :
-            alpha_dx = self.alpha_dx
-            alpha_dy = self.alpha_dy
-            alpha_uv_geo = self.alpha_uv_geo
+            u = gaussian_filter(u, sigma=sigma)
+            v = gaussian_filter(v, sigma=sigma)
+            ssh = gaussian_filter(ssh, sigma=sigma)
+        
+            u_geo,v_geo = compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.,alpha_uv_geo = 1.)
+        
+            dssh_dy = -1. * u_geo
+            dssh_dx = 1. * v_geo
+                        
+            corr_x_u = float( np.mean( u * dssh_dx) / np.sqrt( np.mean( dssh_dx**2 ) * np.mean( u**2 ) ) )
+            corr_x_v = float( np.mean( v * dssh_dx) / np.sqrt( np.mean( dssh_dx**2 ) * np.mean( v**2 ) ) )
+        
+            corr_y_u = float( np.mean( u * dssh_dy) / np.sqrt( np.mean( dssh_dy**2 ) * np.mean( u**2 ) ) )
+            corr_y_v = float( np.mean( v * dssh_dy) / np.sqrt( np.mean( dssh_dy**2 ) * np.mean( v**2 ) ) )
+        
+            print('.... corr = % f -- % f -- %f -- %f '%(corr_x_u,corr_x_v,corr_y_u,corr_y_v)  )
+            alpha_dy_u = float( np.mean( -1. * dssh_dy * u) / np.mean( dssh_dy**2 ) )
+            alpha_dx_v = float( np.mean(  1. * dssh_dx * v) / np.mean( dssh_dx**2 ) )
+        
+            alpha_uv_geo = float( np.mean( -1. * dssh_dy * u + 1. * dssh_dx * v ) / np.mean( dssh_dy**2 + dssh_dx**2) )
+        
+            print('... R**2: %f -- %f'%(corr_y_u,corr_x_v))
+            print('.... alpha: %f -- %f -- %f'%(alpha_dx_v,alpha_dy_u,alpha_uv_geo)  )
+        
+            return alpha_uv_geo
+        
+        if 1*1 :
+            alpha_dx, alpha_dy, alpha_uv_geo = compute_dxy_scaling(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,self.test_xr_ds.gt,sigma=4.0)
+    
+            print('.. Scaling [Training DS] : %f -- %f -- %f '%(self.alpha_dx,self.alpha_dy,self.alpha_uv_geo))
+            print('.. Scaling [Test DS]     : %f -- %f -- %f '%(alpha_dx,alpha_dy,alpha_uv_geo))
+    
+            flag_use_uv_geo_scaling_training_ds = False#  True # 
+            
+            if flag_use_uv_geo_scaling_training_ds :
+                alpha_dx = self.alpha_dx
+                alpha_dy = self.alpha_dy
+                alpha_uv_geo = self.alpha_uv_geo
+        else:                
+            alpha_uv_geo =  compute_dxy_scaling_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,self.test_xr_ds.gt,self.lat,self.lon,sigma=4.)
+        
+            #print('.. Scaling [Training DS] : %f -- %f -- %f '%(self.alpha_dx,self.alpha_dy,self.alpha_uv_geo))
+            print('.. Scaling [Test DS]     : %f '%(alpha_uv_geo))
 
+            # coriolis / lat/lon scaling
+            grid_lat = self.lat.reshape( (1,self.test_xr_ds.gt.shape[1],1))
+            grid_lat = np.tile( grid_lat , (self.test_xr_ds.gt.shape[0],1,self.test_xr_ds.gt.shape[2]) )
+            grid_lon = self.lon.reshape( (1,1,self.test_xr_ds.gt.shape[2]))
+            grid_lon = np.tile( grid_lon , (self.test_xr_ds.gt.shape[0],self.test_xr_ds.gt.shape[1],1) )
+        
+            grid_lat = np.radians(grid_lat) 
+            grid_lon = np.radians(grid_lon) 
+                
+            dy_from_dlat , dx_from_dlon = compute_dx_dy_dlat_dlon(grid_lat,grid_lon,np.radians(1./20),np.radians(1./20) ) 
+            alpha_dx = 1. / ( dx_from_dlon )
+            alpha_dy = 1. / ( dy_from_dlat )
+                        
+            f_c = compute_coriolis_force(grid_lat)            
+            alpha_uv_geo = alpha_uv_geo / f_c
+    
         sig_div = self.sig_filter_div_diag
         print('..... div. computation (sigma): %f -- %f'%(self.sig_filter_div,self.sig_filter_div_diag))
         mse_stat = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
@@ -1095,7 +1173,7 @@ class LitModelUV(pl.LightningModule):
         var_mse_div_ssh_gt = 100. * (1. - nmse_div_ssh_gt )
         var_mse_curl_ssh_gt = 100. * (1. - nmse_curl_ssh_gt )
         var_mse_strain_ssh_gt = 100. * (1. - nmse_strain_ssh_gt )
-
+    
         mse_stat = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                       self.test_xr_ds.oi,sigma=sig_div,
                                       alpha_dx=alpha_dx,alpha_dy=alpha_dy,
@@ -1116,7 +1194,7 @@ class LitModelUV(pl.LightningModule):
         var_mse_div_pred    = 100. * (1. - nmse_div_pred )
         var_mse_curl_pred   = 100. * (1. - nmse_curl_pred )
         var_mse_strain_pred = 100. * (1. - nmse_strain_pred )
-        
+                        
         stat_mse_div_curl_strain =  compute_div_curl_strain_metrics(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                                     self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,
                                                                     sig_div=sig_div,
