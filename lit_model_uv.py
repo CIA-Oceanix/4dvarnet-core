@@ -968,7 +968,7 @@ class LitModelUV(pl.LightningModule):
             u_geo = -1. * dssh_dy
             v_geo = 1.  * dssh_dx
             
-            if alpha_uv_geo == 0. :
+            if np.max( np.abs(alpha_uv_geo) ) == 0. :
                 alpha_uv_geo = float( np.mean( u_gt * u_geo + v_gt * v_geo) / np.mean( u_geo**2 + v_geo**2 ) )
 
             u_geo = alpha_uv_geo * u_geo
