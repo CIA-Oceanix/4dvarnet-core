@@ -966,7 +966,7 @@ class LitModelUV(pl.LightningModule):
             v_geo = 1.  * dssh_dx
 
             # correction for latidude-dependent coriolis force
-            if 1*1 :
+            if 1*0 :
                 f_c = compute_coriolis_force(self.test_lat).reshape((1,u_geo.shape[1],1))
                 f_c = np.tile( f_c , (u_geo.shape[0],1,u_geo.shape[2]) )    
             
