@@ -1099,9 +1099,9 @@ class LitModelUV(pl.LightningModule):
             print('.. Scaling [Test DS]     : %f '%(alpha_uv_geo))
 
             # coriolis / lat/lon scaling
-            grid_lat = self.lat.reshape( (1,self.test_xr_ds.gt.shape[1],1))
+            grid_lat = self.test_lat.reshape( (1,self.test_xr_ds.gt.shape[1],1))
             grid_lat = np.tile( grid_lat , (self.test_xr_ds.gt.shape[0],1,self.test_xr_ds.gt.shape[2]) )
-            grid_lon = self.lon.reshape( (1,1,self.test_xr_ds.gt.shape[2]))
+            grid_lon = self.test_lon.reshape( (1,1,self.test_xr_ds.gt.shape[2]))
             grid_lon = np.tile( grid_lon , (self.test_xr_ds.gt.shape[0],self.test_xr_ds.gt.shape[1],1) )
         
             grid_lat = np.radians(grid_lat) 
