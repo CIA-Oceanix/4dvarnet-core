@@ -964,56 +964,9 @@ class LitModelUV(pl.LightningModule):
             
             u_geo = -1. * dssh_dy
             v_geo = 1.  * dssh_dx
-
-            # correction for latidude-dependent coriolis force
-            if 1*0 :
-                f_c = compute_coriolis_force(self.test_lat).reshape((1,u_geo.shape[1],1))
-                f_c = np.tile( f_c , (u_geo.shape[0],1,u_geo.shape[2]) )    
-            
-                print( f_c.shape )
-                #print( np.mean( self.x_sst_feat_ssh[:,0,0:200,0]) )
-                #print( np.mean( self.x_sst_feat_ssh[:,0,0:200,199]) )
-                
-                #print( np.mean( self.x_sst_feat_ssh[:,0,0,0:200]) )
-                #print( np.mean( self.x_sst_feat_ssh[:,0,199,0:200]) )
-
-                u_geo = 1/f_c * u_geo
-                v_geo = 1/f_c * v_geo
-            
-            if 1*0 :
-                div_ssh = compute_div(u_geo,v_geo,sigma=0.,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
-                print('xxx %f'%np.mean( div_ssh ** 2 ) )
-                
-                dssh_dx =  compute_gradx( ssh, alpha_dx = alpha_dx , sigma = 0. )                       
-                dssh_dy =  compute_grady( ssh, alpha_dy = alpha_dy, sigma = 0. )                       
-    
-                d2ssh_dxdy = compute_grady( dssh_dx, alpha_dy = alpha_dy, sigma = 0. )                       
-                d2ssh_dydx = compute_gradx( dssh_dy, alpha_dx = alpha_dx, sigma = 0. ) 
-                
-                print( np.mean( (d2ssh_dxdy - d2ssh_dydx )**2 ) )
-                print( np.mean( d2ssh_dydx ** 2 )  )
-                print( np.mean( d2ssh_dxdy ** 2 )  )
-                print( np.mean( (d2ssh_dxdy - d2ssh_dydx )**2 ) / np.mean( d2ssh_dydx ** 2 ) )
-
-            #gy_ssh = 1. * ndimage.sobel(ssh,axis=0)
-            #gx_ssh = -1. * ndimage.sobel(ssh,axis=1)                        
-            #corr_x_u = float( np.mean( u_gt * gx_ssh) / np.sqrt( np.mean( gx_ssh**2 ) * np.mean( u_gt**2 ) ) )
-            #corr_x_v = float( np.mean( v_gt * gx_ssh) / np.sqrt( np.mean( gx_ssh**2 ) * np.mean( v_gt**2 ) ) )
-            #corr_y_u = float( np.mean( u_gt * gy_ssh) / np.sqrt( np.mean( gy_ssh**2 ) * np.mean( u_gt**2 ) ) )
-            #corr_y_v = float( np.mean( v_gt * gy_ssh) / np.sqrt( np.mean( gy_ssh**2 ) * np.mean( v_gt**2 ) ) )
-            
-            #corr_v = float( np.mean( v_gt * v_geo) / np.sqrt( np.mean( v_geo**2 ) * np.mean( v_gt**2 ) ) )
-            #corr_u = float( np.mean( u_gt * u_geo) / np.sqrt( np.mean( u_geo**2 ) * np.mean( u_gt**2 ) ) )
-            
-            #print('.... alpha = % f -- % f -- %f -- %f '%(corr_x_u,corr_x_v,corr_y_u,corr_y_v)  )
-            #alpha_x_u = float( np.mean( u_gt * u_geo) / np.mean( u_geo**2 ) )
-            #alpha_y_v = float( np.mean( v_gt * v_geo) / np.mean( v_geo**2 ) )
             
             if alpha_uv_geo == 0. :
                 alpha_uv_geo = float( np.mean( u_gt * u_geo + v_gt * v_geo) / np.mean( u_geo**2 + v_geo**2 ) )
-
-            #print('.... R**2: %f -- %f'%(corr_u,corr_v))
-            #print('.... alpha = % f -- % f -- %f '%(alpha_x_u,alpha_y_v,alpha_uv_geo)  )
 
             u_geo = alpha_uv_geo * u_geo
             v_geo = alpha_uv_geo * v_geo
@@ -1127,7 +1080,7 @@ class LitModelUV(pl.LightningModule):
         
             return alpha_uv_geo
         
-        if 1*1 :
+        if 1*0 :
             alpha_dx, alpha_dy, alpha_uv_geo = compute_dxy_scaling(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,self.test_xr_ds.gt,sigma=4.0)
     
             print('.. Scaling [Training DS] : %f -- %f -- %f '%(self.alpha_dx,self.alpha_dy,self.alpha_uv_geo))
