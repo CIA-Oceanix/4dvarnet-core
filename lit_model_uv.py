@@ -1093,7 +1093,7 @@ class LitModelUV(pl.LightningModule):
                 alpha_dy = self.alpha_dy
                 alpha_uv_geo = self.alpha_uv_geo
         else:                
-            alpha_uv_geo =  compute_dxy_scaling_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,self.test_xr_ds.gt,self.lat,self.lon,sigma=4.)
+            alpha_uv_geo =  compute_dxy_scaling_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,self.test_xr_ds.gt,self.test_lat,self.test_lon,sigma=4.)
         
             #print('.. Scaling [Training DS] : %f -- %f -- %f '%(self.alpha_dx,self.alpha_dy,self.alpha_uv_geo))
             print('.. Scaling [Test DS]     : %f '%(alpha_uv_geo))
