@@ -1573,7 +1573,7 @@ class LitModelUV(pl.LightningModule):
 
                 # compute divergence for current field    
                 # set dx/dy scaling from (lat,lon) position
-                if self.flag_compute_div_with_lat_scaling :
+                if 1 * 0 : #self.flag_compute_div_with_lat_scaling :
                     dlat = lat[0,1]-lat[0,0]
                     #dlon = lon[0,1]-lon[0,0]
                     
@@ -1606,15 +1606,8 @@ class LitModelUV(pl.LightningModule):
                     yGT = torch.cat((yGT,sst_gt), dim=1)
     
                 loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
-                loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])
-                
+                loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
                 loss_div = self.div_loss( div_rec , div_gt ) 
-
-                #print('.....')
-                #print( loss_All )
-                #print( loss_GAll )
-                #print( loss_uv )
-                #print( loss_div )
 
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
                 loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
@@ -1642,13 +1635,14 @@ class LitModelUV(pl.LightningModule):
                 outputs_v = outputs[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
 
                 # compute divergence for current field   
-                flag_compute_div_with_lat = True
-                if flag_compute_div_with_lat :
-                    div_rec = self.div_field_with_lat_scaling(outputs_u,outputs_v,lat)
-                    div_gt = self.div_div_field_with_lat_scalingfield(u_gt,v_gt,lat)
-                else:
-                    div_rec = self.div_field(outputs_u,outputs_v)
-                    div_gt = self.div_field(u_gt,v_gt)
+                if self.flag_compute_div_with_lat_scaling :
+                    dlat = lat[0,1]-lat[0,0]
+                    #dlon = lon[0,1]-lon[0,0]
+                    
+                    self.compute_dlatlon2dxdy_scaling(lat,lon,dlat,outputs_u.size(1))
+                    
+                div_rec =  self.compute_div(outputs_u,outputs_v)
+                div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
  
                 loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
                 loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
