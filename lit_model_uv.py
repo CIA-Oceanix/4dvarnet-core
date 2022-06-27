@@ -1569,7 +1569,7 @@ class LitModelUV(pl.LightningModule):
                     dlon = lon[0,1]-lon[0,0]
                     print('dlat,dlon = %f -- %f'%( dlat.detach().cpu().numpy(),dlon.detach().cpu().numpy() ))
                     
-                    self.compute_dlatlon2dxdy_scaling(lat,lon,outputs_u.size(1),dlat)
+                    self.compute_dlatlon2dxdy_scaling(lat,lon,dlat,outputs_u.size(1))
                     
                     print( self.alpha_dy.size(), flush = True )
                     #print( self.alpha_dy, flush = True )
