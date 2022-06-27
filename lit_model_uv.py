@@ -518,9 +518,14 @@ class LitModelUV(pl.LightningModule):
             
         dy_from_dlat , dx_from_dlon = compute_dx_dy_dlat_dlon(grid_lat,grid_lon,res_latlon,res_latlon )    
         
-        self.alpha_dx = 1.0
+        print( dy_from_dlat.size() )
+        
+        self.alpha_dx = dx_from_dlon / torch.mean( dx_from_dlon ) 
         self.alpha_dy = dy_from_dlat / torch.mean( dx_from_dlon )        
        
+        print(self.alpha_dx)
+        print(self.alpha_dy)
+
     def update_filename_chkpt(self,filename_chkpt):
         
         old_suffix = '-{epoch:02d}-{val_loss:.4f}'
@@ -1566,6 +1571,7 @@ class LitModelUV(pl.LightningModule):
                     print('dlat,dlon = %f -- %f'%( dlat.detach().cpu().numpy(),dlon.detach().cpu().numpy() ))
                     
                     self.compute_dlat_dlon_scaling(lat,lon,dlat,dlon)
+                    print( self.alpha_dy )
                     
                     print(torch.mean(self.alpha_dy[0,0,0,:]) )
                     print(torch.min(self.alpha_dy[0,0,0,:]),flush=True )
