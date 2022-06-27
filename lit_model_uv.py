@@ -525,7 +525,7 @@ class LitModelUV(pl.LightningModule):
         self.alpha_dy = dy_from_dlat / torch.mean( dx_from_dlon )        
        
         print(self.alpha_dx)
-        print(self.alpha_dy)
+        print(self.alpha_dy, flush=True)
 
     def update_filename_chkpt(self,filename_chkpt):
         
