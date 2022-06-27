@@ -1563,12 +1563,12 @@ class LitModelUV(pl.LightningModule):
                 if self.flag_compute_div_with_lat_scaling :
                     dlat = lat[1]-lat[0]
                     dlon = lon[1]-lon[0]
-                    print('dlat,dlon = %f -- %f'%(dlat,dlon))
+                    print('dlat,dlon = %f -- %f'%( dlat.detach().cpu().numpy(),dlon.detach().cpu().numpy() ))
                     
                     self.compute_dlat_dlon_scaling(lat,lon,dlat,dlon)
                     
                     print(torch.mean(self.alpha_dy[0,0,0,:]) )
-                    print(torch.min(self.alpha_dy[0,0,0,:]) )
+                    print(torch.min(self.alpha_dy[0,0,0,:]),flush=True )
                     
                 div_rec =  self.compute_div(outputs_u,outputs_v)
                 div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
