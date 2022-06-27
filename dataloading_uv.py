@@ -456,10 +456,10 @@ class FourDVarNetDataset(Dataset):
                         lon_item = _item_coords['lon'].data
 
 
-                    print(oi_item.size() )
-                    print(v_item.size() )
-                    print(lat_item.size() )
-                    print(lon_item.size() )
+                    print(oi_item )
+                    print(v_item )
+                    print(lat_item )
+                    print(lon_item,flush=True )
                     return oi_item, obs_mask_item, obs_item, gt_item, sst_item, u_item, v_item, lat_item, lon_item
                 else:          
                     return oi_item, obs_mask_item, obs_item, gt_item, sst_item, u_item, v_item
