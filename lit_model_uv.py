@@ -512,22 +512,16 @@ class LitModelUV(pl.LightningModule):
     def compute_dlatlon2dxdy_scaling(self,lat,lon,res_latlon):
         
         # coriolis / lat/lon scaling
-        print(lat.size())
-        
         grid_lat = lat.view(lat.size(0),1,1,-1)
         grid_lat = grid_lat.repeat(1,1,lon.size(1),1)
         grid_lon = lon.view(lon.size(0),1,-1,1)
         grid_lon = grid_lat.repeat(1,1,1,lat.size(1))
-        print(grid_lat.size())
             
         dx_from_dlon, dy_from_dlat  = self.compute_dlat_dlon_scaling(grid_lat,grid_lon,res_latlon,res_latlon )    
         
-        self.alpha_dx = dx_from_dlon / torch.mean( dx_from_dlon ) 
-        self.alpha_dy = dy_from_dlat / torch.mean( dx_from_dlon )        
+        self.alpha_dx = dx_from_dlon / torch.mean( dy_from_dlat ) 
+        self.alpha_dy = dy_from_dlat / torch.mean( dy_from_dlat )        
        
-        print(self.alpha_dx)
-        print(self.alpha_dy, flush=True)
-
     def update_filename_chkpt(self,filename_chkpt):
         
         old_suffix = '-{epoch:02d}-{val_loss:.4f}'
@@ -1573,6 +1567,7 @@ class LitModelUV(pl.LightningModule):
                     print('dlat,dlon = %f -- %f'%( dlat.detach().cpu().numpy(),dlon.detach().cpu().numpy() ))
                     
                     self.compute_dlatlon2dxdy_scaling(lat,lon,dlat)
+                    
                     print( self.alpha_dy.size(), flush = True )
                     print( self.alpha_dy, flush = True )
                     
