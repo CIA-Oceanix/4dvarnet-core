@@ -1395,8 +1395,8 @@ class LitModelUV(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt = batch
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
-            print(lat.size())
-            print(lon.size())
+            print(lat)
+            print(lon)
 
         if self.scale_dwscaling_sst > 1 :
             sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
