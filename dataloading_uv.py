@@ -224,7 +224,6 @@ class XrDataset(Dataset):
                                 np.unravel_index(item, tuple(self.ds_size.values())))
         }
         if self.return_coords:
-            print( self.ds.isel(**sl).coords )
             return self.ds.isel(**sl).coords
         return self.ds.isel(**sl)[self.var].data.astype(np.float32)
 
@@ -450,8 +449,7 @@ class FourDVarNetDataset(Dataset):
     
                 with self.gt_ds.get_coords():
                     _l = self.gt_ds[item]
-                    print( _l , flush= True)
-                    lat_item,lon_item = self.gt_ds[item]
+                    time_item, lat_item,lon_item = self.gt_ds[item]
 
                 return oi_item, obs_mask_item, obs_item, gt_item, sst_item, u_item, v_item, lat_item, lon_item
 
