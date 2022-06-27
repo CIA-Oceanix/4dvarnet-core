@@ -449,7 +449,12 @@ class FourDVarNetDataset(Dataset):
     
                 with self.gt_ds.get_coords():
                     _l = self.gt_ds[item]
-                    time_item, lat_item,lon_item = self.gt_ds[item]
+                    _item_coords = self.gt_ds[item]
+                    print(_item_coords)
+                    print(_item_coords['lat'].data, flush=True)
+
+                    lat_item = _item_coords['lat'].data
+                    lon_item = _item_coords['lon'].data
 
                 return oi_item, obs_mask_item, obs_item, gt_item, sst_item, u_item, v_item, lat_item, lon_item
 
