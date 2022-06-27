@@ -395,6 +395,8 @@ class FourDVarNetDataset(Dataset):
         if self.return_coords:
             with self.gt_ds.get_coords():
                 return self.gt_ds[item]
+        
+        # retrieve lat,lon        
         pp = self.get_pp(self.norm_stats)
         length = len(self.obs_mask_ds)
         if item < length:
@@ -445,7 +447,10 @@ class FourDVarNetDataset(Dataset):
                 _v_item = pp_uv(self.v_ds[item % length])
                 v_item = np.where(~np.isnan(_v_item), _v_item, 0.)
     
-                return oi_item, obs_mask_item, obs_item, gt_item, sst_item, u_item, v_item
+                with self.gt_ds.get_coords():
+                    lat_item,lon_item = self.gt_ds[item]
+
+                return oi_item, obs_mask_item, obs_item, gt_item, sst_item, u_item, v_item, lat_item, lon_item
 
 class FourDVarNetDataModule(pl.LightningDataModule):
     def __init__(
