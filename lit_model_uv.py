@@ -1325,7 +1325,8 @@ class LitModelUV(pl.LightningModule):
         if not self.use_sst:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt = batch
         else:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt = batch
+            #targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt = batch
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
         
         if mask_sampling is not None :
             init_u = mask_sampling * u_gt
