@@ -518,10 +518,10 @@ class LitModelUV(pl.LightningModule):
         dx_from_dlon, dy_from_dlat  = self.compute_dlat_dlon_scaling(grid_lat,grid_lon,res_latlon,res_latlon )    
                         
         self.alpha_dx = dx_from_dlon / torch.mean( dy_from_dlat ) 
-        self.alpha_dy = dy_from_dlat / torch.mean( dy_from_dlat )   
+        #self.alpha_dy = dy_from_dlat / torch.mean( dy_from_dlat )   
         
-        self.alpha_dx = self.alpha_dx[:,:,1:-1,1:-1]
-        self.alpha_dy = self.alpha_dy[:,:,1:-1,1:-1]
+        self.alpha_dx = self.alpha_dx[:,:,1:-1,1:-1].detach()
+        self.alpha_dy = 1. #self.alpha_dy[:,:,1:-1,1:-1]
         
        
     def update_filename_chkpt(self,filename_chkpt):
