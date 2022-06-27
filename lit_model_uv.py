@@ -1630,15 +1630,10 @@ class LitModelUV(pl.LightningModule):
                     loss += self.hparams.alpha_sampling_uv * loss_l1_sampling_uv
             else:                
                 outputs = self.model.phi_r(obs)
-                
-                print( outputs.size() )
-                
-                outputs = outputs[:, 0:self.hparams.dT, :, :] + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
+                                
                 outputs_u = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
                 outputs_v = outputs[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
-
-                print( outputs_u.size() )
-                print( outputs_v.size() )
+                outputs = outputs[:, 0:self.hparams.dT, :, :] + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
 
                 # compute divergence for current field   
                 if self.flag_compute_div_with_lat_scaling :
