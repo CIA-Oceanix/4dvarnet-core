@@ -101,9 +101,6 @@ def compute_grady( u, alpha_dy= 1., sigma = 0., _filter='diff-non-centered' ):
         return alpha_dy * ndimage.convolve1d(u,weights=[0.3,0.4,-0.7],axis=1)
    
 def compute_div(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
-    
-    print('..... compute_div (sigma): %f'%sigma)
-
     du_dx = compute_gradx( u , alpha_dx = alpha_dx , sigma = sigma )
     dv_dy = compute_grady( v , alpha_dy = alpha_dy , sigma = sigma )
     
@@ -1209,7 +1206,13 @@ class LitModelUV(pl.LightningModule):
             alpha_uv_geo = alpha_uv_geo / f_c
     
         sig_div = self.sig_filter_div_diag
+        
+        print('.....')
         print('..... div. computation (sigma): %f -- %f'%(self.sig_filter_div,self.sig_filter_div_diag))
+        print('.....')
+        print('..... Geostrophic currents (ssh gt)  ')
+        print('.....')
+                 
         mse_stat = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                       self.test_xr_ds.gt,sigma=sig_div,
                                       alpha_dx=alpha_dx,alpha_dy=alpha_dy,
@@ -1221,6 +1224,8 @@ class LitModelUV(pl.LightningModule):
         var_mse_curl_ssh_gt = 100. * (1. - nmse_curl_ssh_gt )
         var_mse_strain_ssh_gt = 100. * (1. - nmse_strain_ssh_gt )
     
+        print('..... Geostrophic currents (ssh oi)  ')
+        print('.....')
         mse_stat = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                       self.test_xr_ds.oi,sigma=sig_div,
                                       alpha_dx=alpha_dx,alpha_dy=alpha_dy,
@@ -1232,6 +1237,8 @@ class LitModelUV(pl.LightningModule):
         var_mse_curl_oi = 100. * (1. - nmse_curl_oi )
         var_mse_strain_oi = 100. * (1. - nmse_strain_oi )
 
+        print('..... Geostrophic currents (ssh pred)  ')
+        print('.....')
         mse_stat = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                       self.test_xr_ds.pred,sigma=sig_div,
                                       alpha_dx=alpha_dx,alpha_dy=alpha_dy,
