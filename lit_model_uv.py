@@ -498,7 +498,7 @@ class LitModelUV(pl.LightningModule):
 
     def compute_c(self,lat,lon,dlat,dlon):
         a = torch.sin(dlat / 2)**2 + torch.cos(lat) ** 2 * torch.sin(dlon / 2)**2
-        return 2 * 6.371e6 * np.atan2( torch.sqrt(a), torch.sqrt(1. - a))        
+        return 2 * 6.371e6 * torch.atan2( torch.sqrt(a), torch.sqrt(1. - a))        
         
     def compute_dlat_dlon_scaling(self,lat,lon,dlat,dlon):
  
