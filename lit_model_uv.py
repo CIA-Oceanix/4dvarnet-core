@@ -519,9 +519,7 @@ class LitModelUV(pl.LightningModule):
         res_latlon = ( np.pi / 180 ) * res_latlon
         
         dx_from_dlon, dy_from_dlat  = self.compute_dlat_dlon_scaling(grid_lat,grid_lon,res_latlon,res_latlon )    
-        
-        ddx  = (dx_from_dlon / dy_from_dlat[0,0,0,0]).detach().cpu().numpy()
-                
+                        
         self.alpha_dx = dx_from_dlon / torch.mean( dy_from_dlat ) 
         self.alpha_dy = dy_from_dlat / torch.mean( dy_from_dlat )   
         
@@ -1570,16 +1568,14 @@ class LitModelUV(pl.LightningModule):
                 # set dx/dy scaling from (lat,lon) position
                 if self.flag_compute_div_with_lat_scaling :
                     dlat = lat[0,1]-lat[0,0]
-                    dlon = lon[0,1]-lon[0,0]
-                    print('dlat,dlon = %f -- %f'%( dlat.detach().cpu().numpy(),dlon.detach().cpu().numpy() ))
+                    #dlon = lon[0,1]-lon[0,0]
                     
                     self.compute_dlatlon2dxdy_scaling(lat,lon,dlat,outputs_u.size(1))
                     
-                    #print( self.alpha_dy, flush = True )
-                    
-                    print(torch.mean(self.alpha_dx[0,0,0,:]) )
-                    print(torch.min(self.alpha_dx[0,0,0,:]),flush=True )
-                    print(torch.max(self.alpha_dx[0,0,0,:]),flush=True )
+                    #print('dlat,dlon = %f -- %f'%( dlat.detach().cpu().numpy(),dlon.detach().cpu().numpy() ))
+                    #print(torch.mean(self.alpha_dx[0,0,0,:]) )
+                    #print(torch.min(self.alpha_dx[0,0,0,:]),flush=True )
+                    #print(torch.max(self.alpha_dx[0,0,0,:]),flush=True )
                     
                 div_rec =  self.compute_div(outputs_u,outputs_v)
                 div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
