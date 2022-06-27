@@ -447,14 +447,17 @@ class FourDVarNetDataset(Dataset):
                 _v_item = pp_uv(self.v_ds[item % length])
                 v_item = np.where(~np.isnan(_v_item), _v_item, 0.)
     
-                with self.gt_ds.get_coords():
-                    _l = self.gt_ds[item]
-                    _item_coords = self.gt_ds[item]
+                if 1*0 :
+                    with self.gt_ds.get_coords():
+                        _l = self.gt_ds[item]
+                        _item_coords = self.gt_ds[item]
 
-                    lat_item = _item_coords['lat'].data
-                    lon_item = _item_coords['lon'].data
+                        lat_item = _item_coords['lat'].data
+                        lon_item = _item_coords['lon'].data
 
-                return oi_item, obs_mask_item, obs_item, gt_item, sst_item, u_item, v_item, lat_item, lon_item
+                    return oi_item, obs_mask_item, obs_item, gt_item, sst_item, u_item, v_item, lat_item, lon_item
+                else:          
+                    return oi_item, obs_mask_item, obs_item, gt_item, sst_item, u_item, v_item
 
 class FourDVarNetDataModule(pl.LightningDataModule):
     def __init__(
