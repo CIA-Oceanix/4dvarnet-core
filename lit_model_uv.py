@@ -509,16 +509,13 @@ class LitModelUV(pl.LightningModule):
         return dx_from_dlon, dy_from_dlat
 
 
-    def compute_dlatlon2dxdy_scaling(self,lat,lon,res_latlon,nbatch):
+    def compute_dlatlon2dxdy_scaling(self,lat,lon,res_latlon):
         
         # coriolis / lat/lon scaling
-        print(lon.size())
-        print(lat.size())
-        
-        grid_lat = lat.view(1,1,1,-1)
-        grid_lat = grid_lat.repeat(nbatch,1,lon.size(0),1)
-        grid_lon = lon.view(1,1,-1,1)
-        grid_lon = grid_lat.repeat(nbatch,1,1,lat.size(0))
+        grid_lat = lat.view(lat.size(0),1,1,-1)
+        grid_lat = grid_lat.repeat(1,1,lon.size(0),1)
+        grid_lon = lon.view(lon.size(0),1,-1,1)
+        grid_lon = grid_lat.repeat(1,1,1,lat.size(0))
             
         print( grid_lat.size() )
         dx_from_dlon, dy_from_dlat  = self.compute_dlat_dlon_scaling(grid_lat,grid_lon,res_latlon,res_latlon )    
@@ -1575,7 +1572,7 @@ class LitModelUV(pl.LightningModule):
                     dlon = lon[0,1]-lon[0,0]
                     print('dlat,dlon = %f -- %f'%( dlat.detach().cpu().numpy(),dlon.detach().cpu().numpy() ))
                     
-                    self.compute_dlatlon2dxdy_scaling(lat,lon,dlat,outputs.size(0))
+                    self.compute_dlatlon2dxdy_scaling(lat,lon,dlat)
                     print( self.alpha_dy.size(), flush = True )
                     print( self.alpha_dy, flush = True )
                     
