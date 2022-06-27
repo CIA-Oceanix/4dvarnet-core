@@ -447,7 +447,7 @@ class FourDVarNetDataset(Dataset):
                 _v_item = pp_uv(self.v_ds[item % length])
                 v_item = np.where(~np.isnan(_v_item), _v_item, 0.)
     
-                if 1*0 :
+                if 1*1 :
                     with self.gt_ds.get_coords():
                         _l = self.gt_ds[item]
                         _item_coords = self.gt_ds[item]
@@ -455,6 +455,11 @@ class FourDVarNetDataset(Dataset):
                         lat_item = _item_coords['lat'].data
                         lon_item = _item_coords['lon'].data
 
+
+                    print(oi_item.size() )
+                    print(v_item.size() )
+                    print(lat_item.size() )
+                    print(lon_item.size() )
                     return oi_item, obs_mask_item, obs_item, gt_item, sst_item, u_item, v_item, lat_item, lon_item
                 else:          
                     return oi_item, obs_mask_item, obs_item, gt_item, sst_item, u_item, v_item
