@@ -448,6 +448,8 @@ class FourDVarNetDataset(Dataset):
                 v_item = np.where(~np.isnan(_v_item), _v_item, 0.)
     
                 with self.gt_ds.get_coords():
+                    _l = self.gt_ds[item]
+                    print( _l )
                     lat_item,lon_item = self.gt_ds[item]
 
                 return oi_item, obs_mask_item, obs_item, gt_item, sst_item, u_item, v_item, lat_item, lon_item
