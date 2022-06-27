@@ -516,7 +516,8 @@ class LitModelUV(pl.LightningModule):
         grid_lon = lon.view(1,-1,1)
         grid_lon = grid_lat.repeat(nbatch,1,lat.size(0))
             
-        dy_from_dlat , dx_from_dlon = self.compute_dlat_dlon_scaling(grid_lat,grid_lon,res_latlon,res_latlon )    
+        print( grid_lat.size() )
+        dx_from_dlon, dy_from_dlat  = self.compute_dlat_dlon_scaling(grid_lat,grid_lon,res_latlon,res_latlon )    
         
         print( dy_from_dlat.size() )
         
