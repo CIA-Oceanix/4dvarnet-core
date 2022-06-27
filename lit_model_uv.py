@@ -1571,11 +1571,11 @@ class LitModelUV(pl.LightningModule):
                     
                     self.compute_dlatlon2dxdy_scaling(lat,lon,dlat,outputs_u.size(1))
                     
-                    print( self.alpha_dy.size(), flush = True )
                     #print( self.alpha_dy, flush = True )
                     
                     print(torch.mean(self.alpha_dx[0,0,0,:]) )
                     print(torch.min(self.alpha_dx[0,0,0,:]),flush=True )
+                    print(torch.max(self.alpha_dx[0,0,0,:]),flush=True )
                     
                 div_rec =  self.compute_div(outputs_u,outputs_v)
                 div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
