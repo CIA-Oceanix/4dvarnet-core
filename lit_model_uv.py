@@ -1035,8 +1035,6 @@ class LitModelUV(pl.LightningModule):
             v = gaussian_filter(v, sigma=sigma)
             ssh = gaussian_filter(ssh, sigma=sigma)
             
-            #dssh_dx = 1. * ndimage.sobel(ssh,axis=2)
-            #dssh_dy = 1. * ndimage.sobel(ssh,axis=1) 
             dssh_dx = compute_gradx(ssh)
             dssh_dy = compute_grady(ssh)
              
@@ -1098,23 +1096,27 @@ class LitModelUV(pl.LightningModule):
         else:                
             alpha_uv_geo =  compute_dxy_scaling_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,self.test_xr_ds.gt,self.test_lat,self.test_lon,sigma=4.)
         
-            #print('.. Scaling [Training DS] : %f -- %f -- %f '%(self.alpha_dx,self.alpha_dy,self.alpha_uv_geo))
             print('.. Scaling [Test DS]     : %f '%(alpha_uv_geo))
 
             # coriolis / lat/lon scaling
-            grid_lat = self.test_lat.reshape( (1,self.test_xr_ds.gt.shape[1],1))
-            grid_lat = np.tile( grid_lat , (self.test_xr_ds.gt.shape[0],1,self.test_xr_ds.gt.shape[2]) )
-            grid_lon = self.test_lon.reshape( (1,1,self.test_xr_ds.gt.shape[2]))
-            grid_lon = np.tile( grid_lon , (self.test_xr_ds.gt.shape[0],self.test_xr_ds.gt.shape[1],1) )
+            def compute_dxdy_dlatdlon_fc(lat,lon,shape):                
+                grid_lat = lat.reshape( (1,shape[1],1))
+                grid_lat = np.tile( grid_lat , (shape[0],1,shape[2]) )
+                grid_lon = lon.reshape( (1,1,shape[2]))
+                grid_lon = np.tile( grid_lon , (shape[0],shape[1],1) )
         
-            grid_lat = np.radians(grid_lat) 
-            grid_lon = np.radians(grid_lon) 
+                grid_lat = np.radians(grid_lat) 
+                grid_lon = np.radians(grid_lon) 
+                    
+                dy_from_dlat , dx_from_dlon = compute_dx_dy_dlat_dlon(grid_lat,grid_lon,np.radians(1./20),np.radians(1./20) ) 
+                f_c = compute_coriolis_force(grid_lat)            
                 
-            dy_from_dlat , dx_from_dlon = compute_dx_dy_dlat_dlon(grid_lat,grid_lon,np.radians(1./20),np.radians(1./20) ) 
+                return dx_from_dlon, dy_from_dlat , f_c 
+            
+            dx_from_dlon, dy_from_dlat , f_c =  compute_dxdy_dlatdlon_fc( self.test_lat, self.test_lon, self.test_xr_ds.gt.shape )
             alpha_dx = 1. / ( dx_from_dlon )
             alpha_dy = 1. / ( dy_from_dlat )
                         
-            f_c = compute_coriolis_force(grid_lat)            
             alpha_uv_geo = alpha_uv_geo / f_c
     
         sig_div = self.sig_filter_div_diag
