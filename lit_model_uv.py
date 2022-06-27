@@ -302,6 +302,72 @@ class Div_uv(torch.nn.Module):
         
         return div
 
+class Div_uv_with_lat_lon_scaling(torch.nn.Module):
+    def __init__(self,_filter='diff-non-centered'):
+        super(Div_uv, self).__init__()
+
+        if _filter == 'sobel':
+            a = np.array([[1., 0., -1.], [2., 0., -2.], [1., 0., -1.]])
+            self.convGx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+            self.convGx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+
+            b = np.array([[1., 2., 1.], [0., 0., 0.], [-1., -2., -1.]])
+            self.convGy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+            self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+        elif _filter == 'diff-non-centered':
+            a = np.array([[0., 0., 0.], [0.3, 0.4, -0.7], [0., 0., 0.]])
+            self.convGx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+            self.convGx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+            b = np.array([[0., 0.3, 0.], [0., 0.4, 0.], [0., -0.7, 0.]])
+            self.convGy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+            self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+        elif filter == 'diff':
+            a = np.array([[0., 0., 0.], [0., 1., -1.], [0., 0., 0.]])
+            self.convGx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+            self.convGx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+            b = np.array([[0., 0.3, 0.], [0., 1., 0.], [0., -1., 0.]])
+            self.convGy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=0, bias=False)
+            self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+            
+     
+    def compute_c(self,lat,lon,dlat,dlon):
+        a = torch.sin(dlat / 2)**2 + torch.cos(lat) ** 2 * torch.sin(dlon / 2)**2
+        return 2 * 6.371e6 * np.atan2( torch.sqrt(a), torch.sqrt(1. - a))        
+        
+    def compute_dlat_dlon_scaling(self,lat,lon,dlat,dlon):
+ 
+        dy_from_dlat =  self.compute_c(lat,lon,dlat,0.)
+        dx_from_dlon =  self.compute_c(lat,lon,0.,dlon)
+    
+        return dx_from_dlon, dy_from_dlat
+        
+    def forward(self, u,v,lat,lon,dlat,dlon):
+        
+        dx_from_dlon, dy_from_dlat = self.compute_dlat_dlon_scaling(lat,lon,dlat,dlon)
+                
+        if u.size(1) == 1:
+            G_x = self.convGx(u) 
+            G_y = self.convGy(v) 
+            
+            div_ = G_x * dx_from_dlon + G_y * dy_from_dlat
+            div = div_.view(-1, 1, u.size(1) - 2, u.size(2) - 2)
+        else:
+
+            for kk in range(0, u.size(1)):
+                G_x = self.convGx(u[:, kk, :, :].view(-1, 1, u.size(2), u.size(3)))
+                G_y = self.convGy(v[:, kk, :, :].view(-1, 1, u.size(2), u.size(3)))
+
+                G_x = G_x.view(-1, 1, u.size(2) - 2, u.size(2) - 2)
+                G_y = G_y.view(-1, 1, u.size(2) - 2, u.size(2) - 2)
+
+                div_ = G_x * dx_from_dlon + G_y * dy_from_dlat
+                if kk == 0:
+                    div = div_.view(-1, 1, u.size(2) - 2, u.size(2) - 2)
+                else:
+                    div = torch.cat((div, div_.view(-1, 1, u.size(2) - 2, u.size(3) - 2)), dim=1)        
+                    
+        return div
+
 ############################################ Lightning Module #######################################################################
 
 class LitModelUV(pl.LightningModule):
@@ -390,7 +456,11 @@ class LitModelUV(pl.LightningModule):
         self.gradient_img = lambda t: torch.unbind(
                 self.grad_crop(2.*kornia.filters.spatial_gradient(t, normalized=True)), 2)
         
-        self.div_field = Div_uv()
+        self.flag_compute_div_with_lat_scaling = True
+        #if self.flag_compute_div_with_lat_scaling :
+        #    self.div_field = Div_uv_with_lat_lon_scaling()
+        #else:
+        #    self.div_field = Div_uv()
 
         # loss weghing wrt time
 
@@ -419,26 +489,38 @@ class LitModelUV(pl.LightningModule):
         # gradients
         du_dx, du_dy = self.gradient_img(f_u)
         dv_dx, dv_dy = self.gradient_img(f_v)
-        
-        #f_u = f_u[0,:,:,:].detach().cpu().numpy()
-        #du_dx2 = ndimage.sobel(f_u,axis=2)
-        #du_dx2 = du_dx2[:,1:-1,1:-1]
-        
-        #du_dx3 = du_dx[0,:,:,:].detach().cpu().numpy()
-        #du_dy3 = du_dy[0,:,:,:].detach().cpu().numpy()
-        
-        #print( du_dy3.shape )
-        #print( du_dx2.shape )
-        
-        #print( np.mean( du_dx2*du_dx3 ) / np.sqrt( np.mean(du_dx2**2)*np.mean(du_dx3**2) ))
-        #print( np.mean( du_dx2*du_dy3 ) / np.sqrt( np.mean(du_dx2**2)*np.mean(du_dy3**2) ))
-                
+                       
         # scaling 
         du_dx = self.alpha_dx * dv_dx
         dv_dy = self.alpha_dy * dv_dy
         
         return du_dx + dv_dy  
 
+    def compute_c(self,lat,lon,dlat,dlon):
+        a = torch.sin(dlat / 2)**2 + torch.cos(lat) ** 2 * torch.sin(dlon / 2)**2
+        return 2 * 6.371e6 * np.atan2( torch.sqrt(a), torch.sqrt(1. - a))        
+        
+    def compute_dlat_dlon_scaling(self,lat,lon,dlat,dlon):
+ 
+        dy_from_dlat =  self.compute_c(lat,lon,dlat,0.)
+        dx_from_dlon =  self.compute_c(lat,lon,0.,dlon)
+    
+        return dx_from_dlon, dy_from_dlat
+
+
+    def compute_dlatlon2dxdy_scaling(self,lat,lon,res_latlon,nbatch):
+        
+        # coriolis / lat/lon scaling
+        grid_lat = lat.view(1,1,-1)
+        grid_lat = grid_lat.repeat(nbatch,lon.size(0),1)
+        grid_lon = lon.view(1,-1,1)
+        grid_lon = grid_lat.repeat(nbatch,1,lat.size(0))
+            
+        dy_from_dlat , dx_from_dlon = compute_dx_dy_dlat_dlon(grid_lat,grid_lon,res_latlon,res_latlon )    
+        
+        self.alpha_dx = 1.0
+        self.alpha_dy = dy_from_dlat / torch.mean( dx_from_dlon )        
+       
     def update_filename_chkpt(self,filename_chkpt):
         
         old_suffix = '-{epoch:02d}-{val_loss:.4f}'
@@ -1396,8 +1478,6 @@ class LitModelUV(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt = batch
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
-            print(lat)
-            print(lon)
 
         if self.scale_dwscaling_sst > 1 :
             sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
@@ -1479,13 +1559,16 @@ class LitModelUV(pl.LightningModule):
                     outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
 
                 # compute divergence for current field    
-                #div_rec = self.div_field(outputs_u,outputs_v)
-                #div_gt = self.div_field(u_gt_wo_nan,v_gt_wo_nan)
-                
-                
+                # set dx/dy scaling from (lat,lon) position
+                if self.flag_compute_div_with_lat_scaling :
+                    self.compute_dlat_dlon_scaling(lat,lon,1./20,1.20)
+                    
+                    print(torch.mean(self.alpha_dy[0,0,0,:]) )
+                    print(torch.min(self.alpha_dy[0,0,0,:]) )
+                    
                 div_rec =  self.compute_div(outputs_u,outputs_v)
                 div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
-                
+  
                 # median filter
                 if self.median_filter_width > 1:
                     outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
@@ -1540,9 +1623,14 @@ class LitModelUV(pl.LightningModule):
                 outputs_u = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
                 outputs_v = outputs[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
 
-                # compute divergence for current field    
-                div_rec = self.div_field(outputs_u,outputs_v)
-                div_gt = self.div_field(u_gt,v_gt)
+                # compute divergence for current field   
+                flag_compute_div_with_lat = True
+                if flag_compute_div_with_lat :
+                    div_rec = self.div_field_with_lat_scaling(outputs_u,outputs_v,lat)
+                    div_gt = self.div_div_field_with_lat_scalingfield(u_gt,v_gt,lat)
+                else:
+                    div_rec = self.div_field(outputs_u,outputs_v)
+                    div_gt = self.div_field(u_gt,v_gt)
  
                 loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
                 loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
