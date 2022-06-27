@@ -494,7 +494,6 @@ class LitModelUV(pl.LightningModule):
         du_dx = self.alpha_dx * dv_dx
         dv_dy = self.alpha_dy * dv_dy
         
-        print(du_dx.size() )
         return du_dx + dv_dy  
 
     def compute_c(self,lat,lon,dlat,dlon):
@@ -509,13 +508,13 @@ class LitModelUV(pl.LightningModule):
         return dx_from_dlon, dy_from_dlat
 
 
-    def compute_dlatlon2dxdy_scaling(self,lat,lon,res_latlon):
+    def compute_dlatlon2dxdy_scaling(self,lat,lon,res_latlon,dT):
         
         # coriolis / lat/lon scaling
         grid_lat = lat.view(lat.size(0),1,1,-1)
-        grid_lat = grid_lat.repeat(1,1,lon.size(1),1)
+        grid_lat = grid_lat.repeat(1,dT,lon.size(1),1)
         grid_lon = lon.view(lon.size(0),1,-1,1)
-        grid_lon = grid_lat.repeat(1,1,1,lat.size(1))
+        grid_lon = grid_lat.repeat(1,dT,1,lat.size(1))
             
         dx_from_dlon, dy_from_dlat  = self.compute_dlat_dlon_scaling(grid_lat,grid_lon,res_latlon,res_latlon )    
         
@@ -1570,13 +1569,13 @@ class LitModelUV(pl.LightningModule):
                     dlon = lon[0,1]-lon[0,0]
                     print('dlat,dlon = %f -- %f'%( dlat.detach().cpu().numpy(),dlon.detach().cpu().numpy() ))
                     
-                    self.compute_dlatlon2dxdy_scaling(lat,lon,dlat)
+                    self.compute_dlatlon2dxdy_scaling(lat,lon,outputs_u.size(1),dlat)
                     
                     print( self.alpha_dy.size(), flush = True )
-                    print( self.alpha_dy, flush = True )
+                    #print( self.alpha_dy, flush = True )
                     
-                    print(torch.mean(self.alpha_dy[0,0,0,:]) )
-                    print(torch.min(self.alpha_dy[0,0,0,:]),flush=True )
+                    print(torch.mean(self.alpha_dx[0,0,0,:]) )
+                    print(torch.min(self.alpha_dx[0,0,0,:]),flush=True )
                     
                 div_rec =  self.compute_div(outputs_u,outputs_v)
                 div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
