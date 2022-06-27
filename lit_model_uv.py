@@ -1572,7 +1572,8 @@ class LitModelUV(pl.LightningModule):
                     print('dlat,dlon = %f -- %f'%( dlat.detach().cpu().numpy(),dlon.detach().cpu().numpy() ))
                     
                     self.compute_dlat_dlon_scaling(lat,lon,dlat,dlon)
-                    print( self.alpha_dy )
+                    print( self.alpha_dy.size(), flush = True )
+                    print( self.alpha_dy, flush = True )
                     
                     print(torch.mean(self.alpha_dy[0,0,0,:]) )
                     print(torch.min(self.alpha_dy[0,0,0,:]),flush=True )
