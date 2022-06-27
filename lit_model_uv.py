@@ -613,8 +613,9 @@ class LitModelUV(pl.LightningModule):
         if not self.use_sst:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt = batch
         else:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt = batch
-            
+            #targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt = batch
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
+           
         if ( self.use_sst ) :
           #losses, out, metrics = self(batch, phase='test')
           losses, out, metrics, sst_feat = self(batch, phase='test')
