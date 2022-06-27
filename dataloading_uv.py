@@ -455,8 +455,8 @@ class FourDVarNetDataset(Dataset):
                         #lat_item = _item_coords['lat'].data
                         #lon_item = _item_coords['lon'].data
 
-                    lat_item = v_item['lat'].data
-                    lon_item = v_item['lon'].data
+                    lat_item = v_item.coords['lat'].data
+                    lon_item = v_item.coords['lon'].data
 
                     print(oi_item )
                     print(v_item )
