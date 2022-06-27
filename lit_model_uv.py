@@ -502,8 +502,8 @@ class LitModelUV(pl.LightningModule):
         
     def compute_dlat_dlon_scaling(self,lat,lon,dlat,dlon):
  
-        dy_from_dlat =  self.compute_c(lat,lon,dlat,0.)
-        dx_from_dlon =  self.compute_c(lat,lon,0.,dlon)
+        dy_from_dlat =  self.compute_c(lat,lon,dlat,torch.Tensor(0.))
+        dx_from_dlon =  self.compute_c(lat,lon,torch.Tensor(0.),dlon)
     
         return dx_from_dlon, dy_from_dlat
 
