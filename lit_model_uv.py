@@ -511,10 +511,10 @@ class LitModelUV(pl.LightningModule):
     def compute_dlatlon2dxdy_scaling(self,lat,lon,res_latlon,nbatch):
         
         # coriolis / lat/lon scaling
-        grid_lat = lat.view(1,1,-1)
-        grid_lat = grid_lat.repeat(nbatch,lon.size(0),1)
-        grid_lon = lon.view(1,-1,1)
-        grid_lon = grid_lat.repeat(nbatch,1,lat.size(0))
+        grid_lat = lat.view(1,1,1,-1)
+        grid_lat = grid_lat.repeat(nbatch,1,lon.size(0),1)
+        grid_lon = lon.view(1,1,-1,1)
+        grid_lon = grid_lat.repeat(nbatch,1,1,lat.size(0))
             
         print( grid_lat.size() )
         dx_from_dlon, dy_from_dlat  = self.compute_dlat_dlon_scaling(grid_lat,grid_lon,res_latlon,res_latlon )    
