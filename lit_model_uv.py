@@ -1628,7 +1628,7 @@ class LitModelUV(pl.LightningModule):
                 loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
                 if self.model_sampling_uv is not None :
                     loss += self.hparams.alpha_sampling_uv * loss_l1_sampling_uv
-            else:                
+            else:
                 outputs = self.model.phi_r(obs)
                                 
                 outputs_u = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
