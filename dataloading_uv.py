@@ -455,11 +455,10 @@ class FourDVarNetDataset(Dataset):
                         lat_item = _item_coords['lat'].data
                         lon_item = _item_coords['lon'].data
 
-
                     print(oi_item )
                     print(v_item )
-                    print(lat_item )
-                    print(lon_item,flush=True )
+                    print(lat_item.shape )
+                    print(lon_item.shape,flush=True )
                     return oi_item, obs_mask_item, obs_item, gt_item, sst_item, u_item, v_item, lat_item, lon_item
                 else:          
                     return oi_item, obs_mask_item, obs_item, gt_item, sst_item, u_item, v_item
