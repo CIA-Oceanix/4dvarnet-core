@@ -59,7 +59,7 @@ ors = [
 
 dm = get_dm(cfg_n, setup=False,
         add_overrides=[
-            'file_paths=dgx_ifremer_perso',
+            'file_paths=ose_perso',
             *ors
         ]
 )
@@ -73,7 +73,7 @@ mod.__class__
 cfg = get_cfg(
     cfg_n,
     overrides=[
-        'file_paths=dgx_ifremer_perso',
+        'file_paths=ose_perso',
         *ors
         
 ])
