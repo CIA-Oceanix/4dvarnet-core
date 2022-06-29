@@ -39,6 +39,7 @@ class FourDVarNetHydraRunner:
         self.callbacks = callbacks
         self.logger = logger
         self.dm = dm
+        print(self.dm.slice_win)
         self.lit_cls = lit_mod_cls
         dm.setup()
         self.dataloaders = {
@@ -77,6 +78,7 @@ class FourDVarNetHydraRunner:
         self.lon, self.lat = datamodule.coordXY()
         w_ = np.zeros(self.cfg.dT)
         w_[int(self.cfg.dT / 2)] = 1.
+        w_ = np.ones(self.cfg.dT)
         self.wLoss = torch.Tensor(w_)
         self.resolution = datamodule.resolution
         self.original_coords = datamodule.get_original_coords()
@@ -233,7 +235,6 @@ def _main(cfg):
     print(OmegaConf.to_yaml(cfg))
     pl.seed_everything(seed=cfg.get('seed', None))
     print(OmegaConf.to_yaml(cfg))
-    dm = instantiate(cfg.datamodule)
     if cfg.get('callbacks') is not None:
         callbacks = [instantiate(cb_cfg) for cb_cfg in cfg.callbacks]
     else:
@@ -251,6 +252,7 @@ def _main(cfg):
             cfg.datamodule.slice_win['lon'] =  int(cfg.datamodule.slice_win['lon']/cfg.datamodule.resize_factor)
             cfg.datamodule.strides['lat'] =  int(cfg.datamodule.strides['lat']/cfg.datamodule.resize_factor)
             cfg.datamodule.strides['lon'] =  int(cfg.datamodule.strides['lon']/cfg.datamodule.resize_factor)
+    dm = instantiate(cfg.datamodule)
     runner = FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls, callbacks=callbacks, logger=logger)
     
     call(cfg.entrypoint, self=runner)

@@ -385,30 +385,29 @@ class Solver_Grad_4DVarNN(nn.Module):
         with torch.no_grad():
             self.n_grad = int(n_iter_grad)
         
-    def forward(self, x, params, yobs, mask, estim_parameters=False):
+    def forward(self, x, yobs, mask, estim_parameters=True):
         return self.solve(
             x_0=x,
-            params=params,
             obs=yobs,
             mask = mask,
             estim_parameters = estim_parameters)
 
-    def solve(self, x_0, params, obs, mask, estim_parameters):
+    def solve(self, x_0, obs, mask, estim_parameters):
         x_k = torch.mul(x_0,1.) 
         hidden = None
         cell = None 
         normgrad_ = 0.
         x_k_plus_1 = None 
         for _ in range(self.n_grad):
-            x_k_plus_1, hidden, cell, normgrad_, params = self.solver_step(x_k, params,
-                                                                           obs, mask,hidden, cell, normgrad_,
+            x_k_plus_1, hidden, cell, normgrad_, params = self.solver_step(x_k, obs, mask,
+                                                                           hidden, cell, normgrad_,
                                                                            estim_parameters)
             x_k = torch.mul(x_k_plus_1,1.)
 
         return x_k_plus_1, hidden, cell, normgrad_, params
 
-    def solver_step(self, x_k, params_k, obs, mask, hidden, cell,normgrad = 0.,estim_parameters=True):
-        _, var_cost_grad, params = self.var_cost(x_k, params_k, obs, mask,estim_parameters)
+    def solver_step(self, x_k, obs, mask, hidden, cell,normgrad = 0.,estim_parameters=True):
+        _, var_cost_grad, params = self.var_cost(x_k, obs, mask,estim_parameters)
         if normgrad == 0. :
             normgrad_= torch.sqrt( torch.mean( var_cost_grad**2 + 0.))
         else:
@@ -418,15 +417,15 @@ class Solver_Grad_4DVarNN(nn.Module):
         x_k_plus_1 = x_k - grad
         return x_k_plus_1, hidden, cell, normgrad_, params
 
-    def var_cost(self, x, params, yobs, mask,estim_params):
+    def var_cost(self, x, yobs, mask,estim_params):
         dy = self.model_H(x,yobs,mask)
         if self.square_root==True:
-            phi = self.phi_r(x,params,estim_params=estim_params)
+            phi = self.phi_r(x,estim_params=estim_params)
             dx = x - phi[0]
             params = phi[1]
             loss = self.model_VarCost(dx,dy,square_root=self.square_root)
         else:
-            phi = self.phi_r(x,params,estim_params=estim_params)
+            phi = self.phi_r(x,estim_params=estim_params)
             dx = phi[0]
             params = phi[1]
             loss = torch.mean(self.model_VarCost(dx,dy,square_root=self.square_root))

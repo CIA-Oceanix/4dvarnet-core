@@ -232,8 +232,9 @@ class Phi_r(torch.nn.Module):
             self.decoder = decode_param_CNN_diff(shape_data)
         self.operator_spde = Prior_SPDE(shape_data,diff_only=self.diff_only)
         self.square_root = square_root
-        self.given_parameters = not given_parameters
+        self.given_parameters = given_parameters
         if self.given_parameters==True:
+            nc = xr.open_dataset(spde_path)
             # SPDE diffusion parameters
             nb_nodes = np.prod(shape_data[1:])
             H = torch.empty((2,2,nb_nodes),requires_grad=True).to(device)
@@ -248,26 +249,23 @@ class Phi_r(torch.nn.Module):
             self.Q = self.operator_spde(.33,None,torch.unsqueeze(H,dim=0),
                                      square_root=self.square_root)[0]
 
-    def forward(self, x, params, estim_params=True):
+    def forward(self, x, estim_params=True):
         x_new = list()
         n_b, n_t, n_y, n_x = x.shape
         # state space -> parameter space
         if self.given_parameters==False:
-            if estim_params==True:
-                params = self.encoder(x)
-                if self.diff_only==False:
-                    kappa, m, H = self.decoder(params)
-                else:
-                    kappa = .33
-                    m = None
-                    H = self.decoder(params)
+            params = self.encoder(x)
+            if self.diff_only==True:
+                kappa = .33
+                m = None
+                H = self.decoder(params)[2]
             else:
-                kappa = params[0]
-                m = params[1]
-                H = params[2]
+                kappa = self.decoder(params)[0]
+                m = self.decoder(params)[1]
+                H = self.decoder(params)[2]
         else:
-            kappa = self.params[0]
-            m = self.params[1]
+            kappa = torch.stack(n_b*[self.params[0]])
+            m = torch.stack(n_b*[self.params[1]])
             H = torch.stack(n_b*[self.params[2]])
 
         # SPDE prior (sparse Q)
@@ -288,13 +286,12 @@ class Phi_r(torch.nn.Module):
                 x_new.append(torch.permute(torch.reshape(x_,(n_t,n_x,n_y)),(0,2,1)))
         x = torch.stack(x_new)
         if self.given_parameters==False:
-            if estim_params==True:
-                if self.diff_only==False:
-                    kappa = torch.reshape(kappa,(n_b,1,n_x,n_y,n_t))
-                    m = torch.reshape(m,(n_b,2,n_x,n_y,n_t))
-                    H = torch.reshape(H,(n_b,2,2,n_x,n_y,n_t))
-                else:
-                    H = torch.reshape(H,(n_b,2,2,n_x,n_y))
+            if self.diff_only==False:
+                kappa = torch.reshape(kappa,(n_b,1,n_x,n_y,n_t))
+                m = torch.reshape(m,(n_b,2,n_x,n_y,n_t))
+                H = torch.reshape(H,(n_b,2,2,n_x,n_y,n_t))
+            else:
+                H = torch.reshape(H,(n_b,2,2,n_x,n_y))
         else:
             if self.diff_only==False:
                 kappa = torch.stack(n_b*[self.params[0]])

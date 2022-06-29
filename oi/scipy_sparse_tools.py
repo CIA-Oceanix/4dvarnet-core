@@ -1,8 +1,11 @@
+import scipy
 from scipy.sparse.linalg import spsolve 
 import cupy
 from cupyx.scipy.sparse.linalg import spsolve as cupy_spsolve
 from cupyx.scipy.sparse import csc_matrix as cupy_sp_csc_matrix
 from torch_sparse.tensor import SparseTensor
+from torch_sparse.convert import to_scipy
+from torch_sparse.convert import from_torch_sparse
 from torch_sparse.matmul import matmul as matmul2
 from torch.autograd import Function
 from torch.utils.dlpack import to_dlpack
@@ -96,7 +99,9 @@ class cholesky_sparse(Function):
     def forward(ctx, A):
 
         # cast torch_sparsematrix to scipy sparse csc matrix
-        A_np = sparse_torch2scipy(A)
+        index, value = from_torch_sparse(A.coalesce())
+        print(index)
+        A_np = to_scipy(index, value, A.size()[0], A.size()[1])
 
         # Cholesky decomposition without permutation A=L'L
         L = sksparse.cholmod.cholesky(A_np,ordering_method="natural").L()

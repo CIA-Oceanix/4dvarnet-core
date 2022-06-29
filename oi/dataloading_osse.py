@@ -94,8 +94,8 @@ class XrDataset(Dataset):
 
         if resize_factor!=1:
             _ds = _ds.sel(**(dim_range or {}))
-            _ds = _ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
-
+            _ds = _ds.coarsen(lon=resize_factor,boundary="trim").mean(skipna=True).coarsen(lat=resize_factor,boundary="trim").mean(skipna=True)
+ 
         # dimensions
         self.ds = _ds.sel(**(dim_range or {}))
 
@@ -173,6 +173,7 @@ class XrDataset(Dataset):
         # convert dask arrays to xr.DataArrays for faster computations
         if compute:
             self.ds = self.ds.compute()
+
 
     def __del__(self):
         self.ds.close()

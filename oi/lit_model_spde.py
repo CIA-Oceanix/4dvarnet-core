@@ -46,8 +46,9 @@ class LitModel(pl.LightningModule):
         self.estim_parameters = self.hparams.estim_parameters
         self.spde_params_path = hparam.files_cfg.spde_params_path
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r(self.shapeData,diff_only=True,
-                      given_parameters=self.estim_parameters,nc=xr.open_dataset(hparam.files_cfg.spde_params_path)),
+                Phi_r(self.shapeData,diff_only=self.diff_only,
+                      given_parameters=not self.estim_parameters,
+                      nc=hparam.files_cfg.spde_params_path),
                 Model_H(self.shapeData[0]),
                 NN_4DVar.model_GradUpdateLSTM(self.shapeData, self.hparams.UsePriodicBoundary,
                                           self.hparams.dim_grad_solver, self.hparams.dropout, self.hparams.stochastic),
@@ -353,20 +354,9 @@ class LitModel(pl.LightningModule):
         # gradient norm field
         g_targets_gt = self.gradient_img(targets_gt)
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
-
-        if self.estim_parameters==True:
-            if self.diff_only==True:
-                kappa = 1./3
-                m = None
-
-            else:
-                params = None
-        else:
-            params = None
         with torch.set_grad_enabled(True):
             inputs_init = torch.autograd.Variable(inputs_init, requires_grad=True)
             outputs, hidden_new, cell_new, normgrad, params = self.model(inputs_init,
-                                                                         None,
                                                                          inputs_missing,
                                                                          inputs_mask,
                                                                          estim_parameters=True)
@@ -375,39 +365,45 @@ class LitModel(pl.LightningModule):
                 outputs = outputs.detach()
 
             n_b = outputs.shape[0]
-            # PHASE: TRAIN/VAL/TEST  
-            # run n_batches*simulation
             n_x = outputs.shape[3]
             n_y = outputs.shape[2]
             n_t = outputs.shape[1]
             dx = 1
             dy = 1
             dt = 1
-            I = sparse_eye(n_x*n_y)
-            x_simu = []
             if self.diff_only==True:
                 H = torch.reshape(params[2],(len(outputs),2,2,n_x*n_y))
                 m = None
                 kappa = 1./3
             else:
                 kappa = torch.reshape(params[0],(len(outputs),1,n_x*n_y,n_t))
-                m = torch.reshape(params[0],(len(outputs),2,n_x*n_y,n_t))
-                H = torch.reshape(params[0],(len(outputs),2,2,n_x*n_y,n_t))
+                m = torch.reshape(params[1],(len(outputs),2,n_x*n_y,n_t))
+                H = torch.reshape(params[2],(len(outputs),2,2,n_x*n_y,n_t))
+            # run n_batches*simulation
+            I = sparse_eye(n_x*n_y)
+            x_simu = []
             for ibatch in range(len(outputs)):
                 x_simu_ = []
                 for i in range(n_t):
                     if self.diff_only==True:
                         A = DiffOperator(n_x,n_y,dx,dy,None,H[ibatch],kappa)
                     else:
-                        A = DiffOperator(n_x,n_y,dx,dy,m[ibatch],H[ibatch],kappa[ibatch])
+                        A = DiffOperator(n_x,n_y,dx,dy,m[ibatch,:,:,i],
+                                                       H[ibatch,:,:,:,i],
+                                                       kappa[ibatch,:,:,i])
                     M = I+pow_diff_operator(A,1)
-                    x_simu_ = self.run_simulation(i,M,x_simu_,dx,dy,dt,n_init_run=10)
+                    if ( (i==0) & (phase!="test") ):
+                        x_simu_.append(torch.flatten(torch.t(targets_gt[i,0,:,:])))
+                    else:
+                        x_simu_ = self.run_simulation(i,M,x_simu_,dx,dy,dt,n_init_run=10)
                 x_simu_ = torch.stack(x_simu_,dim=0)
                 x_simu_ = torch.reshape(x_simu_,outputs.shape[1:])
                 # x,y -> y,x
                 x_simu_ = torch.permute(x_simu_,(0,2,1))
                 x_simu.append(x_simu_)
             x_simu = torch.stack(x_simu,dim=0).to(device)
+            loss_ELBO = NN_4DVar.compute_WeightedLoss((x_simu - targets_gt), self.w_loss)
+
             # PHASE: TEST -> conditional simulation
             if phase=="test":
                 # interpolate the simulation based on LSTM-solver
@@ -415,12 +411,11 @@ class LitModel(pl.LightningModule):
                 inputs_init_simu = x_simu.clone()
                 inputs_init_simu[idx] = 0.
                 inputs_missing_simu = inputs_init_simu
-                x_itrp_simu,_ ,_ ,_ ,_ = self.model(inputs_init_simu, [kappa,m,H],
+                x_itrp_simu,_ ,_ ,_ ,_ = self.model(inputs_init_simu,
                                                     inputs_missing_simu, inputs_mask,
                                                     estim_parameters=False)
                 # conditional simulation
                 x_simu_cond = outputs+(x_simu-x_itrp_simu)
-                #x_simu_cond = x_simu
 
             # reconstruction losses
             g_outputs = self.gradient_img(outputs)
@@ -435,6 +430,8 @@ class LitModel(pl.LightningModule):
                 kappa = torch.reshape(params[0],(len(outputs),1,n_x*n_y,n_t))
                 m = torch.reshape(params[1],(len(outputs),2,n_x*n_y,n_t))
                 H = torch.reshape(params[2],(len(outputs),2,2,n_x*n_y,n_t))
+            '''
+            # loss ML
             Q = self.model.phi_r.operator_spde(kappa, m, H, square_root=False)
             Q.requires_grad=True
             xtQx = list()
@@ -446,11 +443,12 @@ class LitModel(pl.LightningModule):
                                   xtQ
                                  )
                 xtQx.append(torch.log(xtQx_[0,0]))
-            L = cholesky_sparse(Q)
-            det_Q = torch.sum(torch.diag(L))**2
-            loss_ML = det_Q + torch.mean(torch.stack(xtQx))
-            # variance loss
-            loss_var = torch.abs(1.-torch.var(x_simu))
+            det_Q = list()
+            for i in range(n_b):
+                L_ = cholesky_sparse.apply(Q[i])
+                det_Q_ = torch.sum(torch.diag(L))**2
+                det_Q.append(det_Q_)
+            loss_ML = torch.mean(torch.stack(det_Q)) + torch.mean(torch.stack(xtQx))
             '''
             # add loss parameters
             nc = xr.open_dataset(self.spde_params_path)
@@ -471,9 +469,11 @@ class LitModel(pl.LightningModule):
 
             # supervised loss
             loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
-            loss += .1*loss_ML
-            loss += loss_var
-                #loss += loss_H11+loss_H12+loss_H22
+            print(loss)
+            loss += loss_ELBO
+            print(loss_ELBO)
+            #loss += loss_ML
+            #loss += loss_H11+loss_H12+loss_H22
 
             # metrics
             mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_gt, self.w_loss)

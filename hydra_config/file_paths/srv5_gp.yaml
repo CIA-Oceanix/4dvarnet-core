@@ -1,3 +1,4 @@
 obs_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
 gt_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
+spde_params_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
 
