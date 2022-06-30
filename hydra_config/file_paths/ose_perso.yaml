@@ -11,8 +11,8 @@
 #~ pseudo_obs: /raid/localscratch/qfebvre/sla-data-registry/NATL60/NATL/data_new/dataset_nadir_0d_swot.nc
 #~ obs_4nadirs: /raid/localscratch/qfebvre/sla-data-registry/NATL60/NATL/data_new/dataset_nadir_0d.nc
 
-ose_oi_path: /home/administrateur/DATA/data_ose/NATL/training/ssh_alg_h2g_j2g_j2n_j3_s3a_duacs.nc
-ose_obs_mask_path: /home/administrateur/DATA/data_ose/NATL/training/dataset_nadir_0d.nc
-ose_gt_path: /home/administrateur/DATA/data_ose/NATL/validation/dataset_nadir_0d.nc
-ose_sst_path: /home/administrateur/DATA/data_ose/NATL/training/sst_CMEMS.nc
-ose_test_along_track: /home/administrateur/DATA/data_ose/along_track/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc
+ose_oi_path: /home/clement/DATA/data_ose/NATL/training/ssh_alg_h2g_j2g_j2n_j3_s3a_duacs.nc
+ose_obs_mask_path: /home/clement/DATA/data_ose/NATL/training/dataset_nadir_0d.nc
+ose_gt_path: /home/clement/DATA/data_ose/NATL/validation/dataset_nadir_0d.nc
+ose_sst_path: /home/clement/DATA/data_ose/NATL/training/sst_CMEMS.nc
+ose_test_along_track: /home/clement/DATA/data_ose/along_track/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc

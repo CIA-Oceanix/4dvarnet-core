@@ -73,7 +73,7 @@ class LitModelOI(LitModelAugstate):
         return optimizer
 
     def diag_step(self, batch, batch_idx, log_pref='test'):
-        _, inputs_Mask, inputs_obs, targets_GT = batch
+        oi, inputs_Mask, inputs_obs, targets_GT = batch
         losses, out, metrics = self(batch, phase='test')
         loss = losses[-1]
         if loss is not None:
@@ -83,6 +83,7 @@ class LitModelOI(LitModelAugstate):
 
         return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'oi' : (oi.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def sla_diag(self, t_idx=3, log_pref='test'):
