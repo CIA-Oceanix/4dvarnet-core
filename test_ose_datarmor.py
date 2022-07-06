@@ -90,13 +90,21 @@ runner = hydra_main.FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls)
 mod = runner._get_model(ckpt_path=ckpt)
 mod.patch_weight.data = torch.tensor(hydra.utils.call(cfg.params.patch_weight))
 # ~ mod = runner.test(ckpt, _mod=mod, gpus=[2])
+
+print('RUNNER.TEST ! ! ! 94')
+
 mod = runner.test(ckpt, _mod=mod)
+
+print('RUNNER.TEST OK ! ! ! 98')
+
 mod.test_figs['psd']
 
 # self = mod
 # animate_maps(self.x_gt, self.obs_inp, self.x_oi, self.x_rec, self.test_lon, self.test_lat, 'animation.mp4')
 
 mod.test_xr_ds.pipe(lambda da: da.gt - da.oi).pipe(lambda da: da**2).mean().pipe(np.sqrt)
+
+print('OK line 107 ! ! ! !')
 
 def anim(mod):
     dvars = ['pred', 'oi', 'gt']

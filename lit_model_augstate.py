@@ -317,7 +317,7 @@ class LitModelAugstate(pl.LightningModule):
             return [torch.load(f) for f in sorted(data_path.glob('*'))]
 
     def build_test_xr_ds(self, outputs, diag_ds):
-
+        print('LAAAAAA 320!')
         outputs_keys = list(outputs[0][0].keys())
         with diag_ds.get_coords():
             self.test_patch_coords = [
