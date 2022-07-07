@@ -64,6 +64,17 @@ for xp, cfgn in (
     # [20]*100,
     # [
     #     'qxp20_5nad_no_sst',
+    #     'qxp20_5nad_sst',
+    #     # 'qxp20_swot_no_sst',
+    #     # 'qxp20_swot_sst',
+    #     # 'qxp20_noisy_sst',
+    #     # 'qxp20_noisy_no_sst',
+# ]))
+    # + 
+    # list(zip(
+    # [21]*100,
+    # [
+    #     'qxp21_5nad_no_sst_11',
     #     # 'qxp20_swot_no_sst',
     #     # 'qxp20_swot_sst',
     #     # 'qxp20_5nad_sst',
@@ -72,9 +83,9 @@ for xp, cfgn in (
 # ]))
     # + 
     list(zip(
-    [21]*100,
+    [23]*100,
     [
-        'qxp21_5nad_no_sst_11',
+        'qxp23_no_sst_5nad_aug3_ds2_dT29_8',
         # 'qxp20_swot_no_sst',
         # 'qxp20_swot_sst',
         # 'qxp20_5nad_sst',
@@ -232,13 +243,11 @@ def register_configs():
     xpns = []
     basic_overrides = [overrides_cfg[o] for o in ['no_norm', 'no_mix', 'relu_act']]
     for xp_name, cfg in cfgs.items():
-        for train_with_ff in [False]: #True, False]:
-            xpns.append(f'ff{train_with_ff}_swath_calib_{xp_name}')
-            cs.store(name=xpns[-1], node=OmegaConf.merge(
-                common_cfg,
-                cfg,
-                size_overrides_cfg['pp10x8'],
-                *basic_overrides,
-                {'train_with_ff': train_with_ff}
-            ), group='xp', package='_global_')
+        xpns.append(f'swath_calib_{xp_name}')
+        cs.store(name=xpns[-1], node=OmegaConf.merge(
+            common_cfg,
+            cfg,
+            size_overrides_cfg['pp10x8'],
+            *basic_overrides,
+        ), group='xp', package='_global_')
     return xpns

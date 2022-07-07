@@ -1,0 +1,50 @@
+# @package _global_
+xp_name: ose_gf_wsst
+
+params:
+  files_cfg:
+    oi_path: ${file_paths.oi_ose_osse_nad_path}
+    oi_var: ssh
+    oi_decode: false
+    obs_mask_path: ${file_paths.obs_mask_ose_osse_nad_path}
+    obs_mask_var: ssh
+    obs_mask_decode: false
+    gt_path: ${file_paths.gt_ose_osse_path}
+    gt_var: ssh
+    gt_decode: false
+    sst_path: ${file_paths.sst_ose_osse_path}
+    sst_var: sst
+    sst_decode: false
+
+datamodule:
+  train_slices: ${splits.train_slices}
+  test_slices: ${splits.test_slices}
+  val_slices: ${splits.val_slices}
+  oi_path: ${params.files_cfg.oi_path}
+  oi_var: ${params.files_cfg.oi_var}
+  oi_decode: ${params.files_cfg.oi_decode}
+  obs_mask_path: ${params.files_cfg.obs_mask_path}
+  obs_mask_var: ${params.files_cfg.obs_mask_var}
+  obs_mask_decode: ${params.files_cfg.obs_mask_decode}
+  gt_path: ${params.files_cfg.gt_path}
+  gt_var: ${params.files_cfg.gt_var}
+  gt_decode: ${params.files_cfg.gt_decode}
+  # sst_path: ${params.files_cfg.sst_path}
+  # sst_var: ${params.files_cfg.sst_var}
+  # sst_decode: ${params.files_cfg.sst_decode}
+  dl_kwargs:
+    batch_size: 2
+    num_workers: 2
+
+splits:
+  train_slices:
+    - _target_: builtins.slice
+      _args_: ['2012-10-01', '2013-09-30']
+    - _target_: builtins.slice
+      _args_: ['2016-12-30', '2018-01-02']
+  test_slices:
+    - _target_: builtins.slice
+      _args_: ['2016-12-29', '2018-01-03']
+  val_slices:
+    - _target_: builtins.slice
+      _args_: ['2017-03-01', '2017-04-01']

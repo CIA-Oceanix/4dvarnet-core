@@ -33,12 +33,12 @@ class LitSiren(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.sh = sh
-        self.embed_dim = 29
-        embed_size = self.embed_dim * sh['t'] * sh['x'] * sh['y']
-        # self.embed_dim = 3
-        # embed_size = self.embed_dim
+        # self.embed_dim = 29
+        # embed_size = self.embed_dim * sh['t'] * sh['x'] * sh['y']
+        self.embed_dim = 128
+        embed_size = self.embed_dim
         self.embeddings = nn.Embedding(nemb, embed_size, max_norm=1., norm_type=np.inf)
-        # self.embeddings.weight = nn.Parameter((torch.rand(self.embed_dim, 1) *2 -1).resize_as_(self.embeddings.weight))
+        self.embeddings.weight = nn.Parameter((torch.rand(self.embed_dim, 1) *2 -1).resize_as_(self.embeddings.weight))
 
         self.coords = nn.Parameter(torch.stack(torch.meshgrid(
             torch.linspace(-1, 1, sh['t']),
@@ -48,10 +48,10 @@ class LitSiren(pl.LightningModule):
 
         self.net = calibration.implicit_solver.SirenNet(
             dim_in=self.embed_dim +len(sh),
-            # dim_hidden=512,
-            dim_hidden=256,
+            dim_hidden=512,
+            # dim_hidden=256,
             dim_out=1,
-            num_layers=6,
+            num_layers=12,
         )
         self.ae = models.Phi_r_OI(*ae_args)
 
@@ -64,16 +64,16 @@ class LitSiren(pl.LightningModule):
     def forward_w_grad(self, emb=None, batch_idx=None, bs=2):
         if emb is None:
             assert batch_idx is not None
-            emb = einops.rearrange(
-                self.embeddings(torch.arange(batch_idx * bs, batch_idx * bs + bs, device=self.device)),
-                'b (t x y d) -> b t x y d',
-                d=self.embed_dim, **self.sh
-            )
-            # emb = einops.repeat(
+            # emb = einops.rearrange(
             #     self.embeddings(torch.arange(batch_idx * bs, batch_idx * bs + bs, device=self.device)),
-            #     'b d -> b t x y d',
+            #     'b (t x y d) -> b t x y d',
             #     d=self.embed_dim, **self.sh
             # )
+            emb = einops.repeat(
+                self.embeddings(torch.arange(batch_idx * bs, batch_idx * bs + bs, device=self.device)),
+                'b d -> b t x y d',
+                d=self.embed_dim, **self.sh
+            )
 
         batch_coords = einops.repeat(self.coords, '... -> b ...', b=emb.size(0))
         t, x, y  = torch.split(batch_coords, [1, 1, 1], -1)
@@ -94,9 +94,14 @@ class LitSiren(pl.LightningModule):
     def forward(self, emb=None, batch_idx=None, bs=2):
         if emb is None:
             assert batch_idx is not None
-            emb = einops.rearrange(
+            # emb = einops.rearrange(
+            #     self.embeddings(torch.arange(batch_idx * bs, batch_idx * bs + bs, device=self.device)),
+            #     'b (t x y d) -> b t x y d',
+            #     d=self.embed_dim, **self.sh
+            # )
+            emb = einops.repeat(
                 self.embeddings(torch.arange(batch_idx * bs, batch_idx * bs + bs, device=self.device)),
-                'b (t x y d) -> b t x y d',
+                'b d -> b t x y d',
                 d=self.embed_dim, **self.sh
             )
         batch_coords = einops.repeat(self.coords, '... -> b ...', b=emb.size(0))
@@ -151,20 +156,20 @@ class LitSiren(pl.LightningModule):
         # emb = einops.rearrange(self.ae(inp), 'b (t d) x y -> b t x y d', t=7, d=3)
         emb = None
 
-        grads, ds, out = self.forward_w_grad(emb, batch_idx)
+        out, emb = self.forward(emb, batch_idx)
         # grads, ds, out = self.forward_w_grad(emb, batch_idx)
         # print(out.shape, gt.shape)
         loss, g_loss, l_loss = self.losses(out, gt)
-        ad_loss = self.auto_diff_loss(grads, ds, gt)
+        # ad_loss = self.auto_diff_loss(grads, ds, gt)
         loss_ref, g_loss_ref, l_loss_ref = self.losses(ref, gt)
         if loss < self.best_outs[0]:
             self.best_outs = loss, out, gt, batch_idx, self.current_epoch
-        self.log('adloss', ad_loss, prog_bar=True, on_step=False, on_epoch=True)
+        # self.log('adloss', ad_loss, prog_bar=True, on_step=False, on_epoch=True)
         self.log('imp', loss / loss_ref, prog_bar=True, on_step=False, on_epoch=True)
         self.log('gimp',  g_loss / g_loss_ref, prog_bar=True, on_step=False, on_epoch=True)
         self.log('limp',  l_loss / l_loss_ref, prog_bar=True, on_step=False, on_epoch=True)
-        # return 100*loss  + ad_loss # + l_loss
-        return  ad_loss # + l_loss
+        return 100*loss  #+ ad_loss # + l_loss
+        # return  ad_loss # + l_loss
 
     def test_step(self, batch, batch_idx):
         ref, *_, gt = batch
@@ -218,12 +223,12 @@ def train_siren_natl():
             enable_checkpointing=False,
             max_epochs=200,
             logger=False,
-            limit_train_batches=20,
+            limit_train_batches=18,
             # accumulate_grad_batches={75:2,125:5,175:10}
         ) 
         trainer.fit(mod, dl)
         # trainer.save_checkpoint("full_training.ckpt")
-        trainer.save_checkpoint("training_ad.ckpt")
+        # trainer.save_checkpoint("training_ad.ckpt")
             
 
 
@@ -551,8 +556,8 @@ def compute_siren_derivatives():
 
 def main():
     try:
-        # fn = train_siren_natl
-        fn = visualize_trained_siren
+        fn = train_siren_natl
+        # fn = visualize_trained_siren
         # fn = train_discriminator
         # fn = train_gan
         # fn = train_solver

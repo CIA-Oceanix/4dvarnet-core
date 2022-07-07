@@ -117,7 +117,9 @@ def spectral_score_intercomparison(list_of_filename, list_of_label):
     ax.invert_xaxis()
     for cfilename, clabel in zip(list_of_filename, list_of_label):
         ds = xr.open_dataset(cfilename)
-        plt.plot((1./ds.wavenumber), (1. - ds.psd_diff/ds.psd_ref), lw=2, label=clabel)
+        score = (1. - ds.psd_diff/ds.psd_ref)
+        plt.plot(*score.isel(wavenumber=score>0).pipe(lambda da: (1/da.wavenumber, da)) , lw=2, label=clabel)
+        # plt.plot((1./ds.wavenumber), (1. - ds.psd_diff/ds.psd_ref), lw=2, label=clabel)
     plt.xlabel('wavelength [km]')
     plt.ylabel('PSD Score [1. - PSD$_{err}$/PSD$_{ref}$]')
     plt.xscale('log')

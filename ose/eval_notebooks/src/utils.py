@@ -263,6 +263,7 @@ def find_wavelength_05_crossing(filename):
 def plot_psd_score_intercomparison(filenames, methods, colors):
     
     ds = [xr.open_dataset(file) for file in filenames]
+    ds = [dds.isel(wavenumber=(1. - dds.psd_diff/dds.psd_ref)>0) for dds in ds]
     resolved_scales = [find_wavelength_05_crossing(file) for file in filenames]
         
     plt.figure(figsize=(10, 5))
@@ -281,6 +282,8 @@ def plot_psd_score_intercomparison(filenames, methods, colors):
     ax = plt.subplot(122)
     ax.invert_xaxis()    
     for i in range(len(filenames)):
+        # score = (1. - ds[i].psd_diff/ds[i].psd_ref)
+        # plt.plot(*score.isel(wavenumber=score>0).pipe(lambda da: (1/da.wavenumber, da)) , color=colors[i], lw=2)
         plt.plot((1./ds[i].wavenumber), (1. - ds[i].psd_diff/ds[i].psd_ref), color=colors[i], lw=2)
     plt.xlabel('wavelength [km]')
     plt.ylabel('PSD Score [1. - PSD$_{err}$/PSD$_{ref}$]')

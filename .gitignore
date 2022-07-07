@@ -56,3 +56,6 @@ trained_cfgs
 
 disc_full_training.ckpt
 full_training.ckpt
+
+scratches/qf_dl_enatl.py
+ssh_anim.gif

@@ -22,6 +22,7 @@
 import os
 import sys
 sys.path.append('/raid/localscratch/qfebvre/4dvarnet-core/ose/eval_notebooks')
+
 import logging
 import pandas as pd
 
@@ -51,23 +52,23 @@ from datetime import datetime
 import numpy as np
 from pathlib import Path
 
-# dirs = glob.glob("/gpfswork/rech/yrf/uba22to/4dvarnet-core/dashboard/osse_gf_wsst/lightning_logs/version*")
-# file = max(dirs, key=os.path.getctime) + "/test.nc"
+dirs = glob.glob("/raid/localscratch/qfebvre/4dvarnet-core/dashboard/ose_gf_wsst/lightning_logs/version_1")
+file = max(dirs, key=os.path.getctime) + "/test.nc"
 # print(file)
 
 # import 4dvarNet reconstruction
-# data_4dvarnet = xr.open_dataset(file)
-data_4dvarnet = mod.test_xr_ds 
-file = 'tmp/test0.nc'
+data_4dvarnet = xr.open_dataset(file)
+# data_4dvarnet = mod.test_xr_ds.isel(time=slice(10, -10))
+# file = 'tmp/test08.nc'
 
-Path(file).unlink(missing_ok=True)
-data_4dvarnet.to_netcdf(file)
-xr.open_dataset(file)
+# Path(file).unlink(missing_ok=True)
+# data_4dvarnet.to_netcdf(file)
+# xr.open_dataset(file)
 #time = [ np.datetime_as_string(date, unit='D') for date in data_4dvarnet.time.values ]
 time = data_4dvarnet.time.values
 
 # import OI baseline
-# file_oi = "/gpfsstore/rech/yrf/uba22to/data_OSE/NATL/training/ssh_alg_h2g_j2g_j2n_j3_s3a_duacs.nc"
+file_oi = "/raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/training/ssh_alg_h2g_j2g_j2n_j3_s3a_duacs.nc"
 # file_oi = cfg.params.files_cfg.oi_path
 # data_baseline = xr.open_dataset(file_oi)
 # data_baseline = data_baseline.sel(time=slice(time[0],time[-1]),
@@ -127,8 +128,8 @@ lenght_scale = 1000 # km
 
 # %%
 # get independent along-track
-# alontrack_independent_dataset= 'ose/eval_notebooks/inputs/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc'
-alontrack_independent_dataset= cfg.params.files_cfg.test_track
+alontrack_independent_dataset= '/raid/localscratch/qfebvre/sla-data-registry/data_OSE/along_track/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc'
+# alontrack_independent_dataset= cfg.params.files_cfg.test_track
 # Read along-track
 ds_alongtrack = read_l3_dataset(alontrack_independent_dataset,
                                            lon_min=lon_min,
@@ -252,7 +253,7 @@ plot_maps(ds,ds[0].lon,ds[0].lat,
           grad=False,orthographic=True, methods=vars, figsize=(20,10+10*len(methods)/2))
 
 # %%
-plot_maps(ds,ds[0].lon,ds[0].lat,
+plot_maps(ds[1:],ds[0].lon,ds[0].lat,
           grad=True,orthographic=False, methods=vars, figsize=(20,10+10*len(methods)/2))
 
 # %%

@@ -1,4 +1,5 @@
 import numpy as np
+import re
 import hashlib
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -115,14 +116,16 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
         trainer = pl.Trainer(
             gpus=[6],
             logger=logger,
+            # fast_dev_run=1,
             callbacks=[
                 pl.callbacks.LearningRateMonitor(),
+                vcb,
                 pl.callbacks.ModelCheckpoint(monitor='val_loss', save_last=True),
                 # pl.callbacks.StochasticWeightAveraging(),
                 pl.callbacks.GradientAccumulationScheduler({1: 4, 10: 8, 15: 16, 20: 32}), #, 30: 64}),
             ],
             log_every_n_steps=10,
-            max_epochs=150,
+            max_epochs=250,
             # max_epochs=2,
         )
 
@@ -240,7 +243,8 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
                         obs=lambda d: d.ssh_model + d.wet_tropo_res + d.syst_error_uncalibrated,
                     )
                     .assign_coords(x_ac=lambda ds: ('nC', ds.x_ac.isel(time=0).data))
-                    .swap_dims(time='x_al', nC='x_ac').drop('time')
+                    .swap_dims(time='x_al', nC='x_ac').drop('time'),
+                    fields=('cal', 'pred')
                 )
 
                 fig_violin_all = sns.violinplot(data=spat_res_df, x='xp_long', y='spat_res').figure
@@ -269,6 +273,7 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
                 }]
                 
                 print(pd.DataFrame(swath_metrics).to_markdown())
+
             swm_df = pd.DataFrame(swath_metrics)
             swm_df.to_csv(f'tmp/{uid}_sw_chain_metrics.csv')
             gdm_df = pd.DataFrame(grid_metrics)
@@ -279,14 +284,14 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
 
         cal_mod.use_ff = False
         swm_df, gdm_df = compute_metrics(cfg, cal_mod)
-        cal_mod.use_ff = True
-        ff_swm_df, ff_gdm_df = compute_metrics(cfg, cal_mod)
+        # cal_mod.use_ff = True
+        # ff_swm_df, ff_gdm_df = compute_metrics(cfg, cal_mod)
         trained_cfg_w_metrics = OmegaConf.merge(
                 OmegaConf.to_container(trained_cfg),
                 {'swath_metrics': swm_df.to_dict('record')},
                 {'grid_metrics': gdm_df.to_dict('record')},
-                {'ff_swath_metrics': ff_swm_df.to_dict('record')},
-                {'ff_grid_metrics': ff_gdm_df.to_dict('record')},
+                # {'ff_swath_metrics': ff_swm_df.to_dict('record')},
+                # {'ff_grid_metrics': ff_gdm_df.to_dict('record')},
         )
 
         Path(f'trained_cfgs/{uid}-w-metrics.yaml').write_text(OmegaConf.to_yaml(trained_cfg_w_metrics))
@@ -296,9 +301,142 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
     finally:
         return locals()
 
+def bst_ckpt(dirpath, glob='version_*/checkpoints/*', ckpt_fmt='.+val_loss=(.+)\.ckpt'):
+    return min(Path(dirpath).glob(glob), key=lambda p: float(re.match(ckpt_fmt, str(p)).group(1)))
+
+def bst_ckpt(dirpath, glob='version_*/checkpoints/*', ckpt_fmt='.+val_loss=(.+)\.ckpt'):
+    return min(Path(dirpath).glob(glob), key=lambda p: float(re.match(ckpt_fmt, str(p)).group(1)))
+
 if __name__ == '__main__':
-    xp_num=121
-    cfgs = swath_calib.configs.register_configs()
-    for cfgn in cfgs:
-        locals().update(full_from_scratch(xp_num, cfgn))
+
+    cfg = OmegaConf.create(dict(
+        net_cfg=dict(
+            nhidden = 128,
+            depth = 3,
+            kernel_size = 3,
+            num_repeat = 1,
+            residual = True,
+            norm_type = 'none',
+            act_type = 'relu',
+            mix = True,
+            mix_residual = False,
+            mix_act_type = 'none',
+            mix_norm_type = 'none',
+        ),
+        lit_cfg=dict(
+            lr_init=2e-3,
+            wd=1e-2,
+            loss_w={
+                'tot':(5., 3., 3.),
+                'rec':(0., 0., 0.,)
+            },
+        ),
+        fourdvar_cfg='qxp20_5nad_no_sst',
+        fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp20/qxp20_5nad_no_sst')),
+        cal_mod_ckpt=None,
+        swath_ds_cfg=dict(
+            sigmas_gt=(0,),
+            sigmas_obs=(0,*[(i+1)*4 for i in range(20)]),
+            sigmas_xb=(0,*[(i+1)*4 for i in range(20)]),
+            gt_var='gt',
+            ref_var='pred',
+            # gt_var='gt_res',
+            # ref_var='ref_res',
+            xb_var='pred',
+        ),
+    ))
+
+    from hydra.core.config_store import ConfigStore
+    cs = ConfigStore.instance()
+    xpns = []
+    for xp, override in [
+        # ('base', dict()),
+        # ('xb_oi', dict(swath_ds_cfg=dict(xb_var='oi'))) ,
+        # ('no_xb', dict(swath_ds_cfg=dict(xb_var='zeros', sigmas_xb=tuple()))) ,
+        # ('sst_xb', dict(
+        #     fourdvar_cfg='qxp20_5nad_sst',
+        #     fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp20/qxp20_5nad_sst')),
+        # )) ,
+        # ('no_mix', dict(net_cfg=dict(mix=False))) ,
+        # ('no_res', dict(net_cfg=dict(residual=False))) ,
+        # ('linear', dict(net_cfg=dict(depth=0))) ,
+        # ('smaller', dict(net_cfg=dict(depth=1, nhidden=32))) ,
+        # ('bigger', dict(net_cfg=dict(depth=5, nhidden=512))) ,
+        # ('10x8', dict(swath_ds_cfg=dict(
+        #     sigmas_obs=(0,*[(i+1)*4 for i in range(20)]),
+        #     sigmas_xb=(0,*[(i+1)*4 for i in range(20)]),
+        # ))),
+        ('log', dict(swath_ds_cfg=dict(
+            sigmas_obs = (0,*sorted(list(set([int(s) for s in np.logspace(0,3,15)])))) ,
+            sigmas_xb = (0,*sorted(list(set([int(s) for s in np.logspace(0,3,15)])))) 
+        ))),
+        # ('40x2', dict(swath_ds_cfg=dict(
+        #     sigmas_obs=(0,*[(i+1)*2 for i in range(40)]),
+        #     sigmas_xb=(0,*[(i+1)*2 for i in range(40)]),
+        # ))),
+        # ('5x16', dict(swath_ds_cfg=dict(
+        #     sigmas_obs=(0,*[(i+1)*16 for i in range(5)]),
+        #     sigmas_xb=(0,*[(i+1)*16 for i in range(5)]),
+        # ))),
+        # ('10x4', dict(swath_ds_cfg=dict(
+        #     sigmas_obs=(0,*[(i+1)*8 for i in range(5)]),
+        #     sigmas_xb=(0,*[(i+1)*8 for i in range(5)]),
+        # ))),
+        # ('40x4', dict(swath_ds_cfg=dict(
+        #     sigmas_obs=(0,*[(i+1)*8 for i in range(5)]),
+        #     sigmas_xb=(0,*[(i+1)*8 for i in range(5)]),
+        # ))),
+    ]:
+        name = f'tgrs_{xp}'
+        xpns.append(name)
+        cs.store(name=xpns[-1], node=OmegaConf.merge(
+            cfg,
+            override, 
+        ), group='xp', package='_global_')
+        print(OmegaConf.merge(
+                    cfg,
+                    override, 
+        ).swath_ds_cfg.sigmas_obs)
+
+    vxp = 3
+    results = []
+    for xpn in xpns:
+        trained_cfg_w_metrics =None
+        print(xpn)
+        locals().update(full_from_scratch(vxp, xpn))
+        results.append(trained_cfg_w_metrics)
+
+
+    # fig, ax = plt.subplots(figsize=(10,10))    
+    for cfg in results:
+        num_feat = len(cfg.swath_ds_cfg.sigmas_obs + cfg.swath_ds_cfg.sigmas_xb)
+        net = swath_calib.models.build_net(
+                in_channels=num_feat,
+                out_channels=1,
+                **cfg.net_cfg
+        )
+        normnet = torch.nn.Sequential(
+            torch.nn.BatchNorm2d(num_features=num_feat, affine=True, momentum=0.1),
+            net,
+            # torch.nn.BatchNorm2d(num_features=1, affine=True, momentum=0.1),
+        )
+
+        cal_mod = swath_calib.models.LitDirectCNN(
+                # net,
+                normnet,
+                # gt_var_stats=[s[train_ds.gt_vars].to_array().data for s in train_ds.stats],
+                gt_var_stats=[np.array([ns[0]]), np.array([ns[1]])],
+                # gt_var_stats=[np.array([0.]), np.array([1.])],
+                **cfg.lit_cfg
+            )
+        print(cal_mod.load_state_dict(torch.load(cfg.cal_mod_ckpt)['state_dict']))
+
+        with open(f'tmp/{cfg.uid}_figs.pk', 'rb') as f:
+            figs=pickle.load(f)
+
+        # ax.plot(cfg.swath_ds_cfg.sigmas_obs, cal_mod.net[0].weight.detach().cpu()[:len(cfg.swath_ds_cfg.sigmas_obs)], label=cfg.cfgn)
+        
+    # ax.legend()
+    figs[0]['violin_diff']
+
 

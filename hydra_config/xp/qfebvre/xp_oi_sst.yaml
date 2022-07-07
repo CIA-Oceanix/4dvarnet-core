@@ -39,5 +39,4 @@ defaults:
   - /xp/baseline/sst/with_sst
   - /xp/baseline/loss/map
   - /xp/baseline/train_strat/const_lr_ngrad_5_3cas
-  - /xp/qfebvre/ds/five_nadirs.yaml
   - _self_ 

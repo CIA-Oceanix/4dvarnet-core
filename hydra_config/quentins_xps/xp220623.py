@@ -6,10 +6,9 @@ from itertools import product
 cs = ConfigStore.instance()
 
 BASE_DEFAULTS = [
-  '/xp/qfebvre/xp_oi',
   '/splits/dc_boost_swot@datamodule',
 ]
-XP=22
+XP=23
 
 cs.store(name='0', node={'aug_train_data': False}, group='aug_data', package='datamodule')
 cs.store(name='1', node={'aug_train_data': True}, group='aug_data', package='datamodule')
@@ -17,11 +16,11 @@ cs.store(name='2', node={'aug_train_data': 2}, group='aug_data', package='datamo
 cs.store(name='3', node={'aug_train_data': 3}, group='aug_data', package='datamodule')
 cs.store(name='8', node={'aug_train_data': 8}, group='aug_data', package='datamodule')
 aug = {
-    'aug0': '/aug_data/0',
-    'aug1': '/aug_data/1',
-    'aug2': '/aug_data/2',
+    # 'aug0': '/aug_data/0',
+    # 'aug1': '/aug_data/1',
+    # 'aug2': '/aug_data/2',
     'aug3': '/aug_data/3',
-    'aug5': '/aug_data/8',
+    'aug8': '/aug_data/8',
 }
 
 cs.store(name='2', node={'resize_factor': 2}, group='down_samp', package='datamodule')
@@ -31,16 +30,28 @@ resize = {
     'ds1': '/down_samp/1',
 }
 
-# cs.store(name='11', node={
-#     'patch_weight': {
-#         '_target_': 'lit_model_augstate.get_constant_crop',
-#         'patch_size': '${datamodule.slice_win}',
-#         'crop': { 'time': 3, 'lat': 20, 'lon': 20, }
-#     },
-#     'dT': 11,
-# }, group='custom', package='params')
+cs.store(name='29_8', node={
+    'patch_weight': {
+        '_target_': 'lit_model_augstate.get_constant_crop',
+        'patch_size': '${datamodule.slice_win}',
+        'crop': { 'time': 8, 'lat': '${div:20,${datamodule.resize_factor}}', 'lon':  '${div:20,${datamodule.resize_factor}}'}
+    }, 'dT': 29, }, group='dT', package='params')
+cs.store(name='29_13', node={
+    'patch_weight': {
+        '_target_': 'lit_model_augstate.get_constant_crop',
+        'patch_size': '${datamodule.slice_win}',
+        'crop': { 'time': 13, 'lat': '${div:20,${datamodule.resize_factor}}', 'lon':  '${div:20,${datamodule.resize_factor}}'}
+    }, 'dT': 29, }, group='dT', package='params')
+dT = {
+    'dT29_8': '/dT/29_8',
+    'dT29_13': '/dT/29_13',
+}
 
 for  defaults in product(
+        [
+            ('sst', '/xp/qfebvre/xp_oi_sst'),
+            ('no_sst', '/xp/qfebvre/xp_oi'),
+        ],
         [
             # ('swot', '/xp/qfebvre/ds/clean_swot_oi_no_swot.yaml'),
             ('5nad', '/xp/qfebvre/ds/five_nadirs.yaml'),
@@ -51,6 +62,7 @@ for  defaults in product(
         ],
         aug.items(),
         resize.items(),
+        dT.items(),
     ):
     labels, defaults = zip(*defaults)
     defaults_xp_name = '_'.join(labels)

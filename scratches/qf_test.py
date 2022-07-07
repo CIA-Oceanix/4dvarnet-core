@@ -24,6 +24,9 @@ cfg_n, ckpt = 'qxp22_5nad_aug0', 'results/xp22/qxp22_5nad_aug0/version_0/checkpo
 cfg_n, ckpt = 'qxp22_5nad_aug1', 'results/xp22/qxp22_5nad_aug1/version_0/checkpoints/modelCalSLAInterpGF-epoch=49-val_loss=4.8408.ckpt'
 cfg_n, ckpt = 'qxp22_5nad_aug1', 'results/xp22/qxp22_5nad_aug1/version_0/checkpoints/modelCalSLAInterpGF-epoch=93-val_loss=4.2820.ckpt'
 cfg_n, ckpt = 'qxp22_5nad_aug1', 'results/xp22/qxp22_5nad_aug2/version_0/checkpoints/lx709_lt426_mu959.ckpt'
+cfg_n, ckpt = 'qxp22_swot_aug3_ds1', 'results/xp22/qxp22_swot_aug3_ds1/version_0/checkpoints/modelCalSLAInterpGF-epoch=282-val_loss=1.1151.ckpt'
+cfg_n, ckpt = 'qxp22_swot_aug3_ds1', 'results/xp22/qxp22_swot_aug3_ds1/version_0/checkpoints/modelCalSLAInterpGF-epoch=269-val_loss=1.1201.ckpt'
+# cfg_n, ckpt = 'qxp22_swot_aug3_ds1', 'results/xp22/qxp22_swot_aug3_ds1/version_0/checkpoints/modelCalSLAInterpGF-epoch=346-val_loss=1.1253.ckpt'
 # cfg_n, ckpt = 'qxp22_swot_aug2', 'results/xp22/qxp22_swot_aug2/version_0/checkpoints/lx666_lt416_mu967.ckpt'
 # cfg_n, ckpt = 'qxp22_swot_aug0', 'results/xp22/qxp22_swot_aug0/version_0/checkpoints/modelCalSLAInterpGF-epoch=191-val_loss=3.5165.ckpt'
 # cfg_n, ckpt = 'qxp22_swot_aug1', 'results/xp22/qxp22_swot_aug2/version_0/checkpoints/modelCalSLAInterpGF-epoch=181-val_loss=2.8195.ckpt'
@@ -41,10 +44,28 @@ cfg_n, ckpt = 'qxp22_5nad_aug1', 'results/xp22/qxp22_5nad_aug2/version_0/checkpo
 # cfg_n, ckpt = 'qxp21_5nad_no_sst_11', 'dashboard/qxp21_5nad_no_sst_11/version_0/checkpoints/modelCalSLAInterpGF-epoch=102-val_loss=1.7432.ckpt'
 
 # cfg_n, ckpt = 'qfebvre/xp_oi_sst', 'results/xp22/xp_oi_sst/version_2/checkpoints/modelCalSLAInterpGF-epoch=169-val_loss=1.8386.ckpt'
-cfg_n, ckpt = 'qfebvre/xp_oi_sst', 'results/xp22/xp_oi_sst/version_2/checkpoints/modelCalSLAInterpGF-epoch=338-val_loss=1.6439.ckpt'
 # cfg_n, ckpt = 'qxp22_5nad_aug3_ds1', 'results/xp22/qxp22_5nad_aug3_ds1/version_0/checkpoints/modelCalSLAInterpGF-epoch=333-val_loss=1.4607.ckpt'
-cfg_n, ckpt = 'qxp22_5nad_aug3_ds1', 'results/xp22/qxp22_5nad_aug3_ds1/version_0/checkpoints/modelCalSLAInterpGF-epoch=331-val_loss=1.4724.ckpt'
+# cfg_n, ckpt = 'qxp22_5nad_aug3_ds1', 'results/xp22/qxp22_5nad_aug3_ds1/version_0/checkpoints/modelCalSLAInterpGF-epoch=331-val_loss=1.4724.ckpt'
 # cfg_n, ckpt = 'qxp22_5nad_aug3_ds1', 'results/xp22/qxp22_5nad_aug3_ds1/version_0/checkpoints/modelCalSLAInterpGF-epoch=342-val_loss=1.4789.ckpt'
+cfg_n, ckpt = 'qfebvre/xp_oi_sst', 'results/xp22/xp_oi_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=335-val_loss=0.7202.ckpt'
+cfg_n, ckpt = 'qfebvre/xp_oi_sst', 'results/xp22/xp_oi_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=337-val_loss=0.7228.ckpt'
+cfg_n, ckpt = 'qfebvre/xp_oi_sst', 'results/xp22/xp_oi_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=335-val_loss=0.7202.ckpt'
+cfg_n, ckpt = 'qxp23_no_sst_5nad_aug3_ds2_dT29_13', 'results/xp23/qxp23_no_sst_5nad_aug3_ds2_dT29_8/version_1/checkpoints/modelCalSLAInterpGF-epoch=283-val_loss=4.5411.ckpt'
+cfg_n, ckpt = 'qxp23_no_sst_5nad_aug3_ds2_dT29_13', 'results/xp23/qxp23_no_sst_5nad_aug3_ds2_dT29_13/version_3/checkpoints/modelCalSLAInterpGF-epoch=277-val_loss=4.9457.ckpt'
+cfg_n, ckpt = 'qxp23_no_sst_5nad_aug3_ds2_dT29_13', 'results/xp23/qxp23_no_sst_5nad_aug3_ds2_dT29_13/version_3/checkpoints/modelCalSLAInterpGF-epoch=154-val_loss=4.8621.ckpt'
+cfg_n, ckpt = 'qxp23_no_sst_5nad_aug8_ds1_dT29_13', 'results/xp23/qxp23_no_sst_5nad_aug8_ds1_dT29_13/version_0/checkpoints/modelCalSLAInterpGF-epoch=340-val_loss=1.7811.ckpt'
+cfg_n, ckpt = 'qxp23_no_sst_5nad_aug8_ds1_dT29_8', 'results/xp23/qxp23_no_sst_5nad_aug8_ds1_dT29_8/version_0/checkpoints/modelCalSLAInterpGF-epoch=281-val_loss=2.1938.ckpt'
+# cfg_n, ckpt = 'qxp23_no_sst_5nad_aug3_ds2_dT29_8', 'results/xp23/qxp23_no_sst_5nad_aug3_ds2_dT29_8/version_1/checkpoints/modelCalSLAInterpGF-epoch=283-val_loss=4.5411.ckpt'
+
+# cfg_n, ckpt = 'qxp23_no_sst_swot_w_oi_aug3_ds2_dT29_13', 'results/xp23/qxp23_no_sst_swot_w_oi_aug3_ds2_dT29_13/version_2/checkpoints/modelCalSLAInterpGF-epoch=173-val_loss=2.5762.ckpt'
+
+### SOTA OSE 122km 0.877 km
+# cfg_n, ckpt = 'qxp23_no_sst_5nad_aug3_ds2_dT29_8', 'results/xp23/qxp23_no_sst_5nad_aug3_ds2_dT29_8/version_1/checkpoints/modelCalSLAInterpGF-epoch=344-val_loss=4.5537.ckpt'
+
+# cfg_n, ckpt = 'qxp21_5nad_sst_11', 'dashboard/qxp21_5nad_sst_11/version_0/checkpoints/modelCalSLAInterpGF-epoch=17-val_loss=1.3117.ckpt'
+# # cfg_n, ckpt = 'qxp21_5nad_no_sst_11', 'dashboard/qxp21_5nad_no_sst_11/version_0/checkpoints/modelCalSLAInterpGF-epoch=80-val_loss=1.7154.ckpt'
+# cfg_n, ckpt = 'qxp20_5nad_sst', 'results/xp20/qxp20_5nad_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=138-val_loss=0.4040.ckpt'
+# cfg_n, ckpt = 'baseline/full_core_hanning_sst', 'results/hanning_sst.ckpt'
 
 ose = [
     'params.files_cfg.oi_path=${file_paths.ose_oi_path}',
@@ -87,12 +108,7 @@ dm = get_dm(cfg_n, setup=False,
         ]
 )
 
-mod = get_model(
-        cfg_n,
-        ckpt,
-        dm=dm)
 
-mod.__class__
 cfg = get_cfg(
     cfg_n,
     overrides=[
@@ -100,6 +116,10 @@ cfg = get_cfg(
         *ors
         
 ])
+mod = get_model(
+        cfg_n,
+        ckpt,
+        dm=dm)
 # ds = xr.open_dataset(cfg.params.files_cfg.obs_mask_path)
 # ds = xr.open_dataset(cfg.params.files_cfg.gt_path)
 # ds  = xr.open_dataset(cfg.params.files_cfg.oi_path)
@@ -120,22 +140,19 @@ mod.test_figs['psd']
 
 mod.test_xr_ds.pipe(lambda da: da.gt - da.oi).pipe(lambda da: da**2).mean().pipe(np.sqrt)
 
-def anim(mod):
-    dvars = ['pred', 'oi', 'gt']
+def anim(test_xr_ds):
+    dvars = ['pred', 'oi']
     def sobel(da):
         dx_ac = xr.apply_ufunc(lambda _da: ndimage.sobel(_da, -1), da) /2
         dx_al = xr.apply_ufunc(lambda _da: ndimage.sobel(_da, -2), da) /2
         return np.hypot(dx_ac, dx_al)
-    # tpds = mod.test_xr_ds.pipe(sobel).isel(time=slice(None, 5, 1))
+    # tpds = test_xr_ds.pipe(sobel).isel(time=slice(None, 100, 1))
     # clim = (0, tpds[dvars].to_array().max().item())
     # cmap = 'viridis'
 
-    tpds = mod.test_xr_ds.map(lambda da: ndimage.gaussian_laplace(da, sigma=1.5)).isel(time=slice(None, 10, 1))
-    # tpds = mod.test_xr_ds.map(lambda da: ndimage.laplace(da)).isel(time=slice(None, 50, 1))
-    clim = tpds[dvars].to_array().pipe(lambda da: (da.quantile(0.01).item(), da.quantile(0.99).item()))
-    # clim = (-m, m)
+    tpds = test_xr_ds.map(lambda da: ndimage.gaussian_laplace(da, sigma=1)).isel(time=slice(None, 100, 1))
+    clim = tpds[dvars].to_array().pipe(lambda da: (da.quantile(0.005).item(), da.quantile(0.995).item()))
     cmap='RdGy'
-    # cmap='RdYlBu'
     hvds = hv.Dataset(tpds)
     # hvds = hv.Dataset(mod.test_xr_ds.map(lambda da: ndimage.gaussian_laplace(da, sigma=0.1)).isel(time=slice(None, 10, 1)))
     # hvds = hv.Dataset(mod.test_xr_ds.map(ndimage.laplace).isel(time=slice(None, 10, 1)))
@@ -150,6 +167,7 @@ def anim(mod):
             ]).cols(3).opts(sublabel_format="")
     return images
 
-images = anim(mod)
-hv.output(images, holomap='gif', fps=4, dpi=125)
-
+# ds = xr.open_dataset("/raid/localscratch/qfebvre/4dvarnet-core/dashboard/ose_gf_wsst/lightning_logs/version_1/test.nc")
+# images = anim(mod.test_xr_ds)
+# images = anim(ds)
+# hv.output(images, holomap='gif', fps=4, dpi=125)

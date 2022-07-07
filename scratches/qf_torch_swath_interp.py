@@ -365,6 +365,15 @@ def get_4dvarnet_cal_grid(hparams):
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter + hparams.joint_step)
 
+def get_4dvarnet_OI(hparams):
+    return NN_4DVar.Solver_Grad_4DVarNN(
+                Phi_r_OI(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+                Model_H(hparams.shape_state[0]),
+                NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+                    hparams.dim_grad_solver, hparams.dropout),
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+
 class LitModMixGeom(lit_model_augstate.LitModelAugstate):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
