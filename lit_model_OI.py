@@ -73,24 +73,22 @@ class LitModelOI(LitModelAugstate):
         return optimizer
 
     def diag_step(self, batch, batch_idx, log_pref='test'):
-        print('là c\'est OK ! ! l76')
+        print('diag_step begin ! ! !')
         oi, inputs_Mask, inputs_obs, targets_GT = batch
-        print('là c\'est ok aussi ! ! l78')
         losses, out, metrics = self(batch, phase='test')
-        print('là c\'est ok aussi ! ! l80')
         loss = losses[-1]
         if loss is not None:
             self.log(f'{log_pref}_loss', loss)
             self.log(f'{log_pref}_mse', metrics[-1]["mse"] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
-
+        print('diag_step end ! ! !')
         return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'oi' : (oi.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def sla_diag(self, t_idx=3, log_pref='test'):
-        print("OK 93")
+		print('sla_diag begin ! ! !')
         path_save0 = self.logger.log_dir + '/maps.png'
         t_idx = 3
         fig_maps = plot_maps_oi(
@@ -133,9 +131,11 @@ class LitModelOI(LitModelAugstate):
             f'{log_pref}_sigma': sig,
         }
         print(pd.DataFrame([md]).T.to_markdown())
+		print('sla_diag end ! ! !')
         return md
 
     def diag_epoch_end(self, outputs, log_pref='test'):
+        print('diag_epoch_end begin ! ! !')
         full_outputs = self.gather_outputs(outputs, log_pref=log_pref)
         if full_outputs is None:
             print("full_outputs is None on ", self.global_rank)
@@ -151,33 +151,24 @@ class LitModelOI(LitModelAugstate):
         Path(self.logger.log_dir).mkdir(exist_ok=True)
         path_save1 = self.logger.log_dir + f'/test.nc'
         print(path_save1)
-        print('OK ICI ! ! ! ! l.150')
         self.test_xr_ds.to_netcdf(path_save1)
-        print('l152')
         self.x_gt = self.test_xr_ds.gt.data
-        print('l154')
         self.obs_inp = self.test_xr_ds.obs_inp.data
-        print('l156')
         self.x_rec = self.test_xr_ds.pred.data
-        print('l158')
         self.x_rec_ssh = self.x_rec
-        print('OK ICI ! ! ! ! ! l.160')
         self.test_coords = self.test_xr_ds.coords
         self.test_lat = self.test_coords['lat'].data
         self.test_lon = self.test_coords['lon'].data
         self.test_dates = self.test_coords['time'].data
 
-        print('l166')
         # display map
         md = self.sla_diag(t_idx=3, log_pref=log_pref)
-        print('l169')
         self.latest_metrics.update(md)
-        print('l174')
         self.logger.log_metrics(md, step=self.current_epoch)
-        print('l176')
+        print('diag_epoch_end end ! ! !')
 
     def get_init_state(self, batch, state=(None,)):
-        print("OK 179")
+        print('')
         if state[0] is not None:
             return state[0]
 
@@ -186,7 +177,7 @@ class LitModelOI(LitModelAugstate):
         return init_state
 
     def compute_loss(self, batch, phase, state_init=(None,)):
-        print('là c\'est ok aussi ! ! l185')
+        print('compute_loss begin ! ! !')
         _, inputs_Mask, inputs_obs, targets_GT = batch
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:
@@ -236,5 +227,6 @@ class LitModelOI(LitModelAugstate):
                 ('mseGrad', mseGrad),
                 ('meanGrad', mean_GAll),
                 ])
+        print('compute_loss end ! ! !')
         return loss, outputs, [outputs, hidden_new, cell_new, normgrad], metrics
 

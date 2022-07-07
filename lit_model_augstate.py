@@ -164,6 +164,7 @@ class LitModelAugstate(pl.LightningModule):
         return self.MODELS[self.model_name](self.hparams)
 
     def forward(self, batch, phase='test'):
+        print('')
         losses = []
         metrics = []
         state_init = [None]
@@ -173,6 +174,7 @@ class LitModelAugstate(pl.LightningModule):
             state_init = [None if s is None else s.detach() for s in state]
             losses.append(_loss)
             metrics.append(_metrics)
+        print('')
         return losses, out, metrics
 
     def configure_optimizers(self):
@@ -205,6 +207,7 @@ class LitModelAugstate(pl.LightningModule):
         }
 
     def on_epoch_start(self):
+        print('')
         self.model.n_grad = self.hparams.n_grad
 
     def on_train_epoch_start(self):
@@ -290,9 +293,11 @@ class LitModelAugstate(pl.LightningModule):
                 'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def test_step(self, test_batch, batch_idx):
+        print('')
         return self.diag_step(test_batch, batch_idx, log_pref='test')
 
     def test_epoch_end(self, step_outputs):
+        print('')
         return self.diag_epoch_end(step_outputs, log_pref='test')
 
     def validation_step(self, batch, batch_idx):
@@ -305,6 +310,7 @@ class LitModelAugstate(pl.LightningModule):
 
 
     def gather_outputs(self, outputs, log_pref):
+        print('gather_outputs ! ! ! (aug)')
         data_path = Path(f'{self.logger.log_dir}/{log_pref}_data')
         data_path.mkdir(exist_ok=True, parents=True)
         print(len(outputs))
@@ -314,10 +320,12 @@ class LitModelAugstate(pl.LightningModule):
             dist.barrier()
 
         if self.global_rank == 0:
+			print('gather_outputs end if ! ! ! (aug)')
             return [torch.load(f) for f in sorted(data_path.glob('*'))]
+        print('gather_outputs end ! ! ! (aug)')
 
     def build_test_xr_ds(self, outputs, diag_ds):
-        print('LAAAAAA 320!')
+        print('build_test_xr_ds begin ! ! ! (aug)')
         outputs_keys = list(outputs[0][0].keys())
         with diag_ds.get_coords():
             self.test_patch_coords = [
@@ -359,7 +367,7 @@ class LitModelAugstate(pl.LightningModule):
             _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
             fin_ds = fin_ds + _ds
 
-
+        print('build_test_xr_ds end ! ! ! (aug)')
         return (
             (fin_ds.drop('weight') / fin_ds.weight)
             .sel(instantiate(self.test_domain))
@@ -394,6 +402,7 @@ class LitModelAugstate(pl.LightningModule):
         )
 
     def sla_diag(self, t_idx=3, log_pref='test'):
+        print('sla_diag! ! (aug)')
         path_save0 = self.logger.log_dir + '/maps.png'
         t_idx = 3
         fig_maps = plot_maps(
@@ -468,9 +477,11 @@ class LitModelAugstate(pl.LightningModule):
             **mdf.to_dict(),
         }
         print(pd.DataFrame([md]).T.to_markdown())
+        print('sla_diag end! ! (aug)')
         return md
 
     def diag_epoch_end(self, outputs, log_pref='test'):
+        print('diag_epoch! ! (aug)')
         full_outputs = self.gather_outputs(outputs, log_pref=log_pref)
         if full_outputs is None:
             print("full_outputs is None on ", self.global_rank)
@@ -502,12 +513,14 @@ class LitModelAugstate(pl.LightningModule):
         md = self.sla_diag(t_idx=3, log_pref=log_pref)
         self.latest_metrics.update(md)
         self.logger.log_metrics(md, step=self.current_epoch)
+        print('diag_epoch_end ! ! (aug)')
 
     def teardown(self, stage='test'):
-
+        print('teardows ! ! (aug)')
         self.logger.log_hyperparams(
                 {**self.hparams},
                 self.latest_metrics
+        print('teardows end! ! (aug)')
     )
 
     def get_init_state(self, batch, state=(None,)):
