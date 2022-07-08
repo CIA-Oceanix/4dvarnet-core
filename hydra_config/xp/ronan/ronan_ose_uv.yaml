@@ -50,6 +50,10 @@ params:
     sst_path: ${file_paths.sst_ose_path}
     sst_var: analysed_sst
     sst_decode: false
+    u_path: ${file_paths.sst_ose_path}
+    u_var: analysed_sst
+    v_path: ${file_paths.sst_ose_path}
+    v_var: analysed_sst
   patch_weight:
     _target_: lit_model_uv.get_cropped_hanning_mask
     patch_size: ${datamodule.slice_win}
