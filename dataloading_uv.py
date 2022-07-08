@@ -99,7 +99,6 @@ class XrDataset(Dataset):
             else:
                 _ds['time'] = pd.to_datetime(_ds.time)
         
-        print(_ds,flush=True )
 
         # rename latitute/longitude to lat/lon for consistency
         rename_coords = {}
@@ -199,6 +198,9 @@ class XrDataset(Dataset):
                 dim: max((self.ds.dims[dim] - slice_win[dim]) // self.strides.get(dim, 1) + 1, 0)
                 for dim in slice_win
         }
+        
+        #print(_ds,flush=True )
+        print(self.ds,flush=True )
 
     def __del__(self):
         self.ds.close()
