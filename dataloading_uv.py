@@ -85,7 +85,7 @@ class XrDataset(Dataset):
         self.interp_na = interp_na
         # try/except block for handling both netcdf and zarr files
         
-        print(path,flush=True)
+        #print(path,flush=True)
         try:
             _ds = xr.open_dataset(path)
         except OSError as ex:
@@ -621,6 +621,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
  
             print( u.shape )
             print( ssh.shape )
+            print( _ds.sst_ds.ds[_ds.sst_ds.var] )
             
  
             if 1*0 :
