@@ -38,12 +38,12 @@ entrypoint:
 params:
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'  #'linear-bn'#''linear'# 
   files_cfg:
-    #oi_path: ${file_paths.oi_4nadir}
-    #oi_var: ssh_mod
-    #obs_mask_path: ${file_paths.pseudo_obs_4nadir}
-    #obs_mask_var: ssh_mod
-    #gt_path: ${file_paths.natl_ssh_daily}
-    #gt_var: ssh
+    oi_path: ${file_paths.oi_4nadir}
+    oi_var: ssh_mod
+    obs_mask_path: ${file_paths.pseudo_obs_4nadir}
+    obs_mask_var: ssh_mod
+    gt_path: ${file_paths.natl_ssh_daily}
+    gt_var: ssh
   patch_weight:
     _target_: lit_model_uv.get_cropped_hanning_mask
     patch_size: ${datamodule.slice_win}
