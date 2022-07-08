@@ -98,6 +98,8 @@ class XrDataset(Dataset):
                 _ds = xr.decode_cf(_ds)
             else:
                 _ds['time'] = pd.to_datetime(_ds.time)
+        
+        print(_ds,flush=True )
 
         # rename latitute/longitude to lat/lon for consistency
         rename_coords = {}
