@@ -67,12 +67,12 @@ datamodule:
   sst_var: ???
   u_path: ${params.files_cfg.u_path}
   u_var: ${params.files_cfg.u_var}
-  v_path: ${params.files_cfg.v_path}
-  v_var: ${params.files_cfg.v_var}
+  #v_path: ${params.files_cfg.v_path}
+  #v_var: ${params.files_cfg.v_var}
   #u_path: ${file_paths.natl_u_daily}
   #u_var: u
-  #v_path: ${file_paths.natl_v_daily}
-  #v_var: v
+  v_path: ${file_paths.natl_v_daily}
+  v_var: v
   aug_train_data: false
   resolution: 1/20
   dl_kwargs:
