@@ -74,6 +74,10 @@ params:
 datamodule:
   sst_path: ${params.files_cfg.sst_path}
   sst_var: ${params.files_cfg.sst_var}
+  u_path: ${params.files_cfg.u_path}
+  u_var: ${params.files_cfg.u_var}
+  v_path: ${params.files_cfg.v_path}
+  v_var: ${params.files_cfg.v_var}
 defaults:
   - /xp/ronan/base_xp_uv
   - /splits/dc_boost_swot@datamodule
