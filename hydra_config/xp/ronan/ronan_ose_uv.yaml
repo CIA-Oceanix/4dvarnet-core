@@ -48,7 +48,7 @@ params:
     gt_var: ssh
     gt_decode: false
     sst_path: ${file_paths.sst_ose_path}
-    sst_var: analysed_sst
+    sst_var: sst
     sst_decode: false
     u_path: ${file_paths.sst_ose_path}
     u_var: analysed_sst
