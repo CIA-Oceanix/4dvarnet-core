@@ -618,7 +618,11 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             ssh = _ds.gt_ds.ds[_ds.gt_ds.var]
             u  = _ds.u_ds.ds[_ds.u_ds.var]
             v  = _ds.v_ds.ds[_ds.v_ds.var]
+ 
+            print( u.shape )
+            print( ssh.shape )
             
+ 
             if 1*0 :
                 ssh = ssh[3:43,20:220,20:220]
                 u = u[3:43,20:220,20:220]
@@ -642,6 +646,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             # ssh gradients
             dssh_dx = 1. * ndimage.sobel(ssh,axis=2)
             dssh_dy = 1. * ndimage.sobel(ssh,axis=1)   
+
+            print( u.shape )
+            print( ssh.shape )
 
             w = np.isnan( u + v + dssh_dy + dssh_dx ).astype(float)
             
