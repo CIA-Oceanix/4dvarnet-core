@@ -47,9 +47,9 @@ params:
     gt_path: ${file_paths.gt_ose_osse_path}
     gt_var: ssh
     gt_decode: false
-    #sst_path: ${file_paths.sst_ose_path}
-    #sst_var: analysed_sst
-    #sst_decode: false
+    sst_path: ${file_paths.sst_ose_path}
+    sst_var: analysed_sst
+    sst_decode: false
   patch_weight:
     _target_: lit_model_uv.get_cropped_hanning_mask
     patch_size: ${datamodule.slice_win}
