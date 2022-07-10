@@ -200,7 +200,7 @@ class XrDataset(Dataset):
         }
         
         #print(_ds,flush=True )
-        print(self.ds,flush=True )
+        #print(self.ds,flush=True )
 
     def __del__(self):
         self.ds.close()
@@ -558,6 +558,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             print('... Use SST data')
             mean_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').mean())
             std_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').std())
+            
+            print('..... sst feat = %f -- %f'%(mean_sst,std_sst) )
             if self.u_var == None:
 
                 return [mean, std], [mean_sst, std_sst]
@@ -624,9 +626,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             u  = _ds.u_ds.ds[_ds.u_ds.var]
             v  = _ds.v_ds.ds[_ds.v_ds.var]
  
-            print( u.shape )
-            print( ssh.shape )
-            print( _ds.sst_ds.ds[_ds.sst_ds.var] )
+            #print( u.shape )
+            #print( ssh.shape )
+            #print( _ds.sst_ds.ds[_ds.sst_ds.var] )
             
  
             if 1*0 :
