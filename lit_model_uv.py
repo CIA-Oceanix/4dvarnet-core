@@ -1372,7 +1372,7 @@ class LitModelUV(pl.LightningModule):
                 
                 self.x_sst_feat_ssh = extract_seq(outputs,'sst_feat',dw=20)                        
                 if 1*1:
-                    self.x_sst_feat_ssh = self.x_sst_feat_ssh[:,0,:,:].squeeze()#extract_seq(outputs,'sst_feat',dw=20)
+                    self.x_sst_feat_ssh = self.x_sst_feat_ssh[:,0,:,:].reshape((-1,1,self.x_sst_feat_ssh.shape[2],self.x_sst_feat_ssh.shape[3]))#extract_seq(outputs,'sst_feat',dw=20)
     
                 self.x_gt = extract_seq(outputs,'gt',dw=20)
                 self.x_gt = self.x_gt[:,int(self.hparams.dT/2),:,:]
@@ -1397,7 +1397,7 @@ class LitModelUV(pl.LightningModule):
                 print('... Save nc file with all results : '+path_save1)
                 print( self.x_rec.shape )
                 print( self.v_rec.shape )
-                print( self.u_gt.shape )
+                print( self.x_sst_feat_ssh.shape )
                 save_netcdf_uv(saved_path1=path_save1, 
                                         gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh, 
                                         u_gt=self.u_gt, v_gt=self.v_gt, 
