@@ -530,8 +530,9 @@ def save_netcdf_uv(saved_path1, gt, u_gt, v_gt, obs, oi, pred, lon, lat, time,
     mesh_lat = mesh_lat.T
     mesh_lon = mesh_lon.T
 
-    time = np.arange(gt.shape[0])
-    dt = pred.shape[1]
+    #time = np.arange(gt.shape[0])
+    #dt = pred.shape[1]
+    print(time)
     
     xrdata = xr.Dataset( \
         data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
