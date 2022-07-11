@@ -102,8 +102,7 @@ class XrDataset(Dataset):
         if var != 'ssh' :
             print('..................................................')
             print('..................................................')
-            print(_ds,flush=True )
-            print(float(_ds['analysed_sst']).mean(),flush=True )
+            print(_ds['analysed_sst'],flush=True )
             print('..................................................')
 
         # rename latitute/longitude to lat/lon for consistency
