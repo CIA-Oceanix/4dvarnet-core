@@ -205,8 +205,19 @@ class XrDataset(Dataset):
         }
         
         if var != 'ssh' :
-            print(_ds,flush=True )
+            print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
+            print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
             print(self.ds,flush=True )
+            print(_ds,flush=True )
+            print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
+            
+            print('... Use SST data')
+            mean_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').mean())
+            std_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').std())
+            print('..... sst feat = %f -- %f'%(mean_sst,std_sst) )
+            
+            print( _ds.sst_ds.var )
+
 
     def __del__(self):
         self.ds.close()
