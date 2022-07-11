@@ -581,6 +581,11 @@ def save_netcdf_with_obs(saved_path1, gt, obs, oi, pred, lon, lat, time,
 
     #time = np.arange(gt.shape[0])
     #dt = pred.shape[1]
+    delta = time  - datetime.date(2012, 10, 1)
+    delta = delta.days
+    print(delta)
+    print(delta.shape)
+    print(pred.shape)
     
     xrdata = xr.Dataset( \
         data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
