@@ -579,8 +579,8 @@ def save_netcdf_with_obs(saved_path1, gt, obs, oi, pred, lon, lat, time,
     mesh_lat = mesh_lat.T
     mesh_lon = mesh_lon.T
 
-    time = np.arange(gt.shape[0])
-    dt = pred.shape[1]
+    #time = np.arange(gt.shape[0])
+    #dt = pred.shape[1]
     
     xrdata = xr.Dataset( \
         data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
@@ -590,7 +590,7 @@ def save_netcdf_with_obs(saved_path1, gt, obs, oi, pred, lon, lat, time,
                    'ssh_obs': (('time', 'lat', 'lon'), obs),
                    'ssh_oi': (('time', 'lat', 'lon'), oi),
                    'ssh_rec': (('time', 'lat', 'lon'), pred)}, \
-        coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred))})
+        coords={'lon': lon, 'lat': lat, 'time': time})
 
     
     #xrdata.time.attrs['units'] = time_units
