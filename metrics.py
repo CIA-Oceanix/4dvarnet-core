@@ -547,7 +547,7 @@ def save_netcdf_uv(saved_path1, gt, u_gt, v_gt, obs, oi, pred, lon, lat, time,
                    'u_rec': (('time', 'lat', 'lon'), u_pred),
                    'v_rec': (('time', 'lat', 'lon'), v_pred),
                    'sst_feat': (('time', 'feat', 'lat', 'lon'), sst_feat)}, \
-        coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred)),'feat':np.arange(sst_feat.shape[1])})
+        coords={'lon': lon, 'lat': lat, 'time': time,'feat':np.arange(sst_feat.shape[1])})
         
     if  sst_feat is not None :
         xrdata['sst_feat'] = (['time', 'feat', 'lat', 'lon'],  sst_feat)
