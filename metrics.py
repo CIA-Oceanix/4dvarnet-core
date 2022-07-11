@@ -593,7 +593,8 @@ def save_netcdf_with_obs(saved_path1, gt, obs, oi, pred, lon, lat, time,
         coords={'lon': lon, 'lat': lat, 'time': time})
 
     
-    #xrdata.time.attrs['units'] = time_units
+    print(time)
+    xrdata.time.attrs['units'] = time_units
     xrdata.to_netcdf(path=saved_path1, mode='w')
     print('... file saved',flush=True)
 
