@@ -5,7 +5,8 @@ test_slices:
 #  - _target_: builtins.slice
 #    _args_: ['2016-12-30', '2018-01-02']
   - _target_: builtins.slice
-    _args_: ['2016-12-30', '2017-04-01']
+    _args_: ['2016-12-15', '2018-01-15']
+#    _args_: ['2016-12-30', '2017-04-01']
 val_slices:
   - _target_: builtins.slice
     _args_: ['2017-03-01', '2017-04-01']
