@@ -228,7 +228,7 @@ class XrDataset(Dataset):
             #mean_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').mean())
             #std_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').std())
             
-            print( _ds.sst_ds.var )
+            #print( _ds.sst_ds.var )
 
 
     def __del__(self):
