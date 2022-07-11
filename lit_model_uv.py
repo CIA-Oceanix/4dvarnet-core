@@ -1359,7 +1359,7 @@ class LitModelUV(pl.LightningModule):
         if self.save_rec_netcdf == True :
             #path_save1 = self.logger.log_dir + f'/test_res_all.nc'
             path_save1 = self.hparams.path_save_netcdf.replace('.ckpt','_res_4dvarnet_all.nc')
-            if not self.use_sst :
+            if True : #not self.use_sst :
                 print('... Save nc file with all results : '+path_save1)
                 save_netcdf_with_obs(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh,
                          lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
@@ -1371,8 +1371,6 @@ class LitModelUV(pl.LightningModule):
                     return seq
                 
                 self.x_sst_feat_ssh = extract_seq(outputs,'sst_feat',dw=20)                        
-                if 1*1:
-                    self.x_sst_feat_ssh = self.x_sst_feat_ssh[:,0,:,:].reshape((-1,1,self.x_sst_feat_ssh.shape[2],self.x_sst_feat_ssh.shape[3]))#extract_seq(outputs,'sst_feat',dw=20)
     
                 self.x_gt = extract_seq(outputs,'gt',dw=20)
                 self.x_gt = self.x_gt[:,int(self.hparams.dT/2),:,:]
