@@ -99,6 +99,11 @@ class XrDataset(Dataset):
             else:
                 _ds['time'] = pd.to_datetime(_ds.time)
         
+        if var != 'ssh' :
+            print('..................................................')
+            print('..................................................')
+            print(_ds,flush=True )
+
 
         # rename latitute/longitude to lat/lon for consistency
         rename_coords = {}
