@@ -207,8 +207,8 @@ class XrDataset(Dataset):
         if var != 'ssh' :
             print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
             print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
-            print(self.ds,flush=True )
-            print(_ds,flush=True )
+            print(self.ds['analysed_sst'],flush=True )
+            print(_ds['analysed_sst'],flush=True )
             print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
             
             print('... Use SST data')
