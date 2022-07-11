@@ -199,8 +199,9 @@ class XrDataset(Dataset):
                 for dim in slice_win
         }
         
-        #print(_ds,flush=True )
-        #print(self.ds,flush=True )
+        if var != 'ssh' :
+            print(_ds,flush=True )
+            print(self.ds,flush=True )
 
     def __del__(self):
         self.ds.close()
@@ -559,6 +560,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             mean_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').mean())
             std_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').std())
             
+            print( _ds.sst_ds.var )
             print('..... sst feat = %f -- %f'%(mean_sst,std_sst) )
             if self.u_var == None:
 
