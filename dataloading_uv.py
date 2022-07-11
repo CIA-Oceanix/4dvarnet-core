@@ -212,8 +212,8 @@ class XrDataset(Dataset):
             print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
             
             print('... Use SST data')
-            mean_sst = float(_ds[_ds.sst_ds.var]).mean()
-            std_sst = float(_ds[_ds.sst_ds.var]).std()
+            mean_sst = float(_ds[_ds.var]).mean()
+            std_sst = float(_ds[_ds.var]).std()
             
             #mean_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').mean())
             #std_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').std())
