@@ -103,7 +103,8 @@ class XrDataset(Dataset):
             print('..................................................')
             print('..................................................')
             print(_ds,flush=True )
-
+            print(float(_ds['analysed_sst']).mean(),flush=True )
+            print('..................................................')
 
         # rename latitute/longitude to lat/lon for consistency
         rename_coords = {}
@@ -208,8 +209,8 @@ class XrDataset(Dataset):
             print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
             print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
             print(self.ds['analysed_sst'],flush=True )
-            print(_ds['analysed_sst'],flush=True )
             print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
+            print(_ds['analysed_sst'],flush=True )
             
             print('... Use SST data')
             #print('... var '+_ds.var,flush=True)
