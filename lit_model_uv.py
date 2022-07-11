@@ -1364,35 +1364,35 @@ class LitModelUV(pl.LightningModule):
                 save_netcdf_with_obs(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh,
                          lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
             else:
-                if 1*1 : 
-                    if 1*1 :
-                        def extract_seq(out,key,dw=20):
-                            seq = torch.cat([chunk[key] for chunk in outputs]).numpy()
-                            seq = seq[:,:,dw:seq.shape[2]-dw,dw:seq.shape[2]-dw]
-                            
-                            return seq
+                def extract_seq(out,key,dw=20):
+                    seq = torch.cat([chunk[key] for chunk in outputs]).numpy()
+                    seq = seq[:,:,dw:seq.shape[2]-dw,dw:seq.shape[2]-dw]
+                    
+                    return seq
+                
+                self.x_sst_feat_ssh = extract_seq(outputs,'sst_feat',dw=20)                        
+                if 1*1:
+                    self.x_sst_feat_ssh = self.x_sst_feat_ssh[:,0,:,:].squeeze()#extract_seq(outputs,'sst_feat',dw=20)
+    
+                self.x_gt = extract_seq(outputs,'gt',dw=20)
+                self.x_gt = self.x_gt[:,int(self.hparams.dT/2),:,:]
+    
+                self.obs_inp = extract_seq(outputs,'obs_inp',dw=20)
+                self.obs_inp = self.obs_inp[:,int(self.hparams.dT/2),:,:]
+    
+                self.x_oi = extract_seq(outputs,'oi',dw=20)
+                self.x_oi = self.x_oi[:,int(self.hparams.dT/2),:,:]
+    
+                self.x_rec = extract_seq(outputs,'pred',dw=20)
+                self.x_rec = self.x_rec[:,int(self.hparams.dT/2),:,:]
+                self.x_rec_ssh = self.x_rec
                         
-                        self.x_sst_feat_ssh = extract_seq(outputs,'sst_feat',dw=20)
-            
-                        self.x_gt = extract_seq(outputs,'gt',dw=20)
-                        self.x_gt = self.x_gt[:,int(self.hparams.dT/2),:,:]
-            
-                        self.obs_inp = extract_seq(outputs,'obs_inp',dw=20)
-                        self.obs_inp = self.obs_inp[:,int(self.hparams.dT/2),:,:]
-            
-                        self.x_oi = extract_seq(outputs,'oi',dw=20)
-                        self.x_oi = self.x_oi[:,int(self.hparams.dT/2),:,:]
-            
-                        self.x_rec = extract_seq(outputs,'pred',dw=20)
-                        self.x_rec = self.x_rec[:,int(self.hparams.dT/2),:,:]
-                        self.x_rec_ssh = self.x_rec
-                        
-                    else:
-                        self.x_gt = self.x_gt[2:42,:,:]
-                        self.obs_inp = self.obs_inp[2:42,:,:]
-                        self.x_oi = self.x_oi[2:42,:,:]
-                        self.x_rec = self.x_rec[2:42,:,:]
-                        self.x_rec_ssh = self.x_rec[2:42,:,:]
+                if 1*0:
+                    self.x_gt = self.x_gt[2:42,:,:]
+                    self.obs_inp = self.obs_inp[2:42,:,:]
+                    self.x_oi = self.x_oi[2:42,:,:]
+                    self.x_rec = self.x_rec[2:42,:,:]
+                    self.x_rec_ssh = self.x_rec[2:42,:,:]
 
                 print('... Save nc file with all results : '+path_save1)
                 print( self.x_rec.shape )
