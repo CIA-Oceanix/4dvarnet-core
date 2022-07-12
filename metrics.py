@@ -579,21 +579,14 @@ def save_netcdf_with_obs(saved_path1, gt, obs, oi, pred, lon, lat, time,
     mesh_lat = mesh_lat.T
     mesh_lon = mesh_lon.T
 
-    #time = np.arange(gt.shape[0])
+    time = np.arange(gt.shape[0])
     #dt = pred.shape[1]
-    delta_days = np.zeros(len(time),)
-    ii = 0
-    for _time in time:        
-        print( _time.astype(datetime) )
-        print( _time.date() ,flush=True)
-        #print(_time[:24],flush=True)
-        print( datetime.date(_time,'%Y-%m-%dT%H:%M:%S.%f') )
-        delta = datetime.date(_time[:24],'%Y-%m-%dT%H:%M:%S.%f').date()  - datetime.date(2012, 10, 1)
-        delta_days[ii] = delta.days
-        ii += 1
-    print(delta_days)
-    print(delta_days.shape)
-    print(pred.shape)
+    #delta_days = np.zeros(len(time),)
+    #ii = 0
+    #for _time in time:        
+    #    delta = datetime.date(_time[:24],'%Y-%m-%dT%H:%M:%S.%f').date()  - datetime.date(2012, 10, 1)
+    #    delta_days[ii] = delta.days
+    #    ii += 1
     
     xrdata = xr.Dataset( \
         data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
@@ -606,8 +599,8 @@ def save_netcdf_with_obs(saved_path1, gt, obs, oi, pred, lon, lat, time,
         coords={'lon': lon, 'lat': lat, 'time': time})
 
     
-    print(time)
-    xrdata.time.attrs['units'] = time_units
+    #print(time)
+    #xrdata.time.attrs['units'] = time_units
     xrdata.to_netcdf(path=saved_path1, mode='w')
     print('... file saved',flush=True)
 
