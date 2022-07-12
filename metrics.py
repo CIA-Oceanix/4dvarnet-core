@@ -585,6 +585,8 @@ def save_netcdf_with_obs(saved_path1, gt, obs, oi, pred, lon, lat, time,
     ii = 0
     for _time in time:        
         print(_time)
+        print(_time[:24],flush=True)
+        print( datetime.date(_time[:24],'%Y-%m-%dT%H:%M:%S.%f') )
         delta = datetime.date(_time[:24],'%Y-%m-%dT%H:%M:%S.%f').date()  - datetime.date(2012, 10, 1)
         delta_days[ii] = delta.days
         ii += 1
