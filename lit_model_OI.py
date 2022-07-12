@@ -18,7 +18,7 @@ from scipy import stats
 import solver as NN_4DVar
 import metrics
 from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps_oi, animate_maps, get_psd_score
-from models import Model_H, Phi_r_OI, Gradient_img
+from models import Model_H, Phi_r_OI, Gradient_img, UNet
 
 from lit_model_augstate import LitModelAugstate
 
@@ -31,6 +31,14 @@ def get_4dvarnet_OI(hparams):
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
+def get_4dvarnet_unet(hparams):
+    return NN_4DVar.Solver_Grad_4DVarNN(
+                UNet(hparams.shape_state[0],hparams.shape_state[0]),
+                Model_H(hparams.shape_state[0]),
+                NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+                    hparams.dim_grad_solver, hparams.dropout),
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+
 class LitModelOI(LitModelAugstate):
     MODELS = {
             '4dvarnet_OI': get_4dvarnet_OI,
@@ -38,6 +46,9 @@ class LitModelOI(LitModelAugstate):
 
     def __init__(self, *args, **kwargs):
          super().__init__(*args, **kwargs)
+
+         
+
 
     def configure_optimizers(self):
         opt = torch.optim.Adam
@@ -138,12 +149,13 @@ class LitModelOI(LitModelAugstate):
 
         _, inputs_Mask, inputs_obs, _ = batch
 
-        init_state = inputs_Mask * inputs_obs
+        init_state = torch.cat((inputs_Mask * inputs_obs,inputs_Mask * inputs_obs),
+                                dim=1)
         return init_state
 
     def compute_loss(self, batch, phase, state_init=(None,)):
 
-        _, inputs_Mask, inputs_obs, targets_GT = batch
+        targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
 
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:
@@ -162,8 +174,9 @@ class LitModelOI(LitModelAugstate):
 
         state = self.get_init_state(batch, state_init)
 
-        obs = inputs_Mask * inputs_obs
-        new_masks =  inputs_Mask
+        obs = torch.cat((inputs_Mask * inputs_obs,inputs_Mask * inputs_obs),
+                                dim=1)
+        new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask) , dim=1)
 
         # gradient norm field
         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
@@ -175,14 +188,20 @@ class LitModelOI(LitModelAugstate):
 
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
-
+            #Getting low resolution outputs
+            outputsSLRHR = outputs
+            outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
+            outputs = outputsSLR + outputs[:, self.hparams.dT:, :, :]
+            #Reconstruction Losses
             loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
-            loss_AE = self.loss_ae(outputs)
-
+            #projection losses
+            loss_AE = self.loss_ae(outputsSLRHR)
+            yGT = torch.cat((outputsSLR - targets_GT_wo_nan, outputsSLR - targets_GT_wo_nan), dim=1)
+            loss_AE_GT = torch.mean((self.model.phi_r(yGT) - yGT) ** 2)
             # total loss
             loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
-            loss += 0.5 * self.hparams.alpha_proj * loss_AE
-
+            loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
+          
             # metrics
             # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
             mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(
@@ -195,4 +214,4 @@ class LitModelOI(LitModelAugstate):
                 ('meanGrad', mean_GAll),
                 ])
 
-        return loss, outputs, [outputs, hidden_new, cell_new, normgrad], metrics
+        return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
