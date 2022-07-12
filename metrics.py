@@ -582,10 +582,12 @@ def save_netcdf_with_obs(saved_path1, gt, obs, oi, pred, lon, lat, time,
     #time = np.arange(gt.shape[0])
     #dt = pred.shape[1]
     delta_days = np.zeros(len(time),)
-    for _i in range(len(time)):        
-        print(time[_i][:24])
-        delta = datetime.date(time[_i][:24]).date()  - datetime.date(2012, 10, 1)
-        delta_days[_i] = delta.days
+    ii = 0
+    for _time in time:        
+        print(_time)
+        delta = datetime.date(_time[:24]).date()  - datetime.date(2012, 10, 1)
+        delta_days[ii] = delta.days
+        ii += 1
     print(delta_days)
     print(delta_days.shape)
     print(pred.shape)
