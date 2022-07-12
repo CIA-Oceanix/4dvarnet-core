@@ -47,9 +47,6 @@ class LitModelOI(LitModelAugstate):
     def __init__(self, *args, **kwargs):
          super().__init__(*args, **kwargs)
 
-         
-
-
     def configure_optimizers(self):
         opt = torch.optim.Adam
         if hasattr(self.hparams, 'opt'):
@@ -149,13 +146,12 @@ class LitModelOI(LitModelAugstate):
 
         _, inputs_Mask, inputs_obs, _ = batch
 
-        init_state = torch.cat((inputs_Mask * inputs_obs,inputs_Mask * inputs_obs),
-                                dim=1)
+        init_state = inputs_Mask * inputs_obs
         return init_state
 
     def compute_loss(self, batch, phase, state_init=(None,)):
 
-        targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
+        _, inputs_Mask, inputs_obs, targets_GT = batch
 
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:
@@ -174,9 +170,8 @@ class LitModelOI(LitModelAugstate):
 
         state = self.get_init_state(batch, state_init)
 
-        obs = torch.cat((inputs_Mask * inputs_obs,inputs_Mask * inputs_obs),
-                                dim=1)
-        new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask) , dim=1)
+        obs = inputs_Mask * inputs_obs
+        new_masks =  inputs_Mask
 
         # gradient norm field
         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
@@ -188,20 +183,14 @@ class LitModelOI(LitModelAugstate):
 
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
-            #Getting low resolution outputs
-            outputsSLRHR = outputs
-            outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
-            outputs = outputsSLR + outputs[:, self.hparams.dT:, :, :]
-            #Reconstruction Losses
+
             loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
-            #projection losses
-            loss_AE = self.loss_ae(outputsSLRHR)
-            yGT = torch.cat((outputsSLR - targets_GT_wo_nan, outputsSLR - targets_GT_wo_nan), dim=1)
-            loss_AE_GT = torch.mean((self.model.phi_r(yGT) - yGT) ** 2)
+            loss_AE = self.loss_ae(outputs)
+
             # total loss
             loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
-            loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
-          
+            loss += 0.5 * self.hparams.alpha_proj * loss_AE
+
             # metrics
             # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
             mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(
@@ -214,4 +203,4 @@ class LitModelOI(LitModelAugstate):
                 ('meanGrad', mean_GAll),
                 ])
 
-        return loss, outputs, [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
+        return loss, outputs, [outputs, hidden_new, cell_new, normgrad], metrics
