@@ -170,8 +170,8 @@ def plot(ax, lon, lat, data, title, cmap, norm, extent=[-65, -55, 30, 40], gridd
         gl.ylabel_style = {'fontsize': 10}
     except Exception as e:
         import traceback
-        print(traceback.format_exc()) 
-        
+        print(traceback.format_exc())
+
 
 def gradient(img, order):
     """ calculate x, y gradient and magnitude """
@@ -297,13 +297,13 @@ def plot_maps_oi(gt,obs,pred,lon,lat,resfile,grad=False,
 
     extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
 
-    fig = plt.figure(figsize=(15,9))
+    fig = plt.figure(figsize=(15,5))
     gs = gridspec.GridSpec(2, 4)
     gs.update(wspace=0.5)
     if supervised:
-        ax1 = fig.add_subplot(gs[0, :2], projection=crs)
-        ax2 = fig.add_subplot(gs[0, 2:], projection=crs)
-        ax3 = fig.add_subplot(gs[1, 1:3], projection=crs)
+        ax1 = fig.add_subplot(131, projection=crs)
+        ax2 = fig.add_subplot(132, projection=crs)
+        ax3 = fig.add_subplot(133, projection=crs)
         if grad:
             plot(ax1, lon, lat, gradient(gt, 2), r"$\nabla_{GT}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
             plot(ax2, lon, lat, np.where(np.isnan(obs), np.nan, 0.), "OBS (mask)", extent=extent, cmap=cm, norm=norm, colorbar=False)
