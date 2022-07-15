@@ -1,8 +1,8 @@
 natl_ssh_daily: /users/local/DATA/NATL60-CJM165_GULFSTREAM240x240_ssh_y2013.1y_new_fixed_time.nc
 natl_sst_daily: /users/local/DATA/DataNATL60/GULFSTREAM/ref/NATL60-CJM165_GULFSTREAM240x240_sst_y2013.1y_new.nc
-oi_swot_4nadir: /users/local/DATA/ssh_NATL60_240x240_swot_4nadir_new.nc
-pseudo_obs: /users/local/DATA/dataset_240x240_nadir_0d_swot.nc
+#oi_swot_4nadir: /users/local/DATA/ssh_NATL60_240x240_swot_4nadir_new.nc
+#pseudo_obs: /users/local/DATA/dataset_240x240_nadir_0d_swot.nc
 # natl_ssh_daily: /sanssauvegarde/homes/j21thomp/data/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc
 # natl_sst_daily: /sanssauvegarde/homes/j21thomp/data/ref/NATL60-CJM165_NATL_sst_y2013.1y.nc
-# oi_swot_4nadir: /sanssauvegarde/homes/j21thomp/data/oi/ssh_NATL60_swot_4nadir.nc
-# pseudo_obs: /sanssauvegarde/homes/j21thomp/data/obs/dataset_nadir_0d_swot.nc
+oi_swot_4nadir: /sanssauvegarde/homes/j21thomp/data/oi/ssh_NATL60_4nadir.nc
+pseudo_obs: /sanssauvegarde/homes/j21thomp/data/obs/dataset_nadir_0d.nc

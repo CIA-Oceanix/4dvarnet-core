@@ -249,56 +249,55 @@ class ModelLR(torch.nn.Module):
     def forward(self, im):
         return self.pool(im)
 
+
+#UNet model classes below
 class DoubleConv(torch.nn.Module):
     """(convolution => [BN] => ReLU) * 2, used for UNet implentation"""
 
-    def __init__(self, in_channels, out_channels, mid_channels=None,padding_mode='reflect',activation='relu'):
+    def __init__(self, in_channels, out_channels, mid_channels=None,rateDropout=0.,padding_mode='reflect',activation='relu'):
         super().__init__()
         if not mid_channels:
             mid_channels = out_channels
             
         if activation == 'relu':
-            self.double_conv = nn.Sequential(
-                    nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False,padding_mode=padding_mode),
-                    nn.BatchNorm2d(mid_channels),
-                    nn.ReLU(inplace=True),
-                    nn.Dropout(rateDropout),
-                    nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False,padding_mode=padding_mode),
-                    nn.BatchNorm2d(out_channels),
-                    nn.ReLU(inplace=True)
+            self.double_conv = torch.nn.Sequential(
+                    torch.nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False,padding_mode=padding_mode),
+                    torch.nn.BatchNorm2d(mid_channels),
+                    torch.nn.ReLU(inplace=True),
+                    torch.nn.Dropout(rateDropout),
+                    torch.nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False,padding_mode=padding_mode),
+                    torch.nn.BatchNorm2d(out_channels),
+                    torch.nn.ReLU(inplace=True)
                 )
         elif activation == 'tanh' :
-            self.double_conv = nn.Sequential(
-                    nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False,padding_mode=padding_mode),
-                    nn.BatchNorm2d(mid_channels),
-                    nn.ReLU(inplace=True),
-                    nn.Dropout(rateDropout),
-                    nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False,padding_mode=padding_mode),
-                    nn.BatchNorm2d(out_channels),
-                    nn.ReLU(inplace=True) )
+            self.double_conv = torch.nn.Sequential(
+                    torch.nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False,padding_mode=padding_mode),
+                    torch.nn.BatchNorm2d(mid_channels),
+                    torch.nn.ReLU(inplace=True),
+                    torch.nn.Dropout(rateDropout),
+                    torch.nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False,padding_mode=padding_mode),
+                    torch.nn.BatchNorm2d(out_channels),
+                    torch.nn.ReLU(inplace=True) )
         elif activation == 'logsigmoid' :
-            self.double_conv = nn.Sequential(
-                    nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False,padding_mode=padding_mode),
-                    nn.BatchNorm2d(mid_channels),
-                    nn.LogSigmoid(inplace=True),
-                    nn.Dropout(rateDropout),
-                    nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False,padding_mode=padding_mode),
-                    nn.BatchNorm2d(out_channels),
-                    nn.LogSigmoid(inplace=True) )
-        elif activation == 'bilin' :
-            self.double_conv = DoubleConvBILIN(in_channels, mid_channels,padding_mode=padding_mode)
-
+            self.double_conv = torch.nn.Sequential(
+                    torch.nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False,padding_mode=padding_mode),
+                    torch.nn.BatchNorm2d(mid_channels),
+                    torch.nn.LogSigmoid(inplace=True),
+                    torch.nn.Dropout(rateDropout),
+                    torch.nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False,padding_mode=padding_mode),
+                    torch.nn.BatchNorm2d(out_channels),
+                    torch.nn.LogSigmoid(inplace=True) )
+        
     def forward(self, x):
         return self.double_conv(x)
 
-#UNet model classes below
 class Down(torch.nn.Module):
     """Downscaling with maxpool then double conv, used for encoder for UNet"""
 
     def __init__(self, in_channels, out_channels):
         super().__init__()
-        self.maxpool_conv = nn.Sequential(
-            nn.MaxPool2d(2),
+        self.maxpool_conv = torch.nn.Sequential(
+            torch.nn.MaxPool2d(2),
             #nn.AvgPool2d(2),
             DoubleConv(in_channels, out_channels)
         )
@@ -314,10 +313,10 @@ class Up(torch.nn.Module):
 
         # if bilinear, use the normal convolutions to reduce the number of channels
         if bilinear:
-            self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-            self.conv = DoubleConv(in_channels, out_channels, in_channels // 2)
+            self.up = torch.nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+            self.conv = torch.nn.DoubleConv(in_channels, out_channels, in_channels // 2)
         else:
-            self.up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
+            self.up = torch.nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
             self.conv = DoubleConv(in_channels, out_channels)
 
     def forward(self, x1, x2):
@@ -334,15 +333,23 @@ class Up(torch.nn.Module):
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
 
+class OutConv(torch.nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(OutConv, self).__init__()
+        self.conv = torch.nn.Conv2d(in_channels, out_channels, kernel_size=1)
+
+    def forward(self, x):
+        return self.conv(x)
+    
 class UNet(torch.nn.Module):
     '''classic UNet model for comparison. Taken from 
     https://github.com/CIA-Oceanix/4dvarnet-forecast/blob/35f55997b40324b2b89eacbd73889962f9a9bd0f/unet.py#L229'''
-    def __init__(self, n_channels, n_classes, bilinear=False):
+    def __init__(self, n_channels, n_classes, dropout_rate, bilinear=False):
         super(UNet, self).__init__()
         self.n_channels = n_channels
         self.n_classes = n_classes
         self.bilinear = bilinear
-
+        self.dropout = torch.nn.Dropout(dropout_rate)
         self.inc = DoubleConv(n_channels, 64)
         self.down1 = Down(64, 128)
         self.down2 = Down(128, 256)
@@ -359,7 +366,7 @@ class UNet(torch.nn.Module):
     def forward(self, x):
         x1 = self.inc(x)
         x2 = self.down1(x1)
-        x3 = self.down2(x2)
+        x3 = self.dropout(self.down2(x2))
         x4 = self.down3(x3)
         #x5 = self.down4(x4)
         #x = self.up1(x5, x4)
@@ -367,8 +374,26 @@ class UNet(torch.nn.Module):
         #x = self.up1(x5, x4)
 
         x = self.up2(x4, x3)
-        x = self.up3(x, x2)
+        x = self.dropout(self.up3(x, x2))
         x = self.up4(x, x1)
         out = self.outc(x)
         
         return out
+
+class Phi_r_UNet(torch.nn.Module):
+    def __init__(self, shape_data, dropout_rate =0., stochastic=False):
+        super().__init__()
+        self.stochastic = stochastic
+        self.unet = UNet(shape_data, shape_data, dropout_rate)
+        self.correlate_noise = CorrelateNoise(shape_data, 10)
+        self.regularize_variance = RegularizeVariance(shape_data, 10)
+
+    def forward(self, x):
+        white = True
+        if self.stochastic == True:
+            # pure white noise
+            z = torch.randn([x.shape[0],x.shape[1],x.shape[2],x.shape[3]]).to(device)
+            z = z/torch.std(x)
+            return self.unet(x+z)
+        else:
+            return self.unet(x)

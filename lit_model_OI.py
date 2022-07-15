@@ -18,7 +18,7 @@ from scipy import stats
 import solver as NN_4DVar
 import metrics
 from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps_oi, animate_maps, get_psd_score
-from models import Model_H, Phi_r_OI, Gradient_img, UNet
+from models import Model_H, Phi_r_OI, Gradient_img, UNet, Phi_r_UNet
 
 from lit_model_augstate import LitModelAugstate
 
@@ -33,7 +33,7 @@ def get_4dvarnet_OI(hparams):
 
 def get_4dvarnet_unet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
-                UNet(hparams.shape_state[0],hparams.shape_state[0]),
+                Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic),
                 Model_H(hparams.shape_state[0]),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
@@ -42,6 +42,7 @@ def get_4dvarnet_unet(hparams):
 class LitModelOI(LitModelAugstate):
     MODELS = {
             '4dvarnet_OI': get_4dvarnet_OI,
+            '4dvarnet_UNet': get_4dvarnet_unet
              }
 
     def __init__(self, *args, **kwargs):
@@ -51,7 +52,7 @@ class LitModelOI(LitModelAugstate):
         opt = torch.optim.Adam
         if hasattr(self.hparams, 'opt'):
             opt = lambda p: hydra.utils.call(self.hparams.opt, p)
-        if self.model_name == '4dvarnet_OI':
+        if self.model_name in ['4dvarnet_OI', '4dvarnet_UNet']:
             optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
