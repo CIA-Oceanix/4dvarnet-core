@@ -197,26 +197,6 @@ class XrDataset(Dataset):
                 for dim in slice_win
         }
         
-        if var != 'ssh' :
-            print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
-            print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
-            print(self.ds['analysed_sst'],flush=True )
-            print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
-            print(_ds['analysed_sst'],flush=True )
-            
-            print('... Use SST data')
-            #print('... var '+_ds.var,flush=True)
-            #mean_sst = float(_ds['analysed_sst']).mean()
-            #print('..... sst feat = %f -- %f'%(mean_sst),flush=True)
-            #mean_sst = float(_ds[_ds.var]).mean()
-            #std_sst = float(_ds[_ds.var]).std()
-            #print('..... sst feat = %f -- %f'%(mean_sst,std_sst),flush=True)
-            
-            #mean_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').mean())
-            #std_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').std())
-            
-            #print( _ds.sst_ds.var )
-
 
     def __del__(self):
         self.ds.close()
