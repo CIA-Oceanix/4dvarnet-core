@@ -26,7 +26,7 @@ from models import Model_HwithSSTBNAtt_nolin_tanh
 from scipy import ndimage
 from scipy.ndimage import gaussian_filter
 
-def compute_coriolis_force(lat,flag_compute_mean_f=False):
+def compute_coriolis_force(lat,flag_compute_mean_f=True):
     omega = 7.2921e-5 # rad/s
     f = 2 * omega * np.sin(lat)
     
@@ -44,7 +44,7 @@ def compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.5,alpha_uv_geo = 1.):
     grid_lat = np.tile( grid_lat , (ssh.shape[0],1,ssh.shape[2]) )
     grid_lon = lat.reshape( (1,1,ssh.shape[2]))
     grid_lon = np.tile( grid_lon , (ssh.shape[0],ssh.shape[1],1) )
-       
+    
     f_c = compute_coriolis_force(grid_lat)
     dy_from_dlat , dx_from_dlon = compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon )     
 
