@@ -67,7 +67,7 @@ def compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.5,alpha_uv_geo = 1.):
 
     div = compute_div_with_lat_lon(u_geo,v_geo,lat,lon,sigma=0.)
     
-    print( np.sqrt(np.mean( div**2 )) )
+    print('div %.4e'%np.sqrt(np.mean( div**2 )) )
 
     return u_geo,v_geo
 
