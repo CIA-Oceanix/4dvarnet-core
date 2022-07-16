@@ -28,7 +28,7 @@ from scipy.ndimage import gaussian_filter
 
 def compute_coriolis_force(lat):
     omega = 7.2921e-5 # rad/s
-    f = 2 * omega * np.sin(np.radians(lat))
+    f = 2 * omega * np.sin(lat)
     
     return f
 
@@ -39,10 +39,7 @@ def compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.5,alpha_uv_geo = 1.):
     grid_lat = np.tile( grid_lat , (ssh.shape[0],1,ssh.shape[2]) )
     grid_lon = lat.reshape( (1,1,ssh.shape[2]))
     grid_lon = np.tile( grid_lon , (ssh.shape[0],ssh.shape[1],1) )
-
-    grid_lat = np.radians(grid_lat) 
-    grid_lon = np.radians(grid_lon) 
-        
+       
     f_c = compute_coriolis_force(grid_lat)
     dy_from_dlat , dx_from_dlon = compute_dx_dy_dlat_dlon(grid_lat,grid_lon,np.radians(1./20),np.radians(1./20) )     
 
@@ -1089,7 +1086,7 @@ class LitModelUV(pl.LightningModule):
 
             return mse_uv_geo, nmse_uv_geo, mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo
 
-        def compute_mse_uv_geo_with_coriolis(u_gt,v_gt,ssh,lat,lon,sigma=0.5,alpha_uv_geo = 1.):
+        def compute_mse_uv_geo_with_coriolis(u_gt,v_gt,ssh,lat,lon,sigma=0.5,alpha_uv_geo = 9.81):
             
             ssh = gaussian_filter(ssh, sigma=sigma)        
             u_geo,v_geo = compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.,alpha_uv_geo = alpha_uv_geo)
@@ -1179,31 +1176,15 @@ class LitModelUV(pl.LightningModule):
                 alpha_dx = self.alpha_dx
                 alpha_dy = self.alpha_dy
                 alpha_uv_geo = self.alpha_uv_geo
-        else:                
-            alpha_uv_geo =  compute_dxy_scaling_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,self.test_xr_ds.gt,self.test_lat,self.test_lon,sigma=4.)
+        else:
+            lat_rad = np.radians(self.test_lat)
+            lon_rad = np.radians(self.test_lon)
+                
+            alpha_uv_geo =  compute_dxy_scaling_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,self.test_xr_ds.gt,lat_rad,lon_rad,sigma=4.)
         
             print('.. Scaling [Test DS]     : %f '%(alpha_uv_geo))
-
-            # coriolis / lat/lon scaling
-            def compute_dxdy_dlatdlon_fc(lat,lon,shape):                
-                grid_lat = lat.reshape( (1,shape[1],1))
-                grid_lat = np.tile( grid_lat , (shape[0],1,shape[2]) )
-                grid_lon = lon.reshape( (1,1,shape[2]))
-                grid_lon = np.tile( grid_lon , (shape[0],shape[1],1) )
-        
-                grid_lat = np.radians(grid_lat) 
-                grid_lon = np.radians(grid_lon) 
-                    
-                dy_from_dlat , dx_from_dlon = compute_dx_dy_dlat_dlon(grid_lat,grid_lon,np.radians(1./20),np.radians(1./20) ) 
-                f_c = compute_coriolis_force(grid_lat)            
-                
-                return dx_from_dlon, dy_from_dlat , f_c 
-            
-            dx_from_dlon, dy_from_dlat , f_c =  compute_dxdy_dlatdlon_fc( self.test_lat, self.test_lon, self.test_xr_ds.gt.shape )
-            alpha_dx = 1. / ( dx_from_dlon )
-            alpha_dy = 1. / ( dy_from_dlat )
                         
-            alpha_uv_geo = alpha_uv_geo / f_c
+            alpha_uv_geo = 9.81
     
         sig_div = self.sig_filter_div_diag
         
@@ -1212,11 +1193,16 @@ class LitModelUV(pl.LightningModule):
         print('.....')
         print('..... Geostrophic currents (ssh gt)  ')
         print('.....')
-                 
-        mse_stat = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                      self.test_xr_ds.gt,sigma=sig_div,
-                                      alpha_dx=alpha_dx,alpha_dy=alpha_dy,
-                                      alpha_uv_geo = alpha_uv_geo)
+        
+        alpha_uv_geo = 9.81 
+        mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+                                                    self.test_xr_ds.gt,sigma=sig_div,
+                                                    alpha_uv_geo = alpha_uv_geo )
+         
+        #mse_stat = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+        #                              self.test_xr_ds.gt,sigma=sig_div,
+        #                              alpha_dx=alpha_dx,alpha_dy=alpha_dy,
+        #                              alpha_uv_geo = alpha_uv_geo)
         mse_uv_ssh_gt,nmse_uv_ssh_gt,mse_div_ssh_gt, nmse_div_ssh_gt, mse_curl_ssh_gt, nmse_curl_ssh_gt,  mse_strain_ssh_gt, nmse_strain_ssh_gt = mse_stat
         
         var_mse_uv_ssh_gt = 100. * (1. - nmse_uv_ssh_gt )
@@ -1226,10 +1212,13 @@ class LitModelUV(pl.LightningModule):
     
         print('..... Geostrophic currents (ssh oi)  ')
         print('.....')
-        mse_stat = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                      self.test_xr_ds.oi,sigma=sig_div,
-                                      alpha_dx=alpha_dx,alpha_dy=alpha_dy,
-                                      alpha_uv_geo = alpha_uv_geo)
+        #mse_stat = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+        #                              self.test_xr_ds.oi,sigma=sig_div,
+        #                              alpha_dx=alpha_dx,alpha_dy=alpha_dy,
+        #                              alpha_uv_geo = alpha_uv_geo)
+        mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+                                                    self.test_xr_ds.oi,sigma=sig_div,
+                                                    alpha_uv_geo = alpha_uv_geo )
         mse_uv_oi,nmse_uv_oi,mse_div_oi, nmse_div_oi, mse_curl_oi, nmse_curl_oi, mse_strain_oi, nmse_strain_oi = mse_stat
         
         var_mse_uv_oi = 100. * (1. - nmse_uv_oi )
@@ -1239,10 +1228,13 @@ class LitModelUV(pl.LightningModule):
 
         print('..... Geostrophic currents (ssh pred)  ')
         print('.....')
-        mse_stat = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                      self.test_xr_ds.pred,sigma=sig_div,
-                                      alpha_dx=alpha_dx,alpha_dy=alpha_dy,
-                                      alpha_uv_geo = alpha_uv_geo)
+        #mse_stat = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+        #                              self.test_xr_ds.pred,sigma=sig_div,
+        #                              alpha_dx=alpha_dx,alpha_dy=alpha_dy,
+        #                              alpha_uv_geo = alpha_uv_geo)
+        mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+                                                    self.test_xr_ds.pred,sigma=sig_div,
+                                                    alpha_uv_geo = alpha_uv_geo )
         mse_uv_pred,nmse_uv_pred,mse_div_pred, nmse_div_pred, mse_curl_pred, nmse_curl_pred, mse_strain_pred, nmse_strain_pred = mse_stat
         var_mse_uv_pred     = 100. * (1. - nmse_uv_pred )
         var_mse_div_pred    = 100. * (1. - nmse_div_pred )
