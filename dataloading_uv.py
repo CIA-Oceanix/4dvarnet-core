@@ -99,12 +99,6 @@ class XrDataset(Dataset):
             else:
                 _ds['time'] = pd.to_datetime(_ds.time)
         
-        if var != 'ssh' :
-            print('..................................................')
-            print('..................................................')
-            print(np.mean(_ds['analysed_sst']),flush=True )
-            print('..................................................')
-
         # rename latitute/longitude to lat/lon for consistency
         rename_coords = {}
         if not "lat" in _ds.coords and "latitude" in _ds.coords:
@@ -588,7 +582,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             mean_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').mean())
             std_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').std())
             
-            print('..... sst feat = %f -- %f'%(mean_sst,std_sst) )
+            print('..... sst data = %f -- %f'%(mean_sst,std_sst) )
             if self.u_var == None:
 
                 return [mean, std], [mean_sst, std_sst]
