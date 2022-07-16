@@ -182,13 +182,6 @@ class XrDataset(Dataset):
               'lat': slice(dim_range_['lat'].start+dY, dim_range_['lat'].stop-dY),
             }
 
-        if var != 'ssh' :
-            print('..................................................')
-            print('..................................................')
-            print('..... var '+var)
-            print(np.mean(_ds['analysed_sst']),flush=True )
-            print('..................................................')
-
         self.ds = self.ds.transpose("time", "lat", "lon")
 
         if self.interp_na:
