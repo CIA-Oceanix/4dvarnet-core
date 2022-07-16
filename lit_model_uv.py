@@ -1195,8 +1195,12 @@ class LitModelUV(pl.LightningModule):
         print('.....')
         
         alpha_uv_geo = 9.81 
+        lat_rad = np.radians(self.test_lat)
+        lon_rad = np.radians(self.test_lon)
+
         mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                     self.test_xr_ds.gt,sigma=sig_div,
+                                                    lat= lat_rad, lon= lon_rad,
                                                     alpha_uv_geo = alpha_uv_geo )
          
         #mse_stat = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
@@ -1218,6 +1222,7 @@ class LitModelUV(pl.LightningModule):
         #                              alpha_uv_geo = alpha_uv_geo)
         mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                     self.test_xr_ds.oi,sigma=sig_div,
+                                                    lat= lat_rad, lon= lon_rad,
                                                     alpha_uv_geo = alpha_uv_geo )
         mse_uv_oi,nmse_uv_oi,mse_div_oi, nmse_div_oi, mse_curl_oi, nmse_curl_oi, mse_strain_oi, nmse_strain_oi = mse_stat
         
@@ -1234,6 +1239,7 @@ class LitModelUV(pl.LightningModule):
         #                              alpha_uv_geo = alpha_uv_geo)
         mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                     self.test_xr_ds.pred,sigma=sig_div,
+                                                    lat= lat_rad, lon= lon_rad,
                                                     alpha_uv_geo = alpha_uv_geo )
         mse_uv_pred,nmse_uv_pred,mse_div_pred, nmse_div_pred, mse_curl_pred, nmse_curl_pred, mse_strain_pred, nmse_strain_pred = mse_stat
         var_mse_uv_pred     = 100. * (1. - nmse_uv_pred )
