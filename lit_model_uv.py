@@ -118,6 +118,74 @@ def compute_strain(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
 
     return np.sqrt( ( dv_dx + du_dy ) **2 +  (du_dx - dv_dy) **2 )
 
+def compute_div_with_lat_lon(u,v,lat,lon,sigma=1.0):
+    dlat = lat[1] - lat[0]
+    dlon = lon[1] - lon[0]
+
+    # coriolis / lat/lon scaling
+    grid_lat = lat.reshape( (1,u.shape[1],1))
+    grid_lat = np.tile( grid_lat , (v.shape[0],1,v.shape[2]) )
+    grid_lon = lon.reshape( (1,1,v.shape[2]))
+    grid_lon = np.tile( grid_lon , (v.shape[0],v.shape[1],1) )
+    
+    dx_from_dlon , dy_from_dlat = compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon)     
+
+    du_dx = compute_gradx( u , sigma = sigma )
+    dv_dy = compute_grady( v , sigma = sigma )
+    
+    du_dx = du_dx / dx_from_dlon 
+    dv_dy = dv_dy / dy_from_dlat  
+
+    return du_dx + dv_dy
+
+def compute_curl_with_lat_lon(u,v,lat,lon,sigma=1.0):
+    
+    dlat = lat[1] - lat[0]
+    dlon = lon[1] - lon[0]
+
+    # coriolis / lat/lon scaling
+    grid_lat = lat.reshape( (1,u.shape[1],1))
+    grid_lat = np.tile( grid_lat , (v.shape[0],1,v.shape[2]) )
+    grid_lon = lon.reshape( (1,1,v.shape[2]))
+    grid_lon = np.tile( grid_lon , (v.shape[0],v.shape[1],1) )
+    
+    dx_from_dlon , dy_from_dlat = compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon)     
+    
+    du_dy = compute_grady( u , sigma = sigma )
+    dv_dx = compute_gradx( v , sigma = sigma )
+
+    dv_dx = dv_dx / dx_from_dlon 
+    du_dy = du_dy / dy_from_dlat  
+    
+    return du_dy - dv_dx
+
+def compute_strain_with_lat_lon(u,v,lat,lon,sigma=1.0):
+    dlat = lat[1] - lat[0]
+    dlon = lon[1] - lon[0]
+
+    # coriolis / lat/lon scaling
+    grid_lat = lat.reshape( (1,u.shape[1],1))
+    grid_lat = np.tile( grid_lat , (v.shape[0],1,v.shape[2]) )
+    grid_lon = lon.reshape( (1,1,v.shape[2]))
+    grid_lon = np.tile( grid_lon , (v.shape[0],v.shape[1],1) )
+    
+    dx_from_dlon , dy_from_dlat = compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon)     
+
+    du_dx = compute_gradx( u , sigma = sigma )
+    dv_dy = compute_grady( v , sigma = sigma )
+
+    du_dy = compute_grady( u , sigma = sigma )
+    dv_dx = compute_gradx( v , sigma = sigma )
+
+    du_dx = du_dx / dx_from_dlon 
+    dv_dx = dv_dx / dx_from_dlon 
+
+    du_dy = du_dy / dy_from_dlat  
+    dv_dy = dv_dy / dy_from_dlat  
+
+    return np.sqrt( ( dv_dx + du_dy ) **2 +  (du_dx - dv_dy) **2 )
+
+
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
@@ -1086,6 +1154,33 @@ class LitModelUV(pl.LightningModule):
 
             return mse_uv_geo, nmse_uv_geo, mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo
 
+        def compute_div_curl_strain_metrics_with_lat_lon(u_gt,v_gt,u_rec,v_rec,
+                                                         lat,lon,sig_div=0.5,alpha_dx=1.,alpha_dy=1.,flag_compute_strain = False):
+            
+            div_uv_gt = compute_div_with_lat_lon(u_gt,v_gt,lat,lon,sigma=sig_div)
+            div_uv_rec = compute_div_with_lat_lon(u_rec,v_rec,lat,lon,sigma=sig_div)
+                    
+            curl_uv_gt = compute_curl_with_lat_lon(u_gt,v_gt,lat,lon,sigma=sig_div)
+            curl_uv_rec = compute_curl_with_lat_lon(u_rec,v_rec,lat,lon,sigma=sig_div)
+            
+            mse_div = np.nanmean( (div_uv_gt - div_uv_rec)**2 )
+            nmse_div = mse_div / np.nanmean( (div_uv_gt )**2 )
+
+            mse_curl = np.nanmean( (curl_uv_gt - curl_uv_rec)**2 )
+            nmse_curl = mse_curl / np.nanmean( (curl_uv_gt )**2 )
+
+            if flag_compute_strain :
+                strain_uv_gt = compute_strain_with_lat_lon(u_gt,v_gt,sigma=sig_div,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
+                strain_uv_rec = compute_strain_with_lat_lon(u_rec,v_rec,sigma=sig_div,alpha_dx=alpha_dx,alpha_dy=alpha_dy)
+
+                mse_strain = np.nanmean( (strain_uv_gt - strain_uv_rec)**2 )
+                nmse_strain = mse_curl / np.nanmean( ( strain_uv_gt )**2 )
+                
+                return mse_div,nmse_div,mse_curl,nmse_curl,mse_strain,nmse_strain
+            else:
+                return mse_div,nmse_div,mse_curl,nmse_curl
+            
+            
         def compute_mse_uv_geo_with_coriolis(u_gt,v_gt,ssh,lat,lon,sigma=0.5,alpha_uv_geo = 9.81):
             
             ssh = gaussian_filter(ssh, sigma=sigma)        
@@ -1104,8 +1199,9 @@ class LitModelUV(pl.LightningModule):
                 u_gt = gaussian_filter(u_gt, sigma=sigma)
                 v_gt = gaussian_filter(v_gt, sigma=sigma)
             
-            mse_stat =  compute_div_curl_strain_metrics(u_gt,v_gt,u_geo,v_geo,lat,lon,sig_div=0, 
-                                                        flag_compute_strain=True) 
+            mse_stat =  compute_div_curl_strain_metrics_with_lat_lon(u_gt,v_gt,u_geo,v_geo,
+                                                                     lat,lon,sig_div=0., 
+                                                                     flag_compute_strain=True) 
             mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo    = mse_stat   
 
 
