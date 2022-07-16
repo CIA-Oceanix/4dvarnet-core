@@ -26,9 +26,12 @@ from models import Model_HwithSSTBNAtt_nolin_tanh
 from scipy import ndimage
 from scipy.ndimage import gaussian_filter
 
-def compute_coriolis_force(lat):
+def compute_coriolis_force(lat,flag_compute_mean_f=False):
     omega = 7.2921e-5 # rad/s
     f = 2 * omega * np.sin(lat)
+    
+    if flag_compute_mean_f == True :
+        f = np.mean(f) * np.ones((f.shape)) 
     
     return f
 
@@ -50,18 +53,15 @@ def compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.5,alpha_uv_geo = 1.):
     dssh_dx = compute_gradx( ssh )
     dssh_dy = compute_grady( ssh )
 
-    if 1*1 :
-        dssh_dx = dssh_dx / dx_from_dlon 
-        dssh_dy = dssh_dy / dy_from_dlat  
+    dssh_dx = dssh_dx / dx_from_dlon 
+    dssh_dy = dssh_dy / dy_from_dlat  
 
-    if 1*1 :
-         dssh_dy = ( 1. / f_c ) * dssh_dy
-         dssh_dx = ( 1. / f_c  )* dssh_dx
+    dssh_dy = ( 1. / f_c ) * dssh_dy
+    dssh_dx = ( 1. / f_c  )* dssh_dx
 
     u_geo = -1. * dssh_dy
     v_geo = 1. * dssh_dx
     
-
     u_geo = alpha_uv_geo * u_geo
     v_geo = alpha_uv_geo * v_geo
 
