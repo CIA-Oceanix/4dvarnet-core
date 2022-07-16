@@ -1155,7 +1155,7 @@ class LitModelUV(pl.LightningModule):
             return mse_uv_geo, nmse_uv_geo, mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo
 
         def compute_div_curl_strain_metrics_with_lat_lon(u_gt,v_gt,u_rec,v_rec,
-                                                         lat,lon,sig_div=0.5,alpha_dx=1.,alpha_dy=1.,flag_compute_strain = False):
+                                                         lat,lon,sig_div=0.5,flag_compute_strain = False):
             
             div_uv_gt = compute_div_with_lat_lon(u_gt,v_gt,lat,lon,sigma=sig_div)
             div_uv_rec = compute_div_with_lat_lon(u_rec,v_rec,lat,lon,sigma=sig_div)
@@ -1343,10 +1343,15 @@ class LitModelUV(pl.LightningModule):
         var_mse_curl_pred   = 100. * (1. - nmse_curl_pred )
         var_mse_strain_pred = 100. * (1. - nmse_strain_pred )
                         
-        stat_mse_div_curl_strain =  compute_div_curl_strain_metrics(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+        #stat_mse_div_curl_strain =  compute_div_curl_strain_metrics(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+        #                                                            self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,
+        #                                                            sig_div=sig_div,
+        #                                                            alpha_dx=alpha_dx,alpha_dy=alpha_dy,
+        #                                                            flag_compute_strain = True)
+        stat_mse_div_curl_strain =  compute_div_curl_strain_metrics_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                                     self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,
+                                                                    lat= lat_rad, lon= lon_rad,
                                                                     sig_div=sig_div,
-                                                                    alpha_dx=alpha_dx,alpha_dy=alpha_dy,
                                                                     flag_compute_strain = True)
 
         mse_div, nmse_div, mse_curl, nmse_curl, mse_strain, nmse_strain =  stat_mse_div_curl_strain
