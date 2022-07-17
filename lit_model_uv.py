@@ -35,7 +35,6 @@ def compute_coriolis_force(lat,flag_mean_coriolis=False):
     
     return f
 
-
 def compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.5,alpha_uv_geo = 1.,flag_mean_coriolis=False):
 
     dlat = lat[1] - lat[0]
@@ -84,7 +83,6 @@ def compute_dx_dy_dlat_dlon(lat,lon,dlat,dlon):
     dy_from_dlon =  compute_c(lat,lon,0.,dlon)
     
     return dx_from_dlat , dy_from_dlon
-
 
 def compute_gradx( u, alpha_dx = 1., sigma = 0. , _filter='diff-non-centered'):
     if sigma > 0. :
@@ -1087,11 +1085,6 @@ class LitModelUV(pl.LightningModule):
         psd_ds_u, lamb_x_u, lamb_t_u = metrics.psd_based_scores(self.test_xr_ds.pred_u, self.test_xr_ds.u_gt)
         psd_ds_v, lamb_x_v, lamb_t_v = metrics.psd_based_scores(self.test_xr_ds.pred_v, self.test_xr_ds.v_gt)
 
-        # MSE Div of (U,V) fields        
-        #div_rec = self.div_field(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v)
-        #div_gt = self.div_field(self.test_xr_ds.v_gt,self.test_xr_ds.u_gt)
-
-
         def compute_div_curl_strain_metrics_with_lat_lon(u_gt,v_gt,u_rec,v_rec,
                                                          lat,lon,sig_div=0.5,flag_compute_strain = False):
             
@@ -1163,10 +1156,6 @@ class LitModelUV(pl.LightningModule):
                                                     lat= lat_rad, lon= lon_rad,
                                                     alpha_uv_geo = alpha_uv_geo )
          
-        #mse_stat = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-        #                              self.test_xr_ds.gt,sigma=sig_div,
-        #                              alpha_dx=alpha_dx,alpha_dy=alpha_dy,
-        #                              alpha_uv_geo = alpha_uv_geo)
         mse_uv_ssh_gt,nmse_uv_ssh_gt,mse_div_ssh_gt, nmse_div_ssh_gt, mse_curl_ssh_gt, nmse_curl_ssh_gt,  mse_strain_ssh_gt, nmse_strain_ssh_gt = mse_stat
         
         var_mse_uv_ssh_gt = 100. * (1. - nmse_uv_ssh_gt )
@@ -1176,10 +1165,7 @@ class LitModelUV(pl.LightningModule):
     
         print('..... Geostrophic currents (ssh oi)  ')
         print('.....')
-        #mse_stat = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-        #                              self.test_xr_ds.oi,sigma=sig_div,
-        #                              alpha_dx=alpha_dx,alpha_dy=alpha_dy,
-        #                              alpha_uv_geo = alpha_uv_geo)
+
         mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                     self.test_xr_ds.oi,sigma=sig_div,
                                                     lat= lat_rad, lon= lon_rad,
@@ -1193,10 +1179,7 @@ class LitModelUV(pl.LightningModule):
 
         print('..... Geostrophic currents (ssh pred)  ')
         print('.....')
-        #mse_stat = compute_mse_uv_geo(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-        #                              self.test_xr_ds.pred,sigma=sig_div,
-        #                              alpha_dx=alpha_dx,alpha_dy=alpha_dy,
-        #                              alpha_uv_geo = alpha_uv_geo)
+
         mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                     self.test_xr_ds.pred,sigma=sig_div,
                                                     lat= lat_rad, lon= lon_rad,
@@ -1207,11 +1190,6 @@ class LitModelUV(pl.LightningModule):
         var_mse_curl_pred   = 100. * (1. - nmse_curl_pred )
         var_mse_strain_pred = 100. * (1. - nmse_strain_pred )
                         
-        #stat_mse_div_curl_strain =  compute_div_curl_strain_metrics(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-        #                                                            self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,
-        #                                                            sig_div=sig_div,
-        #                                                            alpha_dx=alpha_dx,alpha_dy=alpha_dy,
-        #                                                            flag_compute_strain = True)
         stat_mse_div_curl_strain =  compute_div_curl_strain_metrics_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                                     self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,
                                                                     lat= lat_rad, lon= lon_rad,
