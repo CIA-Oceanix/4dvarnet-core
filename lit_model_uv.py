@@ -26,7 +26,7 @@ from models import Model_HwithSSTBNAtt_nolin_tanh
 from scipy import ndimage
 from scipy.ndimage import gaussian_filter
 
-def compute_coriolis_force(lat,flag_compute_mean_f=True):
+def compute_coriolis_force(lat,flag_compute_mean_f=False):
     omega = 7.2921e-5 # rad/s
     f = 2 * omega * np.sin(lat)
     
@@ -35,42 +35,42 @@ def compute_coriolis_force(lat,flag_compute_mean_f=True):
     
     return f
 
-def compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.5,alpha_uv_geo = 1.):
+
+def compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.5,alpha_uv_geo = 1.,flag_mean_coriolis=False):
+
     dlat = lat[1] - lat[0]
     dlon = lon[1] - lon[0]
 
     # coriolis / lat/lon scaling
     grid_lat = lat.reshape( (1,ssh.shape[1],1))
     grid_lat = np.tile( grid_lat , (ssh.shape[0],1,ssh.shape[2]) )
-    grid_lon = lat.reshape( (1,1,ssh.shape[2]))
+    grid_lon = lon.reshape( (1,1,ssh.shape[2]))
     grid_lon = np.tile( grid_lon , (ssh.shape[0],ssh.shape[1],1) )
     
-    f_c = compute_coriolis_force(grid_lat)
-    dy_from_dlat , dx_from_dlon = compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon )     
+    f_c = compute_coriolis_force(grid_lat,flag_mean_coriolis=flag_mean_coriolis)
+    dx_from_dlon , dy_from_dlat = compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon)     
 
     # (u,v) MSE
     ssh = gaussian_filter(ssh, sigma=sigma)
     dssh_dx = compute_gradx( ssh )
     dssh_dy = compute_grady( ssh )
 
-    dssh_dx = dssh_dx / dx_from_dlon 
-    dssh_dy = dssh_dy / dy_from_dlat  
+    if 1*1 :
+        dssh_dx = dssh_dx / dx_from_dlon 
+        dssh_dy = dssh_dy / dy_from_dlat  
 
-    dssh_dy = ( 1. / f_c ) * dssh_dy
-    dssh_dx = ( 1. / f_c  )* dssh_dx
+    if 1*1 :
+         dssh_dy = ( 1. / f_c ) * dssh_dy
+         dssh_dx = ( 1. / f_c  )* dssh_dx
 
     u_geo = -1. * dssh_dy
     v_geo = 1. * dssh_dx
-    
+   
+
     u_geo = alpha_uv_geo * u_geo
     v_geo = alpha_uv_geo * v_geo
 
-    div = compute_div_with_lat_lon(u_geo,v_geo,lat,lon,sigma=0.)
-    
-    print('div %.4e'%np.sqrt(np.mean( div**2 )) )
-
     return u_geo,v_geo
-
 
 def compute_dx_dy_dlat_dlon(lat,lon,dlat,dlon):
     
