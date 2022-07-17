@@ -470,7 +470,11 @@ class LitModelUV(pl.LightningModule):
         self.var_Tr = self.hparams.var_Tr
         self.var_Tt = self.hparams.var_Tt
         self.var_tr_uv = self.hparams.var_tr_uv       
-        self.alpha_dx,self.alpha_dy,self.alpha_uv_geo = self.hparams.scaling_ssh_uv
+        
+        self.alpha_dx = 1.
+        self.alpha_dy = 1.
+        #self.alpha_uv_geo = 1.
+        #self.alpha_dx,self.alpha_dy,self.alpha_uv_geo = self.hparams.scaling_ssh_uv
 
         # create longitudes & latitudes coordinates
         self.test_domain=test_domain
@@ -1110,8 +1114,7 @@ class LitModelUV(pl.LightningModule):
                 return mse_div,nmse_div,mse_curl,nmse_curl,mse_strain,nmse_strain
             else:
                 return mse_div,nmse_div,mse_curl,nmse_curl
-            
-            
+                        
         def compute_mse_uv_geo_with_coriolis(u_gt,v_gt,ssh,lat,lon,sigma=0.5,alpha_uv_geo = 9.81):
             
             ssh = gaussian_filter(ssh, sigma=sigma)        
