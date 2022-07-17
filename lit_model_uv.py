@@ -1301,43 +1301,6 @@ class LitModelUV(pl.LightningModule):
         lat_rad = np.radians(self.test_lat)
         lon_rad = np.radians(self.test_lon)
         
-        if 1*0 : 
-            alpha_uv_geo = 9.78#9.81
-            sigma_uv_geo = 2.
-            flag_mean_coriolis = False
-            u_geo_gt,v_geo_gt = compute_uv_geo_with_coriolis(self.test_xr_ds.gt,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=sigma_uv_geo,flag_mean_coriolis=flag_mean_coriolis)
-            u_geo_oi,v_geo_oi = compute_uv_geo_with_coriolis(self.test_xr_ds.oi,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=sigma_uv_geo,flag_mean_coriolis=flag_mean_coriolis)
-            u_geo_rec,v_geo_rec = compute_uv_geo_with_coriolis(self.test_xr_ds.pred,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=sigma_uv_geo,flag_mean_coriolis=flag_mean_coriolis)
-    
-            def compute_mse_uv(u,v,u_gt,v_gt):
-                mse_uv = np.nanmean( (u - u_gt)**2 + (v - v_gt)**2 )
-                nmse_uv = mse_uv / np.nanmean( (u_gt)**2 + (v_gt)**2 )
-            
-                return mse_uv, nmse_uv
-            
-            print('..... exp. var. uv geo = %.2f%%'%(100.*(1.-compute_mse_uv(u_geo_gt,v_geo_gt,self.test_xr_ds.u_gt,self.test_xr_ds.v_gt)[1])))
-            print('..... exp. var. uv oi = %.2f%%'%(100.*(1.-compute_mse_uv(u_geo_oi,v_geo_oi,self.test_xr_ds.u_gt,self.test_xr_ds.v_gt)[1])))
-            print('..... exp. var. uv geo rec = %.2f%%'%(100.*(1.-compute_mse_uv(u_geo_rec,v_geo_rec,self.test_xr_ds.u_gt,self.test_xr_ds.v_gt)[1])))
-            print('..... exp. var. uv = %.2f%%'%(100.*(1.-compute_mse_uv(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,self.test_xr_ds.u_gt,self.test_xr_ds.v_gt)[1])))        
-
-            def compute_nmse(x,x_gt):
-                mse_x = np.nanmean( (x - x_gt)**2  )
-                nmse_x = mse_x / np.nanmean( (x_gt)**2 )
-            
-                return mse_x, nmse_x
-            
-            sigma_div = 1.
-            div_uv_geo_gt = compute_div_with_lat_lon(u_geo_gt,v_geo_gt,lat_rad,lon_rad,sigma=sigma_div)
-            div_uv_gt = compute_div_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,lat_rad,lon_rad,sigma=sigma_div)
-            div_uv_geo_rec = compute_div_with_lat_lon(u_geo_rec,v_geo_rec,lat_rad,lon_rad,sigma=sigma_div)
-            div_uv_rec = compute_div_with_lat_lon(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,lat_rad,lon_rad,sigma=sigma_div)
-    
-            print('..... exp. var. div uv geo gt  = %.2f%%'%(100.*(1.-compute_nmse(div_uv_geo_gt,div_uv_gt)[1])))
-            print('..... exp. var. div uv geo rec = %.2f%%'%(100.*(1.-compute_nmse(div_uv_geo_rec,div_uv_gt)[1])))
-            print('..... exp. var. div uv rec.   = %.2f%%'%(100.*(1.-compute_nmse(div_uv_rec,div_uv_gt)[1])))
-
-
-
         mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                     self.test_xr_ds.gt,sigma=sig_div,
                                                     lat= lat_rad, lon= lon_rad,
