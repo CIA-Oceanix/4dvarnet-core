@@ -26,11 +26,11 @@ from models import Model_HwithSSTBNAtt_nolin_tanh
 from scipy import ndimage
 from scipy.ndimage import gaussian_filter
 
-def compute_coriolis_force(lat,flag_compute_mean_f=False):
+def compute_coriolis_force(lat,flag_mean_coriolis=False):
     omega = 7.2921e-5 # rad/s
     f = 2 * omega * np.sin(lat)
     
-    if flag_compute_mean_f == True :
+    if flag_mean_coriolis == True :
         f = np.mean(f) * np.ones((f.shape)) 
     
     return f
