@@ -88,6 +88,7 @@ class FourDVarNetHydraRunner:
         :param dataloader: Dataloader on which to run the test Checkpoint from which to resume
         :param trainer_kwargs: (Optional)
         """
+        
         mod, trainer = self.train(ckpt_path, **trainer_kwargs)
         self.test(dataloader=dataloader, _mod=mod, _trainer=trainer)
 

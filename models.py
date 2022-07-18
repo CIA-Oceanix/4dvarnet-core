@@ -381,6 +381,7 @@ class UNet(torch.nn.Module):
         return out
 
 class Phi_r_UNet(torch.nn.Module):
+    '''This is a UNet phi_r replacement'''
     def __init__(self, shape_data, dropout_rate =0., stochastic=False):
         super().__init__()
         self.stochastic = stochastic
@@ -397,3 +398,5 @@ class Phi_r_UNet(torch.nn.Module):
             return self.unet(x+z)
         else:
             return self.unet(x)
+
+

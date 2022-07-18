@@ -1,3 +1,4 @@
+#A modified version of lit_model_OI to run a basic Unet network. It may not be neccessary. 
 import einops
 import torch.distributed as dist
 import kornia
@@ -22,30 +23,33 @@ from models import Model_H, Phi_r_OI, Gradient_img, UNet, Phi_r_UNet
 
 from lit_model_augstate import LitModelAugstate
 
-def get_4dvarnet_OI(hparams):
-    return NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r_OI(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
-                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
-                Model_H(hparams.shape_state[0]),
-                NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
-                    hparams.dim_grad_solver, hparams.dropout),
-                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+# def get_4dvarnet_OI(hparams):
+#     return NN_4DVar.Solver_Grad_4DVarNN(
+#                 Phi_r_OI(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+#                     hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+#                 Model_H(hparams.shape_state[0]),
+#                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+#                     hparams.dim_grad_solver, hparams.dropout),
+#                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
-def get_4dvarnet_unet(hparams):
-    return NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic),
-                Model_H(hparams.shape_state[0]),
-                NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
-                    hparams.dim_grad_solver, hparams.dropout),
-                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+# def get_4dvarnet_unet(hparams):
+#     return NN_4DVar.Solver_Grad_4DVarNN(
+#                 Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic),
+#                 Model_H(hparams.shape_state[0]),
+#                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+#                     hparams.dim_grad_solver, hparams.dropout),
+#                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
-
+def get_UNet(hparams):
+    return NN_4DVar.UNet_solver(
+    Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic),
+    Model_H(hparams.shape_state[0]),
+    hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
 class LitModelOI(LitModelAugstate):
     MODELS = {
-            '4dvarnet_OI': get_4dvarnet_OI,
-            '4dvarnet_UNet': get_4dvarnet_unet,
-            
+
+            'UNet': get_UNet
              }
 
     def __init__(self, *args, **kwargs):
@@ -55,13 +59,11 @@ class LitModelOI(LitModelAugstate):
         opt = torch.optim.Adam
         if hasattr(self.hparams, 'opt'):
             opt = lambda p: hydra.utils.call(self.hparams.opt, p)
-        if self.model_name in ['4dvarnet_OI', '4dvarnet_UNet']:
-            optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
-                {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
-                {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
-                {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+        
+        if self.model_name == 'UNet':
+            optimizer = opt([{'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]}
                 ])
-  
 
         return optimizer
 

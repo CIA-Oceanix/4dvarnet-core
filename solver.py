@@ -420,3 +420,64 @@ class Solver_Grad_4DVarNN(nn.Module):
 
         var_cost_grad = torch.autograd.grad(loss, x, create_graph=True)[0]
         return loss, var_cost_grad
+
+#This is a solver for direct UNet interpolation
+class UNet_solver(nn.Module):
+    NORMS = {
+            'l1': Model_WeightedL1Norm,
+            'l2': Model_WeightedL2Norm,
+    }
+    def __init__(self ,phi_r, mod_H, m_NormObs, m_NormPhi, shape_data,n_iter_grad, stochastic=False):
+        super(UNet_solver, self).__init__()
+        self.phi_r         = phi_r
+
+        if m_NormObs == None:
+            m_NormObs =  Model_WeightedL2Norm()
+        else:
+            m_NormObs = self.NORMS[m_NormObs]()
+        if m_NormPhi == None:
+            m_NormPhi = Model_WeightedL2Norm()
+        else:
+            m_NormPhi = self.NORMS[m_NormPhi]()
+        self.shape_data = shape_data
+        self.model_H = mod_H
+   
+        self.model_VarCost = Model_Var_Cost(m_NormObs, m_NormPhi, shape_data, mod_H.dim_obs, mod_H.dim_obs_channel)
+
+        self.stochastic = stochastic
+
+        with torch.no_grad():
+            self.n_grad = int(n_iter_grad)
+
+    def forward(self, x, yobs, mask, *internal_state):
+        return self.solve(x, yobs, mask, *internal_state)
+
+    def solve(self, x_0, obs, mask, hidden=None, cell=None, normgrad_=0.):
+        x_k = torch.mul(x_0,1.)
+        x_k_plus_1 = None
+        for _ in range(self.n_grad):
+            x_k_plus_1,  cell, normgrad_ = self.solver_step(x_k, obs, mask, cell, normgrad_)
+
+            x_k = torch.mul(x_k_plus_1,1.)
+
+        return x_k_plus_1, hidden, cell, normgrad_
+
+    def solver_step(self, x_k, obs, mask, cell, normgrad = 0.):
+        _, var_cost_grad= self.var_cost(x_k, obs, mask)
+        if normgrad == 0. :
+            normgrad_= torch.sqrt( torch.mean( var_cost_grad**2 + 0.))
+        else:
+            normgrad_= normgrad
+   
+        grad = var_cost_grad / self.n_grad
+        x_k_plus_1 = x_k - grad
+        return x_k_plus_1, cell, normgrad_
+
+    def var_cost(self , x, yobs, mask):
+        dy = self.model_H(x,yobs,mask)
+        dx = x - self.phi_r(x)
+
+        loss = self.model_VarCost( dx , dy )
+
+        var_cost_grad = torch.autograd.grad(loss, x, create_graph=True)[0]
+        return loss, var_cost_grad
