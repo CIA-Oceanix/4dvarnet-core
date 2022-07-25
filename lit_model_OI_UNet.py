@@ -46,10 +46,17 @@ def get_UNet(hparams):
     Model_H(hparams.shape_state[0]),
     hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
+def get_UNet_fixed_point(hparams):
+    return NN_4DVar.FP_Solver(
+    Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic),
+    Model_H(hparams.shape_state[0]),
+    hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+
 class LitModelOI(LitModelAugstate):
     MODELS = {
 
-            'UNet': get_UNet
+            'UNet': get_UNet,
+            'FP_solver': get_UNet_fixed_point
              }
 
     def __init__(self, *args, **kwargs):
@@ -59,11 +66,14 @@ class LitModelOI(LitModelAugstate):
         opt = torch.optim.Adam
         if hasattr(self.hparams, 'opt'):
             opt = lambda p: hydra.utils.call(self.hparams.opt, p)
-        
-        if self.model_name == 'UNet':
-            optimizer = opt([{'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+        #Question: Does phi_r need to be multiplied by 0.5 here?
+        if self.model_name in ['UNet']:
+            optimizer = opt([{'params': self.model.phi_r.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]}
                 ])
+        elif self.model_name in ['FP_solver']:
+            optimizer = opt([{'params': self.model.phi_r.parameters(), 'lr': self.hparams.lr_update[0]},
+                               ])
 
         return optimizer
 
