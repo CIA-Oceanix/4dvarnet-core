@@ -308,13 +308,13 @@ class Down(torch.nn.Module):
 class Up(torch.nn.Module):
     """Upscaling then double conv"""
 
-    def __init__(self, in_channels, out_channels, bilinear=True):
+    def __init__(self, in_channels, out_channels, bilinear=False):
         super().__init__()
 
         # if bilinear, use the normal convolutions to reduce the number of channels
         if bilinear:
             self.up = torch.nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-            self.conv = torch.nn.DoubleConv(in_channels, out_channels, in_channels // 2)
+            self.conv = DoubleConv(in_channels, out_channels, in_channels // 2)
         else:
             self.up = torch.nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
             self.conv = DoubleConv(in_channels, out_channels)
@@ -343,49 +343,69 @@ class OutConv(torch.nn.Module):
     
 class UNet(torch.nn.Module):
     '''classic UNet model for comparison. Taken from 
-    https://github.com/CIA-Oceanix/4dvarnet-forecast/blob/35f55997b40324b2b89eacbd73889962f9a9bd0f/unet.py#L229'''
-    def __init__(self, n_channels, n_classes, dropout_rate, bilinear=False):
+    https://github.com/CIA-Oceanix/4dvarnet-forecast/blob/35f55997b40324b2b89eacbd73889962f9a9bd0f/unet.py#L229
+    shrink factor reduces the number of conv layers, must be power of 2'''
+    def __init__(self, n_channels, n_classes, dropout_rate, bilinear=False, shrink_factor = 2):
         super(UNet, self).__init__()
         self.n_channels = n_channels
         self.n_classes = n_classes
         self.bilinear = bilinear
         self.dropout = torch.nn.Dropout(dropout_rate)
-        self.inc = DoubleConv(n_channels, 64)
-        self.down1 = Down(64, 128)
-        self.down2 = Down(128, 256)
-        self.down3 = Down(256, 512)
+        self.inc = DoubleConv(n_channels, 64//shrink_factor)
+        self.down1 = Down(64//shrink_factor, 128//shrink_factor)
+        self.down2 = Down(128//shrink_factor, 256//shrink_factor)
+        self.down3 = Down(256//shrink_factor, 512//shrink_factor)
         factor = 2 if bilinear else 1
         
         #self.down4 = Down(512, 1024 // factor)
         #self.up1 = Up(1024, 512 // factor, bilinear)
-        self.up2 = Up(512, 256 // factor, bilinear)
-        self.up3 = Up(256, 128 // factor, bilinear)
-        self.up4 = Up(128, 64, bilinear)
-        self.outc = OutConv(64, n_classes)
+        self.up2 = Up(512//shrink_factor, 256//(shrink_factor * factor), bilinear)
+        self.up3 = Up(256//shrink_factor, 128//(shrink_factor * factor), bilinear)
+        self.up4 = Up(128//shrink_factor, 64//shrink_factor, bilinear)
+        self.outc = OutConv(64//shrink_factor, n_classes)
 
     def forward(self, x):
         x1 = self.inc(x)
-        x2 = self.down1(x1)
+        x2 = self.dropout(self.down1(x1))
         x3 = self.dropout(self.down2(x2))
-        x4 = self.down3(x3)
+        #x4 = self.down3(x3)
         #x5 = self.down4(x4)
         #x = self.up1(x5, x4)
         #x5 = self.down4(x4)
         #x = self.up1(x5, x4)
 
-        x = self.up2(x4, x3)
-        x = self.dropout(self.up3(x, x2))
-        x = self.up4(x, x1)
+        #x = self.up2(x4, x3)
+        x = self.dropout(self.up3(x3, x2))
+        x = self.dropout(self.up4(x, x1))
         out = self.outc(x)
         
         return out
 
 class Phi_r_UNet(torch.nn.Module):
     '''This is a UNet phi_r replacement'''
-    def __init__(self, shape_data, dropout_rate =0., stochastic=False):
+    def __init__(self, shape_data, dropout_rate =0., stochastic=False, shrink_factor=2):
         super().__init__()
         self.stochastic = stochastic
-        self.unet = UNet(shape_data, shape_data, dropout_rate)
+        self.unet = UNet(shape_data, shape_data, dropout_rate, False, shrink_factor)
+        self.correlate_noise = CorrelateNoise(shape_data, 10)
+        self.regularize_variance = RegularizeVariance(shape_data, 10)
+
+    def forward(self, x):
+        white = True
+        if self.stochastic == True:
+            # pure white noise
+            z = torch.randn([x.shape[0],x.shape[1],x.shape[2],x.shape[3]]).to(device)
+            z = z/torch.std(x)
+            return self.unet(x+z)
+        else:
+            return self.unet(x)
+
+#Unet with DimAE sized conv layers
+class Phi_r_UNet_DimAE(torch.nn.Module):
+    def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic=False):
+        super().__init__()
+        self.stochastic = stochastic
+        self.unet = UNet_DimAE(shape_data, DimAE, dw)
         self.correlate_noise = CorrelateNoise(shape_data, 10)
         self.regularize_variance = RegularizeVariance(shape_data, 10)
 
@@ -400,3 +420,43 @@ class Phi_r_UNet(torch.nn.Module):
             return self.unet(x)
 
 
+## UNet
+class UNet_DimAE(torch.nn.Module):
+      def __init__(self,shapeData, DimAE, dW):
+          super(UNet_DimAE, self).__init__()
+          
+          self.pool1  = torch.nn.AvgPool2d((4,4))
+          self.conv1  = torch.nn.Conv2d(shapeData,2*shapeData,(2*dW+1,2*dW+1),padding=(dW,dW),bias=False)
+          self.conv2  = torch.nn.Conv2d(2*shapeData,DimAE,1,padding=0,bias=False)
+
+          self.conv21 = torch.nn.Conv2d(DimAE,DimAE,1,padding=0,bias=False)
+          self.conv22 = torch.nn.Conv2d(DimAE,DimAE,1,padding=0,bias=False)
+          self.conv23 = torch.nn.Conv2d(DimAE,DimAE,1,padding=0,bias=False)
+          self.conv3  = torch.nn.Conv2d(2*DimAE,DimAE,1,padding=0,bias=False)
+
+          self.conv2Tr = torch.nn.ConvTranspose2d(DimAE,shapeData,(4,4),stride=(4,4),bias=False)
+
+          self.convHR1  = torch.nn.Conv2d(shapeData,2*shapeData,(2*dW+1,2*dW+1),padding=(dW,dW),bias=False)
+          self.convHR2  = torch.nn.Conv2d(2*shapeData,DimAE,1,padding=0,bias=False)
+
+          self.convHR21 = torch.nn.Conv2d(DimAE,DimAE,1,padding=0,bias=False)
+          self.convHR22 = torch.nn.Conv2d(DimAE,DimAE,1,padding=0,bias=False)
+          self.convHR23 = torch.nn.Conv2d(DimAE,DimAE,1,padding=0,bias=False)
+          self.convHR3  = torch.nn.Conv2d(2*DimAE,shapeData,1,padding=0,bias=False)
+
+
+      def forward(self, xinp):
+          x = self.pool1( xinp )
+          x = self.conv1( x )
+          x = self.conv2( F.relu(x) )
+          x = torch.cat((self.conv21(x), self.conv22(x) * self.conv23(x)),dim=1)
+          x = self.conv3( x )
+          x = self.conv2Tr( x )
+          
+          xHR = self.convHR1( xinp )
+          xHR = self.convHR2( F.relu(xHR) )
+          xHR = torch.cat((self.convHR21(xHR), self.convHR22(xHR) * self.convHR23(xHR)),dim=1)
+          xHR = self.convHR3( xHR )
+
+          x   = torch.add(x,1.,xHR)
+          return x

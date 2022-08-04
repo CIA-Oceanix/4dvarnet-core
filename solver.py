@@ -456,21 +456,15 @@ class UNet_solver(nn.Module):
         x_k = torch.mul(x_0,1.)
         x_k_plus_1 = None
         for _ in range(self.n_grad):
-            x_k_plus_1,  cell, normgrad_ = self.solver_step(x_k, obs, mask, cell, normgrad_)
+            x_k_plus_1,  cell, normgrad_ = self.solver_step(x_k, obs, mask, cell, normgrad_, )
 
             x_k = torch.mul(x_k_plus_1,1.)
 
         return x_k_plus_1, hidden, cell, normgrad_
 
-    def solver_step(self, x_k, obs, mask, cell, normgrad = 0.):
-        _, var_cost_grad= self.var_cost(x_k, obs, mask)
-        if normgrad == 0. :
-            normgrad_= torch.sqrt( torch.mean( var_cost_grad**2 + 0.))
-        else:
-            normgrad_= normgrad
-   
-        grad = var_cost_grad / self.n_grad
-        x_k_plus_1 = x_k - grad
+    def solver_step(self, x_k, obs, mask, cell, normgrad_ = 0., grad_lambda = 0.05):
+        _, grad= self.var_cost(x_k, obs, mask)
+        x_k_plus_1 = x_k - grad_lambda * grad
         return x_k_plus_1, cell, normgrad_
 
     def var_cost(self , x, yobs, mask):
@@ -490,20 +484,8 @@ class FP_Solver(nn.Module):
     }
     def __init__(self ,phi_r, mod_H, m_NormObs, m_NormPhi, shape_data,n_iter_grad, stochastic=False):
         super(FP_Solver, self).__init__()
-        self.phi_r         = phi_r
-        #Not sure if these need to be used or not
-        # if m_NormObs == None:
-        #     m_NormObs =  Model_WeightedL2Norm()
-        # else:
-        #     m_NormObs = self.NORMS[m_NormObs]()
-        # if m_NormPhi == None:
-        #     m_NormPhi = Model_WeightedL2Norm()
-        # else:
-        #     m_NormPhi = self.NORMS[m_NormPhi]()
-        # self.shape_data = shape_data
-        #Not sure if this needs to be used to divide xk+1  later
-        # with torch.no_grad():
-        #     self.n_grad = int(n_iter_grad)
+        self.phi_r = phi_r
+
 
     def forward(self, x, yobs, mask, *internal_state):
         return self.solve(x, yobs, mask, *internal_state)
@@ -513,10 +495,8 @@ class FP_Solver(nn.Module):
         #I do not know if removing them will break anything, but they are not used
         x_k = torch.mul(x_0,1.)
         x_k_plus_1 = None
-        for _ in range(self.n_grad):
-            x_k_plus_1 = self.solver_step(x_k, obs, mask, cell, normgrad_)
-
-            x_k = torch.mul(x_k_plus_1,1.)
+        x_k_plus_1 = self.solver_step(x_k, obs, mask, cell, normgrad_)
+        x_k = torch.mul(x_k_plus_1,1.)
 
         return x_k_plus_1, hidden, cell, normgrad_
 
@@ -528,8 +508,9 @@ class FP_Solver(nn.Module):
         #Get the interpolation for the empty area
         unmeasured_mask = torch.mul(torch.logical_not(mask),1.)
         x_proj = self.phi_r(x_k) * unmeasured_mask
-        y_obs.requires_grad_().cuda()
-        x_proj.requires_grad_().cuda()
+        #print(x_proj)
+        #y_obs.requires_grad_().cuda()
+        #x_proj.requires_grad_().cuda()
         x_k_plus_1 = x_proj + y_obs
     
         return x_k_plus_1

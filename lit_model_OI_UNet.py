@@ -68,11 +68,11 @@ class LitModelOI(LitModelAugstate):
             opt = lambda p: hydra.utils.call(self.hparams.opt, p)
         #Question: Does phi_r need to be multiplied by 0.5 here?
         if self.model_name in ['UNet']:
-            optimizer = opt([{'params': self.model.phi_r.parameters(), 'lr': self.hparams.lr_update[0]},
+            optimizer = opt([{'params': self.model.phi_r.parameters(), 'lr': 0.5 *self.hparams.lr_update[0]},
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]}
                 ])
         elif self.model_name in ['FP_solver']:
-            optimizer = opt([{'params': self.model.phi_r.parameters(), 'lr': self.hparams.lr_update[0]},
+            optimizer = opt([{'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                                ])
 
         return optimizer
