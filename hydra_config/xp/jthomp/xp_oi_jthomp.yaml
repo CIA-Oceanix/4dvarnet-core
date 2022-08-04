@@ -17,7 +17,7 @@ params:
   dropout_phi_r: 0.5
   norm_obs: l2
   norm_prior: l2
-  #automatic_optimization: false
+  automatic_optimization: false
   shape_state:
     - ${datamodule.slice_win.time}
     - ${datamodule.slice_win.lon}

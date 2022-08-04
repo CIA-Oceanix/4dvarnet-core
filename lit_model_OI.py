@@ -106,11 +106,11 @@ class LitModelOI(LitModelAugstate):
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                 ])
-        elif self.model_name in ['UNet']:
+        elif self.model_name in ['FP_solver', 'phi_r_FP']:
             optimizer = opt([{'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                 {'params': self.model.model_H.parameters(), 'lr':  self.hparams.lr_update[0]}
                 ])
-        elif self.model_name in ['FP_solver', 'phi_r_FP']:
+        elif self.model_name in [ 'UNet_direct']:
             optimizer = opt([{'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                                ])
   
