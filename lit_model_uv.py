@@ -67,14 +67,9 @@ def compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.5,alpha_uv_geo = 1.,flag_me
 
     u_geo = -1. * dssh_dy
     v_geo = 1. * dssh_dx
-   
-    print('.... ugeo = %.2e -- vgeo = %.2e'%(np.nanmean(u_geo**2),np.nanmean(v_geo**2)))
 
     u_geo = alpha_uv_geo * u_geo
     v_geo = alpha_uv_geo * v_geo
-
-    print('.... ugeo = %.2e -- vgeo = %.2e'%(np.nanmean(u_geo**2),np.nanmean(v_geo**2)))
-
 
     return u_geo,v_geo
 
@@ -90,41 +85,23 @@ def compute_dx_dy_dlat_dlon(lat,lon,dlat,dlon):
     
     return dx_from_dlon , dy_from_dlat
 
-def compute_gradx( u, alpha_dx = 1., sigma = 0. ):
+def compute_gradx( u, alpha_dx = 1., sigma = 0. , _filter='diff-non-centered'):
     if sigma > 0. :
         u = gaussian_filter(u, sigma=sigma)
-    
-    #return alpha_dx * ndimage.sobel(u,axis=2)
-    #return alpha_dx * np.gradient(u,axis=2)
-    return alpha_dx * ndimage.convolve1d(u,weights=[0.3,0.4,-0.7],axis=2)
+    if _filter == 'sobel' :
+        return alpha_dx * ndimage.sobel(u,axis=2)
+    elif _filter == 'diff-non-centered' :
+        return alpha_dx * ndimage.convolve1d(u,weights=[0.3,0.4,-0.7],axis=2)
 
-def compute_grady( u, alpha_dy= 1., sigma = 0. ):
+def compute_grady( u, alpha_dy= 1., sigma = 0., _filter='diff-non-centered' ):
     
     if sigma > 0. :
         u = gaussian_filter(u, sigma=sigma)
         
-    #return alpha_dy * ndimage.sobel(u,axis=1)
-    #return alpha_dy * np.gradient(u,axis=1)
-    return alpha_dy * ndimage.convolve1d(u,weights=[0.3,0.4,-0.7],axis=1)
-
-
-#def compute_gradx( u, alpha_dx = 1., sigma = 0. , _filter='diff-non-centered'):
-#    if sigma > 0. :
-#        u = gaussian_filter(u, sigma=sigma)
-#    if _filter == 'sobel' :
-#        return alpha_dx * ndimage.sobel(u,axis=2)
-#    elif _filter == 'diff-non-centered' :
-#        return alpha_dx * ndimage.convolve1d(u,weights=[0.3,0.4,-0.7],axis=2)
-
-#def compute_grady( u, alpha_dy= 1., sigma = 0., _filter='diff-non-centered' ):
-#    
-#    if sigma > 0. :
-#        u = gaussian_filter(u, sigma=sigma)
-#        
-#    if _filter == 'sobel' :
-#         return alpha_dy * ndimage.sobel(u,axis=1)
-#    elif _filter == 'diff-non-centered' :
-#        return alpha_dy * ndimage.convolve1d(u,weights=[0.3,0.4,-0.7],axis=1)
+    if _filter == 'sobel' :
+         return alpha_dy * ndimage.sobel(u,axis=1)
+    elif _filter == 'diff-non-centered' :
+        return alpha_dy * ndimage.convolve1d(u,weights=[0.3,0.4,-0.7],axis=1)
    
 def compute_div(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
     du_dx = compute_gradx( u , alpha_dx = alpha_dx , sigma = sigma )
