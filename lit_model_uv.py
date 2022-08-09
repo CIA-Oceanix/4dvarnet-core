@@ -49,6 +49,8 @@ def compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.5,alpha_uv_geo = 1.,flag_me
     f_c = compute_coriolis_force(grid_lat,flag_mean_coriolis=flag_mean_coriolis)
     dx_from_dlon , dy_from_dlat = compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon)     
 
+    print('.... coriolis %.2f'%np.nanmean(f_c))
+
     # (u,v) MSE
     ssh = gaussian_filter(ssh, sigma=sigma)
     dssh_dx = compute_gradx( ssh )
