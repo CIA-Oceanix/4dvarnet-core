@@ -790,12 +790,12 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 self.set_norm_stats(self.val_ds, self.norm_stats, self.norm_stats_sst, self.norm_stats_uv)
                 self.set_norm_stats(self.test_ds, self.norm_stats, self.norm_stats_sst, self.norm_stats_uv)
 
-            self.alpha_dx,self.alpha_dy,self.alpha_uv_geo = self.compute_scaling_uv_geo(self.train_ds)
+            #self.alpha_dx,self.alpha_dy,self.alpha_uv_geo = self.compute_scaling_uv_geo(self.train_ds)
         
         self.bounding_box = self.get_domain_bounds(self.train_ds)
         self.ds_size = self.get_domain_split()
-    def get_scaling_ssh_uv(self):
-        return self.alpha_dx,self.alpha_dy,self.alpha_uv_geo
+    #def get_scaling_ssh_uv(self):
+    #    return self.alpha_dx,self.alpha_dy,self.alpha_uv_geo
     
     def train_dataloader(self):
         return DataLoader(self.train_ds, **{**dict(shuffle=True), **self.dl_kwargs})
