@@ -1206,6 +1206,66 @@ class LitModelUV(pl.LightningModule):
         var_mse_div = 100. * (1. - nmse_div )
         var_mse_curl = 100. * (1. - nmse_curl )
         var_mse_strain = 100. * (1. - nmse_strain )
+
+
+        def compute_div_curl_strain_with_lat_lon(u,v,lat,lon,sigma=1.0):
+            dlat = lat[1] - lat[0]
+            dlon = lon[1] - lon[0]
+        
+            # coriolis / lat/lon scaling
+            grid_lat = lat.reshape( (1,u.shape[1],1))
+            grid_lat = np.tile( grid_lat , (v.shape[0],1,v.shape[2]) )
+            grid_lon = lon.reshape( (1,1,v.shape[2]))
+            grid_lon = np.tile( grid_lon , (v.shape[0],v.shape[1],1) )
+            
+            dx_from_dlon , dy_from_dlat = compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon)     
+        
+            du_dx = compute_gradx( u , sigma = sigma )
+            dv_dy = compute_grady( v , sigma = sigma )
+        
+            du_dy = compute_grady( u , sigma = sigma )
+            dv_dx = compute_gradx( v , sigma = sigma )
+        
+            du_dx = du_dx / dx_from_dlon 
+            dv_dx = dv_dx / dx_from_dlon 
+        
+        
+            du_dy = du_dy / dy_from_dlat  
+            dv_dy = dv_dy / dy_from_dlat  
+        
+            strain = np.sqrt( ( dv_dx + du_dy ) **2 +  (du_dx - dv_dy) **2 )
+            div = du_dx + dv_dy
+            curl =  du_dy - dv_dx
+        
+            return div,curl,strain
+
+        alpha_uv_geo = 9.81 
+        lat_rad = np.radians(self.test_lat)
+        lon_rad = np.radians(self.test_lon)
+        sig_div_curl = sig_div
+
+        div_gt,curl_gt,strain_gt = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,lat_rad,lon_rad,sigma=sig_div_curl)
+        div_uv_rec,curl_uv_rec,strain_uv_rec = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,lat_rad,lon_rad,sigma=sig_div_curl)
+
+        if sig_div_curl > 0. :
+            f_ssh_gt = gaussian_filter(self.test_xr_ds.gt, sigma=sig_div_curl)
+            f_ssh_oi = gaussian_filter(self.test_xr_ds.oi, sigma=4.*sig_div_curl)
+            f_ssh_rec = gaussian_filter(self.test_xr_ds.red, sigma=sig_div_curl)
+
+        f_u_geo_gt,f_v_geo_gt = compute_uv_geo_with_coriolis(f_ssh_gt,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
+        f_u_geo_oi,f_v_geo_oi = compute_uv_geo_with_coriolis(f_ssh_oi,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
+        f_u_geo_rec,f_v_geo_rec = compute_uv_geo_with_coriolis(f_ssh_rec,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
+
+        div_geo_gt,curl_geo_gt,strain_geo_gt = compute_div_curl_strain_with_lat_lon(f_u_geo_gt,f_v_geo_gt,lat_rad,lon_rad,sigma=0.)
+        div_geo_oi,curl_geo_oi,strain_geo_oi = compute_div_curl_strain_with_lat_lon(f_u_geo_oi,f_v_geo_oi,lat_rad,lon_rad,sigma=0.)
+        div_geo_rec,curl_geo_rec,strain_geo_rec = compute_div_curl_strain_with_lat_lon(f_u_geo_rec,f_v_geo_rec,lat_rad,lon_rad,sigma=0.)
+
+        mse_div = np.nanmean( (div_gt - div_uv_rec)**2 )
+        var_mse_div = 100. * ( 1. - mse_div / np.nanmean( (div_gt )**2 ) )
+
+        mse_curl = np.nanmean( (curl_gt - curl_uv_rec)**2 )
+        var_mse_curl = 100. * ( 1. - mse_curl / np.nanmean( (curl_gt )**2 ) )
+
         
         md = {
             f'{log_pref}_spatial_res': float(spatial_res_model),
