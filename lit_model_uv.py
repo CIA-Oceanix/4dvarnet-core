@@ -1117,7 +1117,8 @@ class LitModelUV(pl.LightningModule):
                         
         def compute_mse_uv_geo_with_coriolis(u_gt,v_gt,ssh,lat,lon,sigma=0.5,alpha_uv_geo = 9.81):
             
-            ssh = gaussian_filter(ssh, sigma=sigma)        
+            if sigma > 0. :
+                ssh = gaussian_filter(ssh, sigma=sigma)        
             u_geo,v_geo = compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.,alpha_uv_geo = alpha_uv_geo)
             
             mse_uv_geo = np.nanmean( (u_geo - u_gt)**2 + (v_geo - v_gt)**2 )
@@ -1155,7 +1156,7 @@ class LitModelUV(pl.LightningModule):
         lon_rad = np.radians(self.test_lon)
         
         mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                    self.test_xr_ds.gt,sigma=0.,#sig_div,
+                                                    self.test_xr_ds.gt,sigma=sig_div,
                                                     lat= lat_rad, lon= lon_rad,
                                                     alpha_uv_geo = alpha_uv_geo )
          
