@@ -84,23 +84,41 @@ def compute_dx_dy_dlat_dlon(lat,lon,dlat,dlon):
     
     return dx_from_dlat , dy_from_dlon
 
-def compute_gradx( u, alpha_dx = 1., sigma = 0. , _filter='diff-non-centered'):
+def compute_gradx( u, alpha_dx = 1., sigma = 0. ):
     if sigma > 0. :
         u = gaussian_filter(u, sigma=sigma)
-    if _filter == 'sobel' :
-        return alpha_dx * ndimage.sobel(u,axis=2)
-    elif _filter == 'diff-non-centered' :
-        return alpha_dx * ndimage.convolve1d(u,weights=[0.3,0.4,-0.7],axis=2)
+    
+    #return alpha_dx * ndimage.sobel(u,axis=2)
+    #return alpha_dx * np.gradient(u,axis=2)
+    return alpha_dx * ndimage.convolve1d(u,weights=[0.3,0.4,-0.7],axis=2)
 
-def compute_grady( u, alpha_dy= 1., sigma = 0., _filter='diff-non-centered' ):
+def compute_grady( u, alpha_dy= 1., sigma = 0. ):
     
     if sigma > 0. :
         u = gaussian_filter(u, sigma=sigma)
         
-    if _filter == 'sobel' :
-         return alpha_dy * ndimage.sobel(u,axis=1)
-    elif _filter == 'diff-non-centered' :
-        return alpha_dy * ndimage.convolve1d(u,weights=[0.3,0.4,-0.7],axis=1)
+    #return alpha_dy * ndimage.sobel(u,axis=1)
+    #return alpha_dy * np.gradient(u,axis=1)
+    return alpha_dy * ndimage.convolve1d(u,weights=[0.3,0.4,-0.7],axis=1)
+
+
+#def compute_gradx( u, alpha_dx = 1., sigma = 0. , _filter='diff-non-centered'):
+#    if sigma > 0. :
+#        u = gaussian_filter(u, sigma=sigma)
+#    if _filter == 'sobel' :
+#        return alpha_dx * ndimage.sobel(u,axis=2)
+#    elif _filter == 'diff-non-centered' :
+#        return alpha_dx * ndimage.convolve1d(u,weights=[0.3,0.4,-0.7],axis=2)
+
+#def compute_grady( u, alpha_dy= 1., sigma = 0., _filter='diff-non-centered' ):
+#    
+#    if sigma > 0. :
+#        u = gaussian_filter(u, sigma=sigma)
+#        
+#    if _filter == 'sobel' :
+#         return alpha_dy * ndimage.sobel(u,axis=1)
+#    elif _filter == 'diff-non-centered' :
+#        return alpha_dy * ndimage.convolve1d(u,weights=[0.3,0.4,-0.7],axis=1)
    
 def compute_div(u,v,sigma=1.0,alpha_dx=1.,alpha_dy=1.):
     du_dx = compute_gradx( u , alpha_dx = alpha_dx , sigma = sigma )
@@ -1119,7 +1137,7 @@ class LitModelUV(pl.LightningModule):
             
             if sigma > 0. :
                 ssh = gaussian_filter(ssh, sigma=sigma)        
-            u_geo,v_geo = compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.,alpha_uv_geo = alpha_uv_geo,flag_mean_coriolis=True)
+            u_geo,v_geo = compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.,alpha_uv_geo = alpha_uv_geo)
             
             mse_uv_geo = np.nanmean( (u_geo - u_gt)**2 + (v_geo - v_gt)**2 )
             nmse_uv_geo = mse_uv_geo / np.nanmean( (u_gt)**2 + (v_gt)**2 )
