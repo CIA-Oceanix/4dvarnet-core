@@ -83,7 +83,7 @@ class FourDVarNetHydraRunner:
         self.padded_coords = datamodule.get_padded_coords()
 
         self.var_tr_uv = datamodule.norm_stats_uv[1]**2
-        self.scaling_ssh_uv = datamodule.get_scaling_ssh_uv()
+        #self.scaling_ssh_uv = datamodule.get_scaling_ssh_uv()
 
     def run(self, ckpt_path=None, dataloader="test", **trainer_kwargs):
         """
