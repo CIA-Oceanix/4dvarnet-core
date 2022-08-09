@@ -874,7 +874,7 @@ class LitModelUV(pl.LightningModule):
 
         # set the weight to a binadry (time window center  + spatial bounding box)
         if True :#False: #
-            print(".... Set weight matrix to binary mask for final outputs")
+            print("\n.... Set weight matrix to binary mask for final outputs")
             w = np.zeros_like( self.patch_weight.detach().cpu().numpy() )
             w[int(self.hparams.dT/2),:,:] = 1.
             w = w * self.patch_weight.detach().cpu().numpy()
@@ -1119,7 +1119,7 @@ class LitModelUV(pl.LightningModule):
             
             if sigma > 0. :
                 ssh = gaussian_filter(ssh, sigma=sigma)        
-            u_geo,v_geo = compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.,alpha_uv_geo = alpha_uv_geo)
+            u_geo,v_geo = compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.,alpha_uv_geo = alpha_uv_geo,flag_mean_coriolis=True)
             
             mse_uv_geo = np.nanmean( (u_geo - u_gt)**2 + (v_geo - v_gt)**2 )
             nmse_uv_geo = mse_uv_geo / np.nanmean( (u_gt)**2 + (v_gt)**2 )
