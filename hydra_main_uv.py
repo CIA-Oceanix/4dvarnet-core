@@ -103,7 +103,6 @@ class FourDVarNetHydraRunner:
         :param ckpt_path: (Optional) Checkpoint path to load
         :return: lightning module
         """
-        print('XXXXXXX get_model')
         print('get_model: ', ckpt_path)
         if ckpt_path:
             mod = self.lit_cls.load_from_checkpoint(ckpt_path,
@@ -117,7 +116,7 @@ class FourDVarNetHydraRunner:
                                                     var_Tt=self.var_Tt,
                                                     var_Val=self.var_Val,
                                                     var_tr_uv=self.var_tr_uv,
-                                                    scaling_ssh_uv = self.scaling_ssh_uv,
+                                                    #scaling_ssh_uv = self.scaling_ssh_uv,
                                                     min_lon=self.min_lon, max_lon=self.max_lon,
                                                     min_lat=self.min_lat, max_lat=self.max_lat,
                                                     ds_size_time=self.ds_size_time,
@@ -144,7 +143,7 @@ class FourDVarNetHydraRunner:
                                var_Tt=self.var_Tt,
                                var_Val=self.var_Val,
                                var_tr_uv=self.var_tr_uv,
-                               scaling_ssh_uv = self.scaling_ssh_uv,
+                               #scaling_ssh_uv = self.scaling_ssh_uv,
                                min_lon=self.min_lon, max_lon=self.max_lon,
                                min_lat=self.min_lat, max_lat=self.max_lat,
                                ds_size_time=self.ds_size_time,
