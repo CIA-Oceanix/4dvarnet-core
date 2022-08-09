@@ -1152,6 +1152,7 @@ class LitModelUV(pl.LightningModule):
         print('.....')
         
         alpha_uv_geo = 9.81 
+        print( self.test_lat )
         lat_rad = np.radians(self.test_lat)
         lon_rad = np.radians(self.test_lon)
         
