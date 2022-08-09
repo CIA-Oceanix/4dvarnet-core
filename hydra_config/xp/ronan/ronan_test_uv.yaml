@@ -58,7 +58,7 @@ params:
   save_rec_netcdf: True #False#
   sig_filter_laplacian: 1.
   scale_dwscaling_sst: 1.
-  sig_filter_div_diag: 0.
+  sig_filter_div_diag: 0.5
   path_save_netcdf: '/gpfsscratch/rech/yrf/ulh44ct/temp/save.ckpt'
   ckpt_name: 'modelUVwSSTGF-unet1-{epoch:02d}-{val_loss:.4f}'
 defaults:
