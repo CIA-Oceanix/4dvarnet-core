@@ -1250,7 +1250,7 @@ class LitModelUV(pl.LightningModule):
         if sig_div_curl > 0. :
             f_ssh_gt = gaussian_filter(self.test_xr_ds.gt, sigma=sig_div_curl)
             f_ssh_oi = gaussian_filter(self.test_xr_ds.oi, sigma=4.*sig_div_curl)
-            f_ssh_rec = gaussian_filter(self.test_xr_ds.red, sigma=sig_div_curl)
+            f_ssh_rec = gaussian_filter(self.test_xr_ds.pred, sigma=sig_div_curl)
 
         f_u_geo_gt,f_v_geo_gt = compute_uv_geo_with_coriolis(f_ssh_gt,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
         f_u_geo_oi,f_v_geo_oi = compute_uv_geo_with_coriolis(f_ssh_oi,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
@@ -1266,6 +1266,8 @@ class LitModelUV(pl.LightningModule):
         mse_curl = np.nanmean( (curl_gt - curl_uv_rec)**2 )
         var_mse_curl = 100. * ( 1. - mse_curl / np.nanmean( (curl_gt )**2 ) )
 
+        mse_strain = np.nanmean( (strain_gt - strain_uv_rec)**2 )
+        var_mse_curl = 100. * ( 1. - mse_strain / np.nanmean( (strain_gt )**2 ) )
         
         md = {
             f'{log_pref}_spatial_res': float(spatial_res_model),
