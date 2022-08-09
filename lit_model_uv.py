@@ -1247,6 +1247,17 @@ class LitModelUV(pl.LightningModule):
         div_gt,curl_gt,strain_gt = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,lat_rad,lon_rad,sigma=sig_div_curl)
         div_uv_rec,curl_uv_rec,strain_uv_rec = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,lat_rad,lon_rad,sigma=sig_div_curl)
 
+        def compute_var_exp(x,y):
+            mse = np.nanmean( (x-y)**2 )
+            var = np.nanmean( x**2 )
+            
+            return 100. * ( 1. - mse / var )
+        
+        var_mse_div = compute_var_exp( div_gt, div_uv_rec)
+        var_mse_curl = compute_var_exp( curl_gt, curl_uv_rec)
+        var_mse_strain = compute_var_exp( strain_gt, strain_uv_rec)
+
+
         if sig_div_curl > 0. :
             f_ssh_gt = gaussian_filter(self.test_xr_ds.gt, sigma=sig_div_curl)
             f_ssh_oi = gaussian_filter(self.test_xr_ds.oi, sigma=4.*sig_div_curl)
@@ -1260,6 +1271,16 @@ class LitModelUV(pl.LightningModule):
         div_geo_oi,curl_geo_oi,strain_geo_oi = compute_div_curl_strain_with_lat_lon(f_u_geo_oi,f_v_geo_oi,lat_rad,lon_rad,sigma=0.)
         div_geo_rec,curl_geo_rec,strain_geo_rec = compute_div_curl_strain_with_lat_lon(f_u_geo_rec,f_v_geo_rec,lat_rad,lon_rad,sigma=0.)
 
+
+
+        var_mse_uv_oi = 100. * (1. - nmse_uv_oi )
+
+        mse_div_oi = np.nanmean( (div_gt - div_uv_rec)**2 )
+        var_mse_div_oi = 100. * (1. - nmse_div_oi )
+
+        var_mse_curl_oi = 100. * (1. - nmse_curl_oi )
+        var_mse_strain_oi = 100. * (1. - nmse_strain_oi )
+        
         mse_div = np.nanmean( (div_gt - div_uv_rec)**2 )
         var_mse_div = 100. * ( 1. - mse_div / np.nanmean( (div_gt )**2 ) )
 
@@ -1268,7 +1289,7 @@ class LitModelUV(pl.LightningModule):
 
         mse_strain = np.nanmean( (strain_gt - strain_uv_rec)**2 )
         var_mse_curl = 100. * ( 1. - mse_strain / np.nanmean( (strain_gt )**2 ) )
-        
+
         md = {
             f'{log_pref}_spatial_res': float(spatial_res_model),
             f'{log_pref}_spatial_res_imp': float(spatial_res_model / spatial_res_oi),
