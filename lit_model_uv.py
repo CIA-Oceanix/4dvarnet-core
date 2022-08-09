@@ -1155,7 +1155,7 @@ class LitModelUV(pl.LightningModule):
         lon_rad = np.radians(self.test_lon)
         
         mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                    self.test_xr_ds.gt,sigma=sig_div,
+                                                    self.test_xr_ds.gt,sigma=0.,#sig_div,
                                                     lat= lat_rad, lon= lon_rad,
                                                     alpha_uv_geo = alpha_uv_geo )
          
