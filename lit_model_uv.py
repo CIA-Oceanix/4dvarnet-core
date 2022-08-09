@@ -84,12 +84,11 @@ def compute_dx_dy_dlat_dlon(lat,lon,dlat,dlon):
         a = np.sin(dlat / 2)**2 + np.cos(lat) ** 2 * np.sin(dlon / 2)**2
         return 2 * 6.371e6 * np.arctan2( np.sqrt(a), np.sqrt(1. - a))        
         #return 1. * np.arctan2( np.sqrt(a), np.sqrt(1. - a))        
-
-
-    dx_from_dlat =  compute_c(lat,lon,dlat,0.)
-    dy_from_dlon =  compute_c(lat,lon,0.,dlon)
+        
+    dy_from_dlat =  compute_c(lat,lon,dlat,0.)
+    dx_from_dlon =  compute_c(lat,lon,0.,dlon)
     
-    return dx_from_dlat , dy_from_dlon
+    return dx_from_dlon , dy_from_dlat
 
 def compute_gradx( u, alpha_dx = 1., sigma = 0. ):
     if sigma > 0. :
