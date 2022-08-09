@@ -49,9 +49,6 @@ def compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.5,alpha_uv_geo = 1.,flag_me
     f_c = compute_coriolis_force(grid_lat,flag_mean_coriolis=flag_mean_coriolis)
     dx_from_dlon , dy_from_dlat = compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon)     
 
-    print('.... coriolis %.2e'%np.nanmean(f_c))
-    print('.... mean ssh %.2e'%np.nanmean(ssh))
-
     # (u,v) MSE
     ssh = gaussian_filter(ssh, sigma=sigma)
     dssh_dx = compute_gradx( ssh )
@@ -1091,7 +1088,7 @@ class LitModelUV(pl.LightningModule):
         psd_ds_v, lamb_x_v, lamb_t_v = metrics.psd_based_scores(self.test_xr_ds.pred_v, self.test_xr_ds.v_gt)
 
         def compute_div_curl_strain_metrics_with_lat_lon(u_gt,v_gt,u_rec,v_rec,
-                                                         lat,lon,sig_div=0.5,flag_compute_strain = False):
+                                                         lat,lon,sigma_divcurl=0.5,flag_compute_strain = False):
             
             div_uv_gt = compute_div_with_lat_lon(u_gt,v_gt,lat,lon,sigma=sig_div)
             div_uv_rec = compute_div_with_lat_lon(u_rec,v_rec,lat,lon,sigma=sig_div)
@@ -1116,32 +1113,25 @@ class LitModelUV(pl.LightningModule):
             else:
                 return mse_div,nmse_div,mse_curl,nmse_curl
                         
-        def compute_mse_uv_geo_with_coriolis(u_gt,v_gt,ssh,lat,lon,sigma=0.5,alpha_uv_geo = 9.81):
-            
-            if sigma > 0. :
-                ssh = gaussian_filter(ssh, sigma=sigma)        
+        def compute_mse_uv_geo_with_coriolis(u_gt,v_gt,ssh,lat,lon,sigma_divcurl=0.5,alpha_uv_geo = 9.81):
+            #if sigma > 0. :
+            #    ssh = gaussian_filter(ssh, sigma=sigma)        
             u_geo,v_geo = compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.,alpha_uv_geo = alpha_uv_geo)
             
             mse_uv_geo = np.nanmean( (u_geo - u_gt)**2 + (v_geo - v_gt)**2 )
             nmse_uv_geo = mse_uv_geo / np.nanmean( (u_gt)**2 + (v_gt)**2 )
             
-            print('......... mse ugeo =  %.3f   '%mse_uv_geo )
-            print('......... mse N_uvgt =  %.3f   '%np.nanmean( (u_gt)**2 + (v_gt)**2 ) )
- 
+
             psd_ds_ugeo, lamb_x_ugeo, lamb_t_ugeo = metrics.psd_based_scores(u_geo,self.test_xr_ds.u_gt)
             psd_ds_vgeo, lamb_x_vgeo, lamb_t_vgeo = metrics.psd_based_scores(v_geo,self.test_xr_ds.v_gt)
             
             print('......... lambda ugeo =  %.3f   / %.3f '%(lamb_x_ugeo,lamb_t_ugeo))
             print('......... lambda vgeo =  %.3f   / %.3f '%(lamb_x_vgeo,lamb_t_vgeo))
             
-            if sigma > 0. :
-                u_gt = gaussian_filter(u_gt, sigma=sigma)
-                v_gt = gaussian_filter(v_gt, sigma=sigma)
-            
             mse_stat =  compute_div_curl_strain_metrics_with_lat_lon(u_gt,v_gt,u_geo,v_geo,
-                                                                     lat,lon,sig_div=0., 
+                                                                     lat,lon,sigma_divcurl=sigma_divcurl, 
                                                                      flag_compute_strain=True) 
-            mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo    = mse_stat   
+            mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo = mse_stat   
 
 
             return mse_uv_geo, nmse_uv_geo, mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo
@@ -1160,7 +1150,7 @@ class LitModelUV(pl.LightningModule):
         lon_rad = np.radians(self.test_lon)
         
         mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                    self.test_xr_ds.gt,sigma=sig_div,
+                                                    self.test_xr_ds.gt,sigma_divcurl=sig_div,
                                                     lat= lat_rad, lon= lon_rad,
                                                     alpha_uv_geo = alpha_uv_geo )
          
@@ -1175,7 +1165,7 @@ class LitModelUV(pl.LightningModule):
         print('.....')
 
         mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                    self.test_xr_ds.oi,sigma=sig_div,
+                                                    self.test_xr_ds.oi,sigma_divcurl=sig_div,
                                                     lat= lat_rad, lon= lon_rad,
                                                     alpha_uv_geo = alpha_uv_geo )
         mse_uv_oi,nmse_uv_oi,mse_div_oi, nmse_div_oi, mse_curl_oi, nmse_curl_oi, mse_strain_oi, nmse_strain_oi = mse_stat
@@ -1189,7 +1179,7 @@ class LitModelUV(pl.LightningModule):
         print('.....')
 
         mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                    self.test_xr_ds.pred,sigma=sig_div,
+                                                    self.test_xr_ds.pred,sigma_divcurl=sig_div,
                                                     lat= lat_rad, lon= lon_rad,
                                                     alpha_uv_geo = alpha_uv_geo )
         mse_uv_pred,nmse_uv_pred,mse_div_pred, nmse_div_pred, mse_curl_pred, nmse_curl_pred, mse_strain_pred, nmse_strain_pred = mse_stat
@@ -1201,7 +1191,7 @@ class LitModelUV(pl.LightningModule):
         stat_mse_div_curl_strain =  compute_div_curl_strain_metrics_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                                     self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,
                                                                     lat= lat_rad, lon= lon_rad,
-                                                                    sig_div=sig_div,
+                                                                    sigma_divcurl=sig_div,
                                                                     flag_compute_strain = True)
 
         mse_div, nmse_div, mse_curl, nmse_curl, mse_strain, nmse_strain =  stat_mse_div_curl_strain
