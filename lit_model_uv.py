@@ -1091,10 +1091,10 @@ class LitModelUV(pl.LightningModule):
                                                          lat,lon,sigma_divcurl=0.5,flag_compute_strain = False):
             
             div_uv_gt = compute_div_with_lat_lon(u_gt,v_gt,lat,lon,sigma=sig_div)
-            div_uv_rec = compute_div_with_lat_lon(u_rec,v_rec,lat,lon,sigma=sig_div)
+            div_uv_rec = compute_div_with_lat_lon(u_rec,v_rec,lat,lon,sigma=0.)#sig_div)
                     
             curl_uv_gt = compute_curl_with_lat_lon(u_gt,v_gt,lat,lon,sigma=sig_div)
-            curl_uv_rec = compute_curl_with_lat_lon(u_rec,v_rec,lat,lon,sigma=sig_div)
+            curl_uv_rec = compute_curl_with_lat_lon(u_rec,v_rec,lat,lon,sigma=0.)#sig_div)
             
             mse_div = np.nanmean( (div_uv_gt - div_uv_rec)**2 )
             nmse_div = mse_div / np.nanmean( (div_uv_gt )**2 )
@@ -1104,7 +1104,7 @@ class LitModelUV(pl.LightningModule):
 
             if flag_compute_strain :
                 strain_uv_gt = compute_strain_with_lat_lon(u_gt,v_gt,lat,lon,sigma=sig_div)
-                strain_uv_rec = compute_strain_with_lat_lon(u_rec,v_rec,lat,lon,sigma=sig_div)
+                strain_uv_rec = compute_strain_with_lat_lon(u_rec,v_rec,lat,lon,sigma=0.)#sig_div)
 
                 mse_strain = np.nanmean( (strain_uv_gt - strain_uv_rec)**2 )
                 nmse_strain = mse_curl / np.nanmean( ( strain_uv_gt )**2 )
