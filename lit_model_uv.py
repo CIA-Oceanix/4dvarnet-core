@@ -67,9 +67,13 @@ def compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.5,alpha_uv_geo = 1.,flag_me
     u_geo = -1. * dssh_dy
     v_geo = 1. * dssh_dx
    
+    print('.... ugeo = %.2e -- vgeo = %.2e'%(np.nanmean(u_geo**2),np.nanmean(v_geo**2)))
 
     u_geo = alpha_uv_geo * u_geo
     v_geo = alpha_uv_geo * v_geo
+
+    print('.... ugeo = %.2e -- vgeo = %.2e'%(np.nanmean(u_geo**2),np.nanmean(v_geo**2)))
+
 
     return u_geo,v_geo
 
