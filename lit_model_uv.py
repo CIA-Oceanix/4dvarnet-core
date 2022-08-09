@@ -1091,10 +1091,10 @@ class LitModelUV(pl.LightningModule):
                                                          lat,lon,sigma_divcurl=0.5,flag_compute_strain = False):
             
             div_uv_gt = compute_div_with_lat_lon(u_gt,v_gt,lat,lon,sigma=sig_div)
-            div_uv_rec = compute_div_with_lat_lon(u_rec,v_rec,lat,lon,sigma=0.)#sig_div)
+            div_uv_rec = compute_div_with_lat_lon(u_rec,v_rec,lat,lon,sigma=sig_div)
                     
             curl_uv_gt = compute_curl_with_lat_lon(u_gt,v_gt,lat,lon,sigma=sig_div)
-            curl_uv_rec = compute_curl_with_lat_lon(u_rec,v_rec,lat,lon,sigma=0.)#sig_div)
+            curl_uv_rec = compute_curl_with_lat_lon(u_rec,v_rec,lat,lon,sigma=sig_div)
             
             mse_div = np.nanmean( (div_uv_gt - div_uv_rec)**2 )
             nmse_div = mse_div / np.nanmean( (div_uv_gt )**2 )
@@ -1104,7 +1104,7 @@ class LitModelUV(pl.LightningModule):
 
             if flag_compute_strain :
                 strain_uv_gt = compute_strain_with_lat_lon(u_gt,v_gt,lat,lon,sigma=sig_div)
-                strain_uv_rec = compute_strain_with_lat_lon(u_rec,v_rec,lat,lon,sigma=0.)#sig_div)
+                strain_uv_rec = compute_strain_with_lat_lon(u_rec,v_rec,lat,lon,sigma=sig_div)
 
                 mse_strain = np.nanmean( (strain_uv_gt - strain_uv_rec)**2 )
                 nmse_strain = mse_curl / np.nanmean( ( strain_uv_gt )**2 )
@@ -1113,9 +1113,7 @@ class LitModelUV(pl.LightningModule):
             else:
                 return mse_div,nmse_div,mse_curl,nmse_curl
                         
-        def compute_mse_uv_geo_with_coriolis(u_gt,v_gt,ssh,lat,lon,sigma_divcurl=0.5,alpha_uv_geo = 9.81):
-            #if sigma > 0. :
-            #    ssh = gaussian_filter(ssh, sigma=sigma)        
+        def compute_mse_uv_geo_with_coriolis(u_gt,v_gt,ssh,lat,lon,sigma_ssh=0.,sigma_divcurl=0.0,alpha_uv_geo = 9.81):
             u_geo,v_geo = compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.,alpha_uv_geo = alpha_uv_geo)
             
             mse_uv_geo = np.nanmean( (u_geo - u_gt)**2 + (v_geo - v_gt)**2 )
@@ -1127,8 +1125,16 @@ class LitModelUV(pl.LightningModule):
             print('......... lambda ugeo =  %.3f   / %.3f '%(lamb_x_ugeo,lamb_t_ugeo))
             print('......... lambda vgeo =  %.3f   / %.3f '%(lamb_x_vgeo,lamb_t_vgeo))
             
+            if sigma_ssh > 0. :
+                ssh = gaussian_filter(ssh, sigma=sigma_ssh)  
+                u_geo,v_geo = compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.,alpha_uv_geo = alpha_uv_geo)
+                                
+            if sigma_divcurl > 0 :
+                u_gt = gaussian_filter(u_gt, sigma=sigma_divcurl)
+                v_gt = gaussian_filter(v_gt, sigma=sigma_divcurl)
+            
             mse_stat =  compute_div_curl_strain_metrics_with_lat_lon(u_gt,v_gt,u_geo,v_geo,
-                                                                     lat,lon,sigma_divcurl=sigma_divcurl, 
+                                                                     lat,lon,sigma_divcurl=0., 
                                                                      flag_compute_strain=True) 
             mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo = mse_stat   
 
@@ -1149,7 +1155,9 @@ class LitModelUV(pl.LightningModule):
         lon_rad = np.radians(self.test_lon)
         
         mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                    self.test_xr_ds.gt,sigma_divcurl=sig_div,
+                                                    self.test_xr_ds.gt,
+                                                    sigma_ssh = sig_div,
+                                                    sigma_divcurl = sig_div,
                                                     lat= lat_rad, lon= lon_rad,
                                                     alpha_uv_geo = alpha_uv_geo )
          
