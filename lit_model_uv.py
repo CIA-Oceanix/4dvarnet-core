@@ -1231,7 +1231,9 @@ class LitModelUV(pl.LightningModule):
             du_dy = du_dy / dy_from_dlat  
             dv_dy = dv_dy / dy_from_dlat  
         
-            strain = dv_dy# np.sqrt( ( dv_dx + du_dy ) **2 + (du_dx - dv_dy) **2 )
+            #strain = np.sqrt( ( dv_dx + du_dy ) **2 + (du_dx - dv_dy) **2 )
+            strain = np.sqrt( ( dv_dx + du_dy ) **2 + (du_dx - dv_dy) **2 )
+
             div = du_dx + dv_dy
             curl =  du_dy - dv_dx
         
