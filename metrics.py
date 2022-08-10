@@ -533,8 +533,13 @@ def save_netcdf_uv(saved_path1, gt, u_gt, v_gt, obs, oi, pred, lon, lat, time,
 
     #time = np.arange(gt.shape[0])
     #dt = pred.shape[1]
-    print(time)
+    #print(time)
     
+    if  sst_feat is not None :
+        dim_sst_feat = 0
+    else:
+        dim_sst_feat = np.arange(sst_feat.shape[1])
+        
     xrdata = xr.Dataset( \
         data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
                    'latitude': (('lat', 'lon'), mesh_lat), \
@@ -548,7 +553,7 @@ def save_netcdf_uv(saved_path1, gt, u_gt, v_gt, obs, oi, pred, lon, lat, time,
                    'u_rec': (('time', 'lat', 'lon'), u_pred),
                    'v_rec': (('time', 'lat', 'lon'), v_pred),
                    'sst_feat': (('time', 'feat', 'lat', 'lon'), sst_feat)}, \
-        coords={'lon': lon, 'lat': lat, 'time': time,'feat':np.arange(sst_feat.shape[1])})
+        coords={'lon': lon, 'lat': lat, 'time': time,'feat':dim_sst_feat})
         
     if  sst_feat is not None :
         xrdata['sst_feat'] = (['time', 'feat', 'lat', 'lon'],  sst_feat)        
