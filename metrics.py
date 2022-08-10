@@ -535,7 +535,7 @@ def save_netcdf_uv(saved_path1, gt, u_gt, v_gt, obs, oi, pred, lon, lat, time,
     #dt = pred.shape[1]
     #print(time)
     
-    if  sst_feat is not None :
+    if  sst_feat is None :
         dim_sst_feat = 0
     else:
         dim_sst_feat = np.arange(sst_feat.shape[1])
