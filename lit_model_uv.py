@@ -1289,7 +1289,7 @@ class LitModelUV(pl.LightningModule):
                                         gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh, 
                                         u_gt=self.u_gt, v_gt=self.v_gt, 
                                         u_pred=self.u_rec, v_pred=self.v_rec,
-                                        #sst_feat=self.x_sst_feat_ssh,
+                                        sst_feat=self.x_sst_feat_ssh,
                                         lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
 
                 #save_netcdf_with_obs(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh,
