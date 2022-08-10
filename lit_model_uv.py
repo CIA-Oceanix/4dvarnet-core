@@ -1207,7 +1207,6 @@ class LitModelUV(pl.LightningModule):
         var_mse_curl = 100. * (1. - nmse_curl )
         var_mse_strain = 100. * (1. - nmse_strain )
 
-
         def compute_div_curl_strain_with_lat_lon(u,v,lat,lon,sigma=1.0):
             dlat = lat[1] - lat[0]
             dlon = lon[1] - lon[0]
@@ -1228,16 +1227,21 @@ class LitModelUV(pl.LightningModule):
         
             du_dx = du_dx / dx_from_dlon 
             dv_dx = dv_dx / dx_from_dlon 
-        
-        
+                
             du_dy = du_dy / dy_from_dlat  
             dv_dy = dv_dy / dy_from_dlat  
         
-            strain = np.sqrt( ( dv_dx + du_dy ) **2 +  (du_dx - dv_dy) **2 )
+            strain = np.sqrt( ( dv_dx + du_dy ) **2 ) #+  (du_dx - dv_dy) **2 )
             div = du_dx + dv_dy
             curl =  du_dy - dv_dx
         
             return div,curl,strain
+
+        def compute_var_exp(x,y):
+            mse = np.nanmean( (x-y)**2 )
+            var = np.nanmean( x**2 )
+            
+            return 100. * ( 1. - mse / var )
 
         alpha_uv_geo = 9.81 
         lat_rad = np.radians(self.test_lat)
@@ -1246,12 +1250,6 @@ class LitModelUV(pl.LightningModule):
 
         div_gt,curl_gt,strain_gt = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,lat_rad,lon_rad,sigma=sig_div_curl)
         div_uv_rec,curl_uv_rec,strain_uv_rec = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,lat_rad,lon_rad,sigma=sig_div_curl)
-
-        def compute_var_exp(x,y):
-            mse = np.nanmean( (x-y)**2 )
-            var = np.nanmean( x**2 )
-            
-            return 100. * ( 1. - mse / var )
         
         var_mse_div = compute_var_exp( div_gt, div_uv_rec)
         var_mse_curl = compute_var_exp( curl_gt, curl_uv_rec)
@@ -1269,8 +1267,6 @@ class LitModelUV(pl.LightningModule):
         div_geo_gt,curl_geo_gt,strain_geo_gt = compute_div_curl_strain_with_lat_lon(f_u_geo_gt,f_v_geo_gt,lat_rad,lon_rad,sigma=0.)
         div_geo_oi,curl_geo_oi,strain_geo_oi = compute_div_curl_strain_with_lat_lon(f_u_geo_oi,f_v_geo_oi,lat_rad,lon_rad,sigma=0.)
         div_geo_pred,curl_geo_pred,strain_geo_pred = compute_div_curl_strain_with_lat_lon(f_u_geo_rec,f_v_geo_rec,lat_rad,lon_rad,sigma=0.)
-
-
 
         var_mse_div_ssh_gt = compute_var_exp( div_gt, div_geo_gt )
         var_mse_curl_ssh_gt = compute_var_exp( curl_gt, curl_geo_gt )
