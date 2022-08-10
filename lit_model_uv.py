@@ -1080,13 +1080,28 @@ class LitModelUV(pl.LightningModule):
         var_mse_oi_lap = 100. * (1. - mse_metrics_lap_oi['mse'] / mse_metrics_lap_pred['var_lap'] )
 
         # MSE (U,V) fields
-        mse_uv = np.nanmean((self.test_xr_ds.u_gt - self.test_xr_ds.pred_u) ** 2 + (self.test_xr_ds.v_gt - self.test_xr_ds.pred_v) ** 2 )
-        var_uv = np.nanmean((self.test_xr_ds.u_gt) ** 2 + (self.test_xr_ds.v_gt) ** 2 )
-        var_mse_uv = 100. * ( 1. - mse_uv / var_uv )
+        def compute_metrics_SSC(u_gt,v_gt,u,v):
+            
+            mse_uv = np.nanmean((u_gt - u) ** 2 + (v_gt - v) ** 2 )
+            var_uv = np.nanmean((u_gt) ** 2 + (v_gt) ** 2 )
+            var_mse_uv = 100. * ( 1. - mse_uv / var_uv )
+    
+            psd_ds_u, lamb_x_u, lamb_t_u = metrics.psd_based_scores(u, u_gt)
+            psd_ds_v, lamb_x_v, lamb_t_v = metrics.psd_based_scores(v, v_gt)
+            
+            return var_mse_uv, lamb_x_u, lamb_t_u, lamb_x_v, lamb_t_v
 
-        psd_ds_u, lamb_x_u, lamb_t_u = metrics.psd_based_scores(self.test_xr_ds.pred_u, self.test_xr_ds.u_gt)
-        psd_ds_v, lamb_x_v, lamb_t_v = metrics.psd_based_scores(self.test_xr_ds.pred_v, self.test_xr_ds.v_gt)
+        if 1*0 :        
+            mse_uv = np.nanmean((self.test_xr_ds.u_gt - self.test_xr_ds.pred_u) ** 2 + (self.test_xr_ds.v_gt - self.test_xr_ds.pred_v) ** 2 )
+            var_uv = np.nanmean((self.test_xr_ds.u_gt) ** 2 + (self.test_xr_ds.v_gt) ** 2 )
+            var_mse_uv = 100. * ( 1. - mse_uv / var_uv )
 
+            psd_ds_u, lamb_x_u, lamb_t_u = metrics.psd_based_scores(self.test_xr_ds.pred_u, self.test_xr_ds.u_gt)
+            psd_ds_v, lamb_x_v, lamb_t_v = metrics.psd_based_scores(self.test_xr_ds.pred_v, self.test_xr_ds.v_gt)
+
+        var_mse_uv, lamb_x_u, lamb_t_u, lamb_x_v, lamb_t_v = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , self.test_xr_ds.pred_u, self.test_xr_ds.pred_v  )
+
+        # Metrics for SSH-derived SSC
         def compute_div_curl_strain_metrics_with_lat_lon(u_gt,v_gt,u_rec,v_rec,
                                                          lat,lon,sigma_divcurl=0.5,flag_compute_strain = False):
             
@@ -1207,6 +1222,8 @@ class LitModelUV(pl.LightningModule):
         var_mse_curl = 100. * (1. - nmse_curl )
         var_mse_strain = 100. * (1. - nmse_strain )
 
+
+        ## compute div/curl/strain metrics
         def compute_div_curl_strain_with_lat_lon(u,v,lat,lon,sigma=1.0):
             dlat = lat[1] - lat[0]
             dlon = lon[1] - lon[0]
@@ -1231,8 +1248,7 @@ class LitModelUV(pl.LightningModule):
             du_dy = du_dy / dy_from_dlat  
             dv_dy = dv_dy / dy_from_dlat  
         
-            #strain = np.sqrt( ( dv_dx + du_dy ) **2 + (du_dx - dv_dy) **2 )
-            strain = (du_dx - dv_dy) **2 #( dv_dx + du_dy ) **2 #+ 
+            strain = np.sqrt( ( dv_dx + du_dy ) **2 + (du_dx - dv_dy) **2 )
 
             div = du_dx + dv_dy
             curl =  du_dy - dv_dx
