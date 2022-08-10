@@ -1091,71 +1091,6 @@ class LitModelUV(pl.LightningModule):
             
             return var_mse_uv, lamb_x_u, lamb_t_u, lamb_x_v, lamb_t_v
 
-        if 1*0 :        
-            mse_uv = np.nanmean((self.test_xr_ds.u_gt - self.test_xr_ds.pred_u) ** 2 + (self.test_xr_ds.v_gt - self.test_xr_ds.pred_v) ** 2 )
-            var_uv = np.nanmean((self.test_xr_ds.u_gt) ** 2 + (self.test_xr_ds.v_gt) ** 2 )
-            var_mse_uv = 100. * ( 1. - mse_uv / var_uv )
-
-            psd_ds_u, lamb_x_u, lamb_t_u = metrics.psd_based_scores(self.test_xr_ds.pred_u, self.test_xr_ds.u_gt)
-            psd_ds_v, lamb_x_v, lamb_t_v = metrics.psd_based_scores(self.test_xr_ds.pred_v, self.test_xr_ds.v_gt)
-
-
-        def compute_div_curl_strain_metrics_with_lat_lon(u_gt,v_gt,u_rec,v_rec,
-                                                         lat,lon,sigma_divcurl=0.5,flag_compute_strain = False):
-            
-            div_uv_gt = compute_div_with_lat_lon(u_gt,v_gt,lat,lon,sigma=sig_div)
-            div_uv_rec = compute_div_with_lat_lon(u_rec,v_rec,lat,lon,sigma=sig_div)
-                    
-            curl_uv_gt = compute_curl_with_lat_lon(u_gt,v_gt,lat,lon,sigma=sig_div)
-            curl_uv_rec = compute_curl_with_lat_lon(u_rec,v_rec,lat,lon,sigma=sig_div)
-            
-            mse_div = np.nanmean( (div_uv_gt - div_uv_rec)**2 )
-            nmse_div = mse_div / np.nanmean( (div_uv_gt )**2 )
-
-            mse_curl = np.nanmean( (curl_uv_gt - curl_uv_rec)**2 )
-            nmse_curl = mse_curl / np.nanmean( (curl_uv_gt )**2 )
-
-            if flag_compute_strain :
-                strain_uv_gt = compute_strain_with_lat_lon(u_gt,v_gt,lat,lon,sigma=sig_div)
-                strain_uv_rec = compute_strain_with_lat_lon(u_rec,v_rec,lat,lon,sigma=sig_div)
-
-                mse_strain = np.nanmean( (strain_uv_gt - strain_uv_rec)**2 )
-                nmse_strain = mse_curl / np.nanmean( ( strain_uv_gt )**2 )
-                
-                return mse_div,nmse_div,mse_curl,nmse_curl,mse_strain,nmse_strain
-            else:
-                return mse_div,nmse_div,mse_curl,nmse_curl
-                        
-        def compute_mse_uv_geo_with_coriolis(u_gt,v_gt,ssh,lat,lon,sigma_ssh=0.,sigma_divcurl=0.0,alpha_uv_geo = 9.81):
-            u_geo,v_geo = compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.,alpha_uv_geo = alpha_uv_geo)
-            
-            mse_uv_geo = np.nanmean( (u_geo - u_gt)**2 + (v_geo - v_gt)**2 )
-            nmse_uv_geo = mse_uv_geo / np.nanmean( (u_gt)**2 + (v_gt)**2 )
-            
-            psd_ds_ugeo, lamb_x_ugeo, lamb_t_ugeo = metrics.psd_based_scores(u_geo,self.test_xr_ds.u_gt)
-            psd_ds_vgeo, lamb_x_vgeo, lamb_t_vgeo = metrics.psd_based_scores(v_geo,self.test_xr_ds.v_gt)
-            
-            print('......... lambda ugeo =  %.3f   / %.3f '%(lamb_x_ugeo,lamb_t_ugeo))
-            print('......... lambda vgeo =  %.3f   / %.3f '%(lamb_x_vgeo,lamb_t_vgeo))
-            
-            if sigma_ssh > 0. :
-                ssh = gaussian_filter(ssh, sigma=sigma_ssh)  
-                u_geo,v_geo = compute_uv_geo_with_coriolis(ssh,lat,lon,sigma=0.,alpha_uv_geo = alpha_uv_geo)
-                                
-            if sigma_divcurl > 0 :
-                u_gt = gaussian_filter(u_gt, sigma=sigma_divcurl)
-                v_gt = gaussian_filter(v_gt, sigma=sigma_divcurl)
-            
-            mse_stat =  compute_div_curl_strain_metrics_with_lat_lon(u_gt,v_gt,u_geo,v_geo,
-                                                                     lat,lon,sigma_divcurl=0., 
-                                                                     flag_compute_strain=True) 
-            mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo = mse_stat   
-
-
-            return mse_uv_geo, nmse_uv_geo, mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo
-
- 
-
         # Metrics for SSC fields
         alpha_uv_geo = 9.81 
         lat_rad = np.radians(self.test_lat)
@@ -1173,63 +1108,6 @@ class LitModelUV(pl.LightningModule):
         var_mse_uv_ssh_rec, lamb_x_u_ssh_rec, lamb_t_u_ssh_rec, lamb_x_v_ssh_rec, lamb_t_v_ssh_rec = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , u_geo_rec , v_geo_rec  )
         print('\n\n...... SSH-derived SSC metrics for 4dVarNet SSC')
         var_mse_uv, lamb_x_u, lamb_t_u, lamb_x_v, lamb_t_v = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , self.test_xr_ds.pred_u, self.test_xr_ds.pred_v  )
-
-        if 1*0 :        
-            sig_div = self.sig_filter_div_diag
-        
-            mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                        self.test_xr_ds.gt,
-                                                        sigma_ssh = sig_div,
-                                                        sigma_divcurl = sig_div,
-                                                        lat= lat_rad, lon= lon_rad,
-                                                        alpha_uv_geo = alpha_uv_geo )
-             
-            mse_uv_ssh_gt,nmse_uv_ssh_gt,mse_div_ssh_gt, nmse_div_ssh_gt, mse_curl_ssh_gt, nmse_curl_ssh_gt,  mse_strain_ssh_gt, nmse_strain_ssh_gt = mse_stat
-            
-            var_mse_uv_ssh_gt = 100. * (1. - nmse_uv_ssh_gt )
-            var_mse_div_ssh_gt = 100. * (1. - nmse_div_ssh_gt )
-            var_mse_curl_ssh_gt = 100. * (1. - nmse_curl_ssh_gt )
-            var_mse_strain_ssh_gt = 100. * (1. - nmse_strain_ssh_gt )
-        
-            print('..... Geostrophic currents (ssh oi)  ')
-            print('.....')
-    
-            mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                        self.test_xr_ds.oi,sigma_divcurl=sig_div,
-                                                        lat= lat_rad, lon= lon_rad,
-                                                        alpha_uv_geo = alpha_uv_geo )
-            mse_uv_oi,nmse_uv_oi,mse_div_oi, nmse_div_oi, mse_curl_oi, nmse_curl_oi, mse_strain_oi, nmse_strain_oi = mse_stat
-            
-            var_mse_uv_oi = 100. * (1. - nmse_uv_oi )
-            var_mse_div_oi = 100. * (1. - nmse_div_oi )
-            var_mse_curl_oi = 100. * (1. - nmse_curl_oi )
-            var_mse_strain_oi = 100. * (1. - nmse_strain_oi )
-    
-            print('..... Geostrophic currents (ssh pred)  ')
-            print('.....')
-    
-            mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                        self.test_xr_ds.pred,sigma_divcurl=sig_div,
-                                                        lat= lat_rad, lon= lon_rad,
-                                                        alpha_uv_geo = alpha_uv_geo )
-            mse_uv_pred,nmse_uv_pred,mse_div_pred, nmse_div_pred, mse_curl_pred, nmse_curl_pred, mse_strain_pred, nmse_strain_pred = mse_stat
-            var_mse_uv_pred     = 100. * (1. - nmse_uv_pred )
-            var_mse_div_pred    = 100. * (1. - nmse_div_pred )
-            var_mse_curl_pred   = 100. * (1. - nmse_curl_pred )
-            var_mse_strain_pred = 100. * (1. - nmse_strain_pred )
-                            
-            stat_mse_div_curl_strain =  compute_div_curl_strain_metrics_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                                        self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,
-                                                                        lat= lat_rad, lon= lon_rad,
-                                                                        sigma_divcurl=sig_div,
-                                                                        flag_compute_strain = True)
-    
-            mse_div, nmse_div, mse_curl, nmse_curl, mse_strain, nmse_strain =  stat_mse_div_curl_strain
-    
-            var_mse_div = 100. * (1. - nmse_div )
-            var_mse_curl = 100. * (1. - nmse_curl )
-            var_mse_strain = 100. * (1. - nmse_strain )
-
 
         ## compute div/curl/strain metrics
         def compute_div_curl_strain_with_lat_lon(u,v,lat,lon,sigma=1.0):
