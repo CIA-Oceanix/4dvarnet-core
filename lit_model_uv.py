@@ -1099,9 +1099,7 @@ class LitModelUV(pl.LightningModule):
             psd_ds_u, lamb_x_u, lamb_t_u = metrics.psd_based_scores(self.test_xr_ds.pred_u, self.test_xr_ds.u_gt)
             psd_ds_v, lamb_x_v, lamb_t_v = metrics.psd_based_scores(self.test_xr_ds.pred_v, self.test_xr_ds.v_gt)
 
-        var_mse_uv, lamb_x_u, lamb_t_u, lamb_x_v, lamb_t_v = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , self.test_xr_ds.pred_u, self.test_xr_ds.pred_v  )
 
-        # Metrics for SSH-derived SSC
         def compute_div_curl_strain_metrics_with_lat_lon(u_gt,v_gt,u_rec,v_rec,
                                                          lat,lon,sigma_divcurl=0.5,flag_compute_strain = False):
             
@@ -1156,7 +1154,13 @@ class LitModelUV(pl.LightningModule):
 
             return mse_uv_geo, nmse_uv_geo, mse_div_geo, nmse_div_geo, mse_curl_geo, nmse_curl_geo, mse_strain_geo, nmse_strain_geo
 
-            
+ 
+
+        # Metrics for SSH-derived SSC
+        var_mse_uv, lamb_x_u, lamb_t_u, lamb_x_v, lamb_t_v = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , self.test_xr_ds.pred_u, self.test_xr_ds.pred_v  )
+
+        
+           
         sig_div = self.sig_filter_div_diag
         
         print('.....')
@@ -1164,63 +1168,72 @@ class LitModelUV(pl.LightningModule):
         print('.....')
         print('..... Geostrophic currents (ssh gt)  ')
         print('.....')
-        
+
         alpha_uv_geo = 9.81 
         lat_rad = np.radians(self.test_lat)
         lon_rad = np.radians(self.test_lon)
         
-        mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                    self.test_xr_ds.gt,
-                                                    sigma_ssh = sig_div,
-                                                    sigma_divcurl = sig_div,
-                                                    lat= lat_rad, lon= lon_rad,
-                                                    alpha_uv_geo = alpha_uv_geo )
-         
-        mse_uv_ssh_gt,nmse_uv_ssh_gt,mse_div_ssh_gt, nmse_div_ssh_gt, mse_curl_ssh_gt, nmse_curl_ssh_gt,  mse_strain_ssh_gt, nmse_strain_ssh_gt = mse_stat
+        u_geo_gt,v_geo_gt = compute_uv_geo_with_coriolis(self.test_xr_ds.gt,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
+        u_geo_oi,v_geo_oi = compute_uv_geo_with_coriolis(self.test_xr_ds.oi,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
+        u_geo_rec,v_geo_rec = compute_uv_geo_with_coriolis(self.test_xr_ds.pred,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
+
+        var_mse_uv_ssh_gt, lamb_x_u_ssh_gt, lamb_t_u_ssh_gt, lamb_x_v_ssh_gt, lamb_t_v_ssh_gt = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , u_geo_gt , v_geo_gt  )
+        var_mse_uv_ssh_oi, lamb_x_u_ssh_oi, lamb_t_u_ssh_oi, lamb_x_v_ssh_oi, lamb_t_v_ssh_oi = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , u_geo_oi , v_geo_oi  )
+        var_mse_uv_ssh_rec, lamb_x_u_ssh_rec, lamb_t_u_ssh_rec, lamb_x_v_ssh_rec, lamb_t_v_ssh_rec = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , u_geo_rec , v_geo_rec  )
+
+        if 1*0 :        
+            mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+                                                        self.test_xr_ds.gt,
+                                                        sigma_ssh = sig_div,
+                                                        sigma_divcurl = sig_div,
+                                                        lat= lat_rad, lon= lon_rad,
+                                                        alpha_uv_geo = alpha_uv_geo )
+             
+            mse_uv_ssh_gt,nmse_uv_ssh_gt,mse_div_ssh_gt, nmse_div_ssh_gt, mse_curl_ssh_gt, nmse_curl_ssh_gt,  mse_strain_ssh_gt, nmse_strain_ssh_gt = mse_stat
+            
+            var_mse_uv_ssh_gt = 100. * (1. - nmse_uv_ssh_gt )
+            var_mse_div_ssh_gt = 100. * (1. - nmse_div_ssh_gt )
+            var_mse_curl_ssh_gt = 100. * (1. - nmse_curl_ssh_gt )
+            var_mse_strain_ssh_gt = 100. * (1. - nmse_strain_ssh_gt )
         
-        var_mse_uv_ssh_gt = 100. * (1. - nmse_uv_ssh_gt )
-        var_mse_div_ssh_gt = 100. * (1. - nmse_div_ssh_gt )
-        var_mse_curl_ssh_gt = 100. * (1. - nmse_curl_ssh_gt )
-        var_mse_strain_ssh_gt = 100. * (1. - nmse_strain_ssh_gt )
+            print('..... Geostrophic currents (ssh oi)  ')
+            print('.....')
     
-        print('..... Geostrophic currents (ssh oi)  ')
-        print('.....')
-
-        mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                    self.test_xr_ds.oi,sigma_divcurl=sig_div,
-                                                    lat= lat_rad, lon= lon_rad,
-                                                    alpha_uv_geo = alpha_uv_geo )
-        mse_uv_oi,nmse_uv_oi,mse_div_oi, nmse_div_oi, mse_curl_oi, nmse_curl_oi, mse_strain_oi, nmse_strain_oi = mse_stat
-        
-        var_mse_uv_oi = 100. * (1. - nmse_uv_oi )
-        var_mse_div_oi = 100. * (1. - nmse_div_oi )
-        var_mse_curl_oi = 100. * (1. - nmse_curl_oi )
-        var_mse_strain_oi = 100. * (1. - nmse_strain_oi )
-
-        print('..... Geostrophic currents (ssh pred)  ')
-        print('.....')
-
-        mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                    self.test_xr_ds.pred,sigma_divcurl=sig_div,
-                                                    lat= lat_rad, lon= lon_rad,
-                                                    alpha_uv_geo = alpha_uv_geo )
-        mse_uv_pred,nmse_uv_pred,mse_div_pred, nmse_div_pred, mse_curl_pred, nmse_curl_pred, mse_strain_pred, nmse_strain_pred = mse_stat
-        var_mse_uv_pred     = 100. * (1. - nmse_uv_pred )
-        var_mse_div_pred    = 100. * (1. - nmse_div_pred )
-        var_mse_curl_pred   = 100. * (1. - nmse_curl_pred )
-        var_mse_strain_pred = 100. * (1. - nmse_strain_pred )
-                        
-        stat_mse_div_curl_strain =  compute_div_curl_strain_metrics_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
-                                                                    self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,
-                                                                    lat= lat_rad, lon= lon_rad,
-                                                                    sigma_divcurl=sig_div,
-                                                                    flag_compute_strain = True)
-
-        mse_div, nmse_div, mse_curl, nmse_curl, mse_strain, nmse_strain =  stat_mse_div_curl_strain
-
-        var_mse_div = 100. * (1. - nmse_div )
-        var_mse_curl = 100. * (1. - nmse_curl )
-        var_mse_strain = 100. * (1. - nmse_strain )
+            mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+                                                        self.test_xr_ds.oi,sigma_divcurl=sig_div,
+                                                        lat= lat_rad, lon= lon_rad,
+                                                        alpha_uv_geo = alpha_uv_geo )
+            mse_uv_oi,nmse_uv_oi,mse_div_oi, nmse_div_oi, mse_curl_oi, nmse_curl_oi, mse_strain_oi, nmse_strain_oi = mse_stat
+            
+            var_mse_uv_oi = 100. * (1. - nmse_uv_oi )
+            var_mse_div_oi = 100. * (1. - nmse_div_oi )
+            var_mse_curl_oi = 100. * (1. - nmse_curl_oi )
+            var_mse_strain_oi = 100. * (1. - nmse_strain_oi )
+    
+            print('..... Geostrophic currents (ssh pred)  ')
+            print('.....')
+    
+            mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+                                                        self.test_xr_ds.pred,sigma_divcurl=sig_div,
+                                                        lat= lat_rad, lon= lon_rad,
+                                                        alpha_uv_geo = alpha_uv_geo )
+            mse_uv_pred,nmse_uv_pred,mse_div_pred, nmse_div_pred, mse_curl_pred, nmse_curl_pred, mse_strain_pred, nmse_strain_pred = mse_stat
+            var_mse_uv_pred     = 100. * (1. - nmse_uv_pred )
+            var_mse_div_pred    = 100. * (1. - nmse_div_pred )
+            var_mse_curl_pred   = 100. * (1. - nmse_curl_pred )
+            var_mse_strain_pred = 100. * (1. - nmse_strain_pred )
+                            
+            stat_mse_div_curl_strain =  compute_div_curl_strain_metrics_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
+                                                                        self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,
+                                                                        lat= lat_rad, lon= lon_rad,
+                                                                        sigma_divcurl=sig_div,
+                                                                        flag_compute_strain = True)
+    
+            mse_div, nmse_div, mse_curl, nmse_curl, mse_strain, nmse_strain =  stat_mse_div_curl_strain
+    
+            var_mse_div = 100. * (1. - nmse_div )
+            var_mse_curl = 100. * (1. - nmse_curl )
+            var_mse_strain = 100. * (1. - nmse_strain )
 
 
         ## compute div/curl/strain metrics
@@ -1284,19 +1297,19 @@ class LitModelUV(pl.LightningModule):
 
         div_geo_gt,curl_geo_gt,strain_geo_gt = compute_div_curl_strain_with_lat_lon(f_u_geo_gt,f_v_geo_gt,lat_rad,lon_rad,sigma=0.)
         div_geo_oi,curl_geo_oi,strain_geo_oi = compute_div_curl_strain_with_lat_lon(f_u_geo_oi,f_v_geo_oi,lat_rad,lon_rad,sigma=0.)
-        div_geo_pred,curl_geo_pred,strain_geo_pred = compute_div_curl_strain_with_lat_lon(f_u_geo_rec,f_v_geo_rec,lat_rad,lon_rad,sigma=0.)
+        div_geo_rec,curl_geo_rec,strain_geo_rec = compute_div_curl_strain_with_lat_lon(f_u_geo_rec,f_v_geo_rec,lat_rad,lon_rad,sigma=0.)
 
         var_mse_div_ssh_gt = compute_var_exp( div_gt, div_geo_gt )
         var_mse_curl_ssh_gt = compute_var_exp( curl_gt, curl_geo_gt )
         var_mse_strain_ssh_gt = compute_var_exp( strain_gt, strain_geo_gt )
 
-        var_mse_div_oi = compute_var_exp( div_gt, div_geo_oi )
-        var_mse_curl_oi = compute_var_exp( curl_gt, curl_geo_oi )
-        var_mse_strain_oi = compute_var_exp( strain_gt, strain_geo_oi )
+        var_mse_div_ssh_oi = compute_var_exp( div_gt, div_geo_oi )
+        var_mse_curl_ssh_oi = compute_var_exp( curl_gt, curl_geo_oi )
+        var_mse_strain_ssh_oi = compute_var_exp( strain_gt, strain_geo_oi )
 
-        var_mse_div_pred = compute_var_exp( div_gt, div_geo_pred )
-        var_mse_curl_pred = compute_var_exp( curl_gt, curl_geo_pred )
-        var_mse_strain_pred = compute_var_exp( strain_gt, strain_geo_pred )
+        var_mse_div_ssh_rec = compute_var_exp( div_gt, div_geo_rec )
+        var_mse_curl_ssh_rec = compute_var_exp( curl_gt, curl_geo_rec )
+        var_mse_strain_ssh_rec = compute_var_exp( strain_gt, strain_geo_rec )
 
         md = {
             f'{log_pref}_spatial_res': float(spatial_res_model),
@@ -1315,20 +1328,20 @@ class LitModelUV(pl.LightningModule):
             f'{log_pref}_var_mse_lap_pred': float(var_mse_pred_lap),
             f'{log_pref}_var_mse_lap_oi': float(var_mse_oi_lap),
             f'{log_pref}_var_mse_uv_gt': float(var_mse_uv_ssh_gt),
-            f'{log_pref}_var_mse_uv_oi': float(var_mse_uv_oi),
-            f'{log_pref}_var_mse_uv_pred': float(var_mse_uv_pred),
+            f'{log_pref}_var_mse_uv_oi': float(var_mse_uv_ssh_oi),
+            f'{log_pref}_var_mse_uv_pred': float(var_mse_uv_ssh_rec),
             f'{log_pref}_var_mse_uv': float(var_mse_uv),
             f'{log_pref}_var_mse_div_ssh_gt': float(var_mse_div_ssh_gt),            
-            f'{log_pref}_var_mse_div_oi': float(var_mse_div_oi),            
-            f'{log_pref}_var_mse_div_pred': float(var_mse_div_pred),            
+            f'{log_pref}_var_mse_div_oi': float(var_mse_div_ssh_oi),            
+            f'{log_pref}_var_mse_div_pred': float(var_mse_div_ssh_rec),            
             f'{log_pref}_var_mse_div': float(var_mse_div),            
             f'{log_pref}_var_mse_strain_ssh_gt': float(var_mse_strain_ssh_gt),            
-            f'{log_pref}_var_mse_strain_oi': float(var_mse_strain_oi),            
-            f'{log_pref}_var_mse_strain_pred': float(var_mse_strain_pred),            
+            f'{log_pref}_var_mse_strain_oi': float(var_mse_strain_ssh_oi),            
+            f'{log_pref}_var_mse_strain_pred': float(var_mse_strain_ssh_rec),            
             f'{log_pref}_var_mse_strain': float(var_mse_strain),            
             f'{log_pref}_var_mse_curl_ssh_gt': float(var_mse_curl_ssh_gt),            
-            f'{log_pref}_var_mse_curl_oi': float(var_mse_curl_oi),            
-            f'{log_pref}_var_mse_curl_pred': float(var_mse_curl_pred),            
+            f'{log_pref}_var_mse_curl_oi': float(var_mse_curl_ssh_oi),            
+            f'{log_pref}_var_mse_curl_pred': float(var_mse_curl_ssh_rec),            
             f'{log_pref}_var_mse_curl': float(var_mse_curl),            
         }
         print(pd.DataFrame([md]).T.to_markdown())
