@@ -33,7 +33,7 @@ def get_4dvarnet_OI(hparams):
 #Bigger UNet
 def get_4dvarnet_unet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic, shrink_factor=4),
+                Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic, shrink_factor=hparams.UNet_shrink_factor),
                 Model_H(hparams.shape_state[0]),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
@@ -48,12 +48,12 @@ def get_4dvarnet_OI_unet_DimAE(hparams):
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
-#Direct UNet with no solver
+#Direct UNet with no solver TODO (need to make sure loss is ok, test training params)
 def get_UNet_direct(hparams):
     class PhiPassThrough(torch.nn.Module):
         def __init__(self):
             super().__init__()
-            self.phi = Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic)
+            self.phi = Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic, shrink_factor=hparams.UNet_shrink_factor)
             self.phi_r = torch.nn.Identity()
             self.n_grad = 0
 
@@ -63,16 +63,18 @@ def get_UNet_direct(hparams):
 
 #4dvarnet with UNet and a gradient solver with no LSTM
 def get_UNet_gradient(hparams):
-    return NN_4DVar.UNet_solver(
-    Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic),
+    return NN_4DVar.Gradient_Solver(
+    Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic, shrink_factor=hparams.UNet_shrink_factor),
     Model_H(hparams.shape_state[0]),
     hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
-#4dvarnet with UNet and a fixed point solver
+#UNet and a fixed point solver
 def get_UNet_fixed_point(hparams):
     return NN_4DVar.FP_Solver(
-    Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic),
-    Model_H(hparams.shape_state[0]),
+    Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic, shrink_factor=hparams.UNet_shrink_factor),
     hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+
+
+
 #4dvarnet with the phi_r_OI and a fixed point solver
 def get_phi_r_fixed_point(hparams):
     return NN_4DVar.FP_Solver(
@@ -87,7 +89,7 @@ class LitModelOI(LitModelAugstate):
             '4dvarnet_OI': get_4dvarnet_OI,
             '4dvarnet_UNet': get_4dvarnet_unet,
             '4dvarnet_Unet_DimAE': get_4dvarnet_OI_unet_DimAE,
-            #'4dvarnet_UNet_gradient': get_UNet_gradient, TODO
+            '4dvarnet_UNet_gradient': get_UNet_gradient, 
             'UNet_direct': get_UNet_direct,
             'FP_solver': get_UNet_fixed_point,
             'phi_r_FP': get_phi_r_fixed_point
@@ -106,12 +108,12 @@ class LitModelOI(LitModelAugstate):
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                 ])
-        elif self.model_name in ['FP_solver', 'phi_r_FP']:
-            optimizer = opt([{'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
-                {'params': self.model.model_H.parameters(), 'lr':  self.hparams.lr_update[0]}
+        elif self.model_name in ['4dvarnet_UNet_gradient']:
+            optimizer = opt([{'params': self.model.phi_r.parameters(), 'lr': self.hparams.lr_update[0]},
+                {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]}
                 ])
-        elif self.model_name in [ 'UNet_direct']:
-            optimizer = opt([{'params': self.model.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]}])
+        elif self.model_name in [ 'UNet_direct','FP_solver', 'phi_r_FP']:
+            optimizer = opt([{'params': self.model.parameters(), 'lr': self.hparams.lr_update[0]}])
 
   
 

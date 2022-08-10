@@ -421,14 +421,14 @@ class Solver_Grad_4DVarNN(nn.Module):
         var_cost_grad = torch.autograd.grad(loss, x, create_graph=True)[0]
         return loss, var_cost_grad
 
-#This is a solver for direct UNet interpolation
-class UNet_solver(nn.Module):
+#This is a gradient based solver with no LSTM
+class Gradient_Solver(nn.Module):
     NORMS = {
             'l1': Model_WeightedL1Norm,
             'l2': Model_WeightedL2Norm,
     }
     def __init__(self ,phi_r, mod_H, m_NormObs, m_NormPhi, shape_data,n_iter_grad, stochastic=False):
-        super(UNet_solver, self).__init__()
+        super(Gradient_Solver, self).__init__()
         self.phi_r         = phi_r
 
         if m_NormObs == None:
@@ -452,7 +452,7 @@ class UNet_solver(nn.Module):
     def forward(self, x, yobs, mask, *internal_state):
         return self.solve(x, yobs, mask, *internal_state)
 
-    def solve(self, x_0, obs, mask, hidden=None, cell=None, normgrad_=0.):
+    def solve(self, x_0, obs, mask, hidden=None, cell=None, normgrad_=None):
         x_k = torch.mul(x_0,1.)
         x_k_plus_1 = None
         for _ in range(self.n_grad):
@@ -465,6 +465,7 @@ class UNet_solver(nn.Module):
     def solver_step(self, x_k, obs, mask, cell, normgrad_ = 0., grad_lambda = 0.05):
         _, grad= self.var_cost(x_k, obs, mask)
         x_k_plus_1 = x_k - grad_lambda * grad
+        x_k_plus_1 = x_k_plus_1 
         return x_k_plus_1, cell, normgrad_
 
     def var_cost(self , x, yobs, mask):
@@ -482,10 +483,11 @@ class FP_Solver(nn.Module):
             'l1': Model_WeightedL1Norm,
             'l2': Model_WeightedL2Norm,
     }
-    def __init__(self ,phi_r, mod_H, m_NormObs, m_NormPhi, shape_data,n_iter_grad, stochastic=False):
+    def __init__(self ,phi_r,  m_NormObs, m_NormPhi, shape_data,n_iter_grad, stochastic=False):
         super(FP_Solver, self).__init__()
         self.phi_r = phi_r
-
+        with torch.no_grad():
+            self.n_grad = int(n_iter_grad)
 
     def forward(self, x, yobs, mask, *internal_state):
         return self.solve(x, yobs, mask, *internal_state)
@@ -493,26 +495,65 @@ class FP_Solver(nn.Module):
     def solve(self, x_0, obs, mask, hidden=None, cell=None, normgrad_=None):
         #Note that hidden, cell and normgrad are leftover from the gradient solver
         #I do not know if removing them will break anything, but they are not used
-        x_k = torch.mul(x_0,1.)
-        x_k_plus_1 = None
-        x_k_plus_1 = self.solver_step(x_k, obs, mask, cell, normgrad_)
-        x_k = torch.mul(x_k_plus_1,1.)
-
-        return x_k_plus_1, hidden, cell, normgrad_
+        x_k = torch.mul(x_0 ,1.)
+        for _ in range(self.n_grad):
+            x_k = self.solver_step(x_k, obs, mask, cell, normgrad_, )
+            x_k = torch.mul(x_k ,1.)
+        x_k = self.phi_r(x_k)
+        return x_k, hidden, cell, normgrad_
 
     def solver_step(self, x_k, obs, mask, cell, normgrad = 0.):
-        
         mask = torch.mul(mask, 1.)
         #Get the observed values in the measured area
         y_obs = obs * mask
         #Get the interpolation for the empty area
         unmeasured_mask = torch.mul(torch.logical_not(mask),1.)
         x_proj = self.phi_r(x_k) * unmeasured_mask
-        #print(x_proj)
-        #y_obs.requires_grad_().cuda()
-        #x_proj.requires_grad_().cuda()
+        #combine measured and interpolated data
         x_k_plus_1 = x_proj + y_obs
     
         return x_k_plus_1
+
+
+
+#Fixed Point solver for 4dVarnet that has both x and y go into phi_r. This is to avoid a big discontinutiy
+#between the observed and calculated data
+# class FP_Solver2(nn.Module):
+#     NORMS = {
+#             'l1': Model_WeightedL1Norm,
+#             'l2': Model_WeightedL2Norm,
+#     }
+#     def __init__(self ,phi_r, mod_H, m_NormObs, m_NormPhi, shape_data,n_iter_grad, stochastic=False):
+#         super(FP_Solver2, self).__init__()
+#         self.phi_r = phi_r
+#         self.model_H = mod_H
+
+#     def forward(self, x, yobs, mask, *internal_state):
+#         return self.solve(x, yobs, mask, *internal_state)
+
+#     def solve(self, x_0, obs, mask, hidden=None, cell=None, normgrad_=None):
+#         #Note that hidden, cell and normgrad are leftover from the gradient solver
+#         #I do not know if removing them will break anything, but they are not used
+#         x_k = torch.mul(x_0,1.)
+#         x_k_plus_1 = None
+#         x_k_plus_1 = self.solver_step(x_k, obs, mask, cell, normgrad_)
+#         x_k = torch.mul(x_k_plus_1,1.)
+
+#         return x_k_plus_1, hidden, cell, normgrad_
+
+#     def solver_step(self, x_k, obs, mask, cell, normgrad = 0.):
+        
+#         mask = torch.mul(mask, 1.)
+#         #Get the observed values in the measured area
+#         y_obs = obs * mask
+#         #Get the interpolation for the empty area
+#         unmeasured_mask = torch.mul(torch.logical_not(mask),1.)
+#         x_proj = x_k * unmeasured_mask
+#         #print(x_proj)
+#         #y_obs.requires_grad_().cuda()
+#         #x_proj.requires_grad_().cuda()
+#         x_k_plus_1 = self.phi_r(x_proj + y_obs)
+    
+#         return x_k_plus_1
 
 

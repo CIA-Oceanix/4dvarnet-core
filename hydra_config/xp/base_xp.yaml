@@ -30,6 +30,7 @@ params:
   UsePriodicBoundary: false
   nbBlocks: 1
   DimAE: 50
+  UNet_shrink_factor: 2 #divides number of neurons by 2 for UNet NNs
   dim_grad_solver: 150
   dropout: 0.25
   dropout_phi_r: 0.0
