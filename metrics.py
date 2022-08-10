@@ -536,26 +536,36 @@ def save_netcdf_uv(saved_path1, gt, u_gt, v_gt, obs, oi, pred, lon, lat, time,
     #print(time)
     
     if  sst_feat is None :
-        dim_sst_feat = 0
-    else:
-        dim_sst_feat = np.arange(sst_feat.shape[1])
         
-    xrdata = xr.Dataset( \
-        data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
-                   'latitude': (('lat', 'lon'), mesh_lat), \
-                   'Time': (('time'), time), \
-                   'ssh_gt': (('time', 'lat', 'lon'), gt),
-                   'u_gt': (('time', 'lat', 'lon'), u_gt),
-                   'v_gt': (('time', 'lat', 'lon'), v_gt),
-                   'ssh_obs': (('time', 'lat', 'lon'), obs),
-                   'ssh_oi': (('time', 'lat', 'lon'), oi),
-                   'ssh_rec': (('time', 'lat', 'lon'), pred),
-                   'u_rec': (('time', 'lat', 'lon'), u_pred),
-                   'v_rec': (('time', 'lat', 'lon'), v_pred),
-                   'sst_feat': (('time', 'feat', 'lat', 'lon'), sst_feat)}, \
-        coords={'lon': lon, 'lat': lat, 'time': time,'feat':dim_sst_feat})
-        
-    if  sst_feat is not None :
+        xrdata = xr.Dataset( \
+            data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
+                       'latitude': (('lat', 'lon'), mesh_lat), \
+                       'Time': (('time'), time), \
+                       'ssh_gt': (('time', 'lat', 'lon'), gt),
+                       'u_gt': (('time', 'lat', 'lon'), u_gt),
+                       'v_gt': (('time', 'lat', 'lon'), v_gt),
+                       'ssh_obs': (('time', 'lat', 'lon'), obs),
+                       'ssh_oi': (('time', 'lat', 'lon'), oi),
+                       'ssh_rec': (('time', 'lat', 'lon'), pred),
+                       'u_rec': (('time', 'lat', 'lon'), u_pred),
+                       'v_rec': (('time', 'lat', 'lon'), v_pred)}, \
+            coords={'lon': lon, 'lat': lat, 'time': time})
+    else:        
+        xrdata = xr.Dataset( \
+                data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
+                           'latitude': (('lat', 'lon'), mesh_lat), \
+                           'Time': (('time'), time), \
+                           'ssh_gt': (('time', 'lat', 'lon'), gt),
+                           'u_gt': (('time', 'lat', 'lon'), u_gt),
+                           'v_gt': (('time', 'lat', 'lon'), v_gt),
+                           'ssh_obs': (('time', 'lat', 'lon'), obs),
+                           'ssh_oi': (('time', 'lat', 'lon'), oi),
+                           'ssh_rec': (('time', 'lat', 'lon'), pred),
+                           'u_rec': (('time', 'lat', 'lon'), u_pred),
+                           'v_rec': (('time', 'lat', 'lon'), v_pred),
+                           'sst_feat': (('time', 'feat', 'lat', 'lon'), sst_feat)}, \
+                coords={'lon': lon, 'lat': lat, 'time': time,'feat':np.arange(sst_feat.shape[1])})
+
         xrdata['sst_feat'] = (['time', 'feat', 'lat', 'lon'],  sst_feat)        
         
 
