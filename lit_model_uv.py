@@ -1156,19 +1156,7 @@ class LitModelUV(pl.LightningModule):
 
  
 
-        # Metrics for SSH-derived SSC
-        var_mse_uv, lamb_x_u, lamb_t_u, lamb_x_v, lamb_t_v = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , self.test_xr_ds.pred_u, self.test_xr_ds.pred_v  )
-
-        
-           
-        sig_div = self.sig_filter_div_diag
-        
-        print('.....')
-        print('..... div. computation (sigma): %f -- %f'%(self.sig_filter_div,self.sig_filter_div_diag))
-        print('.....')
-        print('..... Geostrophic currents (ssh gt)  ')
-        print('.....')
-
+        # Metrics for SSC fields
         alpha_uv_geo = 9.81 
         lat_rad = np.radians(self.test_lat)
         lon_rad = np.radians(self.test_lon)
@@ -1177,11 +1165,18 @@ class LitModelUV(pl.LightningModule):
         u_geo_oi,v_geo_oi = compute_uv_geo_with_coriolis(self.test_xr_ds.oi,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
         u_geo_rec,v_geo_rec = compute_uv_geo_with_coriolis(self.test_xr_ds.pred,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
 
+        print('\n\n...... SSH-derived SSC metrics for true SSH')
         var_mse_uv_ssh_gt, lamb_x_u_ssh_gt, lamb_t_u_ssh_gt, lamb_x_v_ssh_gt, lamb_t_v_ssh_gt = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , u_geo_gt , v_geo_gt  )
+        print('\n\n...... SSH-derived SSC metrics for DUACS SSH')
         var_mse_uv_ssh_oi, lamb_x_u_ssh_oi, lamb_t_u_ssh_oi, lamb_x_v_ssh_oi, lamb_t_v_ssh_oi = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , u_geo_oi , v_geo_oi  )
+        print('\n\n...... SSH-derived SSC metrics for 4dVarNet SSH')
         var_mse_uv_ssh_rec, lamb_x_u_ssh_rec, lamb_t_u_ssh_rec, lamb_x_v_ssh_rec, lamb_t_v_ssh_rec = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , u_geo_rec , v_geo_rec  )
+        print('\n\n...... SSH-derived SSC metrics for 4dVarNet SSC')
+        var_mse_uv, lamb_x_u, lamb_t_u, lamb_x_v, lamb_t_v = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , self.test_xr_ds.pred_u, self.test_xr_ds.pred_v  )
 
         if 1*0 :        
+            sig_div = self.sig_filter_div_diag
+        
             mse_stat = compute_mse_uv_geo_with_coriolis(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,
                                                         self.test_xr_ds.gt,
                                                         sigma_ssh = sig_div,
@@ -1274,9 +1269,9 @@ class LitModelUV(pl.LightningModule):
             
             return 100. * ( 1. - mse / var )
 
-        alpha_uv_geo = 9.81 
-        lat_rad = np.radians(self.test_lat)
-        lon_rad = np.radians(self.test_lon)
+        print('.....')
+        print('.....')
+        print('..... Computation of div/curl/strain metrics  ')
         sig_div_curl = sig_div
 
         div_gt,curl_gt,strain_gt = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,lat_rad,lon_rad,sigma=sig_div_curl)
