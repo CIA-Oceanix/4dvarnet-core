@@ -1272,7 +1272,7 @@ class LitModelUV(pl.LightningModule):
         print('.....')
         print('.....')
         print('..... Computation of div/curl/strain metrics  ')
-        sig_div_curl = sig_div
+        sig_div_curl = self.sig_filter_div_diag
 
         div_gt,curl_gt,strain_gt = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,lat_rad,lon_rad,sigma=sig_div_curl)
         div_uv_rec,curl_uv_rec,strain_uv_rec = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,lat_rad,lon_rad,sigma=sig_div_curl)
