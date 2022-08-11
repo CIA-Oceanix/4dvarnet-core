@@ -1456,11 +1456,11 @@ class LitModelUV(pl.LightningModule):
         md = self.sla_uv_diag(t_idx=3, log_pref=log_pref)
         
         #alpha_uv_geo = 9.81 
-        lat_rad = np.radians(self.test_lat)
-        lon_rad = np.radians(self.test_lon)
+        #lat_rad = np.radians(self.test_lat)
+        #lon_rad = np.radians(self.test_lon)
         
-        div_gt,curl_gt,strain_gt = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,lat_rad,lon_rad,sigma=self.sig_filter_div_diag)
-        div_uv_rec,curl_uv_rec,strain_uv_rec = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,lat_rad,lon_rad,sigma=self.sig_filter_div_diag)
+        #div_gt,curl_gt,strain_gt = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,lat_rad,lon_rad,sigma=self.sig_filter_div_diag)
+        #div_uv_rec,curl_uv_rec,strain_uv_rec = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,lat_rad,lon_rad,sigma=self.sig_filter_div_diag)
 
         self.latest_metrics.update(md)
         self.logger.log_metrics(md, step=self.current_epoch)
@@ -1479,8 +1479,8 @@ class LitModelUV(pl.LightningModule):
                                         gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh, 
                                         u_gt=self.u_gt, v_gt=self.v_gt, 
                                         u_pred=self.u_rec, v_pred=self.v_rec,
-                                        curl_gt=curl_gt,strain_gt=strain_gt,
-                                        curl_pred=curl_uv_rec,strain_pred=strain_uv_rec,
+                                        #curl_gt=curl_gt,strain_gt=strain_gt,
+                                        #curl_pred=curl_uv_rec,strain_pred=strain_uv_rec,
                                         sst_feat=self.x_sst_feat_ssh[:,0,:,:].reshape(self.x_sst_feat_ssh.shape[0],1,self.x_sst_feat_ssh.shape[2],self.x_sst_feat_ssh.shape[3]),
                                         
                                         
