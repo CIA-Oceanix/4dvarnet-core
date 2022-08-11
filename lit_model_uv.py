@@ -1146,7 +1146,7 @@ class LitModelUV(pl.LightningModule):
 
         def compute_var_exp(x,y):
             mse = np.nanmean( (x-y)**2 )
-            var = np.nanvar( x**2 )
+            var = np.nanvar( x )
             
             return 100. * ( 1. - mse / var )
 
