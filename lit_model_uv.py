@@ -256,8 +256,8 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
       
         dssh_dx , dssh_dy = self.compute_gradxy( ssh , sigma=sigma )
 
-        print(' dssh_dy %f '%torch.mean( torch.abs(dssh_dy)).detach().cpu().numpy() )
-        print(' dssh_dx %f '%torch.mean( torch.abs(dssh_dx)).detach().cpu().numpy() )
+        #print(' dssh_dy %f '%torch.mean( torch.abs(dssh_dy)).detach().cpu().numpy() )
+        #print(' dssh_dx %f '%torch.mean( torch.abs(dssh_dx)).detach().cpu().numpy() )
 
         dssh_dx = dssh_dx / dx_from_dlon 
         dssh_dy = dssh_dy / dy_from_dlat  
@@ -271,13 +271,14 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         u_geo = alpha_uv_geo * u_geo
         v_geo = alpha_uv_geo * v_geo
         
-        print(' var ssh %f '%torch.var(ssh).detach().cpu().numpy() )
-        print(' fc %f '%torch.mean( torch.abs(f_c)).detach().cpu().numpy() )
-        print(' dx %f '%torch.mean( torch.abs(dx_from_dlon)).detach().cpu().numpy() )
-        print(' dy %f '%torch.mean( torch.abs(dy_from_dlat)).detach().cpu().numpy() )
-        print(' dssh_dy %f '%torch.mean( torch.abs(dssh_dy)).detach().cpu().numpy() )
-        print(' dssh_dx %f '%torch.mean( torch.abs(dssh_dx)).detach().cpu().numpy() )
-        print(' ugeo %f '%torch.mean( torch.abs(u_geo)).detach().cpu().numpy() )
+        #print(' var ssh %f '%torch.var(ssh).detach().cpu().numpy() )
+        #print(' fc %f '%torch.mean( torch.abs(f_c)).detach().cpu().numpy() )
+        #print(' dx %f '%torch.mean( torch.abs(dx_from_dlon)).detach().cpu().numpy() )
+        #print(' dy %f '%torch.mean( torch.abs(dy_from_dlat)).detach().cpu().numpy() )
+        #print(' dssh_dy %f '%torch.mean( torch.abs(dssh_dy)).detach().cpu().numpy() )
+        #print(' dssh_dx %f '%torch.mean( torch.abs(dssh_dx)).detach().cpu().numpy() )
+        #print(' ugeo %f '%torch.mean( torch.abs(u_geo)).detach().cpu().numpy() )
+        #print(' vgeo %f '%torch.mean( torch.abs(v_geo)).detach().cpu().numpy() )
     
         return u_geo,v_geo
         
@@ -1772,9 +1773,9 @@ class LitModelUV(pl.LightningModule):
                     outputs_u = u_geo / np.sqrt(self.var_tr_uv)
                     outputs_v = v_geo / np.sqrt(self.var_tr_uv)
                     
-                    #print( torch.sqrt(torch.mean( u_geo**2) ) )
-                    #print( torch.sqrt(torch.mean( outputs_u**2) ) )
-                    #print( torch.sqrt(torch.mean( u_gt_wo_nan**2) ) )
+                    print('... u_geo = %f'% torch.sqrt(torch.mean( u_geo[:,3,50:150,50:150]**2) ).detach().cpu().numpy())
+                    print('... u_geo/norm = %f'% torch.sqrt(torch.mean( outputs_u[:,3,50:150,50:150]**2) ).detach().cpu().numpy() )
+                    print('... u_gt/norm = %f'% torch.sqrt(torch.mean( u_gt_wo_nan[:,3,50:150,50:150]**2) ).detach().cpu().numpy() )
                     
                     div_rec = 0. * outputs
                     div_gt = 0. * outputs
