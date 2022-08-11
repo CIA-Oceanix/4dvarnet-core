@@ -229,14 +229,14 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
 
         return G_x,G_y
     
-    def compute_coriolis_force(self,grid_lat,flag_mean_coriolis=False):
-    omega = 7.2921e-5 # rad/s
-    f = 2 * omega * np.sin(lat)
-    
-    if flag_mean_coriolis == True :
-        f = np.mean(f) * np.ones((f.shape)) 
-    
-    return f
+    def compute_coriolis_force(self,lat,flag_mean_coriolis=False):
+        omega = 7.2921e-5 # rad/s
+        f = 2 * omega * torch.sin(lat)
+        
+        if flag_mean_coriolis == True :
+            f = torch.mean(f) * torch.ones((f.size())) 
+        
+        return f
         
     def compute_geo_velociites(self,ssh,lat,lon,sigma,alpha_uv_geo=9.81,flag_mean_coriolis=False):
 
