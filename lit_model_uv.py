@@ -268,6 +268,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         u_geo = alpha_uv_geo * u_geo
         v_geo = alpha_uv_geo * v_geo
         
+        print(' fc %f '%torch.mean( torch.abs(f_c)).detach().cpu().numpy() )
         print(' dx %f '%torch.mean( torch.abs(dx_from_dlon)).detach().cpu().numpy() )
         print(' dy %f '%torch.mean( torch.abs(dy_from_dlat)).detach().cpu().numpy() )
         print(' dssh_dy %f '%torch.mean( torch.abs(dssh_dy)).detach().cpu().numpy() )
