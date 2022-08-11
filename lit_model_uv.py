@@ -1625,9 +1625,9 @@ class LitModelUV(pl.LightningModule):
 
         return loss, loss_grad
 
-    def div_loss(self, gt, out):
-
-        return NN_4DVar.compute_spatio_temp_weighted_loss( (out - gt), self.patch_weight[:,1:-1,1:-1])
+#    def div_loss(self, gt, out):
+#
+#        return NN_4DVar.compute_spatio_temp_weighted_loss( (out - gt), self.patch_weight[:,1:-1,1:-1])
 
     def uv_loss(self, gt, out):
 
@@ -1785,7 +1785,8 @@ class LitModelUV(pl.LightningModule):
     
                 loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
                 loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
-                loss_div = self.div_loss( div_rec , div_gt ) 
+                #loss_div = self.div_loss( div_rec , div_gt ) 
+                loss_div = NN_4DVar.compute_spatio_temp_weighted_loss((div_rec - div_gt ), self.patch_weight)
 
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
                 loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
