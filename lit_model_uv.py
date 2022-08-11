@@ -1333,17 +1333,26 @@ class LitModelUV(pl.LightningModule):
             curl_uv_rec_ = t_curl.numpy().squeeze()
             strain_uv_rec_ = t_strain.numpy().squeeze()
                 
-            var_mse_div_ = compute_var_exp( div_gt, div_uv_rec_)
-            var_mse_curl_ = compute_var_exp( curl_gt, curl_uv_rec_)
-            var_mse_strain_ = compute_var_exp( strain_gt, strain_uv_rec_)
+            t_u = torch.Tensor(self.test_xr_ds.u_gt.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
+            t_v = torch.Tensor(self.test_xr_ds.v_gt.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
+            
+            t_u = t_u.view(-1,1,t_u.size(1),t_u.size(2))
+            t_v = t_v.view(-1,1,t_v.size(1),t_v.size(2))
+
+            t_compute_div_curl_strain_with_lat_lon =  Torch_compute_derivatives_with_lon_lat()
+            t_div,t_curl,t_strain = t_compute_div_curl_strain_with_lat_lon.compute_div_curl_strain(t_u,t_v,t_lat_rad,t_lon_rad,sigma=sig_div_curl)
+            
+            div_gt_ = t_div.numpy().squeeze()
+            curl_gt_ = t_curl.numpy().squeeze()
+            strain_gt_ = t_strain.numpy().squeeze()
+
+            var_mse_div_ = compute_var_exp( div_gt_, div_uv_rec_)
+            var_mse_curl_ = compute_var_exp( curl_gt_, curl_uv_rec_)
+            var_mse_strain_ = compute_var_exp( strain_gt_, strain_uv_rec_)
     
             print('.... div %.2f -- %.2f -- %.2f'%(var_mse_div_,var_mse_div,compute_var_exp( div_uv_rec, div_uv_rec_)) )
             print('.... strain %.2f -- %.2f -- %.2f'%(var_mse_strain_,var_mse_strain,compute_var_exp( strain_uv_rec, strain_uv_rec_)))
             print('.... curl %.2f -- %.2f -- %.2f'%(var_mse_curl_,var_mse_curl,compute_var_exp( curl_uv_rec, curl_uv_rec_)))
-
-            var_mse_div_ = compute_var_exp( div_gt, div_uv_rec_)
-            var_mse_curl_ = compute_var_exp( curl_gt, curl_uv_rec_)
-            var_mse_strain_ = compute_var_exp( strain_gt, strain_uv_rec_)
 
         if sig_div_curl > 0. :
             f_ssh_gt = gaussian_filter(self.test_xr_ds.gt, sigma=sig_div_curl)
