@@ -219,7 +219,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
     def compute_gradxy(self,u,sigma=0.):
                
         if sigma > 0. :
-            u = kornia.filters.gaussian_blur2d(u, (9,9), (sigma,sigma), border_type='reflect')
+            u = kornia.filters.gaussian_blur2d(u, (3,3), (sigma,sigma), border_type='reflect')
         
         G_x = self.convGx(u.view(-1, 1, u.size(2), u.size(3)))
         G_x = G_x.view(-1,u.size(1), u.size(2), u.size(3))
