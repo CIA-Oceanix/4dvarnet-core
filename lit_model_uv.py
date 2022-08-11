@@ -1772,11 +1772,7 @@ class LitModelUV(pl.LightningModule):
 
                     outputs_u = u_geo / np.sqrt(self.var_tr_uv)
                     outputs_v = v_geo / np.sqrt(self.var_tr_uv)
-                    
-                    print('... u_geo = %f'% torch.sqrt(torch.mean( u_geo[:,3,50:150,50:150]**2) ).detach().cpu().numpy())
-                    print('... u_geo/norm = %f'% torch.sqrt(torch.mean( outputs_u[:,3,50:150,50:150]**2) ).detach().cpu().numpy() )
-                    print('... u_gt/norm = %f'% torch.sqrt(torch.mean( u_gt_wo_nan[:,3,50:150,50:150]**2) ).detach().cpu().numpy() )
-                    
+
                     div_rec = 0. * outputs
                     div_gt = 0. * outputs
                     #div_rec,curl,strain = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
