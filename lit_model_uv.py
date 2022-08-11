@@ -240,9 +240,6 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         
     def compute_geo_velociites(self,ssh,lat,lon,sigma=0.,alpha_uv_geo=9.81,flag_mean_coriolis=False):
 
-        print( ssh.size())
-        print(lat.size(),flush=True)
-        print(lon.size(),flush=True)
         dlat = lat[1]-lat[0]
         dlon = lon[1]-lon[0]
         
@@ -256,7 +253,13 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         f_c = self.compute_coriolis_force(grid_lat,flag_mean_coriolis=flag_mean_coriolis)
       
         dssh_dx , dssh_dy = self.compute_gradxy( ssh , sigma=sigma )
- 
+
+        print( dssh_dx.size())
+        print( grid_lon.size())
+        print( grid_lat.size())
+        print(dx_from_dlon.size(),flush=True)
+        print(dy_from_dlat.size(),flush=True)
+
         dssh_dx = dssh_dx / dx_from_dlon 
         dssh_dy = dssh_dy / dy_from_dlat  
 
