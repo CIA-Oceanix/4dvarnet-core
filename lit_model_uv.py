@@ -268,7 +268,11 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         u_geo = alpha_uv_geo * u_geo
         v_geo = alpha_uv_geo * v_geo
         
-        print( torch.mean( torch.abs(u_geo)) )
+        print(' dx %f '%torch.mean( torch.abs(dx_from_dlon)).detach().cpu().numpy() )
+        print(' dy %f '%torch.mean( torch.abs(dy_from_dlat)).detach().cpu().numpy() )
+        print(' dssh_dy %f '%torch.mean( torch.abs(dssh_dy)).detach().cpu().numpy() )
+        print(' dssh_dx %f '%torch.mean( torch.abs(dssh_dx)).detach().cpu().numpy() )
+        print(' ugeo %f '%torch.mean( torch.abs(u_geo)).detach().cpu().numpy() )
     
         return u_geo,v_geo
         
@@ -1751,9 +1755,6 @@ class LitModelUV(pl.LightningModule):
                     div_rec = self.compute_div(outputs_u,outputs_v)
                     div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
                 else:
-                    print(lat[0,0:10])
-                    print(lon[0,0:10])
-                    
                     lat_rad = torch.deg2rad(lat)
                     lon_rad = torch.deg2rad(lon)
                     
@@ -1766,9 +1767,9 @@ class LitModelUV(pl.LightningModule):
                     outputs_u = u_geo / np.sqrt(self.var_tr_uv)
                     outputs_v = v_geo / np.sqrt(self.var_tr_uv)
                     
-                    print( torch.sqrt(torch.mean( u_geo**2) ) )
-                    print( torch.sqrt(torch.mean( outputs_u**2) ) )
-                    print( torch.sqrt(torch.mean( u_gt_wo_nan**2) ) )
+                    #print( torch.sqrt(torch.mean( u_geo**2) ) )
+                    #print( torch.sqrt(torch.mean( outputs_u**2) ) )
+                    #print( torch.sqrt(torch.mean( u_gt_wo_nan**2) ) )
                     
                     div_rec = 0. * outputs
                     div_gt = 0. * outputs
