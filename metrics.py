@@ -570,16 +570,16 @@ def save_netcdf_uv(saved_path1, gt, u_gt, v_gt, obs, oi, pred, lon, lat, time,
         xrdata['sst_feat'] = (['time', 'feat', 'lat', 'lon'],  sst_feat)        
         
     if curl_gt is not None :
-        xrdata["curl_gt"]=(['time', 'feat', 'lat'],  curl_gt)
+        xrdata["curl_gt"]=(['time', 'lat', 'lon'],  curl_gt)
 
     if strain_gt is not None :
-        xrdata["curl_gt"]=(['time', 'feat', 'lat'],  strain_gt)
+        xrdata["curl_gt"]=(['time', 'lat', 'lon'],  strain_gt)
 
     if curl_pred is not None :
-        xrdata["curl_gt"]=(['time', 'feat', 'lat'],  curl_pred)
+        xrdata["curl_gt"]=(['time', 'lat', 'lon'],  curl_pred)
 
     if strain_pred is not None :
-        xrdata["curl_gt"]=(['time', 'feat', 'lat'],  strain_pred)
+        xrdata["curl_gt"]=(['time', 'lat', 'lon'],  strain_pred)
 
     #xrdata.time.attrs['units'] = time_units
     xrdata.to_netcdf(path=saved_path1, mode='w')
