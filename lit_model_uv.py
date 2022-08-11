@@ -187,8 +187,11 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         self.eps = 1e-10#torch.Tensor([1.*1e-10])
     
     def compute_c(self,lat,lon,dlat,dlon):
+        
         a = torch.sin(dlat / 2. )**2 + torch.cos(lat) ** 2 * torch.sin( dlon / 2)**2
-        return 2. * 6.371 * torch.atan2( torch.sqrt(a + self.eps), torch.sqrt(1. - a + self.eps ))        
+        print(a[0:10])
+        
+        return 2. * 6.371e6 * torch.atan2( torch.sqrt(a + self.eps), torch.sqrt(1. - a + self.eps ))        
 
     def compute_dx_dy_dlat_dlon(self,lat,lon,dlat,dlon):
         
