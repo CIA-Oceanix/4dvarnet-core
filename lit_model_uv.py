@@ -267,6 +267,8 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
 
         u_geo = alpha_uv_geo * u_geo
         v_geo = alpha_uv_geo * v_geo
+        
+        print( torch.mean( torch.abs(u_geo)) )
     
         return u_geo,v_geo
         
@@ -1767,6 +1769,7 @@ class LitModelUV(pl.LightningModule):
                     print( torch.sqrt(torch.mean( u_geo**2) ) )
                     print( torch.sqrt(torch.mean( outputs_u**2) ) )
                     print( torch.sqrt(torch.mean( u_gt_wo_nan**2) ) )
+                    
                     div_rec = 0. * outputs
                     div_gt = 0. * outputs
                     #div_rec,curl,strain = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
