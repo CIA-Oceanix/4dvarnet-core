@@ -196,11 +196,11 @@ class DivCurlStrain_from_uv_with_lat_lon(torch.nn.Module):
         dx_from_dlon =  self.compute_c(lat,lon,0.*dlat,dlon)
     
         return dx_from_dlon , dy_from_dlat
-        
-    
+            
     def compute_gradx(self,u,sigma=0.):
+               
         if sigma > 0. :
-                u = 1. * u
+            u = kornia.filters.gaussian_blur2d(u, (5,5), (sigma,sigma), border_type='reflect')
         
         G_x = self.convGx(u.view(-1, 1, u.size(2), u.size(3)))
         G_x = G_x.view(-1,u.size(1), u.size(2), u.size(3))
@@ -209,14 +209,27 @@ class DivCurlStrain_from_uv_with_lat_lon(torch.nn.Module):
 
     def compute_grady(self,u,sigma=0.):
         if sigma > 0. :
-                u = 1. * u
+            u = kornia.filters.gaussian_blur2d(u, (5,5), (sigma,sigma), border_type='reflect')
         
         G_y = self.convGy(u.view(-1, 1, u.size(2), u.size(3)))
         G_y = G_y.view(-1,u.size(1), u.size(2), u.size(3))
 
         return G_y
+
+    def compute_gradxy(self,u,sigma=0.):
+               
+        if sigma > 0. :
+            u = kornia.filters.gaussian_blur2d(u, (5,5), (sigma,sigma), border_type='reflect')
+        
+        G_x = self.convGx(u.view(-1, 1, u.size(2), u.size(3)))
+        G_x = G_x.view(-1,u.size(1), u.size(2), u.size(3))
+
+        G_y = self.convGy(u.view(-1, 1, u.size(2), u.size(3)))
+        G_y = G_y.view(-1,u.size(1), u.size(2), u.size(3))
+
+        return G_x,G_y
     
-    def forward(self,u,v,lat,lon):
+    def forward(self,u,v,lat,lon,sigma=0.):
         
         dlat = lat[1]-lat[0]
         dlon = lon[1]-lon[0]
@@ -229,18 +242,21 @@ class DivCurlStrain_from_uv_with_lat_lon(torch.nn.Module):
         
         dx_from_dlon , dy_from_dlat = self.compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon)     
       
-        du_dx = self.compute_gradx( u )
-        dv_dy = self.compute_grady( v )
+        #du_dx = self.compute_gradx( u )
+        #du_dy = self.compute_grady( u )
 
-        du_dy = self.compute_grady( u )
-        dv_dx = self.compute_gradx( v )
+        du_dx , du_dy = self.compute_gradxy( u , sigma=sigma )
+
+        #dv_dx = self.compute_gradx( v )
+        #dv_dy = self.compute_grady( v )
+
+        dv_dx , dv_dy = self.compute_gradxy( v , sigma=sigma )
         
-        if 1*1 :
-            du_dx = du_dx / dx_from_dlon 
-            dv_dx = dv_dx / dx_from_dlon 
+        du_dx = du_dx / dx_from_dlon 
+        dv_dx = dv_dx / dx_from_dlon 
 
-            du_dy = du_dy / dy_from_dlat  
-            dv_dy = dv_dy / dy_from_dlat  
+        du_dy = du_dy / dy_from_dlat  
+        dv_dy = dv_dy / dy_from_dlat  
 
         strain = torch.sqrt( ( dv_dx + du_dy ) **2 + (du_dx - dv_dy) **2 + self.eps )
 
@@ -1254,6 +1270,7 @@ class LitModelUV(pl.LightningModule):
         div_gt,curl_gt,strain_gt = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,lat_rad,lon_rad,sigma=sig_div_curl)
         div_uv_rec,curl_uv_rec,strain_uv_rec = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,lat_rad,lon_rad,sigma=sig_div_curl)
                 
+        print( self.test_xr_ds.pred_u.shape )
         t_compute_div_curl_strain_with_lat_lon =  DivCurlStrain_from_uv_with_lat_lon()
         t_u = torch.Tensor(self.test_xr_ds.pred_u).view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
         t_v = torch.Tensor(self.test_xr_ds.pred_v).view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
