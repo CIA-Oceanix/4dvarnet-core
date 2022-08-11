@@ -244,8 +244,6 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
 
         dlat = lat[0,1]-lat[0,0]
         dlon = lon[0,1]-lon[0,0]
-        print(dlat)
-        print(dlon)
         
         # coriolis / lat/lon scaling
         grid_lat = lat.view(ssh.size(0),1,ssh.size(2),1)
@@ -257,14 +255,6 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         f_c = self.compute_coriolis_force(grid_lat,flag_mean_coriolis=flag_mean_coriolis)
       
         dssh_dx , dssh_dy = self.compute_gradxy( ssh , sigma=sigma )
-
-        print(lat[0,0:10])
-        print(lon[0,0:10])
-        print('... gx %f'%torch.mean(dssh_dx).detach().cpu().numpy())
-        print('... f_c %f'%torch.mean(f_c).detach().cpu().numpy())
-        print('... dx %f'%torch.mean(dx_from_dlon).detach().cpu().numpy())
-        print('... dy %f'%torch.mean(dy_from_dlat).detach().cpu().numpy())
-
 
         dssh_dx = dssh_dx / dx_from_dlon 
         dssh_dy = dssh_dy / dy_from_dlat  
