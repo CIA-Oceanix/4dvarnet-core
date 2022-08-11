@@ -254,6 +254,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
       
         dssh_dx , dssh_dy = self.compute_gradxy( ssh , sigma=sigma )
 
+        print( ssh.size())
         print( dssh_dx.size())
         print( grid_lon.size())
         print( grid_lat.size())
