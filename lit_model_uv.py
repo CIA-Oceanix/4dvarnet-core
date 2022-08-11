@@ -189,9 +189,6 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
     def compute_c(self,lat,lon,dlat,dlon):
         
         a = torch.sin(dlat / 2. )**2 + torch.cos(lat) ** 2 * torch.sin( dlon / 2. )**2
-        print(dlat)
-        print(dlon)
-        print(a[10])
         
         return 2. * 6.371e6 * torch.atan2( torch.sqrt(a + self.eps), torch.sqrt(1. - a + self.eps ))        
 
@@ -245,8 +242,10 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         
     def compute_geo_velociites(self,ssh,lat,lon,sigma=0.,alpha_uv_geo=9.81,flag_mean_coriolis=False):
 
-        dlat = lat[1]-lat[0]
-        dlon = lon[1]-lon[0]
+        dlat = lat[0,0,1]-lat[0,0,0]
+        dlon = lon[0,0,1]-lon[0,0,0]
+        print(dlat)
+        print(dlon)
         
         # coriolis / lat/lon scaling
         grid_lat = lat.view(ssh.size(0),1,ssh.size(2),1)
