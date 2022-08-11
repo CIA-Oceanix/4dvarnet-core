@@ -254,6 +254,13 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
       
         dssh_dx , dssh_dy = self.compute_gradxy( ssh , sigma=sigma )
 
+
+        print('... gx %f'%torch.mean(dssh_dx).detach().cpu().numpy())
+        print('... f_c %f'%torch.mean(f_c).detach().cpu().numpy())
+        print('... dx %f'%torch.mean(dx_from_dlon).detach().cpu().numpy())
+        print('... dy %f'%torch.mean(dy_from_dlat).detach().cpu().numpy())
+
+
         dssh_dx = dssh_dx / dx_from_dlon 
         dssh_dy = dssh_dy / dy_from_dlat  
 
