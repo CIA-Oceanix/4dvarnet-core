@@ -229,6 +229,45 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
 
         return G_x,G_y
     
+    def compute_coriolis_force(self,grid_lat,flag_mean_coriolis=False):
+    omega = 7.2921e-5 # rad/s
+    f = 2 * omega * np.sin(lat)
+    
+    if flag_mean_coriolis == True :
+        f = np.mean(f) * np.ones((f.shape)) 
+    
+    return f
+        
+    def compute_geo_velociites(self,ssh,lat,lon,sigma,alpha_uv_geo=9.81,flag_mean_coriolis=False):
+
+        dlat = lat[1]-lat[0]
+        dlon = lon[1]-lon[0]
+        
+        # coriolis / lat/lon scaling
+        grid_lat = lat.view(1,1,ssh.size(2),1)
+        grid_lat = grid_lat.repeat(ssh.size(0),ssh.size(1),1,ssh.size(3))
+        grid_lon = lon.view(1,1,ssh.size(2))
+        grid_lon = grid_lon.repeat(ssh.size(0),ssh.size(1),ssh.size(2),1)
+        
+        dx_from_dlon , dy_from_dlat = self.compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon)     
+        f_c = self.compute_coriolis_force(grid_lat,flag_mean_coriolis=flag_mean_coriolis)
+      
+        dssh_dx , dssh_dy = self.compute_gradxy( ssh , sigma=sigma )
+ 
+        dssh_dx = dssh_dx / dx_from_dlon 
+        dssh_dy = dssh_dy / dy_from_dlat  
+
+        dssh_dy = ( 1. / f_c ) * dssh_dy
+        dssh_dx = ( 1. / f_c  )* dssh_dx
+
+        u_geo = -1. * dssh_dy
+        v_geo = 1. * dssh_dx
+
+        u_geo = alpha_uv_geo * u_geo
+        v_geo = alpha_uv_geo * v_geo
+    
+        return u_geo,v_geo
+        
     def compute_div_curl_strain(self,u,v,lat,lon,sigma=0.):
         
         dlat = lat[1]-lat[0]
@@ -1272,34 +1311,36 @@ class LitModelUV(pl.LightningModule):
 
         div_gt,curl_gt,strain_gt = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,lat_rad,lon_rad,sigma=sig_div_curl)
         div_uv_rec,curl_uv_rec,strain_uv_rec = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,lat_rad,lon_rad,sigma=sig_div_curl)
-                
-        t_u = torch.Tensor(self.test_xr_ds.pred_u.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
-        t_v = torch.Tensor(self.test_xr_ds.pred_v.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
-        
-        t_u = t_u.view(-1,1,t_u.size(1),t_u.size(2))
-        t_v = t_v.view(-1,1,t_v.size(1),t_v.size(2))
-        
-        t_lat_rad = torch.Tensor( lat_rad )
-        t_lon_rad = torch.Tensor( lon_rad )
-
-        t_compute_div_curl_strain_with_lat_lon =  Torch_compute_derivatives_with_lon_lat()
-        t_div,t_curl,t_strain = t_compute_div_curl_strain_with_lat_lon.compute_div_curl_strain(t_u,t_v,t_lat_rad,t_lon_rad,sigma=sig_div_curl)
-        
-        div_uv_rec_ = t_div.numpy().squeeze()
-        curl_uv_rec_ = t_curl.numpy().squeeze()
-        strain_uv_rec_ = t_strain.numpy().squeeze()
-        
+ 
         var_mse_div = compute_var_exp( div_gt, div_uv_rec)
         var_mse_curl = compute_var_exp( curl_gt, curl_uv_rec)
         var_mse_strain = compute_var_exp( strain_gt, strain_uv_rec)
-
-        var_mse_div_ = compute_var_exp( div_gt, div_uv_rec_)
-        var_mse_curl_ = compute_var_exp( curl_gt, curl_uv_rec_)
-        var_mse_strain_ = compute_var_exp( strain_gt, strain_uv_rec_)
-
-        print('.... div %.2f -- %.2f'%(var_mse_div_,var_mse_div))
-        print('.... strain %.2f -- %.2f'%(var_mse_strain_,var_mse_strain))
-        print('.... curl %.2f -- %.2f'%(var_mse_curl_,var_mse_curl))
+           
+        if 1*0 :
+            t_u = torch.Tensor(self.test_xr_ds.pred_u.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
+            t_v = torch.Tensor(self.test_xr_ds.pred_v.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
+            
+            t_u = t_u.view(-1,1,t_u.size(1),t_u.size(2))
+            t_v = t_v.view(-1,1,t_v.size(1),t_v.size(2))
+            
+            t_lat_rad = torch.Tensor( lat_rad )
+            t_lon_rad = torch.Tensor( lon_rad )
+    
+            t_compute_div_curl_strain_with_lat_lon =  Torch_compute_derivatives_with_lon_lat()
+            t_div,t_curl,t_strain = t_compute_div_curl_strain_with_lat_lon.compute_div_curl_strain(t_u,t_v,t_lat_rad,t_lon_rad,sigma=sig_div_curl)
+            
+            div_uv_rec_ = t_div.numpy().squeeze()
+            curl_uv_rec_ = t_curl.numpy().squeeze()
+            strain_uv_rec_ = t_strain.numpy().squeeze()
+            
+    
+            var_mse_div_ = compute_var_exp( div_gt, div_uv_rec_)
+            var_mse_curl_ = compute_var_exp( curl_gt, curl_uv_rec_)
+            var_mse_strain_ = compute_var_exp( strain_gt, strain_uv_rec_)
+    
+            print('.... div %.2f -- %.2f'%(var_mse_div_,var_mse_div))
+            print('.... strain %.2f -- %.2f'%(var_mse_strain_,var_mse_strain))
+            print('.... curl %.2f -- %.2f'%(var_mse_curl_,var_mse_curl))
 
         if sig_div_curl > 0. :
             f_ssh_gt = gaussian_filter(self.test_xr_ds.gt, sigma=sig_div_curl)
