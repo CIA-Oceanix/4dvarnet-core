@@ -1316,7 +1316,7 @@ class LitModelUV(pl.LightningModule):
         var_mse_curl = compute_var_exp( curl_gt, curl_uv_rec)
         var_mse_strain = compute_var_exp( strain_gt, strain_uv_rec)
            
-        if 1*0 :
+        if 1*1 :
             t_u = torch.Tensor(self.test_xr_ds.pred_u.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
             t_v = torch.Tensor(self.test_xr_ds.pred_v.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
             
@@ -1332,15 +1332,18 @@ class LitModelUV(pl.LightningModule):
             div_uv_rec_ = t_div.numpy().squeeze()
             curl_uv_rec_ = t_curl.numpy().squeeze()
             strain_uv_rec_ = t_strain.numpy().squeeze()
-            
-    
+                
             var_mse_div_ = compute_var_exp( div_gt, div_uv_rec_)
             var_mse_curl_ = compute_var_exp( curl_gt, curl_uv_rec_)
             var_mse_strain_ = compute_var_exp( strain_gt, strain_uv_rec_)
     
-            print('.... div %.2f -- %.2f'%(var_mse_div_,var_mse_div))
-            print('.... strain %.2f -- %.2f'%(var_mse_strain_,var_mse_strain))
-            print('.... curl %.2f -- %.2f'%(var_mse_curl_,var_mse_curl))
+            print('.... div %.2f -- %.2f -- %.2f'%(var_mse_div_,var_mse_div,compute_var_exp( div_uv_rec, div_uv_rec_)) )
+            print('.... strain %.2f -- %.2f -- %.2f'%(var_mse_strain_,var_mse_strain,compute_var_exp( strain_uv_rec, strain_uv_rec_)))
+            print('.... curl %.2f -- %.2f -- %.2f'%(var_mse_curl_,var_mse_curl,compute_var_exp( curl_uv_rec, curl_uv_rec_)))
+
+            var_mse_div_ = compute_var_exp( div_gt, div_uv_rec_)
+            var_mse_curl_ = compute_var_exp( curl_gt, curl_uv_rec_)
+            var_mse_strain_ = compute_var_exp( strain_gt, strain_uv_rec_)
 
         if sig_div_curl > 0. :
             f_ssh_gt = gaussian_filter(self.test_xr_ds.gt, sigma=sig_div_curl)
