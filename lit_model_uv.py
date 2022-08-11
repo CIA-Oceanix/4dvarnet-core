@@ -1276,8 +1276,8 @@ class LitModelUV(pl.LightningModule):
         t_v = torch.Tensor(self.test_xr_ds.pred_v)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
         
         print(t_u.size(),flush=True)
-        t_u = t_u.ciew(-1,1,t_u.size(1),t_u.size(2))
-        t_v = t_v.ciew(-1,1,t_u.size(1),t_u.size(2))
+        t_u = t_u.view(-1,1,t_u.size(1),t_u.size(2))
+        t_v = t_v.view(-1,1,t_u.size(1),t_u.size(2))
         
         t_lat_rad = torch.Tensor( lat_rad )
         t_lon_rad = torch.Tensor( lon_rad )
