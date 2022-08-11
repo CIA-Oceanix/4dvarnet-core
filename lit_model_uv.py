@@ -1283,7 +1283,17 @@ class LitModelUV(pl.LightningModule):
         lat_rad = np.radians(self.test_lat)
         lon_rad = np.radians(self.test_lon)
         
-        u_geo_gt,v_geo_gt = compute_uv_geo_with_coriolis(self.test_xr_ds.gt,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
+        t_compute_geo_velocities =  Torch_compute_derivatives_with_lon_lat()
+        t_ssh = torch.Tensor(self.test_xr_ds.gt.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])        
+        t_ssh = t_ssh.view(-1,1,t_ssh.size(1),t_ssh.size(2))        
+        t_lat_rad = torch.Tensor( lat_rad )
+        t_lon_rad = torch.Tensor( lon_rad )
+        
+        t_u_geo_gt,t_v_geo_gt = t_compute_geo_velocities.compute_geo_velociites(t_ssh, t_lat_rad, t_lon_rad, sigma=0.)
+        u_geo_gt = t_u_geo_gt.numpy().squeeze()
+        v_geo_gt = t_v_geo_gt.numpy().squeeze()
+        
+        #u_geo_gt,v_geo_gt = compute_uv_geo_with_coriolis(self.test_xr_ds.gt,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
         u_geo_oi,v_geo_oi = compute_uv_geo_with_coriolis(self.test_xr_ds.oi,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
         u_geo_rec,v_geo_rec = compute_uv_geo_with_coriolis(self.test_xr_ds.pred,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
 
@@ -1334,8 +1344,7 @@ class LitModelUV(pl.LightningModule):
             strain_uv_rec_ = t_strain.numpy().squeeze()
                 
             t_u = torch.Tensor(self.test_xr_ds.u_gt.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
-            t_v = torch.Tensor(self.test_xr_ds.v_gt.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
-            
+            t_v = torch.Tensor(self.test_xr_ds.v_gt.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])            
             t_u = t_u.view(-1,1,t_u.size(1),t_u.size(2))
             t_v = t_v.view(-1,1,t_v.size(1),t_v.size(2))
 
