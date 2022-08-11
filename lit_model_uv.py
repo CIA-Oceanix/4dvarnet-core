@@ -284,8 +284,8 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         
     def compute_div_curl_strain(self,u,v,lat,lon,sigma=0.):
         
-        dlat = lat[1]-lat[0]
-        dlon = lon[1]-lon[0]
+        dlat = lat[0,1]-lat[0,0]
+        dlon = lon[0,1]-lon[0,0]
         
         # coriolis / lat/lon scaling
         grid_lat = lat.view(u.size(0),1,u.size(2),1)
@@ -294,15 +294,8 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         grid_lon = grid_lon.repeat(1,u.size(1),u.size(2),1)
         
         dx_from_dlon , dy_from_dlat = self.compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon)     
-      
-        #du_dx = self.compute_gradx( u )
-        #du_dy = self.compute_grady( u )
 
         du_dx , du_dy = self.compute_gradxy( u , sigma=sigma )
-
-        #dv_dx = self.compute_gradx( v )
-        #dv_dy = self.compute_grady( v )
-
         dv_dx , dv_dy = self.compute_gradxy( v , sigma=sigma )
         
         du_dx = du_dx / dx_from_dlon 
@@ -1775,9 +1768,15 @@ class LitModelUV(pl.LightningModule):
 
                     div_rec = 0. * outputs
                     div_gt = 0. * outputs
-                    div_rec,curl,strain = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
+                    div_rec,curl_rec,strain_rec = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
                     div_gt,curl_gt,strain_gt = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
     
+                    print( torch.mean( torch.abs(div_rec) ) ) 
+                    print( torch.mean( torch.abs(div_gt) ) ) 
+                    print( NN_4DVar.compute_spatio_temp_weighted_loss((div_rec - div_gt ), self.patch_weight) ) 
+                    print( torch.mean( torch.abs(strain_rec) ) ) 
+                    print( torch.mean( torch.abs(strain_gt) ) ) 
+                    print( NN_4DVar.compute_spatio_temp_weighted_loss((strain_rec - strain_gt ), self.patch_weight) ) 
                     
                 # median filter
                 if self.median_filter_width > 1:
