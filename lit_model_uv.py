@@ -1723,11 +1723,11 @@ class LitModelUV(pl.LightningModule):
 
                 # compute divergence for current field    
                 # set dx/dy scaling from (lat,lon) position
-                if self.flag_compute_div_with_lat_scaling :
-                    dlat = lat[0,1]-lat[0,0]
+                #if self.flag_compute_div_with_lat_scaling :
+                #    dlat = lat[0,1]-lat[0,0]
                     #dlon = lon[0,1]-lon[0,0]
                     
-                    self.compute_dlatlon2dxdy_scaling(lat,lon,dlat,outputs_u.size(1))
+               #     self.compute_dlatlon2dxdy_scaling(lat,lon,dlat,outputs_u.size(1))
                     
                     #print('dlat,dlon = %f -- %f'%( dlat.detach().cpu().numpy(),dlon.detach().cpu().numpy() ))
                     #print(torch.mean(self.alpha_dx[0,0,0,:]) )
