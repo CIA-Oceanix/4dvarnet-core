@@ -242,8 +242,8 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         
     def compute_geo_velociites(self,ssh,lat,lon,sigma=0.,alpha_uv_geo=9.81,flag_mean_coriolis=False):
 
-        dlat = lat[0,0,1]-lat[0,0,0]
-        dlon = lon[0,0,1]-lon[0,0,0]
+        dlat = lat[0,1]-lat[0,0]
+        dlon = lon[0,1]-lon[0,0]
         print(dlat)
         print(dlon)
         
