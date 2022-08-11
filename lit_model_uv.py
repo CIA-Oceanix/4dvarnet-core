@@ -1293,7 +1293,7 @@ class LitModelUV(pl.LightningModule):
         u_geo_gt = t_u_geo_gt.numpy().squeeze()
         v_geo_gt = t_v_geo_gt.numpy().squeeze()
         
-        #u_geo_gt,v_geo_gt = compute_uv_geo_with_coriolis(self.test_xr_ds.gt,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
+        u_geo_gt,v_geo_gt = compute_uv_geo_with_coriolis(self.test_xr_ds.gt,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
         u_geo_oi,v_geo_oi = compute_uv_geo_with_coriolis(self.test_xr_ds.oi,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
         u_geo_rec,v_geo_rec = compute_uv_geo_with_coriolis(self.test_xr_ds.pred,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
 
