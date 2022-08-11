@@ -892,8 +892,11 @@ class LitModelUV(pl.LightningModule):
         }
 
     def on_epoch_start(self):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
         self.model.n_grad = self.hparams.n_grad
-
+        self.compute_derivativeswith_lon_lat.to(device)
+        
     def on_train_epoch_start(self):
         if self.model_name in ('4dvarnet', '4dvarnet_sst'):
             opt = self.optimizers()
