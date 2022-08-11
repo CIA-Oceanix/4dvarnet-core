@@ -1272,12 +1272,17 @@ class LitModelUV(pl.LightningModule):
                 
         print( self.test_xr_ds.u_gt.shape )
         print( self.test_xr_ds.pred_u.shape )
-        t_compute_div_curl_strain_with_lat_lon =  DivCurlStrain_from_uv_with_lat_lon()
-        t_u = torch.Tensor(self.test_xr_ds.pred_u).view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
-        t_v = torch.Tensor(self.test_xr_ds.pred_v).view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
+        t_u = torch.Tensor(self.test_xr_ds.pred_u)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
+        t_v = torch.Tensor(self.test_xr_ds.pred_v)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
+        
+        print(t_u.size(),flush=True)
+        t_u = t_u.ciew(-1,1,t_u.size(1),t_u.size(2))
+        t_v = t_v.ciew(-1,1,t_u.size(1),t_u.size(2))
         
         t_lat_rad = torch.Tensor( lat_rad )
         t_lon_rad = torch.Tensor( lon_rad )
+
+        t_compute_div_curl_strain_with_lat_lon =  DivCurlStrain_from_uv_with_lat_lon()
         t_div,t_curl,t_strain = t_compute_div_curl_strain_with_lat_lon(t_u,t_v,t_lat_rad,t_lon_rad)
         
         div_uv_rec_ = t_div.numpy().squeeze()
