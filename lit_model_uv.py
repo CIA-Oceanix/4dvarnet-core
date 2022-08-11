@@ -184,7 +184,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
             self.convGy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1, bias=False,padding_mode='reflect')
             self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
         
-        self.eps = torch.Tensor([0.*1e-20])
+        self.eps = torch.Tensor([1.*1e-10])
     
     def compute_c(self,lat,lon,dlat,dlon):
         a = torch.sin(dlat / 2)**2 + torch.cos(lat) ** 2 * torch.sin(dlon / 2)**2
@@ -219,7 +219,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
     def compute_gradxy(self,u,sigma=0.):
                
         if sigma > 0. :
-            u = kornia.filters.gaussian_blur2d(u, (3,3), (sigma,sigma), border_type='reflect')
+            u = kornia.filters.gaussian_blur2d(u, (9,9), (sigma,sigma), border_type='reflect')
         
         G_x = self.convGx(u.view(-1, 1, u.size(2), u.size(3)))
         G_x = G_x.view(-1,u.size(1), u.size(2), u.size(3))
@@ -712,7 +712,7 @@ class LitModelUV(pl.LightningModule):
         self.gradient_img = lambda t: torch.unbind(
                 self.grad_crop(2.*kornia.filters.spatial_gradient(t, normalized=True)), 2)
         
-        self.flag_compute_div_with_lat_scaling = True
+        self.compute_derivativeswith_lon_lat = Torch_compute_derivatives_with_lon_lat()
         #if self.flag_compute_div_with_lat_scaling :
         #    self.div_field = Div_uv_with_lat_lon_scaling()
         #else:
@@ -736,52 +736,52 @@ class LitModelUV(pl.LightningModule):
 
         print('..... div. computation (sigma): %f -- %f'%(self.sig_filter_div,self.sig_filter_div_diag))
 
-
-    def compute_div(self,u,v):
-        # siletring
-        f_u = kornia.filters.gaussian_blur2d(u, (5,5), (self.sig_filter_div,self.sig_filter_div), border_type='reflect')
-        f_v = kornia.filters.gaussian_blur2d(v, (5,5), (self.sig_filter_div,self.sig_filter_div), border_type='reflect')
-        
-        # gradients
-        du_dx, du_dy = self.gradient_img(f_u)
-        dv_dx, dv_dy = self.gradient_img(f_v)
-                       
-        # scaling 
-        du_dx = self.alpha_dx * dv_dx
-        dv_dy = self.alpha_dy * dv_dy
-        
-        return du_dx + dv_dy  
-
-    def compute_c(self,lat,lon,dlat,dlon):
-        a = torch.sin(dlat / 2)**2 + torch.cos(lat) ** 2 * torch.sin(dlon / 2)**2
-        return 2 * 6.371e6 * torch.atan2( torch.sqrt(a), torch.sqrt(1. - a))        
-        
-    def compute_dlat_dlon_scaling(self,lat,lon,dlat,dlon):
- 
-        dy_from_dlat =  self.compute_c(lat,lon,dlat,0. * dlon)
-        dx_from_dlon =  self.compute_c(lat,lon,0. * dlat ,dlon)
+    if 1*0 :
+        def compute_div(self,u,v):
+            # siletring
+            f_u = kornia.filters.gaussian_blur2d(u, (5,5), (self.sig_filter_div,self.sig_filter_div), border_type='reflect')
+            f_v = kornia.filters.gaussian_blur2d(v, (5,5), (self.sig_filter_div,self.sig_filter_div), border_type='reflect')
+            
+            # gradients
+            du_dx, du_dy = self.gradient_img(f_u)
+            dv_dx, dv_dy = self.gradient_img(f_v)
+                           
+            # scaling 
+            du_dx = self.alpha_dx * dv_dx
+            dv_dy = self.alpha_dy * dv_dy
+            
+            return du_dx + dv_dy  
     
-        return dx_from_dlon, dy_from_dlat
-
-
-    def compute_dlatlon2dxdy_scaling(self,lat,lon,res_latlon,dT):
+        def compute_c(self,lat,lon,dlat,dlon):
+            a = torch.sin(dlat / 2)**2 + torch.cos(lat) ** 2 * torch.sin(dlon / 2)**2
+            return 2 * 6.371e6 * torch.atan2( torch.sqrt(a), torch.sqrt(1. - a))        
+            
+        def compute_dlat_dlon_scaling(self,lat,lon,dlat,dlon):
+     
+            dy_from_dlat =  self.compute_c(lat,lon,dlat,0. * dlon)
+            dx_from_dlon =  self.compute_c(lat,lon,0. * dlat ,dlon)
         
-        # coriolis / lat/lon scaling
-        grid_lat = ( np.pi / 180 ) * lat.view(lat.size(0),1,1,-1)
-        grid_lat = grid_lat.repeat(1,dT,lon.size(1),1)
-        grid_lon = ( np.pi / 180 ) * lon.view(lon.size(0),1,-1,1)
-        grid_lon = grid_lon.repeat(1,dT,1,lat.size(1))
-        
-        res_latlon = ( np.pi / 180 ) * res_latlon
-        
-        dx_from_dlon, dy_from_dlat  = self.compute_dlat_dlon_scaling(grid_lat,grid_lon,res_latlon,res_latlon )    
-                        
-        self.alpha_dx = dx_from_dlon / torch.mean( dy_from_dlat ) 
-        #self.alpha_dy = dy_from_dlat / torch.mean( dy_from_dlat )   
-        
-        self.alpha_dx = self.alpha_dx[:,:,1:-1,1:-1].detach()
-        self.alpha_dy = 1. #self.alpha_dy[:,:,1:-1,1:-1]
-        
+            return dx_from_dlon, dy_from_dlat
+    
+    
+        def compute_dlatlon2dxdy_scaling(self,lat,lon,res_latlon,dT):
+            
+            # coriolis / lat/lon scaling
+            grid_lat = ( np.pi / 180 ) * lat.view(lat.size(0),1,1,-1)
+            grid_lat = grid_lat.repeat(1,dT,lon.size(1),1)
+            grid_lon = ( np.pi / 180 ) * lon.view(lon.size(0),1,-1,1)
+            grid_lon = grid_lon.repeat(1,dT,1,lat.size(1))
+            
+            res_latlon = ( np.pi / 180 ) * res_latlon
+            
+            dx_from_dlon, dy_from_dlat  = self.compute_dlat_dlon_scaling(grid_lat,grid_lon,res_latlon,res_latlon )    
+                            
+            self.alpha_dx = dx_from_dlon / torch.mean( dy_from_dlat ) 
+            #self.alpha_dy = dy_from_dlat / torch.mean( dy_from_dlat )   
+            
+            self.alpha_dx = self.alpha_dx[:,:,1:-1,1:-1].detach()
+            self.alpha_dy = 1. #self.alpha_dy[:,:,1:-1,1:-1]
+            
        
     def update_filename_chkpt(self,filename_chkpt):
         
@@ -1733,10 +1733,22 @@ class LitModelUV(pl.LightningModule):
                     #print(torch.mean(self.alpha_dx[0,0,0,:]) )
                     #print(torch.min(self.alpha_dx[0,0,0,:]),flush=True )
                     #print(torch.max(self.alpha_dx[0,0,0,:]),flush=True )
+                
+                if 1*0 :
+                    div_rec = self.compute_div(outputs_u,outputs_v)
+                    div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
+                else:
+                    lat_rad = torch.deg2rad(lat)
+                    lon_rad = torch.deg2rad(lon)
                     
-                div_rec = self.compute_div(outputs_u,outputs_v)
-                div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
-  
+                    u_geo, v_geo = self.compute_derivativeswith_lon_lat.compute_geo_velociites(outputs, lat_rad, lon_rad)
+
+                    outputs_u = u_geo
+                    outputs_v = v_geo
+                    
+                    div,curl,strain = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div )
+                    div_gt,curl_gt,strain_gt = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div )
+    
                 # median filter
                 if self.median_filter_width > 1:
                     outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
