@@ -1282,11 +1282,11 @@ class LitModelUV(pl.LightningModule):
             return var_mse_uv, lamb_x_u, lamb_t_u, lamb_x_v, lamb_t_v
 
         # Metrics for SSC fields
-        if 1*0 :
-            alpha_uv_geo = 9.81 
-            lat_rad = np.radians(self.test_lat)
-            lon_rad = np.radians(self.test_lon)
-            
+        alpha_uv_geo = 9.81 
+        lat_rad = np.radians(self.test_lat)
+        lon_rad = np.radians(self.test_lon)
+        
+        if 1*0 :    
             lat_rad = lat_rad.reshape((1,1,lat_rad.hape[0],lat_rad.shape[1]))
             lon_rad = lon_rad.reshape((1,1,lon_rad.hape[0],lon_rad.shape[1]))
             lat_rad = lat_rad.repeat()
