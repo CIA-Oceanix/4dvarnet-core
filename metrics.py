@@ -517,8 +517,9 @@ def save_netcdf_with_sst(saved_path1, gt, obs, oi, pred, sst_feat, lon, lat, tim
 
 def save_netcdf_uv(saved_path1, gt, u_gt, v_gt, obs, oi, pred, lon, lat, time, 
                    u_pred=None, v_pred=None, sst_feat=None,
-                   save_div_curl_strain = False,
-                time_units='days since 2012-10-01 00:00:00'):
+                   curl_gt = None, strain_gt = None,
+                   curl_pred = None, strain_pred = None,
+                   time_units='days since 2012-10-01 00:00:00'):
     '''
     saved_path1: string
     pred: 3d numpy array (4DVarNet-based predictions)
@@ -568,18 +569,18 @@ def save_netcdf_uv(saved_path1, gt, u_gt, v_gt, obs, oi, pred, lon, lat, time,
 
         xrdata['sst_feat'] = (['time', 'feat', 'lat', 'lon'],  sst_feat)        
         
+    if curl_gt is not None :
+        xrdata["curl_gt"]=(['time', 'feat', 'lat'],  curl_gt)
 
-    #xrdata = xr.Dataset( \
-    #    data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
-    #               'latitude': (('lat', 'lon'), mesh_lat), \
-                   #'Time': (('time'), time), \
-                   #'ssh_gt': (('time', 'lat', 'lon'), gt), \
-                   #'ssh_oi': (('time', 'lat', 'lon'), oi), \
-                   #'ssh_obs': (('time', 'lat', 'lon'), obs), \
-    #               'ssh_rec': (('time', 'lat', 'lon'), pred)})#, \
-    #              'sst_feat': (('time', 'feat', 'lat', 'lon'), sst_feat)})#, \
-    #    coords={'lon': lon, 'lat': lat, 'time': time,'feat':np.arange(sst_feat.shape[1])})
-    
+    if strain_gt is not None :
+        xrdata["curl_gt"]=(['time', 'feat', 'lat'],  strain_gt)
+
+    if curl_pred is not None :
+        xrdata["curl_gt"]=(['time', 'feat', 'lat'],  curl_pred)
+
+    if strain_pred is not None :
+        xrdata["curl_gt"]=(['time', 'feat', 'lat'],  strain_pred)
+
     #xrdata.time.attrs['units'] = time_units
     xrdata.to_netcdf(path=saved_path1, mode='w')
     print('... file saved',flush=True)
