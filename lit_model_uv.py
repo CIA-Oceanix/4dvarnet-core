@@ -224,7 +224,9 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
             u = kornia.filters.gaussian_blur2d(u, (9,9), (sigma,sigma), border_type='reflect')
         
         print(u.size())
-        G_x = self.convGx(u.view(-1, 1, u.size(2), u.size(3)))
+        utemp = u.view(-1, 1, u.size(2), u.size(3))
+        print(utemp.size())
+        G_x = self.convGx( utemp )
         G_x = G_x.view(-1,u.size(1), u.size(2), u.size(3))
 
         G_y = self.convGy(u.view(-1, 1, u.size(2), u.size(3)))
