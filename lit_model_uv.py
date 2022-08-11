@@ -271,14 +271,6 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         u_geo = alpha_uv_geo * u_geo
         v_geo = alpha_uv_geo * v_geo
         
-        #print(' var ssh %f '%torch.var(ssh).detach().cpu().numpy() )
-        #print(' fc %f '%torch.mean( torch.abs(f_c)).detach().cpu().numpy() )
-        #print(' dx %f '%torch.mean( torch.abs(dx_from_dlon)).detach().cpu().numpy() )
-        #print(' dy %f '%torch.mean( torch.abs(dy_from_dlat)).detach().cpu().numpy() )
-        #print(' dssh_dy %f '%torch.mean( torch.abs(dssh_dy)).detach().cpu().numpy() )
-        #print(' dssh_dx %f '%torch.mean( torch.abs(dssh_dx)).detach().cpu().numpy() )
-        #print(' ugeo %f '%torch.mean( torch.abs(u_geo)).detach().cpu().numpy() )
-        #print(' vgeo %f '%torch.mean( torch.abs(v_geo)).detach().cpu().numpy() )
     
         return u_geo,v_geo
         
@@ -295,8 +287,8 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         
         dx_from_dlon , dy_from_dlat = self.compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon)     
 
-        du_dx , du_dy = self.compute_gradxy( u , sigma=sigma )
         dv_dx , dv_dy = self.compute_gradxy( v , sigma=sigma )
+        du_dx , du_dy = self.compute_gradxy( u , sigma=sigma )
         
         du_dx = du_dx / dx_from_dlon 
         dv_dx = dv_dx / dx_from_dlon 
@@ -1768,8 +1760,9 @@ class LitModelUV(pl.LightningModule):
 
                     div_rec = 0. * outputs
                     div_gt = 0. * outputs
-                    div_rec,curl_rec,strain_rec = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
+                    print( outputs_u.size() )
                     div_gt,curl_gt,strain_gt = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
+                    div_rec,curl_rec,strain_rec = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
     
                     print( torch.mean( torch.abs(div_rec) ) ) 
                     print( torch.mean( torch.abs(div_gt) ) ) 
