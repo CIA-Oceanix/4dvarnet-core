@@ -254,7 +254,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
       
         dssh_dx , dssh_dy = self.compute_gradxy( ssh , sigma=sigma )
 
-
+        print(lat[0,0:10])
         print('... gx %f'%torch.mean(dssh_dx).detach().cpu().numpy())
         print('... f_c %f'%torch.mean(f_c).detach().cpu().numpy())
         print('... dx %f'%torch.mean(dx_from_dlon).detach().cpu().numpy())
@@ -1754,6 +1754,9 @@ class LitModelUV(pl.LightningModule):
                     div_rec = self.compute_div(outputs_u,outputs_v)
                     div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
                 else:
+                    print(lat[0,0:10])
+                    print(lon[0,0:10])
+                    
                     lat_rad = torch.deg2rad(lat)
                     lon_rad = torch.deg2rad(lon)
                     
