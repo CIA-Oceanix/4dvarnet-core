@@ -1270,14 +1270,11 @@ class LitModelUV(pl.LightningModule):
         div_gt,curl_gt,strain_gt = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,lat_rad,lon_rad,sigma=sig_div_curl)
         div_uv_rec,curl_uv_rec,strain_uv_rec = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,lat_rad,lon_rad,sigma=sig_div_curl)
                 
-        print( self.test_xr_ds.u_gt.shape )
-        print( self.test_xr_ds.pred_u )
         t_u = torch.Tensor(self.test_xr_ds.pred_u.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
         t_v = torch.Tensor(self.test_xr_ds.pred_v.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
         
-        print(t_u.size(),flush=True)
         t_u = t_u.view(-1,1,t_u.size(1),t_u.size(2))
-        t_v = t_v.view(-1,1,t_u.size(1),t_u.size(2))
+        t_v = t_v.view(-1,1,t_v.size(1),t_v.size(2))
         
         t_lat_rad = torch.Tensor( lat_rad )
         t_lon_rad = torch.Tensor( lon_rad )
