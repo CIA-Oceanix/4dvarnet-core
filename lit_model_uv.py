@@ -1762,8 +1762,8 @@ class LitModelUV(pl.LightningModule):
                     div_rec = 0. * outputs
                     div_gt = 0. * outputs
                     print( outputs_u.size() )
-                    print( ssh )
-                    print( outputs_v )
+                    print( u_gt_wo_nan.size() )
+                    print( outputs_v.size() )
                     
                     div_gt,curl_gt,strain_gt = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
                     div_rec,curl_rec,strain_rec = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
