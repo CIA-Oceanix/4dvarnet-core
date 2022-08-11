@@ -153,6 +153,102 @@ def compute_div_curl_strain_with_lat_lon(u,v,lat,lon,sigma=1.0):
 
     return div,curl,strain
 
+class DivCurlStrain_from_uv_with_lat_lon(torch.nn.Module):
+    def __init__(self,_filter='diff-non-centered'):
+        super(DivCurlStrain_from_uv_with_lat_lon, self).__init__()
+
+        if _filter == 'sobel':
+            a = np.array([[1., 0., -1.], [2., 0., -2.], [1., 0., -1.]])
+            self.convGx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1, bias=False,padding_mode='reflect')
+            self.convGx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+
+            b = np.array([[1., 2., 1.], [0., 0., 0.], [-1., -2., -1.]])
+            self.convGy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1, bias=False,padding_mode='reflect')
+            self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+        elif _filter == 'diff-non-centered':
+            #a = np.array([[0., 0., 0.], [0.3, 0.4, -0.7], [0., 0., 0.]])
+            a = np.array([[0., 0., 0.], [-0.7, 0.4, 0.3], [0., 0., 0.]])
+
+            self.convGx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1, bias=False,padding_mode='reflect')
+            self.convGx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+            #b = np.array([[0., 0.3, 0.], [0., 0.4, 0.], [0., -0.7, 0.]])
+            b = np.transpose(a)
+
+            self.convGy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1, bias=False,padding_mode='reflect')
+            self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+        elif filter == 'diff':
+            a = np.array([[0., 0., 0.], [0., 1., -1.], [0., 0., 0.]])
+            self.convGx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1, bias=False,padding_mode='reflect')
+            self.convGx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+            b = np.array([[0., 0.3, 0.], [0., 1., 0.], [0., -1., 0.]])
+            self.convGy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1, bias=False,padding_mode='reflect')
+            self.convGy.weight = torch.nn.Parameter(torch.from_numpy(b).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+        
+        self.eps = torch.Tensor([0.*1e-20])
+    
+    def compute_c(self,lat,lon,dlat,dlon):
+        a = torch.sin(dlat / 2)**2 + torch.cos(lat) ** 2 * torch.sin(dlon / 2)**2
+        return 2. * 6.371e6 * torch.atan2( torch.sqrt(a + self.eps), torch.sqrt(1. - a + self.eps ))        
+
+    def compute_dx_dy_dlat_dlon(self,lat,lon,dlat,dlon):
+        
+        dy_from_dlat =  self.compute_c(lat,lon,dlat,0.*dlon)
+        dx_from_dlon =  self.compute_c(lat,lon,0.*dlat,dlon)
+    
+        return dx_from_dlon , dy_from_dlat
+        
+    
+    def compute_gradx(self,u,sigma=0.):
+        if sigma > 0. :
+                u = 1. * u
+        
+        G_x = self.convGx(u.view(-1, 1, u.size(2), u.size(3)))
+        G_x = G_x.view(-1,u.size(1), u.size(2), u.size(3))
+
+        return G_x
+
+    def compute_grady(self,u,sigma=0.):
+        if sigma > 0. :
+                u = 1. * u
+        
+        G_y = self.convGy(u.view(-1, 1, u.size(2), u.size(3)))
+        G_y = G_y.view(-1,u.size(1), u.size(2), u.size(3))
+
+        return G_y
+    
+    def forward(self,u,v,lat,lon):
+        
+        dlat = lat[1]-lat[0]
+        dlon = lon[1]-lon[0]
+        
+        # coriolis / lat/lon scaling
+        grid_lat = lat.view(1,1,u.size(2),1)
+        grid_lat = grid_lat.repeat(v.size(0),v.size(1),1,v.size(3))
+        grid_lon = lon.view(1,1,v.size(2))
+        grid_lon = grid_lon.repeat(v.size(0),v.size(1),v.size(2),1)
+        
+        dx_from_dlon , dy_from_dlat = self.compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon)     
+      
+        du_dx = self.compute_gradx( u )
+        dv_dy = self.compute_grady( v )
+
+        du_dy = self.compute_grady( u )
+        dv_dx = self.compute_gradx( v )
+        
+        if 1*1 :
+            du_dx = du_dx / dx_from_dlon 
+            dv_dx = dv_dx / dx_from_dlon 
+
+            du_dy = du_dy / dy_from_dlat  
+            dv_dy = dv_dy / dy_from_dlat  
+
+        strain = torch.sqrt( ( dv_dx + du_dy ) **2 + (du_dx - dv_dy) **2 + self.eps )
+
+        div = du_dx + dv_dy
+        curl =  du_dy - dv_dx
+
+        return div,curl,strain
+
 if 1*0 :
     def compute_div_with_lat_lon(u,v,lat,lon,sigma=1.0):
         dlat = lat[1] - lat[0]
@@ -1157,10 +1253,30 @@ class LitModelUV(pl.LightningModule):
 
         div_gt,curl_gt,strain_gt = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,lat_rad,lon_rad,sigma=sig_div_curl)
         div_uv_rec,curl_uv_rec,strain_uv_rec = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,lat_rad,lon_rad,sigma=sig_div_curl)
+                
+        t_compute_div_curl_strain_with_lat_lon =  DivCurlStrain_from_uv_with_lat_lon()
+        t_u = torch.Tensor(self.test_xr_ds.pred_u).view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
+        t_v = torch.Tensor(self.test_xr_ds.pred_v).view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
+        
+        t_lat_rad = torch.Tensor( lat_rad )
+        t_lon_rad = torch.Tensor( lon_rad )
+        t_div,t_curl,t_strain = t_compute_div_curl_strain_with_lat_lon(t_u,t_v,t_lat_rad,t_lon_rad)
+        
+        div_uv_rec_ = t_div.numpy().squeeze()
+        curl_uv_rec_ = t_curl.numpy().squeeze()
+        strain_uv_rec_ = t_strain.numpy().squeeze()
         
         var_mse_div = compute_var_exp( div_gt, div_uv_rec)
         var_mse_curl = compute_var_exp( curl_gt, curl_uv_rec)
         var_mse_strain = compute_var_exp( strain_gt, strain_uv_rec)
+
+        var_mse_div_ = compute_var_exp( div_gt, div_uv_rec_)
+        var_mse_curl_ = compute_var_exp( curl_gt, curl_uv_rec_)
+        var_mse_strain_ = compute_var_exp( strain_gt, strain_uv_rec_)
+
+        print('.... div %.2f -- %.2f'%(var_mse_div_,var_mse_div))
+        print('.... strain %.2f -- %.2f'%(var_mse_strain_,var_mse_strain))
+        print('.... curl %.2f -- %.2f'%(var_mse_curl_,var_mse_curl))
 
         if sig_div_curl > 0. :
             f_ssh_gt = gaussian_filter(self.test_xr_ds.gt, sigma=sig_div_curl)
