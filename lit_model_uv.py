@@ -1759,6 +1759,7 @@ class LitModelUV(pl.LightningModule):
                     outputs_u = u_geo / np.sqrt(self.var_tr_uv)
                     outputs_v = v_geo / np.sqrt(self.var_tr_uv)
                     
+                    print( torch.sqrt(torch.mean( u_geo**2) ) )
                     print( torch.sqrt(torch.mean( outputs_u**2) ) )
                     print( torch.sqrt(torch.mean( u_gt_wo_nan**2) ) )
                     div_rec = 0. * outputs
