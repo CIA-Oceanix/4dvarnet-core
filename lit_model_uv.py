@@ -287,6 +287,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         
         dx_from_dlon , dy_from_dlat = self.compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon)     
 
+        print( v )
         dv_dx , dv_dy = self.compute_gradxy( v , sigma=sigma )
         du_dx , du_dy = self.compute_gradxy( u , sigma=sigma )
         
@@ -1761,6 +1762,9 @@ class LitModelUV(pl.LightningModule):
                     div_rec = 0. * outputs
                     div_gt = 0. * outputs
                     print( outputs_u.size() )
+                    print( ssh )
+                    print( outputs_v )
+                    
                     div_gt,curl_gt,strain_gt = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
                     div_rec,curl_rec,strain_rec = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
     
