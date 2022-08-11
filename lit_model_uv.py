@@ -153,9 +153,9 @@ def compute_div_curl_strain_with_lat_lon(u,v,lat,lon,sigma=1.0):
 
     return div,curl,strain
 
-class DivCurlStrain_from_uv_with_lat_lon(torch.nn.Module):
+class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
     def __init__(self,_filter='diff-non-centered'):
-        super(DivCurlStrain_from_uv_with_lat_lon, self).__init__()
+        super(Torch_compute_derivatives_with_lon_lat, self).__init__()
 
         if _filter == 'sobel':
             a = np.array([[1., 0., -1.], [2., 0., -2.], [1., 0., -1.]])
@@ -229,7 +229,7 @@ class DivCurlStrain_from_uv_with_lat_lon(torch.nn.Module):
 
         return G_x,G_y
     
-    def forward(self,u,v,lat,lon,sigma=0.):
+    def compute_div_curl_strain(self,u,v,lat,lon,sigma=0.):
         
         dlat = lat[1]-lat[0]
         dlon = lon[1]-lon[0]
@@ -264,6 +264,9 @@ class DivCurlStrain_from_uv_with_lat_lon(torch.nn.Module):
         curl =  du_dy - dv_dx
 
         return div,curl,strain
+    
+    def forward(self):
+        return 1.
 
 if 1*0 :
     def compute_div_with_lat_lon(u,v,lat,lon,sigma=1.0):
@@ -1279,8 +1282,8 @@ class LitModelUV(pl.LightningModule):
         t_lat_rad = torch.Tensor( lat_rad )
         t_lon_rad = torch.Tensor( lon_rad )
 
-        t_compute_div_curl_strain_with_lat_lon =  DivCurlStrain_from_uv_with_lat_lon()
-        t_div,t_curl,t_strain = t_compute_div_curl_strain_with_lat_lon(t_u,t_v,t_lat_rad,t_lon_rad)
+        t_compute_div_curl_strain_with_lat_lon =  Torch_compute_derivatives_with_lon_lat()
+        t_div,t_curl,t_strain = t_compute_div_curl_strain_with_lat_lon.compute_div_curl_strain(t_u,t_v,t_lat_rad,t_lon_rad,sigma=sig_div_curl)
         
         div_uv_rec_ = t_div.numpy().squeeze()
         curl_uv_rec_ = t_curl.numpy().squeeze()
