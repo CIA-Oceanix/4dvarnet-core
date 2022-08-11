@@ -283,10 +283,10 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         dlon = lon[1]-lon[0]
         
         # coriolis / lat/lon scaling
-        grid_lat = lat.view(v.size(0),1,u.size(2),1)
-        grid_lat = grid_lat.repeat(v.size(0),v.size(1),1,v.size(3))
-        grid_lon = lon.view(v.size(0),1,v.size(2))
-        grid_lon = grid_lon.repeat(v.size(0),v.size(1),v.size(2),1)
+        grid_lat = lat.view(u.size(0),1,u.size(2),1)
+        grid_lat = grid_lat.repeat(1,u.size(1),1,u.size(3))
+        grid_lon = lon.view(u.size(0),1,1,u.size(3))
+        grid_lon = grid_lon.repeat(1,u.size(1),u.size(2),1)
         
         dx_from_dlon , dy_from_dlat = self.compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon)     
       
@@ -1291,19 +1291,25 @@ class LitModelUV(pl.LightningModule):
             return var_mse_uv, lamb_x_u, lamb_t_u, lamb_x_v, lamb_t_v
 
         # Metrics for SSC fields
-        alpha_uv_geo = 9.81 
-        lat_rad = np.radians(self.test_lat)
-        lon_rad = np.radians(self.test_lon)
-        
-        t_compute_geo_velocities =  Torch_compute_derivatives_with_lon_lat()
-        t_ssh = torch.Tensor(self.test_xr_ds.gt.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])        
-        t_ssh = t_ssh.view(-1,1,t_ssh.size(1),t_ssh.size(2))        
-        t_lat_rad = torch.Tensor( lat_rad )
-        t_lon_rad = torch.Tensor( lon_rad )
-        
-        t_u_geo_gt,t_v_geo_gt = t_compute_geo_velocities.compute_geo_velociites(t_ssh, t_lat_rad, t_lon_rad, sigma=0.)
-        u_geo_gt = t_u_geo_gt.numpy().squeeze()
-        v_geo_gt = t_v_geo_gt.numpy().squeeze()
+        if 1*0 :
+            alpha_uv_geo = 9.81 
+            lat_rad = np.radians(self.test_lat)
+            lon_rad = np.radians(self.test_lon)
+            
+            lat_rad = lat_rad.reshape((1,1,lat_rad.hape[0],lat_rad.shape[1]))
+            lon_rad = lon_rad.reshape((1,1,lon_rad.hape[0],lon_rad.shape[1]))
+            lat_rad = lat_rad.repeat()
+            
+            
+            t_compute_geo_velocities =  Torch_compute_derivatives_with_lon_lat()
+            t_ssh = torch.Tensor(self.test_xr_ds.gt.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])        
+            t_ssh = t_ssh.view(-1,1,t_ssh.size(1),t_ssh.size(2))        
+            t_lat_rad = torch.Tensor( lat_rad )
+            t_lon_rad = torch.Tensor( lon_rad )
+            
+            t_u_geo_gt,t_v_geo_gt = t_compute_geo_velocities.compute_geo_velociites(t_ssh, t_lat_rad, t_lon_rad, sigma=0.)
+            u_geo_gt = t_u_geo_gt.numpy().squeeze()
+            v_geo_gt = t_v_geo_gt.numpy().squeeze()
         
         u_geo_gt,v_geo_gt = compute_uv_geo_with_coriolis(self.test_xr_ds.gt,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
         u_geo_oi,v_geo_oi = compute_uv_geo_with_coriolis(self.test_xr_ds.oi,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
