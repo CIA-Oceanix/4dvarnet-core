@@ -1753,14 +1753,18 @@ class LitModelUV(pl.LightningModule):
                     lat_rad = torch.deg2rad(lat)
                     lon_rad = torch.deg2rad(lon)
                     
+                    #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")        
+                    #self.compute_derivativeswith_lon_lat.to(device)
+
                     u_geo, v_geo = self.compute_derivativeswith_lon_lat.compute_geo_velociites(outputs, lat_rad, lon_rad,sigma=0.)
 
                     outputs_u = u_geo
                     outputs_v = v_geo
                     
-                    #div,curl,strain = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div )
-                    #div_gt,curl_gt,strain_gt = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div )
+                    div_rec,curl,strain = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
+                    div_gt,curl_gt,strain_gt = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
     
+                    
                 # median filter
                 if self.median_filter_width > 1:
                     outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
