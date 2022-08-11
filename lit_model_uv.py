@@ -238,7 +238,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         
         return f
         
-    def compute_geo_velociites(self,ssh,lat,lon,sigma,alpha_uv_geo=9.81,flag_mean_coriolis=False):
+    def compute_geo_velociites(self,ssh,lat,lon,sigma=0.,alpha_uv_geo=9.81,flag_mean_coriolis=False):
 
         dlat = lat[1]-lat[0]
         dlon = lon[1]-lon[0]
@@ -1741,7 +1741,7 @@ class LitModelUV(pl.LightningModule):
                     lat_rad = torch.deg2rad(lat)
                     lon_rad = torch.deg2rad(lon)
                     
-                    u_geo, v_geo = self.compute_derivativeswith_lon_lat.compute_geo_velociites(outputs, lat_rad, lon_rad)
+                    u_geo, v_geo = self.compute_derivativeswith_lon_lat.compute_geo_velociites(outputs, lat_rad, lon_rad,sigma=0.)
 
                     outputs_u = u_geo
                     outputs_v = v_geo
