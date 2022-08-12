@@ -1608,10 +1608,10 @@ class LitModelUV(pl.LightningModule):
         if self.type_div_train_loss == 0 :
             return NN_4DVar.compute_spatio_temp_weighted_loss( (out - gt), self.patch_weight[:,1:-1,1:-1])
         else:
-            return NN_4DVar.compute_spatio_temp_weighted_loss( 1.e5 * (out - gt ), self.patch_weight)
+            return NN_4DVar.compute_spatio_temp_weighted_loss( 1.e4 * (out - gt ), self.patch_weight)
         
     def strain_loss(self, gt, out):
-        return NN_4DVar.compute_spatio_temp_weighted_loss(1.e5 * (out - gt ), self.patch_weight)        
+        return NN_4DVar.compute_spatio_temp_weighted_loss(1.e4 * (out - gt ), self.patch_weight)        
  
     def uv_loss(self, gt, out):
         loss = NN_4DVar.compute_spatio_temp_weighted_loss((out[0] - gt[0]), self.patch_weight)
