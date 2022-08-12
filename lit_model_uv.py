@@ -1778,14 +1778,15 @@ class LitModelUV(pl.LightningModule):
                 loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
                 loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
 
+                print('..  loss ssh = %e' %loss_All )                     
+                print('..  loss gssh = %e' %loss_GAll )                     
+                print('..  loss uv = %e' %loss_uv )                     
+
                 if self.residual_wrt_geo_velocities == True :
                     loss_uv_geo = self.uv_loss( [u_geo_rec,v_geo_rec], [u_geo_gt,v_geo_gt])
                     loss_GAll = ( self.hparams.alpha_mse_uv / self.hparams.alpha_mse_gssh )  * loss_uv_geo
                     
-                print('..  loss ssh = %e' %loss_All )                     
-                print('..  loss gssh = %e' %loss_GAll )                     
-                print('..  loss uv = %e' %loss_uv )                     
-                print('..  loss uv geo = %e' %loss_uv_geo )                     
+                    print('..  loss uv geo = %e' %loss_uv_geo )                     
 
 
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
