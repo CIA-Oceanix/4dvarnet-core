@@ -902,7 +902,7 @@ class LitModelUV(pl.LightningModule):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         self.model.n_grad = self.hparams.n_grad
-        self.compute_derivativeswith_lon_lat.to(device)
+        #self.compute_derivativeswith_lon_lat.to(device)
         
     def on_train_epoch_start(self):
         if self.model_name in ('4dvarnet', '4dvarnet_sst'):
@@ -1766,8 +1766,8 @@ class LitModelUV(pl.LightningModule):
                     lat_rad = torch.deg2rad(lat)
                     lon_rad = torch.deg2rad(lon)
                     
-                    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")        
-                    self.compute_derivativeswith_lon_lat.to(device)
+                    #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")        
+                    #self.compute_derivativeswith_lon_lat.to(device)
                     # denormalize ssh
                     ssh = np.sqrt(self.var_Tr) * outputs + self.mean_Tr
                     u_geo, v_geo = self.compute_derivativeswith_lon_lat.compute_geo_velociites(ssh, lat_rad, lon_rad,sigma=0.)
