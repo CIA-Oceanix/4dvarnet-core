@@ -1788,7 +1788,7 @@ class LitModelUV(pl.LightningModule):
 
                 if self.residual_wrt_geo_velocities == True :
                     loss_uv_geo = self.uv_loss( [u_geo_rec,v_geo_rec], [u_geo_gt,v_geo_gt])
-                    print('..  loss uv geo = %e' % ( self.hparams.alpha_mse_uv_geo * loss_GAll ) )                     
+                    print('..  loss uv geo = %e' % ( self.hparams.alpha_mse_uv_geo * loss_uv_geo ) )                     
 
                     loss_GAll = ( self.hparams.alpha_mse_uv_geo / self.hparams.alpha_mse_gssh )  * loss_uv_geo
                     print('..  loss gssh = %e' % (self.hparams.alpha_mse_gssh * loss_GAll) )                     
