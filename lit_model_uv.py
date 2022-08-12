@@ -701,6 +701,8 @@ class LitModelUV(pl.LightningModule):
         self.sig_filter_div = self.hparams.sig_filter_div if hasattr(self.hparams, 'sig_filter_div') else 1.0
         self.sig_filter_div_diag = self.hparams.sig_filter_div_diag if hasattr(self.hparams, 'sig_filter_div_diag') else self.hparams.sig_filter_div
 
+        self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 0
+
         self.learning_sampling_uv = self.hparams.learning_sampling_uv if hasattr(self.hparams, 'learning_sampling_uv') else 'no_sammpling_learning'
         self.nb_feat_sampling_operator = self.hparams.nb_feat_sampling_operator if hasattr(self.hparams, 'nb_feat_sampling_operator') else -1.
         if self.nb_feat_sampling_operator > 0 :
@@ -1631,9 +1633,8 @@ class LitModelUV(pl.LightningModule):
 
         return loss, loss_grad
 
-#    def div_loss(self, gt, out):
-#
-#        return NN_4DVar.compute_spatio_temp_weighted_loss( (out - gt), self.patch_weight[:,1:-1,1:-1])
+    def div_loss(self, gt, out):
+        return NN_4DVar.compute_spatio_temp_weighted_loss( (out - gt), self.patch_weight[:,1:-1,1:-1])
 
     def uv_loss(self, gt, out):
 
@@ -1659,9 +1660,6 @@ class LitModelUV(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt = batch
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
-
-            #lat = lat.type(torch.cuda.FloatTensor)
-            #lon = lon.type(torch.cuda.FloatTensor)
 
 
         if self.scale_dwscaling_sst > 1 :
@@ -1756,28 +1754,21 @@ class LitModelUV(pl.LightningModule):
                     #print(torch.min(self.alpha_dx[0,0,0,:]),flush=True )
                     #print(torch.max(self.alpha_dx[0,0,0,:]),flush=True )
                 
-                if 1*0 :
+                if self.type_div_train_loss == 0 :
                     div_rec = self.compute_div(outputs_u,outputs_v)
                     div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
-                else:                    
                     
+                    loss_div = self.div_loss( div_rec , div_gt )                     
+                else:                                        
                     lat_rad = torch.deg2rad(lat)
                     lon_rad = torch.deg2rad(lon)
                     
-                    #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")        
-                    #self.compute_derivativeswith_lon_lat.to(device)
                     # denormalize ssh
                     ssh = np.sqrt(self.var_Tr) * outputs + self.mean_Tr
                     u_geo, v_geo = self.compute_derivativeswith_lon_lat.compute_geo_velociites(ssh, lat_rad, lon_rad,sigma=0.)
 
                     outputs_u = u_geo / np.sqrt(self.var_tr_uv)
                     outputs_v = v_geo / np.sqrt(self.var_tr_uv)
-                    
-                    #outputs_u = outputs_u.type(torch.cuda.FloatTensor)
-                    #outputs_v = outputs_v.type(torch.cuda.FloatTensor)
-                    
-                    div_rec = 0. * outputs
-                    div_gt = 0. * outputs
                     
                     div_gt,curl_gt,strain_gt = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
                     div_rec,curl_rec,strain_rec = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
@@ -1809,8 +1800,11 @@ class LitModelUV(pl.LightningModule):
     
                 loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
                 loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
-                #loss_div = self.div_loss( div_rec , div_gt ) 
-                loss_div = NN_4DVar.compute_spatio_temp_weighted_loss((div_rec - div_gt ), self.patch_weight)
+
+                if self.type_div_train_loss == 0 :
+                    loss_div = self.div_loss( div_rec , div_gt ) 
+                else:
+                    loss_div = NN_4DVar.compute_spatio_temp_weighted_loss((div_rec - div_gt ), self.patch_weight)
 
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
                 loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
@@ -1847,10 +1841,11 @@ class LitModelUV(pl.LightningModule):
                     
                 div_rec =  self.compute_div(outputs_u,outputs_v)
                 div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
+                loss_div = self.div_loss( div_rec , div_gt ) 
  
                 loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
                 loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
-                loss_div = self.div_loss( div_rec , div_gt ) 
+                
                 loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
                 loss += self.hparams.alpha_mse_uv * loss_uv + self.hparams.alpha_mse_div * loss_div
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
