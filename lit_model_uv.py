@@ -1740,7 +1740,7 @@ class LitModelUV(pl.LightningModule):
                     
                     loss_div = self.div_loss( div_rec , div_gt )
                     loss_strain = 0.
-                    print('..  loss div = %f' %loss_div )                     
+                    print('..  loss div = %e' %loss_div )                     
                 else:                                        
                     lat_rad = torch.deg2rad(lat)
                     lon_rad = torch.deg2rad(lon)
@@ -1750,8 +1750,8 @@ class LitModelUV(pl.LightningModule):
     
                     loss_div = self.div_loss( div_rec , div_gt )
                     loss_strain = self.strain_loss( strain_rec , strain_gt )
-                    print('..  loss div = %f' %loss_div )                     
-                    print('..  loss strain = %f' %loss_strain )                     
+                    print('..  loss div = %e' %loss_div )                     
+                    print('..  loss strain = %e' %loss_strain )                     
                         
                 # median filter
                 if self.median_filter_width > 1:
@@ -1774,9 +1774,9 @@ class LitModelUV(pl.LightningModule):
                 loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
                 loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
 
-                print('..  loss ssh = %f' %loss_All )                     
-                print('..  loss gssh = %f' %loss_GAll )                     
-                print('..  loss uv = %f' %loss_uv )                     
+                print('..  loss ssh = %e' %loss_All )                     
+                print('..  loss gssh = %e' %loss_GAll )                     
+                print('..  loss uv = %e' %loss_uv )                     
 
 
                 if self.type_div_train_loss == 0 :
