@@ -1756,8 +1756,8 @@ class LitModelUV(pl.LightningModule):
                     div_rec = self.compute_div(outputs_u,outputs_v)
                     div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
                 else:
-                    lat = lat.type(torch.cuda.FloatTensor)
-                    lon = lon.type(torch.cuda.FloatTensor)
+                    #lat = lat.type(torch.cuda.FloatTensor)
+                    #lon = lon.type(torch.cuda.FloatTensor)
                     
                     lat_rad = torch.deg2rad(lat)
                     lon_rad = torch.deg2rad(lon)
