@@ -1710,8 +1710,11 @@ class LitModelUV(pl.LightningModule):
                     outputs_u = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
                     outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
 
-                # U,V prediction with residual wrt predicted SSH-derived velocities
+                # U,V prediction
                 if self.model_with_geo_velocities == True :
+                    outputs_u = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
+                    outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
+                else:
                     lat_rad = torch.deg2rad(lat)
                     lon_rad = torch.deg2rad(lon)
                     
@@ -1719,8 +1722,8 @@ class LitModelUV(pl.LightningModule):
                     ssh = np.sqrt(self.var_Tr) * outputs + self.mean_Tr
                     u_geo, v_geo = self.compute_derivativeswith_lon_lat.compute_geo_velociites(ssh, lat_rad, lon_rad,sigma=0.)
 
-                    outputs_u = outputs_u + u_geo / np.sqrt(self.var_tr_uv)
-                    outputs_v = outputs_v + v_geo / np.sqrt(self.var_tr_uv)
+                    outputs_u = 0. * outputs_u + u_geo / np.sqrt(self.var_tr_uv)
+                    outputs_v = 0. * outputs_v + v_geo / np.sqrt(self.var_tr_uv)
                 
                 if self.type_div_train_loss == 0 :
                     div_rec = self.compute_div(outputs_u,outputs_v)
