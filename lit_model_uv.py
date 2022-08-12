@@ -237,13 +237,6 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
             G_x  = torch.cat( (G_x,_G_x) , dim = 1 )
             G_y  = torch.cat( (G_y,_G_y) , dim = 1 )
             
-            
-        #G_x = self.convGx( u.view(-1, 1, u.size(2), u.size(3)) )
-        #G_x = G_x.view(-1,u.size(1), u.size(2), u.size(3))
-
-        #G_y = self.convGy(u.view(-1, 1, u.size(2), u.size(3)))
-        #G_y = G_y.view(-1,u.size(1), u.size(2), u.size(3))
-
         return G_x,G_y
     
     def compute_coriolis_force(self,lat,flag_mean_coriolis=False):
@@ -253,7 +246,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         if flag_mean_coriolis == True :
             f = torch.mean(f) * torch.ones((f.size())) 
         
-        f = f.type(torch.cuda.FloatTensor)
+        #f = f.type(torch.cuda.FloatTensor)
 
         return f
         
