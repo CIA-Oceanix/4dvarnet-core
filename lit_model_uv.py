@@ -1828,13 +1828,6 @@ class LitModelUV(pl.LightningModule):
                 outputs_u = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
                 outputs_v = outputs[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
                 outputs = outputs[:, 0:self.hparams.dT, :, :] + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
-
-                # compute divergence for current field   
-                if self.flag_compute_div_with_lat_scaling :
-                    dlat = lat[0,1]-lat[0,0]
-                    #dlon = lon[0,1]-lon[0,0]
-                    
-                    self.compute_dlatlon2dxdy_scaling(lat,lon,dlat,outputs_u.size(1))
                     
                 div_rec =  self.compute_div(outputs_u,outputs_v)
                 div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
