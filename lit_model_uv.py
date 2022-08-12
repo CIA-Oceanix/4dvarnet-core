@@ -1766,8 +1766,8 @@ class LitModelUV(pl.LightningModule):
                     ssh = np.sqrt(self.var_Tr) * outputs + self.mean_Tr
                     u_geo, v_geo = self.compute_derivativeswith_lon_lat.compute_geo_velociites(ssh, lat_rad, lon_rad,sigma=0.)
 
-                    outputs_u = u_geo / np.sqrt(self.var_tr_uv)
-                    outputs_v = v_geo / np.sqrt(self.var_tr_uv)
+                    outputs_u = u_geo #/ np.sqrt(self.var_tr_uv)
+                    outputs_v = v_geo #/ np.sqrt(self.var_tr_uv)
 
                     div_rec = 0. * outputs
                     div_gt = 0. * outputs
