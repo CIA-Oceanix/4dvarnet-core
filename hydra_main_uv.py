@@ -169,8 +169,9 @@ class FourDVarNetHydraRunner:
         :return:
         """
         
+        print('\n')
+        print('\n')
         print('XXXXXXX train',flush=True)
-
         mod = self._get_model(ckpt_path=ckpt_path)
         print('XXXXXXX train',flush=True)
         print('...... Current ckpt filename (test): '+self.filename_chkpt)
