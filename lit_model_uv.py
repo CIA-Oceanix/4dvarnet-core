@@ -1710,7 +1710,7 @@ class LitModelUV(pl.LightningModule):
 
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
-            flag_display_loss = True
+            flag_display_loss = False#True
             
             if self.hparams.n_grad > 0 :                
                 state = torch.autograd.Variable(state, requires_grad=True)
