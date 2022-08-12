@@ -240,7 +240,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         return G_x,G_y
     
     def compute_coriolis_force(self,lat,flag_mean_coriolis=False):
-        omega = 7.2921e-5 # rad/s
+        omega = 7.#7.2921e-5 # rad/s
         f = 2 * omega * torch.sin(lat)
         
         if flag_mean_coriolis == True :
