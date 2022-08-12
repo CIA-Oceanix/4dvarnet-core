@@ -1737,9 +1737,6 @@ class LitModelUV(pl.LightningModule):
                     u_geo_rec, v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
                     u_geo_gt, v_geo_gt = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
 
-                    u_geo_rec = u_geo_rec / np.sqrt(self.var_tr_uv)
-                    v_geo_rec = v_geo_rec / np.sqrt(self.var_tr_uv)
-
                     outputs_u = 0. * outputs_u + u_geo_rec
                     outputs_v = 0. * outputs_v + v_geo_rec
                 
