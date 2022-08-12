@@ -702,6 +702,7 @@ class LitModelUV(pl.LightningModule):
         self.sig_filter_div_diag = self.hparams.sig_filter_div_diag if hasattr(self.hparams, 'sig_filter_div_diag') else self.hparams.sig_filter_div
 
         self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 0
+        self.model_with_geo_velocities = self.hparams.model_with_geo_velocities if hasattr(self.hparams, 'model_with_geo_velocities') else False
 
         self.learning_sampling_uv = self.hparams.learning_sampling_uv if hasattr(self.hparams, 'learning_sampling_uv') else 'no_sammpling_learning'
         self.nb_feat_sampling_operator = self.hparams.nb_feat_sampling_operator if hasattr(self.hparams, 'nb_feat_sampling_operator') else -1.
@@ -747,52 +748,20 @@ class LitModelUV(pl.LightningModule):
 
         print('..... div. computation (sigma): %f -- %f'%(self.sig_filter_div,self.sig_filter_div_diag))
 
-    if 1*0 :
-        def compute_div(self,u,v):
-            # siletring
-            f_u = kornia.filters.gaussian_blur2d(u, (5,5), (self.sig_filter_div,self.sig_filter_div), border_type='reflect')
-            f_v = kornia.filters.gaussian_blur2d(v, (5,5), (self.sig_filter_div,self.sig_filter_div), border_type='reflect')
-            
-            # gradients
-            du_dx, du_dy = self.gradient_img(f_u)
-            dv_dx, dv_dy = self.gradient_img(f_v)
-                           
-            # scaling 
-            du_dx = self.alpha_dx * dv_dx
-            dv_dy = self.alpha_dy * dv_dy
-            
-            return du_dx + dv_dy  
-    
-        def compute_c(self,lat,lon,dlat,dlon):
-            a = torch.sin(dlat / 2)**2 + torch.cos(lat) ** 2 * torch.sin(dlon / 2)**2
-            return 2 * 6.371e6 * torch.atan2( torch.sqrt(a), torch.sqrt(1. - a))        
-            
-        def compute_dlat_dlon_scaling(self,lat,lon,dlat,dlon):
-     
-            dy_from_dlat =  self.compute_c(lat,lon,dlat,0. * dlon)
-            dx_from_dlon =  self.compute_c(lat,lon,0. * dlat ,dlon)
+    def compute_div(self,u,v):
+        # siletring
+        f_u = kornia.filters.gaussian_blur2d(u, (5,5), (self.sig_filter_div,self.sig_filter_div), border_type='reflect')
+        f_v = kornia.filters.gaussian_blur2d(v, (5,5), (self.sig_filter_div,self.sig_filter_div), border_type='reflect')
         
-            return dx_from_dlon, dy_from_dlat
-    
-    
-        def compute_dlatlon2dxdy_scaling(self,lat,lon,res_latlon,dT):
-            
-            # coriolis / lat/lon scaling
-            grid_lat = ( np.pi / 180 ) * lat.view(lat.size(0),1,1,-1)
-            grid_lat = grid_lat.repeat(1,dT,lon.size(1),1)
-            grid_lon = ( np.pi / 180 ) * lon.view(lon.size(0),1,-1,1)
-            grid_lon = grid_lon.repeat(1,dT,1,lat.size(1))
-            
-            res_latlon = ( np.pi / 180 ) * res_latlon
-            
-            dx_from_dlon, dy_from_dlat  = self.compute_dlat_dlon_scaling(grid_lat,grid_lon,res_latlon,res_latlon )    
-                            
-            self.alpha_dx = dx_from_dlon / torch.mean( dy_from_dlat ) 
-            #self.alpha_dy = dy_from_dlat / torch.mean( dy_from_dlat )   
-            
-            self.alpha_dx = self.alpha_dx[:,:,1:-1,1:-1].detach()
-            self.alpha_dy = 1. #self.alpha_dy[:,:,1:-1,1:-1]
-            
+        # gradients
+        du_dx, du_dy = self.gradient_img(f_u)
+        dv_dx, dv_dy = self.gradient_img(f_v)
+                       
+        # scaling 
+        du_dx = self.alpha_dx * dv_dx
+        dv_dy = self.alpha_dy * dv_dy
+        
+        return du_dx + dv_dy              
        
     def update_filename_chkpt(self,filename_chkpt):
         
@@ -1753,6 +1722,8 @@ class LitModelUV(pl.LightningModule):
                     #print(torch.mean(self.alpha_dx[0,0,0,:]) )
                     #print(torch.min(self.alpha_dx[0,0,0,:]),flush=True )
                     #print(torch.max(self.alpha_dx[0,0,0,:]),flush=True )
+                if model_with_geo_velocities :
+                
                 
                 if self.type_div_train_loss == 0 :
                     div_rec = self.compute_div(outputs_u,outputs_v)
