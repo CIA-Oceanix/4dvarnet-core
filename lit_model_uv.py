@@ -250,7 +250,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
 
         return f
         
-    def compute_geo_velociites(self,ssh,lat,lon,sigma=0.,alpha_uv_geo=9.81,flag_mean_coriolis=False):
+    def compute_geo_velocities(self,ssh,lat,lon,sigma=0.,alpha_uv_geo=9.81,flag_mean_coriolis=False):
 
         dlat = lat[0,1]-lat[0,0]
         dlon = lon[0,1]-lon[0,0]
@@ -1608,10 +1608,10 @@ class LitModelUV(pl.LightningModule):
         if self.type_div_train_loss == 0 :
             return NN_4DVar.compute_spatio_temp_weighted_loss( (out - gt), self.patch_weight[:,1:-1,1:-1])
         else:
-            return NN_4DVar.compute_spatio_temp_weighted_loss((out - gt ), self.patch_weight)
+            return NN_4DVar.compute_spatio_temp_weighted_loss( 1.e5 * (out - gt ), self.patch_weight)
         
     def strain_loss(self, gt, out):
-        return NN_4DVar.compute_spatio_temp_weighted_loss((out - gt ), self.patch_weight)        
+        return NN_4DVar.compute_spatio_temp_weighted_loss(1.e5 * (out - gt ), self.patch_weight)        
  
     def uv_loss(self, gt, out):
         loss = NN_4DVar.compute_spatio_temp_weighted_loss((out[0] - gt[0]), self.patch_weight)
@@ -1724,7 +1724,7 @@ class LitModelUV(pl.LightningModule):
                     
                     # denormalize ssh
                     ssh = np.sqrt(self.var_Tr) * outputs + self.mean_Tr
-                    u_geo, v_geo = self.compute_derivativeswith_lon_lat.compute_geo_velociites(ssh, lat_rad, lon_rad,sigma=0.)
+                    u_geo, v_geo = self.compute_derivativeswith_lon_lat.compute_geo_velocities(ssh, lat_rad, lon_rad,sigma=0.)
 
                     outputs_u = 0. * outputs_u + u_geo / np.sqrt(self.var_tr_uv)
                     outputs_v = 0. * outputs_v + v_geo / np.sqrt(self.var_tr_uv)
