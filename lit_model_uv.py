@@ -1744,7 +1744,7 @@ class LitModelUV(pl.LightningModule):
                     
                     loss_div = self.div_loss( div_rec , div_gt )
                     loss_strain = 0.
-                    print('..  loss div = %e' %loss_div )                     
+                    print('..  loss div = %e' % (self.hparams.alpha_mse_div *loss_div) )                     
                 else:                                        
                     lat_rad = torch.deg2rad(lat)
                     lon_rad = torch.deg2rad(lon)
@@ -1754,8 +1754,8 @@ class LitModelUV(pl.LightningModule):
     
                     loss_div = self.div_loss( div_rec , div_gt )
                     loss_strain = self.strain_loss( strain_rec , strain_gt )
-                    print('..  loss div = %e' % self.hparams.alpha_mse_div *loss_div )                     
-                    print('..  loss strain = %e' % self.hparams.alpha_mse_strain *loss_strain )                     
+                    print('..  loss div = %e' % (self.hparams.alpha_mse_div *loss_div) )                     
+                    print('..  loss strain = %e' % (self.hparams.alpha_mse_strain *loss_strain) )                     
                         
                 # median filter
                 if self.median_filter_width > 1:
@@ -1778,15 +1778,15 @@ class LitModelUV(pl.LightningModule):
                 loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
                 loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
 
-                print('..  loss ssh = %e' % self.hparams.alpha_mse_ssh * loss_All )                     
-                print('..  loss gssh = %e' % self.hparams.alpha_mse_gssh * loss_GAll )                     
-                print('..  loss uv = %e' % self.hparams.alpha_mse_uv * loss_uv )                     
+                print('..  loss ssh = %e' % (self.hparams.alpha_mse_ssh * loss_All) )                     
+                print('..  loss gssh = %e' % (self.hparams.alpha_mse_gssh * loss_GAll) )                     
+                print('..  loss uv = %e' % (self.hparams.alpha_mse_uv * loss_uv) )                     
 
                 if self.residual_wrt_geo_velocities == True :
                     loss_uv_geo = self.uv_loss( [u_geo_rec,v_geo_rec], [u_geo_gt,v_geo_gt])
                     loss_GAll = ( self.hparams.alpha_mse_uv / self.hparams.alpha_mse_gssh )  * loss_uv_geo
                     
-                    print('..  loss uv geo = %e' % self.hparams.alpha_mse_gssh * loss_uv_geo )                     
+                    print('..  loss uv geo = %e' % ( self.hparams.alpha_mse_gssh * loss_uv_geo ) )                     
 
 
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
