@@ -908,8 +908,6 @@ class LitModelUV(pl.LightningModule):
                 ckpt = torch.load(best_ckpt_path)
                 self.load_state_dict(ckpt['state_dict'])
 
-
-
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
 
         # compute loss and metrics
@@ -1803,6 +1801,9 @@ class LitModelUV(pl.LightningModule):
                 loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
                 if self.model_sampling_uv is not None :
                     loss += self.hparams.alpha_sampling_uv * loss_l1_sampling_uv
+
+                print('..  loss = %e' %loss )                     
+
             else:
                 outputs = self.model.phi_r(obs)
                                 
