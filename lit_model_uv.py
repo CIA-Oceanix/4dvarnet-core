@@ -1710,20 +1710,17 @@ class LitModelUV(pl.LightningModule):
                     outputs_u = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
                     outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
 
-                # compute divergence for current field    
-                # set dx/dy scaling from (lat,lon) position
-                #if self.flag_compute_div_with_lat_scaling :
-                #    dlat = lat[0,1]-lat[0,0]
-                    #dlon = lon[0,1]-lon[0,0]
+                # U,V prediction with residual wrt predicted SSH-derived velocities
+                if self.model_with_geo_velocities == True :
+                    lat_rad = torch.deg2rad(lat)
+                    lon_rad = torch.deg2rad(lon)
                     
-               #     self.compute_dlatlon2dxdy_scaling(lat,lon,dlat,outputs_u.size(1))
-                    
-                    #print('dlat,dlon = %f -- %f'%( dlat.detach().cpu().numpy(),dlon.detach().cpu().numpy() ))
-                    #print(torch.mean(self.alpha_dx[0,0,0,:]) )
-                    #print(torch.min(self.alpha_dx[0,0,0,:]),flush=True )
-                    #print(torch.max(self.alpha_dx[0,0,0,:]),flush=True )
-                if model_with_geo_velocities :
-                
+                    # denormalize ssh
+                    ssh = np.sqrt(self.var_Tr) * outputs + self.mean_Tr
+                    u_geo, v_geo = self.compute_derivativeswith_lon_lat.compute_geo_velociites(ssh, lat_rad, lon_rad,sigma=0.)
+
+                    outputs_u = outputs_u + u_geo / np.sqrt(self.var_tr_uv)
+                    outputs_v = outputs_v + v_geo / np.sqrt(self.var_tr_uv)
                 
                 if self.type_div_train_loss == 0 :
                     div_rec = self.compute_div(outputs_u,outputs_v)
@@ -1733,13 +1730,6 @@ class LitModelUV(pl.LightningModule):
                 else:                                        
                     lat_rad = torch.deg2rad(lat)
                     lon_rad = torch.deg2rad(lon)
-                    
-                    # denormalize ssh
-                    ssh = np.sqrt(self.var_Tr) * outputs + self.mean_Tr
-                    u_geo, v_geo = self.compute_derivativeswith_lon_lat.compute_geo_velociites(ssh, lat_rad, lon_rad,sigma=0.)
-
-                    outputs_u = u_geo / np.sqrt(self.var_tr_uv)
-                    outputs_v = v_geo / np.sqrt(self.var_tr_uv)
                     
                     div_gt,curl_gt,strain_gt = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
                     div_rec,curl_rec,strain_rec = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
