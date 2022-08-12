@@ -58,7 +58,7 @@ params:
   alpha_mse_uv: 50.
   alpha_mse_uv_geo: 25.
   alpha_mse_div: 100.
-  alpha_mse_strain: 100.
+  alpha_mse_strain: 20.
   dim_obs_sst_feat: 2#10
   dim_grad_solver: 150
   save_rec_netcdf: True #False#
