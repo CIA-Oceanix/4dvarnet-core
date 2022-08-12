@@ -701,7 +701,7 @@ class LitModelUV(pl.LightningModule):
         self.sig_filter_div = self.hparams.sig_filter_div if hasattr(self.hparams, 'sig_filter_div') else 1.0
         self.sig_filter_div_diag = self.hparams.sig_filter_div_diag if hasattr(self.hparams, 'sig_filter_div_diag') else self.hparams.sig_filter_div
 
-        self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 0
+        self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 1
         
         self.residual_wrt_geo_velocities = self.hparams.model_with_geo_velocities if hasattr(self.hparams, 'model_with_geo_velocities') else False
 
@@ -1729,8 +1729,8 @@ class LitModelUV(pl.LightningModule):
                     ssh = np.sqrt(self.var_Tr) * outputs + self.mean_Tr
                     u_geo, v_geo = self.compute_derivativeswith_lon_lat.compute_geo_velociites(ssh, lat_rad, lon_rad,sigma=0.)
 
-                    outputs_u = outputs_u + u_geo / np.sqrt(self.var_tr_uv)
-                    outputs_v = outputs_v + v_geo / np.sqrt(self.var_tr_uv)
+                    outputs_u = 0. * outputs_u + u_geo / np.sqrt(self.var_tr_uv)
+                    outputs_v = 0. * outputs_v + v_geo / np.sqrt(self.var_tr_uv)
                 
                 if self.type_div_train_loss == 0 :
                     div_rec = self.compute_div(outputs_u,outputs_v)
