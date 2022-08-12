@@ -189,8 +189,11 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
     def compute_c(self,lat,lon,dlat,dlon):
         
         a = torch.sin(dlat / 2. )**2 + torch.cos(lat) ** 2 * torch.sin( dlon / 2. )**2
+
+        c = 2. * 6.371e6 * torch.atan2( torch.sqrt(a + self.eps), torch.sqrt(1. - a + self.eps ))       
+        c = c.type(torch.cuda.FloatTensor)
         
-        return 2. * 6.371e6 * torch.atan2( torch.sqrt(a + self.eps), torch.sqrt(1. - a + self.eps ))        
+        return c        
         #return 2. * 6.371 * torch.atan2( torch.sqrt(a + self.eps), torch.sqrt(1. - a + self.eps ))        
 
     def compute_dx_dy_dlat_dlon(self,lat,lon,dlat,dlon):
@@ -250,6 +253,8 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         if flag_mean_coriolis == True :
             f = torch.mean(f) * torch.ones((f.size())) 
         
+        f = f.type(torch.cuda.FloatTensor)
+
         return f
         
     def compute_geo_velociites(self,ssh,lat,lon,sigma=0.,alpha_uv_geo=9.81,flag_mean_coriolis=False):
@@ -1770,8 +1775,8 @@ class LitModelUV(pl.LightningModule):
                     outputs_u = u_geo / np.sqrt(self.var_tr_uv)
                     outputs_v = v_geo / np.sqrt(self.var_tr_uv)
                     
-                    outputs_u = outputs_u.type(torch.cuda.FloatTensor)
-                    outputs_v = outputs_v.type(torch.cuda.FloatTensor)
+                    #outputs_u = outputs_u.type(torch.cuda.FloatTensor)
+                    #outputs_v = outputs_v.type(torch.cuda.FloatTensor)
                     
                     div_rec = 0. * outputs
                     div_gt = 0. * outputs
