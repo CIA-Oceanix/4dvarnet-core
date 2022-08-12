@@ -176,9 +176,14 @@ class FourDVarNetHydraRunner:
         print('...... Current ckpt filename (test): '+self.filename_chkpt)
         print('.... Update parameters after loading chkpt model')
         
-        if 1*1 :
-            print('.... Update parameters after loading chkpt model')
-            mod.hparams.thr_l1_sampling_uv =  self.cfg.thr_l1_sampling_uv
+        if ( ckpt_path is not None ) & ( hasattr(self.cfg, 'flag_update_training_config') == True  ) :
+            if self.cfg.flag_update_training_config == True :
+                print('.... Update parameters after loading chkpt model')
+                if( hasattr(self.cfg, 'type_div_train_loss') ):
+                    print('... Update div/strain loss type to %d'%self.cfg.type_div_train_loss)
+                    mod.type_div_train_loss = self.cfg.type_div_train_loss
+                    
+                #mod.hparams.thr_l1_sampling_uv =  self.cfg.thr_l1_sampling_uv
                 
         self.filename_chkpt = mod.update_filename_chkpt( self.filename_chkpt )
         print('...... New ckpt filename '+self.filename_chkpt)
