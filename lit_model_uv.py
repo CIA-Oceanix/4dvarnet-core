@@ -703,7 +703,7 @@ class LitModelUV(pl.LightningModule):
 
         self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 0
         
-        self.residual_wrt_geo_velocities = self.hparams.model_with_geo_velocities if hasattr(self.hparams, 'residual_wrt_geo_velocities') else False
+        self.residual_wrt_geo_velocities = self.hparams.residual_wrt_geo_velocities if hasattr(self.hparams, 'residual_wrt_geo_velocities') else False
         if self.residual_wrt_geo_velocities == True :
             self.type_div_train_loss = 1
             
