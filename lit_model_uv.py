@@ -298,7 +298,6 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         
         dx_from_dlon , dy_from_dlat = self.compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon)     
 
-        print( v.size() )
         dv_dx , dv_dy = self.compute_gradxy( v , sigma=sigma )
         du_dx , du_dy = self.compute_gradxy( u , sigma=sigma )
         
