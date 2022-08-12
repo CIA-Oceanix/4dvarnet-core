@@ -701,9 +701,9 @@ class LitModelUV(pl.LightningModule):
         self.sig_filter_div = self.hparams.sig_filter_div if hasattr(self.hparams, 'sig_filter_div') else 1.0
         self.sig_filter_div_diag = self.hparams.sig_filter_div_diag if hasattr(self.hparams, 'sig_filter_div_diag') else self.hparams.sig_filter_div
 
-        self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 1
+        self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 0
         
-        self.residual_wrt_geo_velocities = self.hparams.model_with_geo_velocities if hasattr(self.hparams, 'model_with_geo_velocities') else False
+        self.residual_wrt_geo_velocities = self.hparams.model_with_geo_velocities if hasattr(self.hparams, 'residual_wrt_geo_velocities') else False
         if self.residual_wrt_geo_velocities == True :
             self.type_div_train_loss = 1
             
