@@ -702,7 +702,7 @@ class LitModelUV(pl.LightningModule):
         self.sig_filter_div_diag = self.hparams.sig_filter_div_diag if hasattr(self.hparams, 'sig_filter_div_diag') else self.hparams.sig_filter_div
 
         self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 0
-        self.model_with_geo_velocities = self.hparams.model_with_geo_velocities if hasattr(self.hparams, 'model_with_geo_velocities') else False
+        self.residual_wrt_geo_velocities = self.hparams.model_with_geo_velocities if hasattr(self.hparams, 'model_with_geo_velocities') else False
 
         self.learning_sampling_uv = self.hparams.learning_sampling_uv if hasattr(self.hparams, 'learning_sampling_uv') else 'no_sammpling_learning'
         self.nb_feat_sampling_operator = self.hparams.nb_feat_sampling_operator if hasattr(self.hparams, 'nb_feat_sampling_operator') else -1.
@@ -782,6 +782,9 @@ class LitModelUV(pl.LightningModule):
             if self.use_sst_obs :
                 suffix_chkpt = suffix_chkpt+'-sstobs-'+self.hparams.sst_model+'_%02d'%(self.hparams.dim_obs_sst_feat)
             
+            if self.residual_wrt_geo_velocities == True :
+                suffix_chkpt = suffix_chkpt+'-wgeo-'
+                            
             suffix_chkpt = suffix_chkpt+'-grad_%02d_%02d_%03d'%(self.hparams.n_grad,self.hparams.k_n_grad,self.hparams.dim_grad_solver)
         else:
             if ( self.use_sst ) & ( self.use_sst_state ) :
@@ -1603,10 +1606,15 @@ class LitModelUV(pl.LightningModule):
         return loss, loss_grad
 
     def div_loss(self, gt, out):
-        return NN_4DVar.compute_spatio_temp_weighted_loss( (out - gt), self.patch_weight[:,1:-1,1:-1])
-
+        if self.type_div_train_loss == 0 :
+            return NN_4DVar.compute_spatio_temp_weighted_loss( (out - gt), self.patch_weight[:,1:-1,1:-1])
+        else:
+            return NN_4DVar.compute_spatio_temp_weighted_loss((out - gt ), self.patch_weight)
+        
+    def strain_loss(self, gt, out):
+        return NN_4DVar.compute_spatio_temp_weighted_loss((out - gt ), self.patch_weight)        
+ 
     def uv_loss(self, gt, out):
-
         loss = NN_4DVar.compute_spatio_temp_weighted_loss((out[0] - gt[0]), self.patch_weight)
         loss = loss + NN_4DVar.compute_spatio_temp_weighted_loss((out[1] - gt[1]), self.patch_weight)
 
@@ -1711,7 +1719,7 @@ class LitModelUV(pl.LightningModule):
                     outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
 
                 # U,V prediction
-                if self.model_with_geo_velocities == True :
+                if self.residual_wrt_geo_velocities == False :
                     outputs_u = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
                     outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
                 else:
@@ -1722,14 +1730,16 @@ class LitModelUV(pl.LightningModule):
                     ssh = np.sqrt(self.var_Tr) * outputs + self.mean_Tr
                     u_geo, v_geo = self.compute_derivativeswith_lon_lat.compute_geo_velociites(ssh, lat_rad, lon_rad,sigma=0.)
 
-                    outputs_u = 0. * outputs_u + u_geo / np.sqrt(self.var_tr_uv)
-                    outputs_v = 0. * outputs_v + v_geo / np.sqrt(self.var_tr_uv)
+                    outputs_u = outputs_u + u_geo / np.sqrt(self.var_tr_uv)
+                    outputs_v = outputs_v + v_geo / np.sqrt(self.var_tr_uv)
                 
                 if self.type_div_train_loss == 0 :
                     div_rec = self.compute_div(outputs_u,outputs_v)
                     div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
                     
-                    loss_div = self.div_loss( div_rec , div_gt )                     
+                    loss_div = self.div_loss( div_rec , div_gt )
+                    loss_strain = 0.
+                    print( loss_div )                     
                 else:                                        
                     lat_rad = torch.deg2rad(lat)
                     lon_rad = torch.deg2rad(lon)
@@ -1737,13 +1747,11 @@ class LitModelUV(pl.LightningModule):
                     div_gt,curl_gt,strain_gt = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
                     div_rec,curl_rec,strain_rec = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
     
-                    print( torch.mean( torch.abs(div_rec) ) ) 
-                    print( torch.mean( torch.abs(div_gt) ) ) 
-                    print( NN_4DVar.compute_spatio_temp_weighted_loss((div_rec - div_gt ), self.patch_weight) ) 
-                    print( torch.mean( torch.abs(strain_rec) ) ) 
-                    print( torch.mean( torch.abs(strain_gt) ) ) 
-                    print( NN_4DVar.compute_spatio_temp_weighted_loss((strain_rec - strain_gt ), self.patch_weight) ) 
-                    
+                    loss_div = self.div_loss( div_rec , div_gt )
+                    loss_strain = self.strain_loss( strain_rec , strain_gt )
+                    print( loss_div )                     
+                    print( loss_strain )                     
+                        
                 # median filter
                 if self.median_filter_width > 1:
                     outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
