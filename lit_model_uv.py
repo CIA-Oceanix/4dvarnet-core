@@ -190,7 +190,8 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         
         a = torch.sin(dlat / 2. )**2 + torch.cos(lat) ** 2 * torch.sin( dlon / 2. )**2
         
-        return 2. * 6.371e6 * torch.atan2( torch.sqrt(a + self.eps), torch.sqrt(1. - a + self.eps ))        
+        #return 2. * 6.371e6 * torch.atan2( torch.sqrt(a + self.eps), torch.sqrt(1. - a + self.eps ))        
+        return 2. * 6.371 * torch.atan2( torch.sqrt(a + self.eps), torch.sqrt(1. - a + self.eps ))        
 
     def compute_dx_dy_dlat_dlon(self,lat,lon,dlat,dlon):
         
@@ -243,7 +244,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         return G_x,G_y
     
     def compute_coriolis_force(self,lat,flag_mean_coriolis=False):
-        omega = 7.2921e-5 # rad/s
+        omega = 7.2921#e-5 # rad/s
         f = 2 * omega * torch.sin(lat)
         
         if flag_mean_coriolis == True :
@@ -1766,8 +1767,8 @@ class LitModelUV(pl.LightningModule):
                     ssh = np.sqrt(self.var_Tr) * outputs + self.mean_Tr
                     u_geo, v_geo = self.compute_derivativeswith_lon_lat.compute_geo_velociites(ssh, lat_rad, lon_rad,sigma=0.)
 
-                    outputs_u = u_geo #/ np.sqrt(self.var_tr_uv)
-                    outputs_v = v_geo #/ np.sqrt(self.var_tr_uv)
+                    outputs_u = u_geo / np.sqrt(self.var_tr_uv)
+                    outputs_v = v_geo / np.sqrt(self.var_tr_uv)
 
                     div_rec = 0. * outputs
                     div_gt = 0. * outputs
