@@ -1603,6 +1603,12 @@ class LitModelUV(pl.LightningModule):
         )
 
         return loss, loss_grad
+    
+    def compute_uv_from_ssh(self,ssh, lat_rad, lon_rad,sigma=0.):
+        ssh = np.sqrt(self.var_Tr) * outputs + self.mean_Tr
+        u_geo, v_geo = self.compute_derivativeswith_lon_lat.compute_geo_velocities(ssh, lat_rad, lon_rad,sigma=0.)
+        
+        return u_geo / np.sqrt(self.var_tr_uv) , v_geo / np.sqrt(self.var_tr_uv)
 
     def div_loss(self, gt, out):
         if self.type_div_train_loss == 0 :
@@ -1723,11 +1729,14 @@ class LitModelUV(pl.LightningModule):
                     lon_rad = torch.deg2rad(lon)
                     
                     # denormalize ssh
-                    ssh = np.sqrt(self.var_Tr) * outputs + self.mean_Tr
-                    u_geo, v_geo = self.compute_derivativeswith_lon_lat.compute_geo_velocities(ssh, lat_rad, lon_rad,sigma=0.)
+                    u_geo_rec, v_geo_rec = self.compute_uv_from_ssh(self,outputs, lat_rad, lon_rad,sigma=0.) 
+                    u_geo_gt, v_geo_gt = self.compute_uv_from_ssh(self,targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
 
-                    outputs_u = 0. * outputs_u + u_geo / np.sqrt(self.var_tr_uv)
-                    outputs_v = 0. * outputs_v + v_geo / np.sqrt(self.var_tr_uv)
+                    u_geo_rec = u_geo_rec / np.sqrt(self.var_tr_uv)
+                    v_geo_rec = v_geo_rec / np.sqrt(self.var_tr_uv)
+
+                    outputs_u = 0. * outputs_u + u_geo_rec
+                    outputs_v = 0. * outputs_v + v_geo_rec
                 
                 if self.type_div_train_loss == 0 :
                     div_rec = self.compute_div(outputs_u,outputs_v)
@@ -1769,15 +1778,15 @@ class LitModelUV(pl.LightningModule):
                 loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
                 loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
 
+                if self.residual_wrt_geo_velocities == True :
+                    loss_uv_geo = self.uv_loss( [u_geo_rec,v_geo_rec], [u_geo_gt,v_geo_gt])
+                    loss_GAll = ( self.hparams.alpha_mse_uv / self.hparams.alpha_mse_gssh )  * loss_uv_geo
+                    
                 print('..  loss ssh = %e' %loss_All )                     
                 print('..  loss gssh = %e' %loss_GAll )                     
                 print('..  loss uv = %e' %loss_uv )                     
+                print('..  loss uv geo = %e' %loss_uv_geo )                     
 
-
-                if self.type_div_train_loss == 0 :
-                    loss_div = self.div_loss( div_rec , div_gt ) 
-                else:
-                    loss_div = NN_4DVar.compute_spatio_temp_weighted_loss((div_rec - div_gt ), self.patch_weight)
 
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
                 loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
