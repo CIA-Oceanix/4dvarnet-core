@@ -785,9 +785,12 @@ class LitModelUV(pl.LightningModule):
             if self.use_sst_obs :
                 suffix_chkpt = suffix_chkpt+'-sstobs-'+self.hparams.sst_model+'_%02d'%(self.hparams.dim_obs_sst_feat)
             
+            
             if self.residual_wrt_geo_velocities == True :
                 suffix_chkpt = suffix_chkpt+'-wgeo-'
-                            
+            elif self.type_div_train_loss == 1 :
+                suffix_chkpt = suffix_chkpt+'-geoD-'
+                                            
             suffix_chkpt = suffix_chkpt+'-grad_%02d_%02d_%03d'%(self.hparams.n_grad,self.hparams.k_n_grad,self.hparams.dim_grad_solver)
         else:
             if ( self.use_sst ) & ( self.use_sst_state ) :

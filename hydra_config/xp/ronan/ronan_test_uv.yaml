@@ -61,6 +61,7 @@ params:
   alpha_mse_strain: 20.
   dim_obs_sst_feat: 2#10
   dim_grad_solver: 150
+  residual_wrt_geo_velocities: True
   save_rec_netcdf: True #False#
   sig_filter_laplacian: 1.
   scale_dwscaling_sst: 1.
