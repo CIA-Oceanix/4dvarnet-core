@@ -1605,7 +1605,7 @@ class LitModelUV(pl.LightningModule):
         return loss, loss_grad
     
     def compute_uv_from_ssh(self,ssh, lat_rad, lon_rad,sigma=0.):
-        ssh = np.sqrt(self.var_Tr) * outputs + self.mean_Tr
+        ssh = np.sqrt(self.var_Tr) * ssh + self.mean_Tr
         u_geo, v_geo = self.compute_derivativeswith_lon_lat.compute_geo_velocities(ssh, lat_rad, lon_rad,sigma=0.)
         
         return u_geo / np.sqrt(self.var_tr_uv) , v_geo / np.sqrt(self.var_tr_uv)
@@ -1614,10 +1614,10 @@ class LitModelUV(pl.LightningModule):
         if self.type_div_train_loss == 0 :
             return NN_4DVar.compute_spatio_temp_weighted_loss( (out - gt), self.patch_weight[:,1:-1,1:-1])
         else:
-            return NN_4DVar.compute_spatio_temp_weighted_loss( 1.e3 * (out - gt ), self.patch_weight)
+            return NN_4DVar.compute_spatio_temp_weighted_loss( 1.e4 * (out - gt ), self.patch_weight)
         
     def strain_loss(self, gt, out):
-        return NN_4DVar.compute_spatio_temp_weighted_loss(1.e3 * (out - gt ), self.patch_weight)        
+        return NN_4DVar.compute_spatio_temp_weighted_loss(1.e4 * (out - gt ), self.patch_weight)        
  
     def uv_loss(self, gt, out):
         loss = NN_4DVar.compute_spatio_temp_weighted_loss((out[0] - gt[0]), self.patch_weight)
