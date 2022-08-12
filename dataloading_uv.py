@@ -455,8 +455,8 @@ class FourDVarNetDataset(Dataset):
                     with self.gt_ds.get_coords():
                         _item_coords = self.gt_ds[item % length]
 
-                        lat_item = _item_coords['lat'].data.astype('float')
-                        lon_item = _item_coords['lon'].data.astype('float')
+                        lat_item = np.float32( _item_coords['lat'] )
+                        lon_item = np.float32( _item_coords['lon'] )
 
                     return oi_item, obs_mask_item, obs_item, gt_item, sst_item, u_item, v_item, lat_item, lon_item
                 else:          

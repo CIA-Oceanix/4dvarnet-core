@@ -1660,6 +1660,10 @@ class LitModelUV(pl.LightningModule):
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
 
+            #lat = lat.type(torch.cuda.FloatTensor)
+            #lon = lon.type(torch.cuda.FloatTensor)
+
+
         if self.scale_dwscaling_sst > 1 :
             sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
             sst_gt = torch.nn.functional.interpolate(sst_gt, scale_factor=self.scale_dwscaling_sst, mode='bicubic')
@@ -1755,9 +1759,7 @@ class LitModelUV(pl.LightningModule):
                 if 1*0 :
                     div_rec = self.compute_div(outputs_u,outputs_v)
                     div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
-                else:
-                    #lat = lat.type(torch.cuda.FloatTensor)
-                    #lon = lon.type(torch.cuda.FloatTensor)
+                else:                    
                     
                     lat_rad = torch.deg2rad(lat)
                     lon_rad = torch.deg2rad(lon)
