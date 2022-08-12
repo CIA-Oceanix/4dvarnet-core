@@ -18,7 +18,8 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_65/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-grad_05_03_150-epoch=86-val_loss=3.0276.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_73/checkpoints/modelUVwSSTGF-unet1_050-augdata-DirectInv-wSST-dT07-epoch=165-val_loss=2.7599.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_74/checkpoints/modelUVwoSSTGF-unet1_050-augdata-DirectInv-dT07-epoch=13-val_loss=4.6596.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_79/checkpoints/modelUVwoSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-geoD--grad_05_03_150-epoch=02-val_loss=1.2915.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_79/checkpoints/modelUVwoSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-geoD--grad_05_03_150-epoch=02-val_loss=1.2915.ckpt'
+   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_81/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo--grad_05_03_150-epoch=02-val_loss=3.9345.ckpt'
 # ####################
 # ####################
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_39/checkpoints/modelUVwSSTGF-unet1_050-augdata-sampling_sst_10_002_-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=48-val_loss=1.4760.ckpt'
