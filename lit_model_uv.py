@@ -191,7 +191,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         a = torch.sin(dlat / 2. )**2 + torch.cos(lat) ** 2 * torch.sin( dlon / 2. )**2
 
         c = 2. * 6.371e6 * torch.atan2( torch.sqrt(a + self.eps), torch.sqrt(1. - a + self.eps ))       
-        c = c.type(torch.cuda.FloatTensor)
+        #c = c.type(torch.cuda.FloatTensor)
         
         return c        
         #return 2. * 6.371 * torch.atan2( torch.sqrt(a + self.eps), torch.sqrt(1. - a + self.eps ))        
@@ -240,7 +240,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         return G_x,G_y
     
     def compute_coriolis_force(self,lat,flag_mean_coriolis=False):
-        omega = 7.#7.2921e-5 # rad/s
+        omega = 7.2921e-5 # rad/s
         f = 2 * omega * torch.sin(lat)
         
         if flag_mean_coriolis == True :
@@ -1756,6 +1756,9 @@ class LitModelUV(pl.LightningModule):
                     div_rec = self.compute_div(outputs_u,outputs_v)
                     div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
                 else:
+                    lat = lat.type(torch.cuda.FloatTensor)
+                    lon = lon.type(torch.cuda.FloatTensor)
+                    
                     lat_rad = torch.deg2rad(lat)
                     lon_rad = torch.deg2rad(lon)
                     
