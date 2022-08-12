@@ -1733,7 +1733,7 @@ class LitModelUV(pl.LightningModule):
                     outputs_u = outputs_u + u_geo / np.sqrt(self.var_tr_uv)
                     outputs_v = outputs_v + v_geo / np.sqrt(self.var_tr_uv)
                 
-                if self.type_div_train_loss == 0 :
+                if self.type_div_train_loss == 1 :
                     div_rec = self.compute_div(outputs_u,outputs_v)
                     div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
                     
