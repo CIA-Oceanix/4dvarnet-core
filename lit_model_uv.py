@@ -1791,6 +1791,7 @@ class LitModelUV(pl.LightningModule):
                     print('..  loss uv geo = %e' % ( self.hparams.alpha_mse_uv_geo * loss_GAll ) )                     
 
                     loss_GAll = ( self.hparams.alpha_mse_uv_geo / self.hparams.alpha_mse_gssh )  * loss_uv_geo
+                    print('..  loss gssh = %e' % (self.hparams.alpha_mse_gssh * loss_GAll) )                     
                     
 
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
