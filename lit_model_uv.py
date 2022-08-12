@@ -1710,6 +1710,7 @@ class LitModelUV(pl.LightningModule):
 
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
+            flag_display_loss = True
             
             if self.hparams.n_grad > 0 :                
                 state = torch.autograd.Variable(state, requires_grad=True)
@@ -1747,7 +1748,8 @@ class LitModelUV(pl.LightningModule):
                     
                     loss_div = self.div_loss( div_rec , div_gt )
                     loss_strain = 0.
-                    print('\n..  loss div = %e' % (self.hparams.alpha_mse_div *loss_div) )                     
+                    if flag_display_loss :
+                        print('\n..  loss div = %e' % (self.hparams.alpha_mse_div *loss_div) )                     
                 else:                                        
                     lat_rad = torch.deg2rad(lat)
                     lon_rad = torch.deg2rad(lon)
@@ -1757,8 +1759,9 @@ class LitModelUV(pl.LightningModule):
     
                     loss_div = self.div_loss( div_rec , div_gt )
                     loss_strain = self.strain_loss( strain_rec , strain_gt )
-                    print('\n..  loss div = %e' % (self.hparams.alpha_mse_div *loss_div) )                     
-                    print('..  loss strain = %e' % (self.hparams.alpha_mse_strain *loss_strain) )
+                    if flag_display_loss :
+                        print('\n..  loss div = %e' % (self.hparams.alpha_mse_div *loss_div) )                     
+                        print('..  loss strain = %e' % (self.hparams.alpha_mse_strain *loss_strain) )
 
                     loss_div =   loss_div + (self.hparams.alpha_mse_strain / self.hparams.alpha_mse_div) *loss_strain                   
                         
@@ -1783,16 +1786,17 @@ class LitModelUV(pl.LightningModule):
                 loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
                 loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
 
-                print('..  loss ssh = %e' % (self.hparams.alpha_mse_ssh * loss_All) )                     
-                print('..  loss gssh = %e' % (self.hparams.alpha_mse_gssh * loss_GAll) )                     
-                print('..  loss uv = %e' % (self.hparams.alpha_mse_uv * loss_uv) )                     
+                if flag_display_loss :
+                    print('..  loss ssh = %e' % (self.hparams.alpha_mse_ssh * loss_All) )                     
+                    print('..  loss gssh = %e' % (self.hparams.alpha_mse_gssh * loss_GAll) )                     
+                    print('..  loss uv = %e' % (self.hparams.alpha_mse_uv * loss_uv) )                     
 
                 if self.residual_wrt_geo_velocities == True :
                     loss_uv_geo = self.uv_loss( [u_geo_rec,v_geo_rec], [u_geo_gt,v_geo_gt])
-                    print('..  loss uv geo = %e' % ( self.hparams.alpha_mse_uv_geo * loss_uv_geo ) )                     
-
                     loss_GAll = ( self.hparams.alpha_mse_uv_geo / self.hparams.alpha_mse_gssh )  * loss_uv_geo
-                    print('..  loss gssh = %e' % (self.hparams.alpha_mse_gssh * loss_GAll) )                     
+                    if flag_display_loss :
+                        print('..  loss uv geo = %e' % ( self.hparams.alpha_mse_uv_geo * loss_uv_geo ) )                     
+                        print('..  loss gssh = %e' % (self.hparams.alpha_mse_gssh * loss_GAll) )                     
                     
 
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
@@ -1815,7 +1819,8 @@ class LitModelUV(pl.LightningModule):
                 if self.model_sampling_uv is not None :
                     loss += self.hparams.alpha_sampling_uv * loss_l1_sampling_uv
 
-                print('..  loss = %e' %loss )                     
+                if flag_display_loss :
+                    print('..  loss = %e' %loss )                     
 
             else:
                 outputs = self.model.phi_r(obs)
