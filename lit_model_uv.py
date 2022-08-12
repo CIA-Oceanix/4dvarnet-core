@@ -1718,10 +1718,7 @@ class LitModelUV(pl.LightningModule):
                     outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
 
                 # U,V prediction
-                if self.residual_wrt_geo_velocities == False :
-                    outputs_u = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
-                    outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
-                else:
+                if self.residual_wrt_geo_velocities == True :
                     lat_rad = torch.deg2rad(lat)
                     lon_rad = torch.deg2rad(lon)
                     
