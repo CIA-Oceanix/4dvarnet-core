@@ -36,8 +36,6 @@ params:
       time: 1
   val_diag_freq: 5 
   padding_mode: reflect
-  dim_obs_sst_feat: 2#10
-  dim_grad_solver: 150
   residual_wrt_geo_velocities: False
   type_div_train_loss: 1
   alpha_mse_ssh: 50. # loss
