@@ -284,6 +284,31 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
     
         return u_geo,v_geo
         
+    def compute_geo_factor(self,ssh,lat,lon,sigma=0.,alpha_uv_geo=9.81,flag_mean_coriolis=False):
+
+        dlat = lat[0,1]-lat[0,0]
+        dlon = lon[0,1]-lon[0,0]
+        
+        # coriolis / lat/lon scaling
+        grid_lat = lat.view(ssh.size(0),1,ssh.size(2),1)
+        grid_lat = grid_lat.repeat(1,ssh.size(1),1,ssh.size(3))
+        grid_lon = lon.view(ssh.size(0),1,1,ssh.size(3))
+        grid_lon = grid_lon.repeat(1,ssh.size(1),ssh.size(2),1)
+        
+        dx_from_dlon , dy_from_dlat = self.compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon)     
+        f_c = self.compute_coriolis_force(grid_lat,flag_mean_coriolis=flag_mean_coriolis)
+
+        dssh_dx = alpha_uv_geo / dx_from_dlon 
+        dssh_dy = alpha_uv_geo / dy_from_dlat  
+
+        dssh_dy = ( 1. / f_c ) * dssh_dy
+        dssh_dx = ( 1. / f_c  )* dssh_dx
+
+        factor_u_geo = -1. * dssh_dy
+        factor_v_geo = 1. * dssh_dx
+            
+        return factor_u_geo,factor_v_geo
+
     def compute_div_curl_strain(self,u,v,lat,lon,sigma=0.):
         
         dlat = lat[0,1]-lat[0,0]
@@ -703,8 +728,8 @@ class LitModelUV(pl.LightningModule):
 
         self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 0
         
-        self.residual_wrt_geo_velocities = self.hparams.residual_wrt_geo_velocities if hasattr(self.hparams, 'residual_wrt_geo_velocities') else False
-        if self.residual_wrt_geo_velocities == True :
+        self.residual_wrt_geo_velocities = self.hparams.residual_wrt_geo_velocities if hasattr(self.hparams, 'residual_wrt_geo_velocities') else 0
+        if self.residual_wrt_geo_velocities > 0 :
             self.type_div_train_loss = 1
             
         self.learning_sampling_uv = self.hparams.learning_sampling_uv if hasattr(self.hparams, 'learning_sampling_uv') else 'no_sammpling_learning'
@@ -787,8 +812,8 @@ class LitModelUV(pl.LightningModule):
                 suffix_chkpt = suffix_chkpt+'-sstobs-'+self.hparams.sst_model+'_%02d'%(self.hparams.dim_obs_sst_feat)
             
             
-            if self.residual_wrt_geo_velocities == True :
-                suffix_chkpt = suffix_chkpt+'-wgeo-'
+            if self.residual_wrt_geo_velocities > 0  :
+                suffix_chkpt = suffix_chkpt+'-wgeo%d-'%self.residual_wrt_geo_velocities
             elif self.type_div_train_loss == 1 :
                 suffix_chkpt = suffix_chkpt+'-geoD-'
                                             
@@ -1731,7 +1756,7 @@ class LitModelUV(pl.LightningModule):
                     outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
 
                 # U,V prediction
-                if self.residual_wrt_geo_velocities == True :
+                if self.residual_wrt_geo_velocities == 1 :
                     lat_rad = torch.deg2rad(lat)
                     lon_rad = torch.deg2rad(lon)
                     
@@ -1741,7 +1766,20 @@ class LitModelUV(pl.LightningModule):
 
                     outputs_u = outputs_u + u_geo_rec
                     outputs_v = outputs_v + v_geo_rec
-                
+                    
+                elif self.residual_wrt_geo_velocities == 2 : 
+                    lat_rad = torch.deg2rad(lat)
+                    lon_rad = torch.deg2rad(lon)
+                    
+                    # denormalize ssh
+                    u_geo_rec, v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
+                    u_geo_gt, v_geo_gt = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
+
+                    u_geo_factor, v_geo_factor = self.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.) 
+
+                    outputs_u = u_geo_factor * outputs_u
+                    outputs_v = v_geo_factor * outputs_v
+                    
                 if self.type_div_train_loss == 0 :
                     div_rec = self.compute_div(outputs_u,outputs_v)
                     div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
@@ -1770,8 +1808,7 @@ class LitModelUV(pl.LightningModule):
                     outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
     
                 # reconstruction losses
-                # projection losses
-    
+                # projection losses    
                 yGT = torch.cat((targets_OI,
                                  targets_GT_wo_nan - outputsSLR),
                                 dim=1)
@@ -1791,7 +1828,7 @@ class LitModelUV(pl.LightningModule):
                     print('..  loss gssh = %e' % (self.hparams.alpha_mse_gssh * loss_GAll) )                     
                     print('..  loss uv = %e' % (self.hparams.alpha_mse_uv * loss_uv) )                     
 
-                if self.residual_wrt_geo_velocities == True :
+                if self.residual_wrt_geo_velocities > 0 :
                     loss_uv_geo = self.uv_loss( [u_geo_rec,v_geo_rec], [u_geo_gt,v_geo_gt])
                     loss_GAll = ( self.hparams.alpha_mse_uv_geo / self.hparams.alpha_mse_gssh )  * loss_uv_geo
                     if flag_display_loss :
