@@ -1641,6 +1641,9 @@ class LitModelUV(pl.LightningModule):
         
         return u_geo / np.sqrt(self.var_tr_uv) , v_geo / np.sqrt(self.var_tr_uv)
 
+    def compute_geo_factor(self,outputs, lat_rad, lon_rad,sigma=0.):
+        return self.compute_derivativeswith_lon_lat.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.)
+    
     def div_loss(self, gt, out):
         if self.type_div_train_loss == 0 :
             return NN_4DVar.compute_spatio_temp_weighted_loss( (out - gt), self.patch_weight[:,1:-1,1:-1])
