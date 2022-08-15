@@ -314,13 +314,16 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         dlat = lat[0,1]-lat[0,0]
         dlon = lon[0,1]-lon[0,0]
         
+        print( dlat.detach().cpu().numpy()*360/(2*3.14) )
+        print( dlon.detach().cpu().numpy()*360/(2*3.14) )
+        
         # coriolis / lat/lon scaling
         grid_lat = lat.view(u.size(0),1,u.size(2),1)
         grid_lat = grid_lat.repeat(1,u.size(1),1,u.size(3))
         grid_lon = lon.view(u.size(0),1,1,u.size(3))
         grid_lon = grid_lon.repeat(1,u.size(1),u.size(2),1)
         
-        dx_from_dlon , dy_from_dlat = self.compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon)     
+        dx_from_dlon , dy_from_dlat = self.compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon)
 
         dv_dx , dv_dy = self.compute_gradxy( v , sigma=sigma )
         du_dx , du_dy = self.compute_gradxy( u , sigma=sigma )
@@ -1827,17 +1830,17 @@ class LitModelUV(pl.LightningModule):
                         _div_gt,_curl_gt,_strain_gt,_dx,_dy = compute_div_curl_strain_with_lat_lon(v_gt_wo_nan[0,:,:,:].detach().cpu().numpy(),v_gt_wo_nan[0,:,:,:].detach().cpu().numpy(),lat_rad[0,:].detach().cpu().numpy(),lon_rad[0,:].detach().cpu().numpy(),sigma=self.sig_filter_div_diag)
                         _div_rec,_curl_rec,_strain_rec,_dx,_dy = compute_div_curl_strain_with_lat_lon(outputs_u[0,:,:,:].detach().cpu().numpy(),outputs_v[0,:,:,:].detach().cpu().numpy(),lat_rad[0,:].detach().cpu().numpy(),lon_rad[0,:].detach().cpu().numpy(),sigma=self.sig_filter_div_diag)
 
-                        print('\n \n')
-                        print( lat_rad.size() )
-                        print( lat_rad[0,:].detach().cpu().numpy() )
-                        print( lon_rad.size() )
-                        print( lon_rad[0,:].detach().cpu().numpy() )
+                        #print('\n \n')
+                        #print( lat_rad.size() )
+                        #print( lat_rad[0,:].detach().cpu().numpy() )
+                        #print( lon_rad.size() )
+                        #print( lon_rad[0,:].detach().cpu().numpy() )
 
                         print('.. %e %e %e '%( np.mean( (_div_gt - div_gt[0,:,:,:].detach().cpu().numpy() )**2 ) , np.var(_div_gt) , np.var(div_gt[0,:,:,:].detach().cpu().numpy()) ) )
                         print('.. %e %e %e '%( np.mean( (_strain_gt - strain_gt[0,:,:,:].detach().cpu().numpy() )**2 ) , np.var(_strain_gt) , np.var(strain_gt[0,:,:,:].detach().cpu().numpy()) ) )
 
-                        print('.. dx %e %e %e '%( np.mean( (_dx - dx[0,:,:,:].detach().cpu().numpy() )**2 ) , np.var(_dx) , np.var(dx[0,:,:,:].detach().cpu().numpy()) ) )
-                        print('.. dy %e %e %e '%( np.mean( (_dy - dy[0,:,:,:].detach().cpu().numpy() )**2 ) , np.var(_dy) , np.var(dy[0,:,:,:].detach().cpu().numpy()) ) )
+                        print('.. dx %e %e %e '%( np.mean( (_dx - dx[0,:,:,:].detach().cpu().numpy() )**2 ) , np.mean(_dx) , np.mean(dx[0,:,:,:].detach().cpu().numpy()) ) )
+                        print('.. dy %e %e %e '%( np.mean( (_dy - dy[0,:,:,:].detach().cpu().numpy() )**2 ) , np.mean(_dy) , np.mean(dy[0,:,:,:].detach().cpu().numpy()) ) )
 
                     else:
                         div_gt,curl_gt,strain_gt = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div )
