@@ -151,7 +151,8 @@ def compute_div_curl_strain_with_lat_lon(u,v,lat,lon,sigma=1.0):
     div = du_dx + dv_dy
     curl =  du_dy - dv_dx
 
-    return div,curl,strain,dx_from_dlon , dy_from_dlat
+    #return div,curl,strain,dx_from_dlon , dy_from_dlat
+    return div,curl,strain,du_dx , du_dy
 
 class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
     def __init__(self,_filter='diff-non-centered'):
@@ -325,8 +326,8 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         
         dx_from_dlon , dy_from_dlat = self.compute_dx_dy_dlat_dlon(grid_lat,grid_lon,dlat,dlon)
 
-        dv_dx , dv_dy = self.compute_gradxy( v , sigma=sigma )
         du_dx , du_dy = self.compute_gradxy( u , sigma=sigma )
+        dv_dx , dv_dy = self.compute_gradxy( v , sigma=sigma )
         
         du_dx = du_dx / dx_from_dlon 
         dv_dx = dv_dx / dx_from_dlon 
@@ -339,7 +340,8 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         div = du_dx + dv_dy
         curl =  du_dy - dv_dx
 
-        return div,curl,strain,dx_from_dlon,dy_from_dlat
+        #return div,curl,strain,dx_from_dlon,dy_from_dlat
+        return div,curl,strain,du_dx , du_dy
     
     def forward(self):
         return 1.
