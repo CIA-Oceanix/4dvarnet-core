@@ -1846,9 +1846,9 @@ class LitModelUV(pl.LightningModule):
                         print('.. dx %e %e '%( _dx[0,10,10] , dx[0,0,10,10].detach().cpu().numpy()) )
                         print('.. dy %e %e '%( _dy[0,10,10] , dy[0,0,10,10].detach().cpu().numpy()) )
 
-                        gx,gy = self.compute_derivativeswith_lon_lat.compute_gradxy(u_gt_wo_nan[:,:,:,:],sigma=0.)
-                        _gx = compute_gradx( u_gt_wo_nan[0,:,:,:].detach().cpu().numpy() , )
-                        _gy = compute_grady( u_gt_wo_nan[0,:,:,:].detach().cpu().numpy() , )
+                        gx,gy = self.compute_derivativeswith_lon_lat.compute_gradxy(v_gt_wo_nan[:,:,:,:],sigma=0.)
+                        _gx = compute_gradx( u_gt_wo_nan[0,:,:,:].detach().cpu().numpy() )
+                        _gy = compute_grady( u_gt_wo_nan[0,:,:,:].detach().cpu().numpy() )
                         gx = gx[0,:,:,:].detach().cpu().numpy()
                         gy = gy[0,:,:,:].detach().cpu().numpy()
 
