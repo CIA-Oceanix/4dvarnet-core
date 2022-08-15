@@ -1292,16 +1292,40 @@ class LitModelUV(pl.LightningModule):
         var_mse_oi_lap = 100. * (1. - mse_metrics_lap_oi['mse'] / mse_metrics_lap_pred['var_lap'] )
 
         # MSE (U,V) fields
-        def compute_metrics_SSC(u_gt,v_gt,u,v):
+        ## compute div/curl/strain metrics
+        def compute_var_exp(x,y,dw=0):
+            if dw == 0 :
+                mse = np.nanmean( (x-y)**2 )
+                var = np.nanvar( x )
+            else:
+                _x  = x[:,dw:x.shape[1]-dw,dw:x.shape[2]-dw]
+                _y  = y[:,dw:x.shape[1]-dw,dw:x.shape[2]-dw]
+                mse = np.nanmean( (_x-_y)**2 )
+                var = np.nanvar( _x )
+                
+            return 100. * ( 1. - mse / var )
+
+        def compute_metrics_SSC(u_gt,v_gt,u,v,dw = 2):
             
-            mse_uv = np.nanmean((u_gt - u) ** 2 + (v_gt - v) ** 2 )
-            var_uv = np.nanmean((u_gt) ** 2 + (v_gt) ** 2 )
+            if dw == 0 :
+                mse_uv = np.nanmean((u_gt - u) ** 2 + (v_gt - v) ** 2 )
+                var_uv = np.nanmean((u_gt) ** 2 + (v_gt) ** 2 )
+            else:
+                _u    = u[:,dw:u.shape[1]-dw,dw:u.shape[2]-dw]
+                _v    = v[:,dw:u.shape[1]-dw,dw:u.shape[2]-dw]
+                _u_gt = u_gt[:,dw:u.shape[1]-dw,dw:u.shape[2]-dw]
+                _v_gt = v_gt[:,dw:u.shape[1]-dw,dw:u.shape[2]-dw]
+                
+                mse_uv = np.nanmean((_u_gt - _u) ** 2 + (_v_gt - _v) ** 2 )
+                var_uv = np.nanmean((_u_gt) ** 2 + (_v_gt) ** 2 )
             var_mse_uv = 100. * ( 1. - mse_uv / var_uv )
-    
+        
             psd_ds_u, lamb_x_u, lamb_t_u = metrics.psd_based_scores(u, u_gt)
             psd_ds_v, lamb_x_v, lamb_t_v = metrics.psd_based_scores(v, v_gt)
             
             return var_mse_uv, lamb_x_u, lamb_t_u, lamb_x_v, lamb_t_v
+
+
 
         # Metrics for SSC fields
         alpha_uv_geo = 9.81 
@@ -1328,22 +1352,15 @@ class LitModelUV(pl.LightningModule):
         u_geo_oi,v_geo_oi = compute_uv_geo_with_coriolis(self.test_xr_ds.oi,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
         u_geo_rec,v_geo_rec = compute_uv_geo_with_coriolis(self.test_xr_ds.pred,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
 
+        dw_diag = 3
         print('\n\n...... SSH-derived SSC metrics for true SSH')
-        var_mse_uv_ssh_gt, lamb_x_u_ssh_gt, lamb_t_u_ssh_gt, lamb_x_v_ssh_gt, lamb_t_v_ssh_gt = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , u_geo_gt , v_geo_gt  )
+        var_mse_uv_ssh_gt, lamb_x_u_ssh_gt, lamb_t_u_ssh_gt, lamb_x_v_ssh_gt, lamb_t_v_ssh_gt = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , u_geo_gt , v_geo_gt  , dw = dw_diag)
         print('\n\n...... SSH-derived SSC metrics for DUACS SSH')
-        var_mse_uv_ssh_oi, lamb_x_u_ssh_oi, lamb_t_u_ssh_oi, lamb_x_v_ssh_oi, lamb_t_v_ssh_oi = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , u_geo_oi , v_geo_oi  )
+        var_mse_uv_ssh_oi, lamb_x_u_ssh_oi, lamb_t_u_ssh_oi, lamb_x_v_ssh_oi, lamb_t_v_ssh_oi = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , u_geo_oi , v_geo_oi  , dw = dw_diag)
         print('\n\n...... SSH-derived SSC metrics for 4dVarNet SSH')
-        var_mse_uv_ssh_rec, lamb_x_u_ssh_rec, lamb_t_u_ssh_rec, lamb_x_v_ssh_rec, lamb_t_v_ssh_rec = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , u_geo_rec , v_geo_rec  )
+        var_mse_uv_ssh_rec, lamb_x_u_ssh_rec, lamb_t_u_ssh_rec, lamb_x_v_ssh_rec, lamb_t_v_ssh_rec = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , u_geo_rec , v_geo_rec  , dw = dw_diag)
         print('\n\n...... SSH-derived SSC metrics for 4dVarNet SSC')
-        var_mse_uv, lamb_x_u, lamb_t_u, lamb_x_v, lamb_t_v = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , self.test_xr_ds.pred_u, self.test_xr_ds.pred_v  )
-
-        ## compute div/curl/strain metrics
-
-        def compute_var_exp(x,y):
-            mse = np.nanmean( (x-y)**2 )
-            var = np.nanvar( x )
-            
-            return 100. * ( 1. - mse / var )
+        var_mse_uv, lamb_x_u, lamb_t_u, lamb_x_v, lamb_t_v = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , self.test_xr_ds.pred_u, self.test_xr_ds.pred_v  , dw = dw_diag)
 
         print('.....')
         print('.....')
@@ -1353,9 +1370,9 @@ class LitModelUV(pl.LightningModule):
         div_gt,curl_gt,strain_gt = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,lat_rad,lon_rad,sigma=sig_div_curl)
         div_uv_rec,curl_uv_rec,strain_uv_rec = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,lat_rad,lon_rad,sigma=sig_div_curl)
  
-        var_mse_div = compute_var_exp( div_gt, div_uv_rec)
-        var_mse_curl = compute_var_exp( curl_gt, curl_uv_rec)
-        var_mse_strain = compute_var_exp( strain_gt, strain_uv_rec)
+        var_mse_div = compute_var_exp( div_gt, div_uv_rec , dw = dw_diag)
+        var_mse_curl = compute_var_exp( curl_gt, curl_uv_rec, dw = dw_diag)
+        var_mse_strain = compute_var_exp( strain_gt, strain_uv_rec, dw = dw_diag)
         
         if 1*0 :
             t_u = torch.Tensor(self.test_xr_ds.pred_u.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
@@ -1386,9 +1403,9 @@ class LitModelUV(pl.LightningModule):
             curl_gt_ = t_curl.numpy().squeeze()
             strain_gt_ = t_strain.numpy().squeeze()
 
-            var_mse_div_ = compute_var_exp( div_gt_, div_uv_rec_)
-            var_mse_curl_ = compute_var_exp( curl_gt_, curl_uv_rec_)
-            var_mse_strain_ = compute_var_exp( strain_gt_, strain_uv_rec_)
+            var_mse_div_ = compute_var_exp( div_gt_, div_uv_rec_, dw = dw_diag)
+            var_mse_curl_ = compute_var_exp( curl_gt_, curl_uv_rec_, dw = dw_diag)
+            var_mse_strain_ = compute_var_exp( strain_gt_, strain_uv_rec_, dw = dw_diag)
     
             print('.... div %.2f -- %.2f -- %.2f'%(var_mse_div_,var_mse_div,compute_var_exp( div_uv_rec, div_uv_rec_)) )
             print('.... strain %.2f -- %.2f -- %.2f'%(var_mse_strain_,var_mse_strain,compute_var_exp( strain_uv_rec, strain_uv_rec_)))
@@ -1413,17 +1430,17 @@ class LitModelUV(pl.LightningModule):
         div_geo_oi,curl_geo_oi,strain_geo_oi = compute_div_curl_strain_with_lat_lon(f_u_geo_oi,f_v_geo_oi,lat_rad,lon_rad,sigma=0.)
         div_geo_rec,curl_geo_rec,strain_geo_rec = compute_div_curl_strain_with_lat_lon(f_u_geo_rec,f_v_geo_rec,lat_rad,lon_rad,sigma=0.)
 
-        var_mse_div_ssh_gt = compute_var_exp( div_gt, div_geo_gt )
-        var_mse_curl_ssh_gt = compute_var_exp( curl_gt, curl_geo_gt )
-        var_mse_strain_ssh_gt = compute_var_exp( strain_gt, strain_geo_gt )
+        var_mse_div_ssh_gt = compute_var_exp( div_gt, div_geo_gt , dw = dw_diag)
+        var_mse_curl_ssh_gt = compute_var_exp( curl_gt, curl_geo_gt , dw = dw_diag)
+        var_mse_strain_ssh_gt = compute_var_exp( strain_gt, strain_geo_gt , dw = dw_diag)
 
-        var_mse_div_ssh_oi = compute_var_exp( div_gt, div_geo_oi )
-        var_mse_curl_ssh_oi = compute_var_exp( curl_gt, curl_geo_oi )
-        var_mse_strain_ssh_oi = compute_var_exp( strain_gt, strain_geo_oi )
+        var_mse_div_ssh_oi = compute_var_exp( div_gt, div_geo_oi , dw = dw_diag)
+        var_mse_curl_ssh_oi = compute_var_exp( curl_gt, curl_geo_oi , dw = dw_diag)
+        var_mse_strain_ssh_oi = compute_var_exp( strain_gt, strain_geo_oi , dw = dw_diag)
 
-        var_mse_div_ssh_rec = compute_var_exp( div_gt, div_geo_rec )
-        var_mse_curl_ssh_rec = compute_var_exp( curl_gt, curl_geo_rec )
-        var_mse_strain_ssh_rec = compute_var_exp( strain_gt, strain_geo_rec )
+        var_mse_div_ssh_rec = compute_var_exp( div_gt, div_geo_rec , dw = dw_diag)
+        var_mse_curl_ssh_rec = compute_var_exp( curl_gt, curl_geo_rec , dw = dw_diag)
+        var_mse_strain_ssh_rec = compute_var_exp( strain_gt, strain_geo_rec , dw = dw_diag)
 
         md = {
             f'{log_pref}_spatial_res': float(spatial_res_model),
@@ -1502,8 +1519,7 @@ class LitModelUV(pl.LightningModule):
         
         self.x_sst_feat_ssh = extract_seq(outputs,'sst_feat',dw=20)
         
-        #print('..... Shape evaluated tensors: %dx%dx%d'%(self.x_gt.shape[0],self.x_gt.shape[1],self.x_gt.shape[2]))
-        
+        #print('..... Shape evaluated tensors: %dx%dx%d'%(self.x_gt.shape[0],self.x_gt.shape[1],self.x_gt.shape[2]))        
         self.test_coords = self.test_xr_ds.coords
         
         self.test_lat = self.test_coords['lat'].data
