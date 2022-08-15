@@ -1852,8 +1852,8 @@ class LitModelUV(pl.LightningModule):
                         gx = gx[0,:,:,:].detach().cpu().numpy()
                         gy = gy[0,:,:,:].detach().cpu().numpy()
 
-                        print('.. gx %e %e '%( _gx[0,10,10] , gx[0,0,10,10]) )
-                        print('.. gy %e %e '%( _gy[0,10,10] , gy[0,0,10,10]) )
+                        print('.. gx %e %e '%( _gx[0,10,10] , gx[0,10,10]) )
+                        print('.. gy %e %e '%( _gy[0,10,10] , gy[0,10,10]) )
                         print('.. diff gx %e %e %e '%( np.sqrt( np.mean( (_gx - gx )**2 ) ) , np.std( gx[3,20:220,20:220] ) , np.std( _gx[3,20:220,20:220] ) ) )
                         print('.. diff gy %e %e %e '%( np.sqrt( np.mean( (_gy - gy )**2 ) ) , np.std( gy[3,20:220,20:220] ) , np.std( _gy[3,20:220,20:220] ) ) )
 
