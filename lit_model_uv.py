@@ -1356,7 +1356,8 @@ class LitModelUV(pl.LightningModule):
         var_mse_div = compute_var_exp( div_gt, div_uv_rec)
         var_mse_curl = compute_var_exp( curl_gt, curl_uv_rec)
         var_mse_strain = compute_var_exp( strain_gt, strain_uv_rec)
-           
+        
+        print('... var %f %f' %(np.var(self.div_gt),np.var(self.div_rec) ) )
         var_mse_div = compute_var_exp( self.div_gt, self.div_rec)
         
         if 1*0 :
@@ -1497,6 +1498,7 @@ class LitModelUV(pl.LightningModule):
         self.div_gt = self.test_xr_ds.div_gt.data#[2:42,:,:]
         self.div_rec = self.test_xr_ds.div_rec.data#[2:42,:,:]
 
+
         self.x_rec_ssh = self.x_rec
 
         def extract_seq(out,key,dw=20):
@@ -1507,6 +1509,15 @@ class LitModelUV(pl.LightningModule):
         
         self.x_sst_feat_ssh = extract_seq(outputs,'sst_feat',dw=20)
 
+        test_div_rec = extract_seq(outputs,'div_rec',dw=20)
+        test_div_gt = extract_seq(outputs,'div_gt',dw=20)
+        
+        test_div_rec = test_div_rec[:,3,:,:]
+        test_div_gt = test_div_gt[:,3,:,:]
+        
+        print('... var 1 %f %f' %(np.var(test_div_gt),np.var(test_div_rec) ) )
+        print('... var 2 %f %f' %(np.var(self.div_gt),np.var(self.div_rec) ) )
+        print('... var diff %f %f' %(np.var(test_div_gt-self.div_gt),np.var(test_div_rec-self.div_rec) ) )
         
         #print('..... Shape evaluated tensors: %dx%dx%d'%(self.x_gt.shape[0],self.x_gt.shape[1],self.x_gt.shape[2]))
         
