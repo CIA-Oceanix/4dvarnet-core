@@ -1515,9 +1515,9 @@ class LitModelUV(pl.LightningModule):
         test_div_rec = test_div_rec[:,3,:,:]
         test_div_gt = test_div_gt[:,3,:,:]
         
-        print('... var 1 %f %f' %(np.var(test_div_gt),np.var(test_div_rec) ) )
-        print('... var 2 %f %f' %(np.var(self.div_gt),np.var(self.div_rec) ) )
-        print('... var diff %f %f' %(np.var(test_div_gt-self.div_gt),np.var(test_div_rec-self.div_rec) ) )
+        print('... var 1 %e %e"' %(np.std(test_div_gt),np.std(test_div_rec) ) )
+        print('... var 2 %e %e' %(np.std(self.div_gt),np.std(self.div_rec) ) )
+        print('... var diff %e %e' %(np.var(test_div_gt-self.div_gt),np.var(test_div_rec-self.div_rec) ) )
         
         #print('..... Shape evaluated tensors: %dx%dx%d'%(self.x_gt.shape[0],self.x_gt.shape[1],self.x_gt.shape[2]))
         
