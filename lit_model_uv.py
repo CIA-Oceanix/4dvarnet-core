@@ -1827,6 +1827,12 @@ class LitModelUV(pl.LightningModule):
                         _div_gt,_curl_gt,_strain_gt,_dx,_dy = compute_div_curl_strain_with_lat_lon(v_gt_wo_nan[0,:,:,:].detach().cpu().numpy(),v_gt_wo_nan[0,:,:,:].detach().cpu().numpy(),lat_rad[0,:].detach().cpu().numpy(),lon_rad[0,:].detach().cpu().numpy(),sigma=self.sig_filter_div_diag)
                         _div_rec,_curl_rec,_strain_rec,_dx,_dy = compute_div_curl_strain_with_lat_lon(outputs_u[0,:,:,:].detach().cpu().numpy(),outputs_v[0,:,:,:].detach().cpu().numpy(),lat_rad[0,:].detach().cpu().numpy(),lon_rad[0,:].detach().cpu().numpy(),sigma=self.sig_filter_div_diag)
 
+                        print('\n \n')
+                        print( lat_rad.size() )
+                        print( lat_rad[0,:].detach().cpu().numpy() )
+                        print( lon_rad.size() )
+                        print( lon_rad[0,:].detach().cpu().numpy() )
+
                         print('.. %e %e %e '%( np.mean( (_div_gt - div_gt[0,:,:,:].detach().cpu().numpy() )**2 ) , np.var(_div_gt) , np.var(div_gt[0,:,:,:].detach().cpu().numpy()) ) )
                         print('.. %e %e %e '%( np.mean( (_strain_gt - strain_gt[0,:,:,:].detach().cpu().numpy() )**2 ) , np.var(_strain_gt) , np.var(strain_gt[0,:,:,:].detach().cpu().numpy()) ) )
 
