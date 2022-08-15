@@ -1824,7 +1824,7 @@ class LitModelUV(pl.LightningModule):
                     lon_rad = torch.deg2rad(lon)
                                         
                     if ( (phase == 'val') or (phase == 'test') ) :
-                        self.sig_filter_div_diag = 0.
+                        #self.sig_filter_div_diag = 0.
                         
                         div_gt,curl_gt,strain_gt,dx,dy    = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
                         div_rec,curl_rec,strain_rec,dx,dy = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
