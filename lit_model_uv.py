@@ -1820,7 +1820,8 @@ class LitModelUV(pl.LightningModule):
                     loss_strain = self.strain_loss( strain_rec , strain_gt )
 
                     print('.. div var exp = %f'%( 100. * ( 1. - torch.mean( (div_rec[:,3,20:220,20:220]-div_gt[:,3,20:220,20:220])**2 / torch.var( div_gt[:,3,20:220,20:220] ) ) ) ))             
-                    print('.. strain var exp = %f'%( 100. * ( 1. - torch.mean( (strain_rec[:,3,20:220,20:220]-div_gt[:,3,20:220,20:220])**2 / torch.var( strain_gt[:,3,20:220,20:220] ) ) ) ))             
+                    print('.. strain var exp = %f'%( 100. * ( 1. - torch.mean( (strain_rec[:,3,20:220,20:220]-strain_gt[:,3,20:220,20:220])**2 / torch.var( strain_gt[:,3,20:220,20:220] ) ) ) ))             
+                    print('.. curl var exp = %f'%( 100. * ( 1. - torch.mean( (curl_rec[:,3,20:220,20:220]-curl_gt[:,3,20:220,20:220])**2 / torch.var( curl_gt[:,3,20:220,20:220] ) ) ) ))             
 
                     if flag_display_loss :
                         print('\n..  loss div = %e' % (self.hparams.alpha_mse_div *loss_div) )                     
