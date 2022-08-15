@@ -727,6 +727,7 @@ class LitModelUV(pl.LightningModule):
         self.scale_dwscaling_sst = self.hparams.scale_dwscaling_sst if hasattr(self.hparams, 'scale_dwscaling_sst') else 1.0
         self.sig_filter_div = self.hparams.sig_filter_div if hasattr(self.hparams, 'sig_filter_div') else 1.0
         self.sig_filter_div_diag = self.hparams.sig_filter_div_diag if hasattr(self.hparams, 'sig_filter_div_diag') else self.hparams.sig_filter_div
+        self.hparams.alpha_mse_strain = self.hparams.alpha_mse_strain if hasattr(self.hparams, 'alpha_mse_strain') else 0.
 
         self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 0
         
