@@ -1815,12 +1815,13 @@ class LitModelUV(pl.LightningModule):
                     else:
                         div_gt,curl_gt,strain_gt = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div )
                         div_rec,curl_rec,strain_rec = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div )
-    
-                    
+                        
                     loss_div = self.div_loss( div_rec , div_gt )
                     loss_strain = self.strain_loss( strain_rec , strain_gt )
 
-                    
+                    print('.. div var exp = %f'%( 100. * ( 1. - torch.mean( (div_rec[:,3,20:220,20:220]-div_gt[:,3,20:220,20:220])**2 / torch.var( div_gt[:,3,20:220,20:220] ) ) ) ))             
+                    print('.. strain var exp = %f'%( 100. * ( 1. - torch.mean( (strain_rec[:,3,20:220,20:220]-div_gt[:,3,20:220,20:220])**2 / torch.var( strain_gt[:,3,20:220,20:220] ) ) ) ))             
+
                     if flag_display_loss :
                         print('\n..  loss div = %e' % (self.hparams.alpha_mse_div *loss_div) )                     
                         print('..  loss strain = %e' % (self.hparams.alpha_mse_strain *loss_strain) )
