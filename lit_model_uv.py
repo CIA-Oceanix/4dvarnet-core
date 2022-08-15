@@ -1838,6 +1838,14 @@ class LitModelUV(pl.LightningModule):
                         _div_rec,_curl_rec,_strain_rec = compute_div_curl_strain_with_lat_lon(outputs_u[0,:,:,:].detach().cpu().numpy(),outputs_v[0,:,:,:].detach().cpu().numpy(),lat_rad[0,:].detach().cpu().numpy(),lon_rad[0,:].detach().cpu().numpy(),sigma=self.sig_filter_div_diag)
 
                         print('\n \n')
+                        
+                        f_u = kornia.filters.gaussian_blur2d(u_gt_wo_nan, (3,3), (1.,1.), border_type='reflect')
+                        f_u = f_u[0,:,:,:].detach().cpu().numpy()
+                        
+                        _f_u = gaussian_filter(u_gt_wo_nan[0,:,:,:].detach().cpu().numpy(), sigma=1.)
+                        print('.. f_u %e %e '%( _f_u[0,10,10] , f_u[0,10,10]) )
+                        print('.. diff f_u %e %e %e '%( np.sqrt( np.mean( (f_u[:,20:220,20:220] - _f_u[:,20:220,20:220] )**2 ) ) , np.std( f_u[:,20:220,20:220] ) , np.std( _f_u[:,20:220,20:220] ) ) )
+                        
                         #print( lat_rad.size() )
                         #print( 360*lat_rad[0,:].detach().cpu().numpy() )
                         #print( lon_rad.size() )
