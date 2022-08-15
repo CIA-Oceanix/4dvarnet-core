@@ -811,11 +811,18 @@ class LitModelUV(pl.LightningModule):
             if self.use_sst_obs :
                 suffix_chkpt = suffix_chkpt+'-sstobs-'+self.hparams.sst_model+'_%02d'%(self.hparams.dim_obs_sst_feat)
             
-            
             if self.residual_wrt_geo_velocities > 0  :
-                suffix_chkpt = suffix_chkpt+'-wgeo%d-'%self.residual_wrt_geo_velocities
+                suffix_chkpt = suffix_chkpt+'-wgeo%d'%self.residual_wrt_geo_velocities
             elif self.type_div_train_loss == 1 :
-                suffix_chkpt = suffix_chkpt+'-geoD-'
+                suffix_chkpt = suffix_chkpt+'-geoD'
+
+            if self.alpha_mse_strain * self.alpha_mse_div == 0. :
+                if self.alpha_mse_div == 0. :                    
+                    suffix_chkpt = suffix_chkpt+'-nodiv'
+                elif self.alpha_mse_strain == 0. :                    
+                    suffix_chkpt = suffix_chkpt+'-nostrain'
+                else :                    
+                    suffix_chkpt = suffix_chkpt+'-nodivstrain'
                                             
             suffix_chkpt = suffix_chkpt+'-grad_%02d_%02d_%03d'%(self.hparams.n_grad,self.hparams.k_n_grad,self.hparams.dim_grad_solver)
         else:
@@ -1764,8 +1771,8 @@ class LitModelUV(pl.LightningModule):
                     lon_rad = torch.deg2rad(lon)
                     
                     # denormalize ssh
-                    u_geo_rec, v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
-                    u_geo_gt, v_geo_gt = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
+                    u_geo_rec , v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
+                    u_geo_gt  , v_geo_gt  = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
 
                     outputs_u = outputs_u + u_geo_rec
                     outputs_v = outputs_v + v_geo_rec
