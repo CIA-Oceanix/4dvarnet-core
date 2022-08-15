@@ -152,7 +152,7 @@ def compute_div_curl_strain_with_lat_lon(u,v,lat,lon,sigma=1.0):
     curl =  du_dy - dv_dx
 
     #return div,curl,strain,dx_from_dlon , dy_from_dlat
-    return div,curl,strain,du_dx , du_dy
+    return div,curl,strain, np.abs(du_dx) , np.abs(du_dy)
 
 class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
     def __init__(self,_filter='diff-non-centered'):
@@ -315,9 +315,6 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         dlat = lat[0,1]-lat[0,0]
         dlon = lon[0,1]-lon[0,0]
         
-        print( dlat.detach().cpu().numpy()*360/(2*3.14) )
-        print( dlon.detach().cpu().numpy()*360/(2*3.14) )
-        
         # coriolis / lat/lon scaling
         grid_lat = lat.view(u.size(0),1,u.size(2),1)
         grid_lat = grid_lat.repeat(1,u.size(1),1,u.size(3))
@@ -341,7 +338,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         curl =  du_dy - dv_dx
 
         #return div,curl,strain,dx_from_dlon,dy_from_dlat
-        return div,curl,strain,du_dx , du_dy
+        return div,curl,strain, torch.abs(du_dx) , torch.abs(du_dy)
     
     def forward(self):
         return 1.
