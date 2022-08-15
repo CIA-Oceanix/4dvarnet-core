@@ -1353,7 +1353,7 @@ class LitModelUV(pl.LightningModule):
         u_geo_oi,v_geo_oi = compute_uv_geo_with_coriolis(self.test_xr_ds.oi,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
         u_geo_rec,v_geo_rec = compute_uv_geo_with_coriolis(self.test_xr_ds.pred,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
 
-        dw_diag = 3
+        dw_diag = 0
         print('\n\n...... SSH-derived SSC metrics for true SSH')
         var_mse_uv_ssh_gt, lamb_x_u_ssh_gt, lamb_t_u_ssh_gt, lamb_x_v_ssh_gt, lamb_t_v_ssh_gt = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , u_geo_gt , v_geo_gt  , dw = dw_diag)
         print('\n\n...... SSH-derived SSC metrics for DUACS SSH')
