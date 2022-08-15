@@ -816,7 +816,7 @@ class LitModelUV(pl.LightningModule):
             elif self.type_div_train_loss == 1 :
                 suffix_chkpt = suffix_chkpt+'-geoD'
 
-            if self.hparams.alpha_mse_strain * self.hparams.alpha_mse_div == 0. :
+            if ( self.hparams.alpha_mse_strain == 0. ) | ( self.hparams.alpha_mse_div == 0. ) :
                 if self.hparams.alpha_mse_div == 0. :                    
                     suffix_chkpt = suffix_chkpt+'-nodiv'
                 elif self.hparams.alpha_mse_strain == 0. :                    
