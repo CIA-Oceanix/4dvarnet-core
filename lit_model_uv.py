@@ -1492,6 +1492,9 @@ class LitModelUV(pl.LightningModule):
         self.u_rec = self.test_xr_ds.pred_u.data#[2:42,:,:]
         self.v_rec = self.test_xr_ds.pred_v.data#[2:42,:,:]
 
+        self.div_gt = self.test_xr_ds.div_gt.data#[2:42,:,:]
+        self.div_rec = self.test_xr_ds.div_rec.data#[2:42,:,:]
+
         self.x_rec_ssh = self.x_rec
 
         def extract_seq(out,key,dw=20):
