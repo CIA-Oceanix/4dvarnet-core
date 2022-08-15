@@ -1851,9 +1851,9 @@ class LitModelUV(pl.LightningModule):
                         print('.. strain var exp = %f'%( 100. * ( 1. - torch.mean( (strain_rec[:,3,20:220,20:220]-strain_gt[:,3,20:220,20:220])**2 / torch.var( strain_gt[:,3,20:220,20:220] ) ) ) ))             
                         print('.. curl var exp = %f'%( 100. * ( 1. - torch.mean( (curl_rec[:,3,20:220,20:220]-curl_gt[:,3,20:220,20:220])**2 / torch.var( curl_gt[:,3,20:220,20:220] ) ) ) ))             
     
-                        print('.. 2 div var exp = %f'%( 100. * ( 1. - torch.mean( (_div_rec[3,20:220,20:220]-_div_gt[3,20:220,20:220])**2 / torch.var( _div_gt[3,20:220,20:220] ) ) ) ))             
-                        print('.. 2 strain var exp = %f'%( 100. * ( 1. - torch.mean( (_strain_rec[3,20:220,20:220]-_strain_gt[3,20:220,20:220])**2 / torch.var( _strain_gt[3,20:220,20:220] ) ) ) ))             
-                        print('.. 2 curl var exp = %f'%( 100. * ( 1. - torch.mean( (_curl_rec[3,20:220,20:220]-_curl_gt[3,20:220,20:220])**2 / torch.var( _curl_gt[3,20:220,20:220] ) ) ) ))             
+                        print('.. 2 div var exp = %f'%( 100. * ( 1. - np.mean( (_div_rec[3,20:220,20:220]-_div_gt[3,20:220,20:220])**2 / np.var( _div_gt[3,20:220,20:220] ) ) ) ))             
+                        print('.. 2 strain var exp = %f'%( 100. * ( 1. - np.mean( (_strain_rec[3,20:220,20:220]-_strain_gt[3,20:220,20:220])**2 / np.var( _strain_gt[3,20:220,20:220] ) ) ) ))             
+                        print('.. 2 curl var exp = %f'%( 100. * ( 1. - np.mean( (_curl_rec[3,20:220,20:220]-_curl_gt[3,20:220,20:220])**2 / np.var( _curl_gt[3,20:220,20:220] ) ) ) ))             
 
                     else:
                         div_gt,curl_gt,strain_gt = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div )
