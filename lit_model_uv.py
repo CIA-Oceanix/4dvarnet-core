@@ -817,12 +817,12 @@ class LitModelUV(pl.LightningModule):
                 suffix_chkpt = suffix_chkpt+'-geoD'
 
             if ( self.hparams.alpha_mse_strain == 0. ) | ( self.hparams.alpha_mse_div == 0. ) :
-                if self.hparams.alpha_mse_div == 0. :                    
-                    suffix_chkpt = suffix_chkpt+'-nodiv'
+                if ( self.hparams.alpha_mse_strain == 0. ) & ( self.hparams.alpha_mse_div == 0. ) :                    
+                    suffix_chkpt = suffix_chkpt+'-nodivstrain'
                 elif self.hparams.alpha_mse_strain == 0. :                    
                     suffix_chkpt = suffix_chkpt+'-nostrain'
                 else :                    
-                    suffix_chkpt = suffix_chkpt+'-nodivstrain'
+                    suffix_chkpt = suffix_chkpt+'-nodiv'
                                             
             suffix_chkpt = suffix_chkpt+'-grad_%02d_%02d_%03d'%(self.hparams.n_grad,self.hparams.k_n_grad,self.hparams.dim_grad_solver)
         else:
@@ -1794,7 +1794,10 @@ class LitModelUV(pl.LightningModule):
                     div_rec = self.compute_div(outputs_u,outputs_v)
                     div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
                     
-                    loss_div = self.div_loss( div_rec , div_gt )
+                    if self.hparams.alpha_mse_div > 0. :
+                        loss_div = self.div_loss( div_rec , div_gt )
+                    else:
+                        loss_div = 0.
                     loss_strain = 0.
                     if flag_display_loss :
                         print('\n..  loss div = %e' % (self.hparams.alpha_mse_div *loss_div) )                     
@@ -1805,13 +1808,19 @@ class LitModelUV(pl.LightningModule):
                     div_gt,curl_gt,strain_gt = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
                     div_rec,curl_rec,strain_rec = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad )#, sigma = self.sig_filter_div )
     
-                    loss_div = self.div_loss( div_rec , div_gt )
-                    loss_strain = self.strain_loss( strain_rec , strain_gt )
+                    
+                    if self.hparams.alpha_mse_div > 0. :
+                        loss_div = self.div_loss( div_rec , div_gt )
+                    else:
+                        loss_div = 0.
+                    if self.hparams.alpha_mse_strain > 0. :
+                        loss_strain = self.strain_loss( strain_rec , strain_gt )
+                    else:
+                        loss_strain = 0.
+                    
                     if flag_display_loss :
                         print('\n..  loss div = %e' % (self.hparams.alpha_mse_div *loss_div) )                     
                         print('..  loss strain = %e' % (self.hparams.alpha_mse_strain *loss_strain) )
-
-                    loss_div =   loss_div + (self.hparams.alpha_mse_strain / self.hparams.alpha_mse_div) *loss_strain                   
                         
                 # median filter
                 if self.median_filter_width > 1:
@@ -1860,7 +1869,8 @@ class LitModelUV(pl.LightningModule):
 
                 # total loss
                 loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
-                loss += self.hparams.alpha_mse_uv * loss_uv + self.hparams.alpha_mse_div * loss_div
+                loss += self.hparams.alpha_mse_uv * loss_uv
+                loss += self.hparams.alpha_mse_div * loss_div + self.hparams.alpha_mse_strain *loss_strain
                 loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
                 loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
                 if self.model_sampling_uv is not None :
