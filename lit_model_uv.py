@@ -1839,7 +1839,7 @@ class LitModelUV(pl.LightningModule):
 
                         print('\n \n')
                         
-                        f_u = kornia.filters.gaussian_blur2d(u_gt_wo_nan, (3,3), (1.,1.), border_type='reflect')
+                        f_u = kornia.filters.gaussian_blur2d(u_gt_wo_nan, (3,3), (9.,9.), border_type='reflect')
                         f_u = f_u[0,:,:,:].detach().cpu().numpy()
                         
                         _f_u = gaussian_filter(u_gt_wo_nan[0,:,:,:].detach().cpu().numpy(), sigma=1.)
