@@ -1357,6 +1357,8 @@ class LitModelUV(pl.LightningModule):
         var_mse_curl = compute_var_exp( curl_gt, curl_uv_rec)
         var_mse_strain = compute_var_exp( strain_gt, strain_uv_rec)
            
+        var_mse_div = compute_var_exp( self.div_gt, self.div_rec)
+        
         if 1*0 :
             t_u = torch.Tensor(self.test_xr_ds.pred_u.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
             t_v = torch.Tensor(self.test_xr_ds.pred_v.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
