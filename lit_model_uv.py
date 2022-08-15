@@ -1847,6 +1847,14 @@ class LitModelUV(pl.LightningModule):
                         #print('.. dx %e %e '%( _dx[0,10,10] , dx[0,0,10,10].detach().cpu().numpy()) )
                         #print('.. dx %e %e '%( _dy[0,10,10] , dy[0,0,10,10].detach().cpu().numpy()) )
 
+                        print('.. div var exp = %f'%( 100. * ( 1. - torch.mean( (div_rec[:,3,20:220,20:220]-div_gt[:,3,20:220,20:220])**2 / torch.var( div_gt[:,3,20:220,20:220] ) ) ) ))             
+                        print('.. strain var exp = %f'%( 100. * ( 1. - torch.mean( (strain_rec[:,3,20:220,20:220]-strain_gt[:,3,20:220,20:220])**2 / torch.var( strain_gt[:,3,20:220,20:220] ) ) ) ))             
+                        print('.. curl var exp = %f'%( 100. * ( 1. - torch.mean( (curl_rec[:,3,20:220,20:220]-curl_gt[:,3,20:220,20:220])**2 / torch.var( curl_gt[:,3,20:220,20:220] ) ) ) ))             
+    
+                        print('.. 2 div var exp = %f'%( 100. * ( 1. - torch.mean( (_div_rec[3,20:220,20:220]-_div_gt[3,20:220,20:220])**2 / torch.var( _div_gt[3,20:220,20:220] ) ) ) ))             
+                        print('.. 2 strain var exp = %f'%( 100. * ( 1. - torch.mean( (_strain_rec[3,20:220,20:220]-_strain_gt[3,20:220,20:220])**2 / torch.var( _strain_gt[3,20:220,20:220] ) ) ) ))             
+                        print('.. 2 curl var exp = %f'%( 100. * ( 1. - torch.mean( (_curl_rec[3,20:220,20:220]-_curl_gt[3,20:220,20:220])**2 / torch.var( _curl_gt[3,20:220,20:220] ) ) ) ))             
+
                     else:
                         div_gt,curl_gt,strain_gt = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div )
                         div_rec,curl_rec,strain_rec = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div )
@@ -1854,9 +1862,6 @@ class LitModelUV(pl.LightningModule):
                     loss_div = self.div_loss( div_rec , div_gt )
                     loss_strain = self.strain_loss( strain_rec , strain_gt )
 
-                    print('.. div var exp = %f'%( 100. * ( 1. - torch.mean( (div_rec[:,3,20:220,20:220]-div_gt[:,3,20:220,20:220])**2 / torch.var( div_gt[:,3,20:220,20:220] ) ) ) ))             
-                    print('.. strain var exp = %f'%( 100. * ( 1. - torch.mean( (strain_rec[:,3,20:220,20:220]-strain_gt[:,3,20:220,20:220])**2 / torch.var( strain_gt[:,3,20:220,20:220] ) ) ) ))             
-                    print('.. curl var exp = %f'%( 100. * ( 1. - torch.mean( (curl_rec[:,3,20:220,20:220]-curl_gt[:,3,20:220,20:220])**2 / torch.var( curl_gt[:,3,20:220,20:220] ) ) ) ))             
 
                     if flag_display_loss :
                         print('\n..  loss div = %e' % (self.hparams.alpha_mse_div *loss_div) )                     
