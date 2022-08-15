@@ -1015,6 +1015,8 @@ class LitModelUV(pl.LightningModule):
                     'pred' : (out[0].detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                     'pred_u' : (out[1].detach().cpu() * np.sqrt(self.var_tr_uv)) ,
                     'pred_v' : (out[2].detach().cpu() * np.sqrt(self.var_tr_uv)) ,
+                    'div_rec' : (out[4].detach().cpu() * np.sqrt(self.var_tr_uv)) ,
+                    'div_gt' : (out[3].detach().cpu() * np.sqrt(self.var_tr_uv)),
                     'sst_feat' : sst_feat.detach().cpu()}
 
     def test_step(self, test_batch, batch_idx):
@@ -1937,7 +1939,8 @@ class LitModelUV(pl.LightningModule):
             if self.model_sampling_uv is not None :
                 out_feat = torch.cat( (out_feat,w_sampling_uv) , dim=1)
                     
-            return loss, [outputs,outputs_u,outputs_v], [outputsSLRHR, hidden_new, cell_new, normgrad], metrics, out_feat
+            #return loss, [outputs,outputs_u,outputs_v], [outputsSLRHR, hidden_new, cell_new, normgrad], metrics, out_feat
+            return loss, [outputs,outputs_u,outputs_v,div_rec,div_gt], [outputsSLRHR, hidden_new, cell_new, normgrad], metrics, out_feat
             
         else:
             return loss, [outputs,outputs_u,outputs_v], [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
