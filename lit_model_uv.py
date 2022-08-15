@@ -1843,10 +1843,19 @@ class LitModelUV(pl.LightningModule):
                         print('.. dx %e %e %e '%( np.sqrt( np.mean( (_dx - dx[0,:,:,:].detach().cpu().numpy() )**2 ) ) , np.mean(_dx) , np.mean(dx[0,:,:,:].detach().cpu().numpy()) ) )
                         print('.. dy %e %e %e '%( np.sqrt( np.mean( (_dy - dy[0,:,:,:].detach().cpu().numpy() )**2 ) ) , np.mean(_dy) , np.mean(dy[0,:,:,:].detach().cpu().numpy()) ) )
 
-
-                        #gx,gy = self.compute_derivativeswith_lon_lat.compute_grady()
                         print('.. dx %e %e '%( _dx[0,10,10] , dx[0,0,10,10].detach().cpu().numpy()) )
                         print('.. dy %e %e '%( _dy[0,10,10] , dy[0,0,10,10].detach().cpu().numpy()) )
+
+                        gx,gy = self.compute_derivativeswith_lon_lat.compute_gradxy(u_gt_wo_nan[:,:,:,:],sigma=0.)
+                        _gx = compute_gradx( u_gt_wo_nan[0,:,:,:].detach().cpu().numpy() , )
+                        _gy = compute_grady( u_gt_wo_nan[0,:,:,:].detach().cpu().numpy() , )
+                        gx = gx[0,:,:,:].detach().cpu().numpy()
+                        gy = gy[0,:,:,:].detach().cpu().numpy()
+
+                        print('.. gx %e %e '%( _gx[0,10,10] , gx[0,0,10,10]) )
+                        print('.. gy %e %e '%( _gy[0,10,10] , gy[0,0,10,10]) )
+                        print('.. diff gx %e %e %e '%( np.sqrt( np.mean( (_gx - gx )**2 ) ) , np.std( gx[3,20:220,20:220] ) , np.std( _gx[3,20:220,20:220] ) ) )
+                        print('.. diff gy %e %e %e '%( np.sqrt( np.mean( (_gy - gy )**2 ) ) , np.std( gy[3,20:220,20:220] ) , np.std( _gy[3,20:220,20:220] ) ) )
 
                         print('.. div var exp = %f'%( 100. * ( 1. - torch.mean( (div_rec[:,3,20:220,20:220]-div_gt[:,3,20:220,20:220])**2 / torch.var( div_gt[:,3,20:220,20:220] ) ) ) ))             
                         print('.. strain var exp = %f'%( 100. * ( 1. - torch.mean( (strain_rec[:,3,20:220,20:220]-strain_gt[:,3,20:220,20:220])**2 / torch.var( strain_gt[:,3,20:220,20:220] ) ) ) ))             
