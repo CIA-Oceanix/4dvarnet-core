@@ -226,7 +226,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
     def compute_gradxy(self,u,sigma=0.):
                
         if sigma > 0. :
-            u = kornia.filters.gaussian_blur2d(u, (9,9), (sigma,sigma), border_type='reflect')
+            u = kornia.filters.gaussian_blur2d(u, (3,3), (sigma,sigma), border_type='reflect')
 
         G_x  = self.convGx( u[:,0,:,:].view(-1,1,u.size(2), u.size(3)) )
         G_y  = self.convGy( u[:,0,:,:].view(-1,1,u.size(2), u.size(3)) )
@@ -1823,7 +1823,7 @@ class LitModelUV(pl.LightningModule):
                     lon_rad = torch.deg2rad(lon)
                                         
                     if ( (phase == 'val') or (phase == 'test') ) :
-                        self.sig_filter_div_diag = 0.
+                        #self.sig_filter_div_diag = 0.
                         
                         #div_gt,curl_gt,strain_gt,dx,dy    = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
                         #div_rec,curl_rec,strain_rec,dx,dy = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
