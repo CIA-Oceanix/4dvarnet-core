@@ -197,9 +197,9 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
             self.heat_filter.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
 
         a = np.array([[0., 0.25, 0.], [0.25, 0., 0.25], [0., 0.25, 0.]])
-        self.heat_filter_all_channels = torch.nn.Conv2d(dT, dT, kernel_size=3, groups=3, padding=1, bias=False,padding_mode='reflect')
+        self.heat_filter_all_channels = torch.nn.Conv2d(dT, dT, kernel_size=3, groups=dT, padding=1, bias=False,padding_mode='reflect')
         with torch.no_grad():
-            a = np.tile(a,(3,1,1,1))
+            a = np.tile(a,(dT,1,1,1))
             self.heat_filter_all_channels.weight = torch.nn.Parameter(torch.from_numpy(a).float(), requires_grad=False)
 
         self.eps = 1e-10#torch.Tensor([1.*1e-10])
@@ -1910,7 +1910,7 @@ class LitModelUV(pl.LightningModule):
                         #div_gt,curl_gt,strain_gt    = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
                         #div_rec,curl_rec,strain_rec = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
 
-                        if 1*0 : 
+                        if 1*1 : 
                             _div_gt,_curl_gt,_strain_gt  = compute_div_curl_strain_with_lat_lon(u_gt_wo_nan[0,:,:,:].detach().cpu().numpy(),v_gt_wo_nan[0,:,:,:].detach().cpu().numpy(),lat_rad[0,:].detach().cpu().numpy(),lon_rad[0,:].detach().cpu().numpy(),sigma=self.sig_filter_div_diag)
                             _div_rec,_curl_rec,_strain_rec = compute_div_curl_strain_with_lat_lon(outputs_u[0,:,:,:].detach().cpu().numpy(),outputs_v[0,:,:,:].detach().cpu().numpy(),lat_rad[0,:].detach().cpu().numpy(),lon_rad[0,:].detach().cpu().numpy(),sigma=self.sig_filter_div_diag)
     
