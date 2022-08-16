@@ -1743,9 +1743,9 @@ class LitModelUV(pl.LightningModule):
         return self.compute_derivativeswith_lon_lat.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.)
 
     def compute_div_curl_strain(self,u,v,lat_rad, lon_rad , sigma =0.):
-        if 0. * sigma > 0:
-            u = self.compute_derivativeswith_lon_lat.heat_equation_all_channels(u,iter=10,lam=self.sig_filter_div_diag)
-            v = self.compute_derivativeswith_lon_lat.heat_equation_all_channels(v,iter=10,lam=self.sig_filter_div_diag)
+        if sigma > 0:
+            u = self.compute_derivativeswith_lon_lat.heat_equation_all_channels(u,iter=5,lam=self.sig_filter_div_diag)
+            v = self.compute_derivativeswith_lon_lat.heat_equation_all_channels(v,iter=5,lam=self.sig_filter_div_diag)
         
         div_gt,curl_gt,strain_gt    = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u, v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
     
