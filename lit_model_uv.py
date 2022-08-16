@@ -313,13 +313,13 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         return out
         
     def heat_equation_all_channels(self,ssh,mask=None,iter=5,lam=0.2):
-        out = ssh
+        out = 1. * ssh
         for kk in range(0,iter):
             if mask is not None :
-                _d = out - mask * self.heat_filter(out)
+                _d = out - mask * self.heat_filter_all_channels(out)
             else:
                 _d = out - self.heat_filter_all_channels(out) 
-            out -= lam * _d 
+            out = out - lam * _d 
         return out
 
     def heat_equation(self,u,mask=None,iter=5,lam=0.2):
@@ -1744,8 +1744,8 @@ class LitModelUV(pl.LightningModule):
 
     def compute_div_curl_strain(self,u,v,lat_rad, lon_rad , sigma =0.):
         if 0. * sigma > 0:
-            u = self.compute_derivativeswith_lon_lat.heat_equation_all_channels(u,iter=5,lam=self.sig_filter_div_diag)
-            v = self.compute_derivativeswith_lon_lat.heat_equation_all_channels(v,iter=5,lam=self.sig_filter_div_diag)
+            u = self.compute_derivativeswith_lon_lat.heat_equation_all_channels(u,iter=10,lam=self.sig_filter_div_diag)
+            v = self.compute_derivativeswith_lon_lat.heat_equation_all_channels(v,iter=10,lam=self.sig_filter_div_diag)
         
         div_gt,curl_gt,strain_gt    = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u, v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
     
