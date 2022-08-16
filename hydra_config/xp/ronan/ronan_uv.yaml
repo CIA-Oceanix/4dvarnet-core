@@ -22,10 +22,10 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_86/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_05-wgeo--grad_05_03_150-epoch=92-val_loss=1.9794.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_89/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo1--grad_05_03_150-epoch=97-val_loss=1.4860.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_92/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo2--grad_05_03_150-epoch=91-val_loss=2.0933.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_98/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo1-nodivstrain-grad_05_03_150-epoch=91-val_loss=1.4862.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_98/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo1-nodivstrain-grad_05_03_150-epoch=91-val_loss=1.4862.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_96/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo2-nodivstrain-grad_05_03_150-epoch=97-val_loss=1.6160.ckpt'
 params:
-  flag_update_training_config: True #False # 
+  flag_update_training_config: False # True #
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
   k_n_grad: 3
   n_grad: 5
@@ -35,7 +35,7 @@ params:
   dim_grad_solver: 150
   phi_param: 'unet1'#'unet-std'#
   ckpt_name: 'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
-  use_sst_obs: True #False #
+  use_sst_obs: False #True #
   use_sst_state: False
   patch_weight:
     _target_: lit_model_uv.get_cropped_hanning_mask
@@ -50,8 +50,8 @@ params:
   alpha_mse_gssh: 1000.
   alpha_mse_uv: 50.
   alpha_mse_uv_geo: 25.
-  alpha_mse_div: 100. 
-  alpha_mse_strain: 20.
+  alpha_mse_div: 0. # 100. 
+  alpha_mse_strain: 0. # 20.
   sig_filter_div: 1.
   norm_obs: l2
   norm_prior: l2
