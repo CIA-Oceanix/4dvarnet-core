@@ -165,7 +165,8 @@ class FourDVarNetHydraRunner:
                 if( hasattr(self.cfg, 'type_div_train_loss') ):
                     print('... Update div/strain loss type to %d'%self.cfg.type_div_train_loss)
                     mod.type_div_train_loss = self.cfg.type_div_train_loss
-                    
+                    mod.alpha_mse_div = self.cf.alpha_mse_div
+                    mod.alpha_mse_strain = self.cf.alpha_mse_strain
                     #mod.hparams.thr_l1_sampling_uv =  self.cfg.thr_l1_sampling_uv
 
         return mod
