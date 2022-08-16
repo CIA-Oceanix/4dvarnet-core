@@ -1414,12 +1414,12 @@ class LitModelUV(pl.LightningModule):
 
         iter_heat = 5
         lam = 0.2
-        f_u = heat_equation(self.test_xr_ds.u_gt,iter=iter_heat,lam=lam)
-        f_v = heat_equation(self.test_xr_ds.v_gt,iter=iter_heat,lam=lam)
+        f_u = heat_equation(self.test_xr_ds.u_gt.data,iter=iter_heat,lam=lam)
+        f_v = heat_equation(self.test_xr_ds.v_gt.data,iter=iter_heat,lam=lam)
         div_gt,curl_gt,strain_gt = compute_div_curl_strain_with_lat_lon(f_u,f_v,lat_rad,lon_rad,sigma=0.)        
         
-        f_u = heat_equation(self.test_xr_ds.pred_u,iter=iter_heat,lam=lam)
-        f_v = heat_equation(self.test_xr_ds.pred_v,iter=iter_heat,lam=lam)
+        f_u = heat_equation(self.test_xr_ds.pred_u.data,iter=iter_heat,lam=lam)
+        f_v = heat_equation(self.test_xr_ds.pred_v.data,iter=iter_heat,lam=lam)
         div_uv_rec,curl_uv_rec,strain_uv_rec = compute_div_curl_strain_with_lat_lon(f_u,f_v,lat_rad,lon_rad,sigma=0.)
 
         if 1*0 :
