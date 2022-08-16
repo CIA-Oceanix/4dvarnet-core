@@ -1406,24 +1406,26 @@ class LitModelUV(pl.LightningModule):
         print('..... Computation of div/curl/strain metrics  ')
         sig_div_curl = self.sig_filter_div_diag
 
-        iter_heat = 5
-        lam = self.sig_filter_div_diag
-        t_compute_div_curl_strain_with_lat_lon =  Torch_compute_derivatives_with_lon_lat()
-        def heat_equation(u,iter,lam):
-            t_u = torch.Tensor(u).view(-1,1,u.shape[1],u.shape[2]) 
-            f_u = t_compute_div_curl_strain_with_lat_lon.heat_equation(t_u,iter=iter,lam=lam)
-
-            return f_u.detach().numpy().squeeze()
+        flag_heat_equation = False
         
-        f_u = heat_equation(self.test_xr_ds.u_gt.data,iter=iter_heat,lam=lam)
-        f_v = heat_equation(self.test_xr_ds.v_gt.data,iter=iter_heat,lam=lam)
-        div_gt,curl_gt,strain_gt = compute_div_curl_strain_with_lat_lon(f_u,f_v,lat_rad,lon_rad,sigma=0.)        
+        if flag_heat_equation :
+            iter_heat = 5
+            lam = self.sig_filter_div_diag
+            t_compute_div_curl_strain_with_lat_lon =  Torch_compute_derivatives_with_lon_lat()
+            def heat_equation(u,iter,lam):
+                t_u = torch.Tensor(u).view(-1,1,u.shape[1],u.shape[2]) 
+                f_u = t_compute_div_curl_strain_with_lat_lon.heat_equation(t_u,iter=iter,lam=lam)
+    
+                return f_u.detach().numpy().squeeze()
+            
+            f_u = heat_equation(self.test_xr_ds.u_gt.data,iter=iter_heat,lam=lam)
+            f_v = heat_equation(self.test_xr_ds.v_gt.data,iter=iter_heat,lam=lam)
+            div_gt,curl_gt,strain_gt = compute_div_curl_strain_with_lat_lon(f_u,f_v,lat_rad,lon_rad,sigma=0.)        
         
-        f_u = heat_equation(self.test_xr_ds.pred_u.data,iter=iter_heat,lam=lam)
-        f_v = heat_equation(self.test_xr_ds.pred_v.data,iter=iter_heat,lam=lam)
-        div_uv_rec,curl_uv_rec,strain_uv_rec = compute_div_curl_strain_with_lat_lon(f_u,f_v,lat_rad,lon_rad,sigma=0.)
-
-        if 1*0 :
+            f_u = heat_equation(self.test_xr_ds.pred_u.data,iter=iter_heat,lam=lam)
+            f_v = heat_equation(self.test_xr_ds.pred_v.data,iter=iter_heat,lam=lam)
+            div_uv_rec,curl_uv_rec,strain_uv_rec = compute_div_curl_strain_with_lat_lon(f_u,f_v,lat_rad,lon_rad,sigma=0.)
+        else :
             div_gt,curl_gt,strain_gt = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,lat_rad,lon_rad,sigma=sig_div_curl)
             div_uv_rec,curl_uv_rec,strain_uv_rec = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,lat_rad,lon_rad,sigma=sig_div_curl)
  
