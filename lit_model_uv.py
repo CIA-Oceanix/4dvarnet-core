@@ -185,7 +185,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
             a = np.array([[0., 0., 0.], [0., 1., -1.], [0., 0., 0.]])
             self.convGx = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1, bias=False,padding_mode='reflect')
             with torch.no_grad():
-                sself.convGx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+                self.convGx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
             b = np.array([[0., 0.3, 0.], [0., 1., 0.], [0., -1., 0.]])
             self.convGy = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1, bias=False,padding_mode='reflect')
             with torch.no_grad():
@@ -194,7 +194,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         a = np.array([[0., 0.25, 0.], [0.25, 0., 0.25], [0., 0.25, 0.]])
         self.heat_filter = torch.nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1, bias=False,padding_mode='reflect')
         with torch.no_grad():
-            self.convGx.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
+            self.heat_filter.weight = torch.nn.Parameter(torch.from_numpy(a).float().unsqueeze(0).unsqueeze(0), requires_grad=False)
         self.eps = 1e-10#torch.Tensor([1.*1e-10])
     
     def compute_c(self,lat,lon,dlat,dlon):
@@ -295,7 +295,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
     
         return u_geo,v_geo
         
-    def heat_equation_one_channel(self,ssh,mask=None,iter=5,lam=0.1):
+    def heat_equation_one_channel(self,ssh,mask=None,iter=5,lam=0.2):
         out = 1. * ssh
         for kk in range(0,iter):
             if mask is not None :
@@ -305,7 +305,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
             out -= lam * _d 
         return out
         
-    def heat_equation(self,u,mask=None,iter=5,lam=0.1):
+    def heat_equation(self,u,mask=None,iter=5,lam=0.2):
         
         if mask is not None :
             out = self.heat_equation_one_channel(u[:,0,:,:].view(-1,1,u.size(2), u.size(3)),mask[:,0,:,:].view(-1,1,u.size(2), u.size(3)),iter=iter,lam=lam)            
@@ -1406,12 +1406,20 @@ class LitModelUV(pl.LightningModule):
         print('..... Computation of div/curl/strain metrics  ')
         sig_div_curl = self.sig_filter_div_diag
 
-        f_u = self.compute_derivativeswith_lon_lat.heat_equation(self.test_xr_ds.u_gt,iter=5,lam=0.1)
-        f_v = self.compute_derivativeswith_lon_lat.heat_equation(self.test_xr_ds.v_gt,iter=5,lam=0.1)
+        def heat_equation(u,iter,lam):
+            t_u = torch.Tensor(u).view(-1,1,u.shape[1],u.shape[2]) 
+            f_u = self.compute_derivativeswith_lon_lat.heat_equation(t_u,iter=iter,lam=lam)
+
+            return f_u.detach().numpy().squeeze()
+
+        iter_heat = 5
+        lam = 0.2
+        f_u = heat_equation(self.test_xr_ds.u_gt,iter=iter_heat,lam=lam)
+        f_v = heat_equation(self.test_xr_ds.v_gt,iter=iter_heat,lam=lam)
         div_gt,curl_gt,strain_gt = compute_div_curl_strain_with_lat_lon(f_u,f_v,lat_rad,lon_rad,sigma=0.)        
         
-        f_u = self.compute_derivativeswith_lon_lat.heat_equation(self.test_xr_ds.pred_u)
-        f_v = self.compute_derivativeswith_lon_lat.heat_equation(self.test_xr_ds.pred_v)
+        f_u = heat_equation(self.test_xr_ds.pred_u,iter=iter_heat,lam=lam)
+        f_v = heat_equation(self.test_xr_ds.pred_v,iter=iter_heat,lam=lam)
         div_uv_rec,curl_uv_rec,strain_uv_rec = compute_div_curl_strain_with_lat_lon(f_u,f_v,lat_rad,lon_rad,sigma=0.)
 
         if 1*0 :
