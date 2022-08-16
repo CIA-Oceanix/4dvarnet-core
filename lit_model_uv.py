@@ -296,7 +296,7 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         return u_geo,v_geo
         
     def heat_equation_one_channel(self,ssh,mask=None,iter=5,lam=0.2):
-        out = 1. * ssh
+        out = torch.clone( ssh )
         for kk in range(0,iter):
             if mask is not None :
                 _d = out - mask * self.heat_filter(out)
@@ -311,7 +311,6 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
             out = self.heat_equation_one_channel(u[:,0,:,:].view(-1,1,u.size(2), u.size(3)),mask[:,0,:,:].view(-1,1,u.size(2), u.size(3)),iter=iter,lam=lam)            
         else:
             out = self.heat_equation_one_channel(u[:,0,:,:].view(-1,1,u.size(2),u.size(3)), iter=iter,lam=lam)
-        out = self.heat_equation_one_channel(u[:,0,:,:].view(-1,1,u.size(2), u.size(3)),iter=iter,lam=lam)
         
         for kk in range(1,u.size(1)):
             if mask is not None :
