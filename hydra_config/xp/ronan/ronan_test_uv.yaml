@@ -25,9 +25,10 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_86/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_05-wgeo--grad_05_03_150-epoch=92-val_loss=1.9794.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_89/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo1--grad_05_03_150-epoch=97-val_loss=1.4860.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_92/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo2--grad_05_03_150-epoch=91-val_loss=2.0933.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_97/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-geoD-grad_05_03_150-epoch=12-val_loss=1.0151.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_97/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-geoD-grad_05_03_150-epoch=12-val_loss=1.0151.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_97/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo2-grad_05_03_150-epoch=79-val_loss=2.1016.ckpt'
-   
+    ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_99/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-geoD-grad_05_03_150-epoch=01-val_loss=0.9558.ckpt'
+  
 # ####################
 # ####################
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_39/checkpoints/modelUVwSSTGF-unet1_050-augdata-sampling_sst_10_002_-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=48-val_loss=1.4760.ckpt'
