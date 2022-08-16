@@ -1406,9 +1406,8 @@ class LitModelUV(pl.LightningModule):
         print('..... Computation of div/curl/strain metrics  ')
         sig_div_curl = self.sig_filter_div_diag
 
-
         iter_heat = 5
-        lam = 0.2
+        lam = 0.4
         t_compute_div_curl_strain_with_lat_lon =  Torch_compute_derivatives_with_lon_lat()
         def heat_equation(u,iter,lam):
             t_u = torch.Tensor(u).view(-1,1,u.shape[1],u.shape[2]) 
