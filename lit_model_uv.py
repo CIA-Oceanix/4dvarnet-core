@@ -1407,7 +1407,7 @@ class LitModelUV(pl.LightningModule):
         sig_div_curl = self.sig_filter_div_diag
 
         iter_heat = 5
-        lam = 0.4
+        lam = self.sig_filter_div_diag
         t_compute_div_curl_strain_with_lat_lon =  Torch_compute_derivatives_with_lon_lat()
         def heat_equation(u,iter,lam):
             t_u = torch.Tensor(u).view(-1,1,u.shape[1],u.shape[2]) 
@@ -1723,6 +1723,15 @@ class LitModelUV(pl.LightningModule):
 
     def compute_geo_factor(self,outputs, lat_rad, lon_rad,sigma=0.):
         return self.compute_derivativeswith_lon_lat.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.)
+
+    def compute_div_curl_strain(self,u,v,lat_rad, lon_rad , sigma =0.):
+        if sigma > 0:
+            f_u = self.compute_derivativeswith_lon_lat.heat_equation(u,iter=5,lam=self.sig_filter_div_diag)
+            f_v = self.compute_derivativeswith_lon_lat.heat_equation(v,iter=5,lam=self.sig_filter_div_diag)
+            
+        div_gt,curl_gt,strain_gt    = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(f_u, f_v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
+    
+        return div_gt,curl_gt,strain_gt 
     
     def div_loss(self, gt, out):
         if self.type_div_train_loss == 0 :
@@ -1876,11 +1885,14 @@ class LitModelUV(pl.LightningModule):
                     lon_rad = torch.deg2rad(lon)
                                         
                     if ( (phase == 'val') or (phase == 'test') ) :
+                        div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
+                        div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
+                                                
                         #self.sig_filter_div_diag = 0.
-                        div_gt,curl_gt,strain_gt    = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
-                        div_rec,curl_rec,strain_rec = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
+                        #div_gt,curl_gt,strain_gt    = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
+                        #div_rec,curl_rec,strain_rec = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
 
-                        if 1*0 : 
+                        if 1*1 : 
                             _div_gt,_curl_gt,_strain_gt  = compute_div_curl_strain_with_lat_lon(u_gt_wo_nan[0,:,:,:].detach().cpu().numpy(),v_gt_wo_nan[0,:,:,:].detach().cpu().numpy(),lat_rad[0,:].detach().cpu().numpy(),lon_rad[0,:].detach().cpu().numpy(),sigma=self.sig_filter_div_diag)
                             _div_rec,_curl_rec,_strain_rec = compute_div_curl_strain_with_lat_lon(outputs_u[0,:,:,:].detach().cpu().numpy(),outputs_v[0,:,:,:].detach().cpu().numpy(),lat_rad[0,:].detach().cpu().numpy(),lon_rad[0,:].detach().cpu().numpy(),sigma=self.sig_filter_div_diag)
     
