@@ -43,7 +43,7 @@ params:
   files_cfg:
     oi_path: ${file_paths.oi_swot_4nadir} # ${file_paths.oi_4nadir}  #  
     oi_var: ssh_mod
-    obs_mask_path:${file_paths.pseudo_obs} #  ${file_paths.pseudo_obs_4nadir} # 
+    obs_mask_path: ${file_paths.pseudo_obs} #  ${file_paths.pseudo_obs_4nadir} # 
     obs_mask_var: ssh_mod
     gt_path: ${file_paths.natl_ssh_daily}
     gt_var: ssh
@@ -60,7 +60,7 @@ params:
   dim_grad_solver: 150
   save_rec_netcdf: True #False#
   sig_filter_laplacian: 1.
-  scale_dwscaling_sst: 1.
+  scale_dwscaling_sst: ?
   sig_filter_div_diag: 1.
   path_save_netcdf: '/gpfsscratch/rech/yrf/ulh44ct/temp/save.ckpt'
   ckpt_name: 'modelUVwSSTGF-unet1-{epoch:02d}-{val_loss:.4f}'
