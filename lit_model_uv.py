@@ -871,7 +871,7 @@ class LitModelUV(pl.LightningModule):
             if self.residual_wrt_geo_velocities > 0  :
                 suffix_chkpt = suffix_chkpt+'-wgeo%d'%self.residual_wrt_geo_velocities
             elif self.type_div_train_loss == 1 :
-                suffix_chkpt = suffix_chkpt+'-geoD'
+                suffix_chkpt = suffix_chkpt+'-nowgeo'
 
             if ( self.hparams.alpha_mse_strain == 0. ) | ( self.hparams.alpha_mse_div == 0. ) :
                 if ( self.hparams.alpha_mse_strain == 0. ) & ( self.hparams.alpha_mse_div == 0. ) :                    
