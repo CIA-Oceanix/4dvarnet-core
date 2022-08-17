@@ -1889,6 +1889,8 @@ class LitModelUV(pl.LightningModule):
 
                     outputs_u = u_geo_factor * outputs_u
                     outputs_v = v_geo_factor * outputs_v
+
+                    print('%f %f'%(np.mean(u_geo_factor.detach().cpu().numpy()),np.mean(v_geo_factor.detach().cpu().numpy())))
                     
                 if self.type_div_train_loss == 0 :
                     div_rec = self.compute_div(outputs_u,outputs_v)
