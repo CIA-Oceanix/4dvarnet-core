@@ -360,9 +360,9 @@ class Torch_compute_derivatives_with_lon_lat(torch.nn.Module):
         dssh_dx = ( 1. / f_c  )* dssh_dx
 
         factor_u_geo = -1. * dssh_dy
-        factor_v_geo = 1. * dssh_dx
+        factor_v_geo =  1. * dssh_dx
             
-        return factor_u_geo,factor_v_geo
+        return factor_u_geo , factor_v_geo
 
     def compute_div_curl_strain(self,u,v,lat,lon,sigma=0.):
         
