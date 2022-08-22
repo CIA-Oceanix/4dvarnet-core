@@ -742,7 +742,16 @@ class Model_HwithSSTBN_nolin_tanh_withlatlon(torch.nn.Module):
 
         self.bn_feat = torch.nn.BatchNorm2d(self.dim_obs_channel[1],track_running_stats=False)
 
-        self.convx11 = torch.nn.Conv2d(shape_data, 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+        dim_state = 4*self.dT
+        if self.aug_state :
+            if shape_data > 5*self.dT :
+                dim_state += shape_data - 5*self.dT                
+        else:
+           dim_state = 4*self.dT
+           if shape_data > 4*self.dT :
+                dim_state += shape_data - 4*self.dT
+
+        self.convx11 = torch.nn.Conv2d(dim_state, 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
         self.convx12 = torch.nn.Conv2d(2*self.dim_obs_channel[1], self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
         self.convx21 = torch.nn.Conv2d(self.dim_obs_channel[1], 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
         self.convx22 = torch.nn.Conv2d(2*self.dim_obs_channel[1], self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
