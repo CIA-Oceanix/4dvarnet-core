@@ -505,8 +505,6 @@ def get_4dvarnet_sst(hparams):
                             NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                                 hparams.dim_grad_solver, hparams.dropout),
                             hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
-             
-                 
             
             return NN_4DVar.Solver_Grad_4DVarNN(
                         Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
@@ -760,7 +758,7 @@ class Model_HwithSSTBN_nolin_tanh_withlatlon(torch.nn.Module):
         
         self.lat = None
         self.lon = None
-        self.compute_derivativeswith_lon_lat = Torch_compute_derivatives_with_lon_lat(dT=self.hparams.dT)
+        self.compute_derivativeswith_lon_lat = Torch_compute_derivatives_with_lon_lat(dT=dT)
         self.var_tr_uv = 1.
         self.dT = dT
         self.aug_state = False
