@@ -756,8 +756,8 @@ class Model_HwithSSTBN_nolin_tanh_withlatlon(torch.nn.Module):
         self.conv_m = torch.nn.Conv2d(dT, self.dim_obs_channel[1], (3, 3), padding=1, bias=True,padding_mode=padding_mode)
         self.sigmoid = torch.nn.Sigmoid()  # torch.nn.Softmax(dim=1)
         
-        self.lat = None
-        self.lon = None
+        self.lat_rad = None
+        self.lon_rad = None
         self.compute_derivativeswith_lon_lat = Torch_compute_derivatives_with_lon_lat(dT=dT)
         self.var_tr_uv = 1.
         self.dT = dT
@@ -1970,8 +1970,8 @@ class LitModelUV(pl.LightningModule):
             lat_rad = torch.deg2rad(lat)
             lon_rad = torch.deg2rad(lon)
             
-            self.model.model_H.lat = lat_rad
-            self.model.model_H.lon = lon_rad
+            self.model.model_H.lat_rad = lat_rad
+            self.model.model_H.lon_rad = lon_rad
 
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
