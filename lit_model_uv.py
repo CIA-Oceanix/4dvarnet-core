@@ -792,11 +792,11 @@ class Model_HwithSSTBN_nolin_tanh_withlatlon(torch.nn.Module):
         x_ssh_u = u_geo_factor * x_ssh
         x_ssh_v = v_geo_factor * x_ssh
         x_u_u = u_geo_factor * x_u
-        x_u_v = v_geo_factor * x_u
-        x_v_u = u_geo_factor * x_v
+        #x_u_v = v_geo_factor * x_u
+        #x_v_u = u_geo_factor * x_v
         x_v_v = v_geo_factor * x_v
         
-        x_all = torch.cat((x_ssh_u,x_ssh_v,x_u_u,x_u_v,x_v_u,x_v_v),dim=1)
+        x_all = torch.cat((x_ssh_u,x_ssh_v,x_u_u,x_v_v),dim=1)
         
         if self.aug_state :
             if x.size(1) > 5*self.dT :
