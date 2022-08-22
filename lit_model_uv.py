@@ -487,6 +487,7 @@ def get_4dvarnet_sst(hparams):
                             hparams.dim_grad_solver, hparams.dropout),
                         hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
         elif hparams.sst_model == 'nolinear-tanh-bn' :
+            print('...... residual_wrt_geo_velocities = %d'%hparams.residual_wrt_geo_velocities)
             if hparams.residual_wrt_geo_velocities == 3 : 
                 return NN_4DVar.Solver_Grad_4DVarNN(
                             Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
@@ -762,6 +763,7 @@ class Model_HwithSSTBN_nolin_tanh_withlatlon(torch.nn.Module):
         self.var_tr_uv = 1.
         self.dT = dT
         self.aug_state = False
+        
         
     def compute_geo_factor(self,outputs, lat_rad, lon_rad,sigma=0.):
         return self.compute_derivativeswith_lon_lat.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.)
