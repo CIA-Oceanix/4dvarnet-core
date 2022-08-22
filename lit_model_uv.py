@@ -489,7 +489,7 @@ def get_4dvarnet_sst(hparams):
                         hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
         elif hparams.sst_model == 'nolinear-tanh-bn' :
             print('...... residual_wrt_geo_velocities = %d'%hparams.residual_wrt_geo_velocities,flush=True)
-            if hparams.residual_wrt_geo_velocities == 3 : 
+            if ( hparams.residual_wrt_geo_velocities == 3 ) or ( hparams.residual_wrt_geo_velocities == 4 ): 
                 return NN_4DVar.Solver_Grad_4DVarNN(
                             Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                                 hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
@@ -731,7 +731,7 @@ class Div_uv_with_lat_lon_scaling(torch.nn.Module):
 
 ############################################ Lightning Module #######################################################################
 class Model_HwithSSTBN_nolin_tanh_withlatlon(torch.nn.Module):
-    def __init__(self,shape_data, dT=5,dim=5,width_kernel=3,padding_mode='reflect'):
+    def __init__(self,shape_data, dT=5,dim=5,width_kernel=3,padding_mode='reflect',type_wgeo=3):
         super(Model_HwithSSTBN_nolin_tanh_withlatlon, self).__init__()
 
         self.dim_obs = 2
@@ -745,8 +745,9 @@ class Model_HwithSSTBN_nolin_tanh_withlatlon(torch.nn.Module):
         self.var_tr_uv = 1.
         self.dT = dT
         self.aug_state = False
+        self.type_w_geo = type_wgeo
         
-        dim_state = 6*self.dT#4*self.dT
+        dim_state = 10*self.dT#4*self.dT
 
         self.convx11 = torch.nn.Conv2d(dim_state, 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
         self.convx12 = torch.nn.Conv2d(2*self.dim_obs_channel[1], self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
@@ -814,7 +815,7 @@ class Model_HwithSSTBN_nolin_tanh_withlatlon(torch.nn.Module):
             #x_v_u = u_geo_factor * x_v
             x_v_v = v_geo_factor * x_v
         
-            x_all = torch.cat((xbar_ssh_u,xbar_ssh_v,dx_ssh_u,dx_ssh_v,x_u_u,x_v_v),dim=1)
+            x_all = torch.cat((xbar_ssh,xbar_ssh_u,xbar_ssh_v,dx_ssh,dx_ssh_u,dx_ssh_v,x_u,x_u_u,x_v,x_v_v),dim=1)
         
         if 1*0 :
             if self.aug_state :
@@ -922,7 +923,7 @@ class LitModelUV(pl.LightningModule):
         if self.residual_wrt_geo_velocities > 0 :
             self.type_div_train_loss = 1
         self.use_lat_lon_in_obs_model = self.hparams.use_lat_lon_in_obs_model if hasattr(self.hparams, 'use_lat_lon_in_obs_model') else False
-        if self.residual_wrt_geo_velocities == 3 :
+        if ( self.residual_wrt_geo_velocities == 3 ) or ( self.residual_wrt_geo_velocities == 4 ):
             self.use_lat_lon_in_obs_model = True
            
         self.learning_sampling_uv = self.hparams.learning_sampling_uv if hasattr(self.hparams, 'learning_sampling_uv') else 'no_sammpling_learning'
@@ -945,7 +946,7 @@ class LitModelUV(pl.LightningModule):
         self.gradient_img = lambda t: torch.unbind(
                 self.grad_crop(2.*kornia.filters.spatial_gradient(t, normalized=True)), 2)
         
-        if self.residual_wrt_geo_velocities == 3 :
+        if ( self.residual_wrt_geo_velocities == 3 ) or ( self.residual_wrt_geo_velocities == 4 ):
             self.model.model_H.aug_state = self.hparams.aug_state
             self.model.model_H.var_tr_uv = self.var_tr_uv        
         
@@ -2051,6 +2052,19 @@ class LitModelUV(pl.LightningModule):
                     alpha_uv_geo = 0.05
                     outputs_u = alpha_uv_geo * outputs_u + u_geo_rec
                     outputs_v = alpha_uv_geo * outputs_v + v_geo_rec
+                elif self.residual_wrt_geo_velocities == 4 : 
+                    lat_rad = torch.deg2rad(lat)
+                    lon_rad = torch.deg2rad(lon)
+                    
+                    # denormalize ssh
+                    u_geo_rec, v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
+                    u_geo_gt, v_geo_gt = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
+
+                    u_geo_factor, v_geo_factor = self.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.) 
+
+                    alpha_uv_geo = 0.05
+                    outputs_u = alpha_uv_geo * u_geo_factor * outputs_u
+                    outputs_v = alpha_uv_geo * v_geo_factor * outputs_v
                     
                 if self.type_div_train_loss == 0 :
                     div_rec = self.compute_div(outputs_u,outputs_v)
