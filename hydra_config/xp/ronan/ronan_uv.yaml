@@ -56,8 +56,8 @@ params:
   alpha_mse_gssh: 1000.
   alpha_mse_uv: 50.
   alpha_mse_uv_geo: 25.
-  alpha_mse_div: 100. 
-  alpha_mse_strain: 20.
+  alpha_mse_div: 500. # 100. 
+  alpha_mse_strain: 0.
   sig_filter_div: 1.
   norm_obs: l2
   norm_prior: l2
