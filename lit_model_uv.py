@@ -778,7 +778,7 @@ class Model_HwithSSTBN_nolin_tanh_withlatlon(torch.nn.Module):
         
     def extract_state_feature(self,x):
         # ssh component
-        print('..... obs model with lat/lon')
+        #print('..... obs model with lat/lon')
         
         if self.aug_state :
             x_ssh = x[:, :self.dT, :, :] + x[:, 2*self.dT:3*self.dT, :, :]
@@ -809,8 +809,8 @@ class Model_HwithSSTBN_nolin_tanh_withlatlon(torch.nn.Module):
             if x.size(1) > 4*self.dT :
                 x_all = torch.cat((x_all,x[:, 4*self.dT:, :, :]),dim=1)
         
-        print('..... s_all_size')
-        print(x_all.size())
+        #print('..... s_all_size')
+        #print(x_all.size())
                
         x1     = self.convx12( torch.tanh( self.convx11( x_all ) ) )
         x_feat = self.bn_feat( self.convx22( torch.tanh( self.convx21( torch.tanh(x1) ) ) ) )
@@ -1967,8 +1967,8 @@ class LitModelUV(pl.LightningModule):
         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
 
         # load latLon for Obs model if needed 
-        print('.... Use lat/lon in model_H ')
-        print(self.use_lat_lon_in_obs_model,flush=True)
+        #print('.... Use lat/lon in model_H ')
+        #print(self.use_lat_lon_in_obs_model,flush=True)
         if self.use_lat_lon_in_obs_model  == True :
             lat_rad = torch.deg2rad(lat)
             lon_rad = torch.deg2rad(lon)
