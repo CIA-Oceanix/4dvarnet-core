@@ -746,7 +746,7 @@ class Model_HwithSSTBN_nolin_tanh_withlatlon(torch.nn.Module):
         self.dT = dT
         self.aug_state = False
         
-        dim_state = 4*self.dT
+        dim_state = 6*self.dT#4*self.dT
 
         self.convx11 = torch.nn.Conv2d(dim_state, 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
         self.convx12 = torch.nn.Conv2d(2*self.dim_obs_channel[1], self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
@@ -781,33 +781,48 @@ class Model_HwithSSTBN_nolin_tanh_withlatlon(torch.nn.Module):
         #print('..... obs model with lat/lon')
         
         if self.aug_state :
-            x_ssh = x[:, :self.dT, :, :] + x[:, 2*self.dT:3*self.dT, :, :]
+            xbar_ssh = x[:, :self.dT, :, :] 
+            dx_ssh = x[:, 2*self.dT:3*self.dT, :, :]
             x_u = x[:, 3*self.dT:4*self.dT, :, :]
             x_v = x[:, 4*self.dT:5*self.dT, :, :]
         else:
-            x_ssh = x[:, :self.dT, :, :] + x[:, self.dT:2*self.dT, :, :]
+            xbar_ssh = x[:, :self.dT, :, :]
+            dx_ssh = x[:, self.dT:2*self.dT, :, :]
             x_u = x[:, 2*self.dT:3*self.dT, :, :]
             x_v = x[:, 3*self.dT:4*self.dT, :, :]
 
         # geoostrophic factor
-        u_geo_factor, v_geo_factor = self.compute_geo_factor(x_ssh, self.lat_rad, self.lon_rad,sigma=0.) 
+        u_geo_factor, v_geo_factor = self.compute_geo_factor(xbar_ssh, self.lat_rad, self.lon_rad,sigma=0.) 
 
         # latent component
-        x_ssh_u = u_geo_factor * x_ssh
-        x_ssh_v = v_geo_factor * x_ssh
-        x_u_u = u_geo_factor * x_u
-        #x_u_v = v_geo_factor * x_u
-        #x_v_u = u_geo_factor * x_v
-        x_v_v = v_geo_factor * x_v
-        
-        x_all = torch.cat((x_ssh_u,x_ssh_v,x_u_u,x_v_v),dim=1)
-        
-        if self.aug_state :
-            if x.size(1) > 5*self.dT :
-                x_all = torch.cat((x_all,x[:, 5*self.dT:, :, :]),dim=1)
+        if 1*0:
+            x_ssh_u = u_geo_factor * (xbar_ssh+dx_ssh)
+            x_ssh_v = v_geo_factor * (xbar_ssh+dx_ssh)
+            x_u_u = u_geo_factor * x_u
+            #x_u_v = v_geo_factor * x_u
+            #x_v_u = u_geo_factor * x_v
+            x_v_v = v_geo_factor * x_v
+            x_all = torch.cat((x_ssh_u,x_ssh_v,x_u_u,x_v_v),dim=1)
         else:
-            if x.size(1) > 4*self.dT :
-                x_all = torch.cat((x_all,x[:, 4*self.dT:, :, :]),dim=1)
+            xbar_ssh_u = u_geo_factor * xbar_ssh
+            xbar_ssh_v = v_geo_factor * xbar_ssh
+
+            dx_ssh_u = u_geo_factor * dx_ssh
+            dx_ssh_v = v_geo_factor * dx_ssh
+            x_u_u = u_geo_factor * x_u
+            #x_u_v = v_geo_factor * x_u
+            #x_v_u = u_geo_factor * x_v
+            x_v_v = v_geo_factor * x_v
+        
+            x_all = torch.cat((xbar_ssh_u,xbar_ssh_v,dx_ssh_u,dx_ssh_v,x_u_u,x_v_v),dim=1)
+        
+        if 1*0 :
+            if self.aug_state :
+                if x.size(1) > 5*self.dT :
+                    x_all = torch.cat((x_all,x[:, 5*self.dT:, :, :]),dim=1)
+            else:
+                if x.size(1) > 4*self.dT :
+                    x_all = torch.cat((x_all,x[:, 4*self.dT:, :, :]),dim=1)
         
         #print('..... s_all_size')
         #print(x_all.size())
