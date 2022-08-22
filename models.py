@@ -332,6 +332,8 @@ class Model_HwithSSTBN_nolin_tanh(torch.nn.Module):
 
         return [dyout, dyout1]
 
+
+
 class Model_HwithSSTBNAtt_nolin_tanh(torch.nn.Module):
     def __init__(self,shape_data, dT=5,dim=5,width_kernel=3,padding_mode='reflect'):
         super(Model_HwithSSTBNAtt_nolin_tanh, self).__init__()
