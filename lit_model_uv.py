@@ -742,14 +742,11 @@ class Model_HwithSSTBN_nolin_tanh_withlatlon(torch.nn.Module):
 
         self.bn_feat = torch.nn.BatchNorm2d(self.dim_obs_channel[1],track_running_stats=False)
 
+        self.var_tr_uv = 1.
+        self.dT = dT
+        self.aug_state = False
+        
         dim_state = 4*self.dT
-        if self.aug_state :
-            if shape_data > 5*self.dT :
-                dim_state += shape_data - 5*self.dT                
-        else:
-           dim_state = 4*self.dT
-           if shape_data > 4*self.dT :
-                dim_state += shape_data - 4*self.dT
 
         self.convx11 = torch.nn.Conv2d(dim_state, 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
         self.convx12 = torch.nn.Conv2d(2*self.dim_obs_channel[1], self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
@@ -768,10 +765,7 @@ class Model_HwithSSTBN_nolin_tanh_withlatlon(torch.nn.Module):
         self.lat_rad = None
         self.lon_rad = None
         self.compute_derivativeswith_lon_lat = Torch_compute_derivatives_with_lon_lat(dT=dT)
-        self.var_tr_uv = 1.
-        self.dT = dT
         self.aug_state = False
-        
         
     def compute_geo_factor(self,outputs, lat_rad, lon_rad,sigma=0.):
         return self.compute_derivativeswith_lon_lat.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.)
