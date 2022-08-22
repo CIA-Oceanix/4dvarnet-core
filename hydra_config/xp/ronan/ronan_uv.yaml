@@ -50,7 +50,7 @@ params:
       time: 1
   val_diag_freq: 5 
   padding_mode: reflect
-  residual_wrt_geo_velocities: 3 #False #
+  residual_wrt_geo_velocities: 4 #False #
   type_div_train_loss: 1
   alpha_mse_ssh: 50. # loss
   alpha_mse_gssh: 1000.
