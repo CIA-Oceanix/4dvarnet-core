@@ -1963,7 +1963,8 @@ class LitModelUV(pl.LightningModule):
         # gradient norm field
         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
 
-        # load latLon for Obs model if needed        
+        # load latLon for Obs model if needed 
+        print('.... Use lat/lon in model_H '+ self.use_lat_lon_in_obs_model,flush=True)
         if self.use_lat_lon_in_obs_model  == True :
             lat_rad = torch.deg2rad(lat)
             lon_rad = torch.deg2rad(lon)
