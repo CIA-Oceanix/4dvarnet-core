@@ -490,7 +490,8 @@ class FP_Solver(nn.Module):
             self.n_grad = int(n_iter_grad)
 
     def forward(self, x, yobs, mask, *internal_state):
-        return self.solve(x, yobs, mask, *internal_state)
+        #return self.solve(x, yobs, mask, *internal_state)
+        return self.phi_r(x), None, None, None
 
     def solve(self, x_0, obs, mask, hidden=None, cell=None, normgrad_=None):
         #Note that hidden, cell and normgrad are leftover from the gradient solver
@@ -500,7 +501,7 @@ class FP_Solver(nn.Module):
             x_k = self.solver_step(x_k, obs, mask, cell, normgrad_, )
             x_k = torch.mul(x_k ,1.)
         x_k = self.phi_r(x_k)
-        return x_k, hidden, cell, normgrad_
+        return x_k, None, None, None
 
     def solver_step(self, x_k, obs, mask, cell, normgrad = 0.):
         mask = torch.mul(mask, 1.)

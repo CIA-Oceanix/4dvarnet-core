@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: fp_solver_0_ngrad
+xp_name: fp_solver_debug
 params:
   model: FP_solver
   dT: 29
@@ -31,8 +31,8 @@ params:
 
 lit_mod_cls: lit_model_OI.LitModelOI
 datamodule:
-  resize_factor: 2
-  aug_train_data: 1
+  resize_factor: 4
+  #aug_train_data: 1
 defaults:
   - /xp/base_xp
   - /splits/dc_boost_swot@datamodule
