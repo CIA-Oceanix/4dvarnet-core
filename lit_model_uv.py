@@ -2154,6 +2154,8 @@ class LitModelUV(pl.LightningModule):
                     u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
                     v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
                     
+                    g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
+
                     self.patch_weight = self.patch_weight_diag
                     
                 # U,V prediction
