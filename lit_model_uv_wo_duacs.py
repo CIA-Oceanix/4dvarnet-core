@@ -1861,7 +1861,7 @@ class LitModelUV(pl.LightningModule):
             
         if self.aug_state :
             init_state = torch.cat((inputs_Mask * inputs_obs ,
-                                    torch.zeros_like(targets_GT),
+                                    inputs_Mask * inputs_obs,
                                     init_u,init_v),
                                    dim=1)
         else:
