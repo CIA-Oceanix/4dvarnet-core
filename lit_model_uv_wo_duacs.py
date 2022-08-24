@@ -2014,6 +2014,10 @@ class LitModelUV(pl.LightningModule):
             
             if self.hparams.n_grad > 0 :                
                 state = torch.autograd.Variable(state, requires_grad=True)
+                
+                print( state.size() )
+                print( obs.size() )
+                print( new_masks.size() )
                 outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
     
                 if (phase == 'val') or (phase == 'test'):
