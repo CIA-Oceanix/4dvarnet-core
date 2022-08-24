@@ -1955,7 +1955,7 @@ class LitModelUV(pl.LightningModule):
             inputs_Mask = inputs_Mask.detach()
             inputs_obs = inputs_obs.detach()
             
-            inputs_Mask = torch.nn.functional.avg_pool2d(inputs_Mask, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+            inputs_Mask = torch.nn.functional.avg_pool2d(inputs_Mask.float(), (int(self.scale_dwscaling),int(self.scale_dwscaling)))
             inputs_obs  = torch.nn.functional.avg_pool2d(inputs_obs, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
             
             inputs_obs  = inputs_obs / ( inputs_Mask + 1e-7 )
