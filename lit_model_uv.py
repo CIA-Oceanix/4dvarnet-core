@@ -938,6 +938,12 @@ class LitModelUV(pl.LightningModule):
 
         self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 0
         
+        self.scale_dwscaling = self.hparams.scale_dwscaling if hasattr(self.hparams, 'scale_dwscaling') else 1.0
+        if self.scale_dwscaling > 1. :
+            _w = torch.from_numpy(call(self.hparams.patch_weight))
+            _w =  torch.nn.functional.avg_pool2d(_w.view(1,-1,_w.size(1),_w.size(2)), (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+            self.patch_weight = torch.nn.Parameter(_w.view(-1,_w.size(2),_w.size(3)), requires_grad=False)
+
         self.residual_wrt_geo_velocities = self.hparams.residual_wrt_geo_velocities if hasattr(self.hparams, 'residual_wrt_geo_velocities') else 0
         if self.residual_wrt_geo_velocities > 0 :
             self.type_div_train_loss = 1
@@ -1013,8 +1019,12 @@ class LitModelUV(pl.LightningModule):
         
         old_suffix = '-{epoch:02d}-{val_loss:.4f}'
 
+
         suffix_chkpt = '-'+self.hparams.phi_param+'_%03d-augdata'%self.hparams.DimAE
         
+        if self.scale_dwscaling > 1.0 :
+            suffix_chkpt = suffix_chkpt+'-dws%02d'%int(self.scale_dwscaling)
+
         if self.model_sampling_uv is not None:
             suffix_chkpt = suffix_chkpt+'-sampling_sst_%d_%03d'%(self.hparams.nb_feat_sampling_operator,int(100*self.hparams.thr_l1_sampling_uv))
         
@@ -1935,10 +1945,56 @@ class LitModelUV(pl.LightningModule):
 
         return l_ae, l_ae_gt, l_sr, l_lr
 
+    def dwn_sample_batch(self,batch,scale = 1. ):
+        if scale > 1. :          
+            if not self.use_sst:
+                targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
+            else:
+                targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
+    
+                targets_OI = torch.nn.functional.avg_pool2d(targets_OI, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+                targets_GT = torch.nn.functional.avg_pool2d(targets_GT, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+                u_gt = torch.nn.functional.avg_pool2d(u_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+                v_gt = torch.nn.functional.avg_pool2d(v_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+                if self.use_sst:
+                    sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+                
+                targets_GT = targets_GT.detach()
+                sst_gt = sst_gt.detach()
+                u_gt = u_gt.detach()
+                v_gt = v_gt.detach()
+                
+                
+                inputs_Mask = inputs_Mask.detach()
+                inputs_obs = inputs_obs.detach()
+                
+                inputs_Mask = torch.nn.functional.avg_pool2d(inputs_Mask.float(), (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+                inputs_obs  = torch.nn.functional.avg_pool2d(inputs_obs, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+                
+                inputs_obs  = inputs_obs / ( inputs_Mask + 1e-7 )
+                inputs_Mask = (inputs_Mask > 0.).float()   
+                
+                lat = torch.nn.functional.avg_pool1d(lat.view(-1,1,lat.size(1)), (int(self.scale_dwscaling)))
+                lon = torch.nn.functional.avg_pool1d(lon.view(-1,1,lon.size(1)), (int(self.scale_dwscaling)))
+                
+                lat = lat.view(-1,lat.size(2))
+                lon = lon.view(-1,lon.size(2))
+            
+            
+            if not self.use_sst:
+                return targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon
+            else:
+                return targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon
+        else:
+            return batch
+
     def compute_loss(self, batch, phase, state_init=(None,)):
 
+        if self.scale_dwscaling > 1.0 :
+            batch = self.dwn_sample_batch(batch,scale=self.scale_dwscaling)
+
         if not self.use_sst:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt = batch
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
 
