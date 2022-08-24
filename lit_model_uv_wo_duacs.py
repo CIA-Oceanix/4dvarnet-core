@@ -939,7 +939,14 @@ class LitModelUV(pl.LightningModule):
         self.hparams.alpha_mse_strain = self.hparams.alpha_mse_strain if hasattr(self.hparams, 'alpha_mse_strain') else 0.
 
         self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 0
-        
+
+        if self.scale_dwscaling > 1. :
+            print(' patch weight')
+            print(self.patch_weight.size() )
+            self.patch_weight =  torch.nn.functional.avg_pool2d(self.patch_weight.view(1,-1,self.patch_weight.size(1),self.patch_weight.size(2)), (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
+            self.patch_weight =  self.patch_weight.view(-1,self.patch_weight.size(2),self.patch_weight.size(3))
+            print(self.patch_weight.size() )
+           
         self.residual_wrt_geo_velocities = self.hparams.residual_wrt_geo_velocities if hasattr(self.hparams, 'residual_wrt_geo_velocities') else 0
         if self.residual_wrt_geo_velocities > 0 :
             self.type_div_train_loss = 1
