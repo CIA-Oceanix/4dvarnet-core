@@ -942,10 +942,14 @@ class LitModelUV(pl.LightningModule):
 
         if self.scale_dwscaling > 1. :
             print(' patch weight')
-            print(self.patch_weight.size() )
-            self.patch_weight =  torch.nn.functional.avg_pool2d(self.patch_weight.view(1,-1,self.patch_weight.size(1),self.patch_weight.size(2)), (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
-            self.patch_weight =  self.patch_weight.view(-1,self.patch_weight.size(2),self.patch_weight.size(3))
-            print(self.patch_weight.size() )
+            print(self.patch_weight.size() , flush=True)
+            temp =  torch.nn.functional.avg_pool2d(self.patch_weight.view(1,-1,self.patch_weight.size(1),self.patch_weight.size(2)), (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
+            print(temp.size() )
+            _w = torch.from_numpy(call(self.hparams.patch_weight))
+            print(_w)
+            _w =  torch.nn.functional.avg_pool2d(_w.view(1,-1,_w.size(1),_w.size(2)), (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+            self.patch_weight = torch.nn.Parameter(_w.view(-1,_w.size(2),_w.size(3)), requires_grad=False)
+            print(self.patch_weight.size() , flush=True)
            
         self.residual_wrt_geo_velocities = self.hparams.residual_wrt_geo_velocities if hasattr(self.hparams, 'residual_wrt_geo_velocities') else 0
         if self.residual_wrt_geo_velocities > 0 :
