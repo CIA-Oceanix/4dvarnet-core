@@ -2062,7 +2062,7 @@ class LitModelUV(pl.LightningModule):
                 state = torch.autograd.Variable(state, requires_grad=True)
                 
                 print( state.size() )
-                print( obs.size() )
+                print( obs[0].size() )
                 print( new_masks.size(),flush=True )
                 #print( v_geo_factor.size() , flush = True )
 
