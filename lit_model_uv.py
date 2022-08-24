@@ -2132,7 +2132,11 @@ class LitModelUV(pl.LightningModule):
                     yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
                 
                 yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
+                loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
+                    yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
+                )
 
+                # reconstruction losses
                 if (phase == 'val') or (phase == 'test'):                    
                     if self.scale_dwscaling > 1.0 :
                         outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
@@ -2270,9 +2274,6 @@ class LitModelUV(pl.LightningModule):
                     
 
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
-                loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
-                    yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
-                )
                 #print('  %f'%torch.mean( w_sampling_uv ))
                 
                 if self.model_sampling_uv is not None :
