@@ -2131,12 +2131,15 @@ class LitModelUV(pl.LightningModule):
                 if self.aug_state :
                     yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
                 
+                if (phase == 'val') or (phase == 'test'):
+                    self.patch_weight = self.patch_weight_train
+                                        
                 yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
                 loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
                     yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
                 )
 
-                # reconstruction losses
+                # reconstruction losses compute on full-resolution field during test/val epoch
                 if (phase == 'val') or (phase == 'test'):                    
                     if self.scale_dwscaling > 1.0 :
                         outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
