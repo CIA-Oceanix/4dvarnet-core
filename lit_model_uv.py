@@ -912,7 +912,10 @@ class LitModelUV(pl.LightningModule):
         self.test_lat = None
         self.test_dates = None
 
-        self.patch_weight = torch.nn.Parameter(
+        self.patch_weight = None
+        self.patch_weight_train = torch.nn.Parameter(
+                torch.from_numpy(call(self.hparams.patch_weight)), requires_grad=False)
+        self.patch_weight_diag = torch.nn.Parameter(
                 torch.from_numpy(call(self.hparams.patch_weight)), requires_grad=False)
 
         self.var_Val = self.hparams.var_Val
@@ -939,10 +942,14 @@ class LitModelUV(pl.LightningModule):
         self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 0
         
         self.scale_dwscaling = self.hparams.scale_dwscaling if hasattr(self.hparams, 'scale_dwscaling') else 1.0
-        if self.scale_dwscaling > 1. :
+        if self.scale_dwscaling > 1. :            
             _w = torch.from_numpy(call(self.hparams.patch_weight))
             _w =  torch.nn.functional.avg_pool2d(_w.view(1,-1,_w.size(1),_w.size(2)), (int(self.scale_dwscaling),int(self.scale_dwscaling)))
-            self.patch_weight = torch.nn.Parameter(_w.view(-1,_w.size(2),_w.size(3)), requires_grad=False)
+            self.patch_weight_train = torch.nn.Parameter(_w.view(-1,_w.size(2),_w.size(3)), requires_grad=False)
+
+            _w = torch.from_numpy(call(self.hparams.patch_weight))
+            self.patch_weight_diag = torch.nn.Parameter(_w, requires_grad=False)
+
 
         self.residual_wrt_geo_velocities = self.hparams.residual_wrt_geo_velocities if hasattr(self.hparams, 'residual_wrt_geo_velocities') else 0
         if self.residual_wrt_geo_velocities > 0 :
@@ -1154,6 +1161,7 @@ class LitModelUV(pl.LightningModule):
                 for pg in opt.param_groups:
                     pg['lr'] = lr[mm]  # * self.hparams.learning_rate
                     mm += 1
+        self.patch_weight = self.patch_weight_train 
 
     def training_epoch_end(self, outputs):
         best_ckpt_path = self.trainer.checkpoint_callback.best_model_path
@@ -2128,7 +2136,9 @@ class LitModelUV(pl.LightningModule):
                     targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
                     u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
                     v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
-                                                                                           
+                    
+                    self.patch_weight = self.patch_weight_diag
+                    
                 # U,V prediction
                 if self.residual_wrt_geo_velocities == 1 :
                     lat_rad = torch.deg2rad(lat)
