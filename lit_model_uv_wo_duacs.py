@@ -1933,35 +1933,54 @@ class LitModelUV(pl.LightningModule):
 
         return l_ae, l_ae_gt
 
+    def dwn_sample_batch(self,batch,scale = 1. ):
+        if scale > 1. :          
+            if not self.use_sst:
+                targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
+            else:
+                targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
+    
+                targets_OI = torch.nn.functional.avg_pool2d(targets_OI, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+                targets_GT = torch.nn.functional.avg_pool2d(targets_GT, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+                u_gt = torch.nn.functional.avg_pool2d(u_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+                v_gt = torch.nn.functional.avg_pool2d(v_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+                if self.use_sst:
+                    sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+                
+                targets_GT = targets_GT.detach()
+                sst_gt = sst_gt.detach()
+                u_gt = u_gt.detach()
+                v_gt = v_gt.detach()
+                
+                
+                inputs_Mask = inputs_Mask.detach()
+                inputs_obs = inputs_obs.detach()
+                
+                inputs_Mask = torch.nn.functional.avg_pool2d(inputs_Mask.float(), (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+                inputs_obs  = torch.nn.functional.avg_pool2d(inputs_obs, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+                
+                inputs_obs  = inputs_obs / ( inputs_Mask + 1e-7 )
+                inputs_Mask = (inputs_Mask > 0.).float()    
+                
+                
+            if not self.use_sst:
+                return targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt
+            else:
+                return targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon
+        else:
+            return batch
+        
     def compute_loss(self, batch, phase, state_init=(None,)):
 
+        if self.scale_dwscaling > 1.0 :
+            batch = self.dwn_sample_batch(batch,scale=self.scale_dwscaling)
+
         if not self.use_sst:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt = batch
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
-
-        if self.scale_dwscaling > 1.0 :
-            targets_OI = torch.nn.functional.avg_pool2d(targets_OI, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
-            targets_GT = torch.nn.functional.avg_pool2d(targets_GT, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
-            u_gt = torch.nn.functional.avg_pool2d(u_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
-            v_gt = torch.nn.functional.avg_pool2d(v_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
-            sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
-            
-            targets_GT = targets_GT.detach()
-            sst_gt = sst_gt.detach()
-            u_gt = u_gt.detach()
-            v_gt = v_gt.detach()
-            
-            
-            inputs_Mask = inputs_Mask.detach()
-            inputs_obs = inputs_obs.detach()
-            
-            inputs_Mask = torch.nn.functional.avg_pool2d(inputs_Mask.float(), (int(self.scale_dwscaling),int(self.scale_dwscaling)))
-            inputs_obs  = torch.nn.functional.avg_pool2d(inputs_obs, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
-            
-            inputs_obs  = inputs_obs / ( inputs_Mask + 1e-7 )
-            inputs_Mask = (inputs_Mask > 0.).float()            
-
+ 
+ 
         if self.scale_dwscaling_sst > 1 :
             sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
             sst_gt = torch.nn.functional.interpolate(sst_gt, scale_factor=self.scale_dwscaling_sst, mode='bicubic')
@@ -2044,7 +2063,7 @@ class LitModelUV(pl.LightningModule):
                 
                 print( state.size() )
                 print( obs.size() )
-                print( new_masks.size() )
+                print( new_masks.size(),flush=True )
                 #print( v_geo_factor.size() , flush = True )
 
                 outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
