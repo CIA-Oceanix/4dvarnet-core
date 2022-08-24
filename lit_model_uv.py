@@ -2125,7 +2125,10 @@ class LitModelUV(pl.LightningModule):
                         targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
                     else:
                         targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
-                                                                        
+                    targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
+                    u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
+                    v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
+                                                                                           
                 # U,V prediction
                 if self.residual_wrt_geo_velocities == 1 :
                     lat_rad = torch.deg2rad(lat)
