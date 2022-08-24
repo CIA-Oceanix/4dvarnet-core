@@ -1982,7 +1982,7 @@ class LitModelUV(pl.LightningModule):
         else:
             mask_sampling_uv = torch.zeros_like(u_gt) 
             obs = torch.cat( (obs, 0. * targets_OI ,  0. * targets_OI ) ,dim=1)            
-        new_masks = torch.cat( (inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
+        new_masks = torch.cat( (new_masks, mask_sampling_uv, mask_sampling_uv) , dim=1)
 
         state = self.get_init_state(batch, state_init)
         
