@@ -894,7 +894,10 @@ class LitModelUV(pl.LightningModule):
         self.test_lat = None
         self.test_dates = None
 
-        self.patch_weight = torch.nn.Parameter(
+        self.patch_weight = None
+        self.patch_weight_train = torch.nn.Parameter(
+                torch.from_numpy(call(self.hparams.patch_weight)), requires_grad=False)
+        self.patch_weight_diag = torch.nn.Parameter(
                 torch.from_numpy(call(self.hparams.patch_weight)), requires_grad=False)
 
         self.var_Val = self.hparams.var_Val
@@ -921,10 +924,13 @@ class LitModelUV(pl.LightningModule):
 
         self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 0
 
-        if self.scale_dwscaling > 1. :
+        if self.scale_dwscaling > 1. :            
             _w = torch.from_numpy(call(self.hparams.patch_weight))
             _w =  torch.nn.functional.avg_pool2d(_w.view(1,-1,_w.size(1),_w.size(2)), (int(self.scale_dwscaling),int(self.scale_dwscaling)))
-            self.patch_weight = torch.nn.Parameter(_w.view(-1,_w.size(2),_w.size(3)), requires_grad=False)
+            self.patch_weight_train = torch.nn.Parameter(_w.view(-1,_w.size(2),_w.size(3)), requires_grad=False)
+
+            _w = torch.from_numpy(call(self.hparams.patch_weight))
+            self.patch_weight_diag = torch.nn.Parameter(_w, requires_grad=False)
            
         self.residual_wrt_geo_velocities = self.hparams.residual_wrt_geo_velocities if hasattr(self.hparams, 'residual_wrt_geo_velocities') else 0
         if self.residual_wrt_geo_velocities > 0 :
@@ -1135,6 +1141,7 @@ class LitModelUV(pl.LightningModule):
                 for pg in opt.param_groups:
                     pg['lr'] = lr[mm]  # * self.hparams.learning_rate
                     mm += 1
+        self.patch_weight = self.patch_weight_train 
 
     def training_epoch_end(self, outputs):
         best_ckpt_path = self.trainer.checkpoint_callback.best_model_path
@@ -1965,12 +1972,14 @@ class LitModelUV(pl.LightningModule):
     def compute_loss(self, batch, phase, state_init=(None,)):
 
         if self.scale_dwscaling > 1.0 :
-            batch = self.dwn_sample_batch(batch,scale=self.scale_dwscaling)
-
-        if not self.use_sst:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
+            _batch = self.dwn_sample_batch(batch,scale=self.scale_dwscaling)
         else:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
+            _batch = batch
+            
+        if not self.use_sst:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = _batch
+        else:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = _batch
  
  
         if self.scale_dwscaling_sst > 1 :
@@ -2022,7 +2031,7 @@ class LitModelUV(pl.LightningModule):
             obs = torch.cat( (obs, torch.zeros_like(u_gt) ,  torch.zeros_like(u_gt) ) ,dim=1)            
         new_masks = torch.cat( (new_masks, mask_sampling_uv, mask_sampling_uv) , dim=1)
 
-        state = self.get_init_state(batch, state_init)
+        state = self.get_init_state(_batch, state_init)
         
         if self.use_sst_state :
             obs = torch.cat( (obs,sst_gt,) ,dim=1)
@@ -2072,6 +2081,41 @@ class LitModelUV(pl.LightningModule):
                     outputs = outputsSLRHR[:, :self.hparams.dT, :, :]
                     outputs_u = outputsSLRHR[:, 1*self.hparams.dT:2*self.hparams.dT, :, :]
                     outputs_v = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
+
+
+
+                # reconstruction losses
+                # projection losses    
+                if (phase == 'val') or (phase == 'test'):
+                    self.patch_weight = self.patch_weight_train
+
+                yGT = targets_GT_wo_nan
+                if self.aug_state :
+                    yGT = torch.cat((yGT, targets_GT_wo_nan ), dim=1)                
+                yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
+                           
+                if self.use_sst_state :
+                    yGT = torch.cat((yGT,sst_gt), dim=1)
+                loss_AE, loss_AE_GT =  self.reg_loss(yGT, outputsSLRHR)
+  
+                # reconstruction losses compute on full-resolution field during test/val epoch
+                if (phase == 'val') or (phase == 'test'):                    
+                    if self.scale_dwscaling > 1.0 :
+                        outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
+                        outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_dwscaling, mode='bicubic')
+                        outputs_v = torch.nn.functional.interpolate(outputs_v, scale_factor=self.scale_dwscaling, mode='bicubic')
+
+                        if not self.use_sst:
+                            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
+                        else:
+                            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
+                        targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
+                        u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
+                        v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
+                        
+                        g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
+    
+                        self.patch_weight = self.patch_weight_diag
 
                 # U,V prediction
                 if self.residual_wrt_geo_velocities == 1 :
@@ -2163,16 +2207,7 @@ class LitModelUV(pl.LightningModule):
                 if self.median_filter_width > 1:
                     outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
     
-                # reconstruction losses
-                # projection losses    
-                yGT = targets_GT_wo_nan
-                if self.aug_state :
-                    yGT = torch.cat((yGT, targets_GT_wo_nan ), dim=1)                
-                yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
-                           
-                if self.use_sst_state :
-                    yGT = torch.cat((yGT,sst_gt), dim=1)
-    
+   
                 loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
                 loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
 
@@ -2190,7 +2225,6 @@ class LitModelUV(pl.LightningModule):
                     
 
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
-                loss_AE, loss_AE_GT =  self.reg_loss(yGT, outputsSLRHR)
                 
                 if self.model_sampling_uv is not None :
                     loss_l1_sampling_uv = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) *  torch.mean( w_sampling_uv )
@@ -2269,6 +2303,9 @@ class LitModelUV(pl.LightningModule):
                 #sst_feat = self.model.model_H.conv21( inputs_SST )
                 out_feat = torch.cat( (out_feat,self.model.model_H.extract_sst_feature( sst_gt )) , dim = 1 )
                 ssh_feat = self.model.model_H.extract_state_feature( outputsSLRHR )
+                
+                if self.scale_dwscaling > 1 :
+                    ssh_feat = torch.nn.functional.interpolate(ssh_feat, scale_factor=self.scale_dwscaling, mode='bicubic')
                 out_feat = torch.cat( (out_feat,ssh_feat) , dim=1)
                 
             if self.model_sampling_uv is not None :
