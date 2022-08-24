@@ -933,6 +933,7 @@ class LitModelUV(pl.LightningModule):
         self.save_rec_netcdf = self.hparams.save_rec_netcdf if hasattr(self.hparams, 'save_rec_netcdf') else './'
         self.sig_filter_laplacian = self.hparams.sig_filter_laplacian if hasattr(self.hparams, 'sig_filter_laplacian') else 0.5
         self.scale_dwscaling_sst = self.hparams.scale_dwscaling_sst if hasattr(self.hparams, 'scale_dwscaling_sst') else 1.0
+        self.scale_dwscaling = self.hparams.scale_dwscaling if hasattr(self.hparams, 'scale_dwscaling') else 1.0
         self.sig_filter_div = self.hparams.sig_filter_div if hasattr(self.hparams, 'sig_filter_div') else 1.0
         self.sig_filter_div_diag = self.hparams.sig_filter_div_diag if hasattr(self.hparams, 'sig_filter_div_diag') else self.hparams.sig_filter_div
         self.hparams.alpha_mse_strain = self.hparams.alpha_mse_strain if hasattr(self.hparams, 'alpha_mse_strain') else 0.
@@ -1015,6 +1016,9 @@ class LitModelUV(pl.LightningModule):
         old_suffix = '-{epoch:02d}-{val_loss:.4f}'
 
         suffix_chkpt = '-'+self.hparams.phi_param+'_%03d-augdata'%self.hparams.DimAE
+        
+        if self.scale_dwscaling > 1.0 :
+            suffix_chkpt = '-dws%02d'+self.scale_dwscaling
         
         if self.model_sampling_uv is not None:
             suffix_chkpt = suffix_chkpt+'-sampling_sst_%d_%03d'%(self.hparams.nb_feat_sampling_operator,int(100*self.hparams.thr_l1_sampling_uv))
@@ -1936,10 +1940,32 @@ class LitModelUV(pl.LightningModule):
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
 
+        if self.scale_dwscaling > 1.0 :
+            targets_GT = torch.nn.functional.avg_pool2d(targets_GT, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+            u_gt = torch.nn.functional.avg_pool2d(u_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+            v_gt = torch.nn.functional.avg_pool2d(v_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+            sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+            
+            targets_GT = targets_GT.detach()
+            sst_gt = sst_gt.detach()
+            u_gt = u_gt.detach()
+            v_gt = v_gt.detach()
+            
+            
+            inputs_Mask = inputs_Mask.detach()
+            inputs_obs = inputs_obs.detach()
+            
+            inputs_Mask = torch.nn.functional.avg_pool2d(inputs_Mask, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+            inputs_obs  = torch.nn.functional.avg_pool2d(inputs_obs, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+            
+            inputs_obs  = inputs_obs / ( inputs_Mask + 1e-7 )
+            inputs_Mask = (inputs_Mask > 0.).float()            
 
         if self.scale_dwscaling_sst > 1 :
             sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
             sst_gt = torch.nn.functional.interpolate(sst_gt, scale_factor=self.scale_dwscaling_sst, mode='bicubic')
+            
+            
             
         #targets_OI, inputs_Mask, targets_GT = batch
         # handle patch with no observation
