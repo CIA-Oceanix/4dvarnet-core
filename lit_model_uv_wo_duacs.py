@@ -2150,7 +2150,7 @@ class LitModelUV(pl.LightningModule):
                     
 
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
-                loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(yGT, outputsSLRHR)
+                loss_AE, loss_AE_GT =  self.reg_loss(yGT, outputsSLRHR)
                 
                 if self.model_sampling_uv is not None :
                     loss_l1_sampling_uv = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) *  torch.mean( w_sampling_uv )
