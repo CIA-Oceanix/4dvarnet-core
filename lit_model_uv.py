@@ -1224,24 +1224,38 @@ class LitModelUV(pl.LightningModule):
             self.log(f'{log_pref}_l0_samp', metrics[-1]["l0_samp"] , on_step=False, on_epoch=True, prog_bar=True)
             #self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
 
+        out_pred = out[0]        
+        out_u = out[1]
+        out_v = out[2]
+        if self.scale_dwscaling > 1. :
+            out_pred = torch.nn.functional.interpolate(out_pred, scale_factor=self.scale_dwscaling, mode='bicubic')
+            out_u = torch.nn.functional.interpolate(out_u, scale_factor=self.scale_dwscaling, mode='bicubic')
+            out_v = torch.nn.functional.interpolate(out_v, scale_factor=self.scale_dwscaling, mode='bicubic')
+            
+            if self.use_sst :
+                sst_feat = torch.nn.functional.interpolate(sst_feat, scale_factor=self.scale_dwscaling, mode='bicubic')
+
         if not self.use_sst :
+
             return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                     'oi'    : (targets_OI.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                     'u_gt'    : (u_gt.detach().cpu() * np.sqrt(self.var_tr_uv)) ,
                     'v_gt'    : (v_gt.detach().cpu() * np.sqrt(self.var_tr_uv)) ,
                     'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                    'pred' : (out[0].detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                    'pred_u' : (out[1].detach().cpu() * np.sqrt(self.var_tr_uv)) ,
-                    'pred_v' : (out[2].detach().cpu() * np.sqrt(self.var_tr_uv)) }
+                    'pred' : (out_pred.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                    'pred_u' : (out_u.detach().cpu() * np.sqrt(self.var_tr_uv)) ,
+                    'pred_v' : (out_v.detach().cpu() * np.sqrt(self.var_tr_uv)) }
         else:
+            
+
             return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                     'oi'    : (targets_OI.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                     'u_gt'    : (u_gt.detach().cpu() * np.sqrt(self.var_tr_uv)) ,
                     'v_gt'    : (v_gt.detach().cpu() * np.sqrt(self.var_tr_uv)) ,
                     'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                    'pred' : (out[0].detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                    'pred_u' : (out[1].detach().cpu() * np.sqrt(self.var_tr_uv)) ,
-                    'pred_v' : (out[2].detach().cpu() * np.sqrt(self.var_tr_uv)) ,
+                    'pred' : (out_pred.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                    'pred_u' : (out_u.detach().cpu() * np.sqrt(self.var_tr_uv)) ,
+                    'pred_v' : (out_v.detach().cpu() * np.sqrt(self.var_tr_uv)) ,
                     'sst_feat' : sst_feat.detach().cpu()}
 
     def test_step(self, test_batch, batch_idx):
@@ -1999,6 +2013,14 @@ class LitModelUV(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = _batch
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = _batch
+
+        print(targets_OI.size())
+        
+        print(inputs_Mask.size())
+        print(inputs_obs.size())
+        print(targets_GT.size())
+        print(sst_gt.size())
+        print(u_gt.size())
 
 
         if self.scale_dwscaling_sst > 1 :
