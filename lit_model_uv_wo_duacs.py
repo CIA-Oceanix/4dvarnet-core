@@ -2015,9 +2015,6 @@ class LitModelUV(pl.LightningModule):
             if self.hparams.n_grad > 0 :                
                 state = torch.autograd.Variable(state, requires_grad=True)
                 
-                print( state.size() )
-                print( obs.size() )
-                print( new_masks.size() )
                 outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
     
                 if (phase == 'val') or (phase == 'test'):
@@ -2081,10 +2078,10 @@ class LitModelUV(pl.LightningModule):
 
                     u_geo_factor, v_geo_factor = self.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.) 
 
-                    print( outputs_u.size() )
-                    print( outputs_v.size() )
-                    print( u_geo_factor.size() )
-                    print( v_geo_factor.size() , flush = True )
+                    #print( outputs_u.size() )
+                    ##print( outputs_v.size() )
+                    #print( u_geo_factor.size() )
+                    #print( v_geo_factor.size() , flush = True )
 
                     alpha_uv_geo = 0.05
                     outputs_u = alpha_uv_geo * u_geo_factor * outputs_u
