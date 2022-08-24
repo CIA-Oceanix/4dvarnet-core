@@ -2025,13 +2025,13 @@ class LitModelUV(pl.LightningModule):
     
                 outputsSLRHR = outputs
                 if self.aug_state :
-                    outputs = outputsSLRHR[:,2*self.hparams.dT:3*self.hparams.dT, :, :]
-                    outputs_u = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
-                    outputs_v = outputsSLRHR[:, 4*self.hparams.dT:5*self.hparams.dT, :, :]
-                else:
-                    outputs = outputsSLRHR[:, :self.hparams.dT, :, :]
+                    outputs = outputsSLRHR[:,1*self.hparams.dT:2*self.hparams.dT, :, :]
                     outputs_u = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
                     outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
+                else:
+                    outputs = outputsSLRHR[:, :self.hparams.dT, :, :]
+                    outputs_u = outputsSLRHR[:, 1*self.hparams.dT:2*self.hparams.dT, :, :]
+                    outputs_v = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
 
                 # U,V prediction
                 if self.residual_wrt_geo_velocities == 1 :
