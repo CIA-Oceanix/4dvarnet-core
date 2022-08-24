@@ -2081,6 +2081,11 @@ class LitModelUV(pl.LightningModule):
 
                     u_geo_factor, v_geo_factor = self.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.) 
 
+                    print( outputs_u.size() )
+                    print( outputs_v.size() )
+                    print( u_geo_factor.size() )
+                    print( v_geo_factor.size() , flush = True )
+
                     alpha_uv_geo = 0.05
                     outputs_u = alpha_uv_geo * u_geo_factor * outputs_u
                     outputs_v = alpha_uv_geo * v_geo_factor * outputs_v
