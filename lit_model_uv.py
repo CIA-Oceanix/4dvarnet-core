@@ -1227,14 +1227,21 @@ class LitModelUV(pl.LightningModule):
         out_pred = out[0]        
         out_u = out[1]
         out_v = out[2]
-        if self.scale_dwscaling > 1. :
-            out_pred = torch.nn.functional.interpolate(out_pred, scale_factor=self.scale_dwscaling, mode='bicubic')
-            out_u = torch.nn.functional.interpolate(out_u, scale_factor=self.scale_dwscaling, mode='bicubic')
-            out_v = torch.nn.functional.interpolate(out_v, scale_factor=self.scale_dwscaling, mode='bicubic')
+        print('')
+        print('.... ouput tensor')
+        print( out_pred.size() )
+        print( out_u.size() )
+        print( out_v.size() )
+
+        #    out_pred = torch.nn.functional.interpolate(out_pred, scale_factor=self.scale_dwscaling, mode='bicubic')
+        #    out_u = torch.nn.functional.interpolate(out_u, scale_factor=self.scale_dwscaling, mode='bicubic')
+        #    out_v = torch.nn.functional.interpolate(out_v, scale_factor=self.scale_dwscaling, mode='bicubic')
             
+        if self.scale_dwscaling > 1. :
             if self.use_sst :
                 sst_feat = torch.nn.functional.interpolate(sst_feat, scale_factor=self.scale_dwscaling, mode='bicubic')
-
+            print( sst_feat.size() )
+            
         if not self.use_sst :
 
             return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
@@ -2093,6 +2100,8 @@ class LitModelUV(pl.LightningModule):
     
                 if (phase == 'val') or (phase == 'test'):
                     outputs = outputs.detach()
+                         
+                        
     
                 outputsSLRHR = outputs
                 outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
@@ -2105,6 +2114,18 @@ class LitModelUV(pl.LightningModule):
                     outputs_u = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
                     outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
 
+                
+                if (phase == 'val') or (phase == 'test'):                    
+                    if self.scale_dwscaling > 1.0 :
+                        outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
+                        outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_dwscaling, mode='bicubic')
+                        outputs_v = torch.nn.functional.interpolate(outputs_v, scale_factor=self.scale_dwscaling, mode='bicubic')
+
+                    if not self.use_sst:
+                        targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
+                    else:
+                        targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
+                                                                        
                 # U,V prediction
                 if self.residual_wrt_geo_velocities == 1 :
                     lat_rad = torch.deg2rad(lat)
