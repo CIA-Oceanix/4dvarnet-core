@@ -2014,15 +2014,6 @@ class LitModelUV(pl.LightningModule):
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = _batch
 
-        print(targets_OI.size())
-        
-        print(inputs_Mask.size())
-        print(inputs_obs.size())
-        print(targets_GT.size())
-        print(sst_gt.size())
-        print(u_gt.size())
-
-
         if self.scale_dwscaling_sst > 1 :
             sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
             sst_gt = torch.nn.functional.interpolate(sst_gt, scale_factor=self.scale_dwscaling_sst, mode='bicubic')
@@ -2064,7 +2055,7 @@ class LitModelUV(pl.LightningModule):
             
         new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
 
-        state = self.get_init_state(batch, state_init)
+        state = self.get_init_state(_batch, state_init)
 
         if self.aug_state :
             obs = torch.cat( (obs, 0. * targets_OI,) ,dim=1)
@@ -2097,10 +2088,6 @@ class LitModelUV(pl.LightningModule):
             
             if self.hparams.n_grad > 0 :                
                 state = torch.autograd.Variable(state, requires_grad=True)
-
-                print(state.size())
-                print(obs[0].size())
-                print(new_masks[0].size())
 
                 outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
     
