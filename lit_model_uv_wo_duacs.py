@@ -1941,6 +1941,7 @@ class LitModelUV(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
 
         if self.scale_dwscaling > 1.0 :
+            targets_OI = torch.nn.functional.avg_pool2d(targets_OI, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
             targets_GT = torch.nn.functional.avg_pool2d(targets_GT, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
             u_gt = torch.nn.functional.avg_pool2d(u_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
             v_gt = torch.nn.functional.avg_pool2d(v_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
@@ -1993,7 +1994,7 @@ class LitModelUV(pl.LightningModule):
         new_masks = inputs_Mask
         
         if self.aug_state :
-            obs = torch.cat( (obs, 0. * targets_OI,) ,dim=1)
+            obs = torch.cat( (obs, torch.zeros_like(u_gt),) ,dim=1)
             new_masks = torch.cat( (new_masks, torch.zeros_like(inputs_Mask)), dim=1)
 
         if self.model_sampling_uv is not None :
@@ -2007,7 +2008,7 @@ class LitModelUV(pl.LightningModule):
             #print('%f '%( float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean(w_sampling_uv)) )
         else:
             mask_sampling_uv = torch.zeros_like(u_gt) 
-            obs = torch.cat( (obs, 0. * targets_OI ,  0. * targets_OI ) ,dim=1)            
+            obs = torch.cat( (obs, torch.zeros_like(u_gt) ,  torch.zeros_like(u_gt) ) ,dim=1)            
         new_masks = torch.cat( (new_masks, mask_sampling_uv, mask_sampling_uv) , dim=1)
 
         state = self.get_init_state(batch, state_init)
