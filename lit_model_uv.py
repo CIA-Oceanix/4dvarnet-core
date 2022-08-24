@@ -1235,20 +1235,11 @@ class LitModelUV(pl.LightningModule):
         out_pred = out[0]        
         out_u = out[1]
         out_v = out[2]
-        print('')
-        print('.... ouput tensor')
-        print( out_pred.size() )
-        print( out_u.size() )
-        print( out_v.size() )
 
         #    out_pred = torch.nn.functional.interpolate(out_pred, scale_factor=self.scale_dwscaling, mode='bicubic')
         #    out_u = torch.nn.functional.interpolate(out_u, scale_factor=self.scale_dwscaling, mode='bicubic')
         #    out_v = torch.nn.functional.interpolate(out_v, scale_factor=self.scale_dwscaling, mode='bicubic')
             
-        if self.scale_dwscaling > 1. :
-            if self.use_sst :
-                sst_feat = torch.nn.functional.interpolate(sst_feat, scale_factor=self.scale_dwscaling, mode='bicubic')
-            print( sst_feat.size() )
             
         if not self.use_sst :
 
@@ -2146,18 +2137,18 @@ class LitModelUV(pl.LightningModule):
                         outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_dwscaling, mode='bicubic')
                         outputs_v = torch.nn.functional.interpolate(outputs_v, scale_factor=self.scale_dwscaling, mode='bicubic')
 
-                    if not self.use_sst:
-                        targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
-                    else:
-                        targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
-                    targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
-                    u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
-                    v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
-                    
-                    g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
-
-                    self.patch_weight = self.patch_weight_diag
-                    
+                        if not self.use_sst:
+                            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
+                        else:
+                            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
+                        targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
+                        u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
+                        v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
+                        
+                        g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
+    
+                        self.patch_weight = self.patch_weight_diag
+                        
                 # U,V prediction
                 if self.residual_wrt_geo_velocities == 1 :
                     lat_rad = torch.deg2rad(lat)
