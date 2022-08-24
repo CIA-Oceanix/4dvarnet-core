@@ -2123,6 +2123,16 @@ class LitModelUV(pl.LightningModule):
                     outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
 
                 
+                # reconstruction losses
+                # projection losses    
+                yGT = torch.cat((targets_OI,
+                                 targets_GT_wo_nan - outputsSLR),
+                                dim=1)
+                if self.aug_state :
+                    yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
+                
+                yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
+
                 if (phase == 'val') or (phase == 'test'):                    
                     if self.scale_dwscaling > 1.0 :
                         outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
@@ -2239,17 +2249,7 @@ class LitModelUV(pl.LightningModule):
                 # median filter
                 if self.median_filter_width > 1:
                     outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
-    
-                # reconstruction losses
-                # projection losses    
-                yGT = torch.cat((targets_OI,
-                                 targets_GT_wo_nan - outputsSLR),
-                                dim=1)
-                if self.aug_state :
-                    yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
-                
-                yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
-                           
+                               
                 if self.use_sst_state :
                     yGT = torch.cat((yGT,sst_gt), dim=1)
     
