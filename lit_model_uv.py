@@ -1991,12 +1991,14 @@ class LitModelUV(pl.LightningModule):
     def compute_loss(self, batch, phase, state_init=(None,)):
 
         if self.scale_dwscaling > 1.0 :
-            batch_dw = self.dwn_sample_batch(batch,scale=self.scale_dwscaling)
-
-        if not self.use_sst:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch_dw
+            _batch = self.dwn_sample_batch(batch,scale=self.scale_dwscaling)
         else:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch_dw
+            _batch = batch
+            
+        if not self.use_sst:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = _batch
+        else:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = _batch
 
 
         if self.scale_dwscaling_sst > 1 :
@@ -2297,13 +2299,13 @@ class LitModelUV(pl.LightningModule):
                 ('l1_samp', l1_samp)])
 
         if ( (phase == 'val') or (phase == 'test') ) & ( self.use_sst == True ) :
-            if self.scale_dwscaling > 1 :
-                # target data at original resolution
-                targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
+            #if self.scale_dwscaling > 1 :
+            #    # target data at original resolution
+            #    targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
             
-                outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
-                outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_dwscaling, mode='bicubic')
-                outputs_v = torch.nn.functional.interpolate(outputs_v, scale_factor=self.scale_dwscaling, mode='bicubic')
+            #    outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
+            #    outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_dwscaling, mode='bicubic')
+            #    outputs_v = torch.nn.functional.interpolate(outputs_v, scale_factor=self.scale_dwscaling, mode='bicubic')
             
             out_feat = sst_gt[:,int(self.hparams.dT/2),:,:].view(-1,1,sst_gt.size(2),sst_gt.size(3))
             
