@@ -1962,11 +1962,11 @@ class LitModelUV(pl.LightningModule):
                 inputs_obs  = inputs_obs / ( inputs_Mask + 1e-7 )
                 inputs_Mask = (inputs_Mask > 0.).float()   
                 
-                print(lat.size(),flush=True)
-                print(lon.size(),flush=True)
-                
                 lat = torch.nn.functional.avg_pool1d(lat.view(-1,1,lat.size(1)), (int(self.scale_dwscaling)))
                 lon = torch.nn.functional.avg_pool1d(lon.view(-1,1,lon.size(1)), (int(self.scale_dwscaling)))
+                
+                lat = lat.view(-1,lat.size(2))
+                lon = lon.view(-1,lon.size(2))
             
             
             if not self.use_sst:
