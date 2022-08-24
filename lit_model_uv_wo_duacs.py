@@ -466,6 +466,7 @@ if 1*0 :
         return np.sqrt( ( dv_dx + du_dy ) **2 +  (du_dx - dv_dy) **2 )
 
 
+
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
@@ -1861,19 +1862,17 @@ class LitModelUV(pl.LightningModule):
         if self.aug_state :
             init_state = torch.cat((inputs_Mask * inputs_obs ,
                                     torch.zeros_like(targets_GT),
-                                    torch.zeros_like(targets_GT),
                                     init_u,init_v),
                                    dim=1)
         else:
             init_state = torch.cat((inputs_Mask * inputs_obs ,
-                                    torch.zeros_like(targets_GT),
                                     init_u,init_v),
-                                   dim=1)
+                                       dim=1)
  
         if self.use_sst_state :
             init_state = torch.cat((init_state,
                                     sst_gt,),
-                                   dim=1)
+                                    dim=1)
         return init_state
 
     def loss_ae(self, state_out):
@@ -1924,16 +1923,11 @@ class LitModelUV(pl.LightningModule):
 
         return loss
 
-    def reg_loss(self, y_gt, oi, out, out_lr, out_lrhr):
+    def reg_loss(self, y_gt, out_lrhr):
         l_ae = self.loss_ae(out_lrhr)
         l_ae_gt = self.loss_ae(y_gt)
-        l_sr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr - oi, self.patch_weight)
 
-        gt_lr = self.model_LR(oi)
-        out_lr_bis = self.model_LR(out)
-        l_lr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr_bis - gt_lr, self.model_LR(self.patch_weight))
-
-        return l_ae, l_ae_gt, l_sr, l_lr
+        return l_ae, l_ae_gt
 
     def compute_loss(self, batch, phase, state_init=(None,)):
 
@@ -1969,30 +1963,33 @@ class LitModelUV(pl.LightningModule):
         u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
         v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
                 
+        obs = inputs_Mask * inputs_obs
+        new_masks = inputs_Mask
+        
+        if self.aug_state :
+            obs = torch.cat( (obs, 0. * targets_OI,) ,dim=1)
+            new_masks = torch.cat( (new_masks, torch.zeros_like(inputs_Mask)), dim=1)
+
         if self.model_sampling_uv is not None :
             w_sampling_uv = self.model_sampling_uv( sst_gt )
             w_sampling_uv = w_sampling_uv[1]
             
             #mask_sampling_uv = torch.bernoulli( w_sampling_uv )
             mask_sampling_uv = 1. - torch.nn.functional.threshold( 1.0 - w_sampling_uv , 0.9 , 0.)
-            obs = torch.cat( (inputs_Mask * inputs_obs , u_gt_wo_nan , v_gt_wo_nan ) ,dim=1)
+            obs = torch.cat( (obs , u_gt_wo_nan , v_gt_wo_nan ) ,dim=1)
             
             #print('%f '%( float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean(w_sampling_uv)) )
         else:
             mask_sampling_uv = torch.zeros_like(u_gt) 
-            obs = torch.cat( (inputs_Mask * inputs_obs, 0. * targets_OI ,  0. * targets_OI ) ,dim=1)
-            
+            obs = torch.cat( (obs, 0. * targets_OI ,  0. * targets_OI ) ,dim=1)            
         new_masks = torch.cat( (inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
 
         state = self.get_init_state(batch, state_init)
-
-        if self.aug_state :
-            obs = torch.cat( (obs, 0. * targets_OI,) ,dim=1)
-            new_masks = torch.cat( (new_masks, torch.zeros_like(inputs_Mask)), dim=1)
         
         if self.use_sst_state :
             obs = torch.cat( (obs,sst_gt,) ,dim=1)
             new_masks = torch.cat( (new_masks, torch.ones_like(inputs_Mask)), dim=1)
+
 
         if self.use_sst_obs :
             new_masks = [ new_masks, torch.ones_like(sst_gt) ]
@@ -2023,13 +2020,12 @@ class LitModelUV(pl.LightningModule):
                     outputs = outputs.detach()
     
                 outputsSLRHR = outputs
-                outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
                 if self.aug_state :
-                    outputs = outputsSLR + outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
+                    outputs = outputsSLRHR[:,2*self.hparams.dT:3*self.hparams.dT, :, :]
                     outputs_u = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
                     outputs_v = outputsSLRHR[:, 4*self.hparams.dT:5*self.hparams.dT, :, :]
                 else:
-                    outputs = outputsSLR + outputsSLRHR[:, self.hparams.dT:2*self.hparams.dT, :, :]
+                    outputs = outputsSLRHR[:, :self.hparams.dT, :, :]
                     outputs_u = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
                     outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
 
@@ -2101,22 +2097,6 @@ class LitModelUV(pl.LightningModule):
                         div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
                         div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
                                                 
-                        #self.sig_filter_div_diag = 0.
-                        #div_gt,curl_gt,strain_gt    = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
-                        #div_rec,curl_rec,strain_rec = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
-
-                        if 1*0 : 
-                            _div_gt,_curl_gt,_strain_gt  = compute_div_curl_strain_with_lat_lon(u_gt_wo_nan[0,:,:,:].detach().cpu().numpy(),v_gt_wo_nan[0,:,:,:].detach().cpu().numpy(),lat_rad[0,:].detach().cpu().numpy(),lon_rad[0,:].detach().cpu().numpy(),sigma=self.sig_filter_div_diag)
-                            _div_rec,_curl_rec,_strain_rec = compute_div_curl_strain_with_lat_lon(outputs_u[0,:,:,:].detach().cpu().numpy(),outputs_v[0,:,:,:].detach().cpu().numpy(),lat_rad[0,:].detach().cpu().numpy(),lon_rad[0,:].detach().cpu().numpy(),sigma=self.sig_filter_div_diag)    
-    
-                            print('.. div var exp = %f'%( 100. * ( 1. - torch.mean( (div_rec[:,3,20:220,20:220]-div_gt[:,3,20:220,20:220])**2 / torch.var( div_gt[:,3,20:220,20:220] ) ) ) ))             
-                            print('.. strain var exp = %f'%( 100. * ( 1. - torch.mean( (strain_rec[:,3,20:220,20:220]-strain_gt[:,3,20:220,20:220])**2 / torch.var( strain_gt[:,3,20:220,20:220] ) ) ) ))             
-                            print('.. curl var exp = %f'%( 100. * ( 1. - torch.mean( (curl_rec[:,3,20:220,20:220]-curl_gt[:,3,20:220,20:220])**2 / torch.var( curl_gt[:,3,20:220,20:220] ) ) ) ))             
-        
-                            print('.. 2 div var exp = %f'%( 100. * ( 1. - np.mean( (_div_rec[3,20:220,20:220]-_div_gt[3,20:220,20:220])**2 / np.var( _div_gt[3,20:220,20:220] ) ) ) ))             
-                            print('.. 2 strain var exp = %f'%( 100. * ( 1. - np.mean( (_strain_rec[3,20:220,20:220]-_strain_gt[3,20:220,20:220])**2 / np.var( _strain_gt[3,20:220,20:220] ) ) ) ))             
-                            print('.. 2 curl var exp = %f'%( 100. * ( 1. - np.mean( (_curl_rec[3,20:220,20:220]-_curl_gt[3,20:220,20:220])**2 / np.var( _curl_gt[3,20:220,20:220] ) ) ) ))             
-
                     else:
                         div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div )
                         div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div )
@@ -2136,12 +2116,9 @@ class LitModelUV(pl.LightningModule):
     
                 # reconstruction losses
                 # projection losses    
-                yGT = torch.cat((targets_OI,
-                                 targets_GT_wo_nan - outputsSLR),
-                                dim=1)
+                yGT = targets_GT_wo_nan
                 if self.aug_state :
-                    yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
-                
+                    yGT = torch.cat((yGT, targets_GT_wo_nan ), dim=1)                
                 yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
                            
                 if self.use_sst_state :
@@ -2164,10 +2141,7 @@ class LitModelUV(pl.LightningModule):
                     
 
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
-                loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
-                    yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
-                )
-                #print('  %f'%torch.mean( w_sampling_uv ))
+                loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(yGT, outputsSLRHR)
                 
                 if self.model_sampling_uv is not None :
                     loss_l1_sampling_uv = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) *  torch.mean( w_sampling_uv )
@@ -2184,7 +2158,6 @@ class LitModelUV(pl.LightningModule):
                     loss += self.hparams.alpha_mse_strain *loss_strain
                     
                 loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
-                loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
                 if self.model_sampling_uv is not None :
                     loss += self.hparams.alpha_sampling_uv * loss_l1_sampling_uv
 
@@ -2194,9 +2167,9 @@ class LitModelUV(pl.LightningModule):
             else:
                 outputs = self.model.phi_r(obs)
                                 
-                outputs_u = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
-                outputs_v = outputs[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
-                outputs = outputs[:, 0:self.hparams.dT, :, :] + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
+                outputs_u = outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
+                outputs_v = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
+                outputs = outputs[:, 0:self.hparams.dT, :, :]
                     
                 div_rec =  self.compute_div(outputs_u,outputs_v)
                 div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
