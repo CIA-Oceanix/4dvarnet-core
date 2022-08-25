@@ -623,10 +623,10 @@ def get_cropped_hanning_mask_ronan(patch_size, crop, **kwargs):
     #t_msk =kornia.filters.get_hanning_kernel1d(patch_size['time'])
     t_msk1 = kornia.filters.get_hanning_kernel1d(crop['time'])
     print(t_msk1,flush=True) 
-    t_msk = torch.cat( (torch.Tensor.new_zeros((_crop['time'])),t_msk1,torch.Tensor.new_zeros((_crop['time']))) , dim=0)
+    print(t_msk1.size(),flush=True) 
+    t_msk = torch.cat( (torch.Tensor.new_zeros((_crop['time'],)),t_msk1,torch.Tensor.new_zeros((_crop['time'],))) , dim=0)
     print(t_msk,flush=True) 
     print(t_msk.size(),flush=True) 
-    print(t_msk1.size(),flush=True) 
     
      
     patch_weight = t_msk[:, None, None] * pw
