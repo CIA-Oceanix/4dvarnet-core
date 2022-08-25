@@ -612,6 +612,20 @@ def get_cropped_hanning_mask(patch_size, crop, **kwargs):
     patch_weight = t_msk[:, None, None] * pw
     return patch_weight.cpu().numpy()
 
+def get_cropped_hanning_mask_ronan(patch_size, crop, **kwargs):
+    _crop = np.copy( crop )
+    print(_crop)
+    _crop[0] = int( (patch_size['time'] - _crop[0]) / 2 )
+    print(_crop)
+    
+    pw = get_constant_crop(patch_size, _crop)
+        
+    #t_msk =kornia.filters.get_hanning_kernel1d(patch_size['time'])
+    t_msk = np.zeros((patch_size['time']))
+    t_msk[_crop[0]:patch_size['time']-_crop[0]] = kornia.filters.get_hanning_kernel1d(crop[0])
+    
+    patch_weight = t_msk[:, None, None] * pw
+    return patch_weight.cpu().numpy()
 
 class Div_uv(torch.nn.Module):
     def __init__(self,_filter='diff-non-centered'):

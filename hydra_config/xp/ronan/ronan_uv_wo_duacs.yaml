@@ -7,7 +7,7 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_146/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT07-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=197-val_loss=1.4766.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_146/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT31-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=117-val_loss=2.3523.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_146/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT21-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=93-val_loss=2.0468.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_148/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT11-nowgeo-nodivstrain-grad_05_03_150-epoch=15-val_loss=2.6993.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_148/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT11-nowgeo-nodivstrain-grad_05_03_150-epoch=15-val_loss=2.6993.ckpt'
 params:
   flag_update_training_config: False # True # 
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
@@ -22,10 +22,10 @@ params:
   use_sst_obs: False # 
   use_sst_state: False # True # 
   patch_weight:
-    _target_: lit_model_uv_wo_duacs.get_cropped_hanning_mask
+    _target_: lit_model_uv_wo_duacs.get_cropped_hanning_mask_ronan
     patch_size: ${datamodule.slice_win}
     crop:
-      time: 1
+      time: 5
   val_diag_freq: 5 
   padding_mode: reflect
   residual_wrt_geo_velocities: 0 #False #
