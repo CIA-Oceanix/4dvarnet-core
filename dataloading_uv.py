@@ -497,6 +497,11 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             pp='std'
     ):
         super().__init__()
+        
+        print('.... resize_factor %d'%resize_factor,flush=True)
+        print('XXXXXXXXXXXXXXXXXXX')
+        print('')
+        
         self.resize_factor = resize_factor
         self.aug_train_data = aug_train_data
         self.dim_range = dim_range
