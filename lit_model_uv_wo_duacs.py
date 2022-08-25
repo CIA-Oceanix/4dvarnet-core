@@ -2172,6 +2172,8 @@ class LitModelUV(pl.LightningModule):
   
                 # reconstruction losses compute on full-resolution field during test/val epoch
                 if (phase == 'val') or (phase == 'test'):                    
+                    self.patch_weight = self.patch_weight_diag
+                    
                     if self.scale_dwscaling > 1.0 :
                         outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
                         outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_dwscaling, mode='bicubic')
@@ -2187,7 +2189,6 @@ class LitModelUV(pl.LightningModule):
                         
                         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
     
-                        self.patch_weight = self.patch_weight_diag
 
                 # U,V prediction
                 if self.residual_wrt_geo_velocities == 1 :
@@ -2322,6 +2323,8 @@ class LitModelUV(pl.LightningModule):
 
                 # reconstruction losses compute on full-resolution field during test/val epoch
                 if (phase == 'val') or (phase == 'test'):                    
+                    self.patch_weight = self.patch_weight_diag
+                    
                     if self.scale_dwscaling > 1.0 :
                         outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
                         outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_dwscaling, mode='bicubic')
@@ -2337,7 +2340,6 @@ class LitModelUV(pl.LightningModule):
                         
                         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
     
-                        self.patch_weight = self.patch_weight_diag
 
                 loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
                 loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
