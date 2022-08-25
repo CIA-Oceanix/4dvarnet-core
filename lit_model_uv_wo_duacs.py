@@ -617,7 +617,7 @@ def get_cropped_hanning_mask_ronan(patch_size, crop, **kwargs):
     print(patch_size)
     print(patch_size['time'])
     print(_crop,flush=True)
-    _crop[0] = int( (patch_size['time'] - _crop[0]) / 2 )
+    _crop['time'] = int( (patch_size['time'] - _crop['time']) / 2 )
     print(_crop)
     
     pw = get_constant_crop(patch_size, _crop)
