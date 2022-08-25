@@ -2033,7 +2033,6 @@ class LitModelUV(pl.LightningModule):
             obs = torch.cat( (obs,sst_gt,) ,dim=1)
             new_masks = torch.cat( (new_masks, torch.ones_like(inputs_Mask)), dim=1)
 
-
         if self.use_sst_obs :
             new_masks = [ new_masks, torch.ones_like(sst_gt) ]
             obs = [ obs, sst_gt ]
@@ -2212,7 +2211,6 @@ class LitModelUV(pl.LightningModule):
                         print('..  loss uv geo = %e' % ( self.hparams.alpha_mse_uv_geo * loss_uv_geo ) )                     
                         print('..  loss gssh = %e' % (self.hparams.alpha_mse_gssh * loss_GAll) )                     
                     
-
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
                 
                 if self.model_sampling_uv is not None :
