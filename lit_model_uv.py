@@ -2301,15 +2301,35 @@ class LitModelUV(pl.LightningModule):
                 outputs_v = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
                 outputs = outputs[:, 0:self.hparams.dT, :, :]
                     
-                div_rec =  self.compute_div(outputs_u,outputs_v)
-                div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
-                loss_div = self.div_loss( div_rec , div_gt ) 
+                if self.type_div_train_loss == 0 :
+                    div_rec = self.compute_div(outputs_u,outputs_v)
+                    div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
+                    
+                    loss_div = self.div_loss( div_rec , div_gt )
+                    loss_strain = 0.
+                else:                                        
+                    lat_rad = torch.deg2rad(lat)
+                    lon_rad = torch.deg2rad(lon)
+                                        
+                    if ( (phase == 'val') or (phase == 'test') ) :
+                        div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
+                        div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
+                                                 
+                    else:
+                        div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div )
+                        div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div )
  
                 loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
                 loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
                 
                 loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
-                loss += self.hparams.alpha_mse_uv * loss_uv + self.hparams.alpha_mse_div * loss_div
+                loss += self.hparams.alpha_mse_uv * loss_uv
+                if self.hparams.alpha_mse_div > 0. :
+                    loss += self.hparams.alpha_mse_div * loss_div
+                    
+                if self.hparams.alpha_mse_strain > 0. :
+                    loss += self.hparams.alpha_mse_strain *loss_strain
+
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
                 
                 outputsSLRHR = None #0. * outputs
