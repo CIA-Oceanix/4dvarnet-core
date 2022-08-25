@@ -2082,8 +2082,6 @@ class LitModelUV(pl.LightningModule):
                     outputs_u = outputsSLRHR[:, 1*self.hparams.dT:2*self.hparams.dT, :, :]
                     outputs_v = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
 
-
-
                 # reconstruction losses
                 # projection losses    
                 if (phase == 'val') or (phase == 'test'):
@@ -2164,11 +2162,6 @@ class LitModelUV(pl.LightningModule):
                     u_geo_gt, v_geo_gt = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
 
                     u_geo_factor, v_geo_factor = self.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.) 
-
-                    #print( outputs_u.size() )
-                    ##print( outputs_v.size() )
-                    #print( u_geo_factor.size() )
-                    #print( v_geo_factor.size() , flush = True )
 
                     alpha_uv_geo = 0.05
                     outputs_u = alpha_uv_geo * u_geo_factor * outputs_u
@@ -2253,11 +2246,26 @@ class LitModelUV(pl.LightningModule):
                 outputs_u = outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
                 outputs_v = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
                 outputs = outputs[:, 0:self.hparams.dT, :, :]
-                    
-                #div_rec =  self.compute_div(outputs_u,outputs_v)
-                #div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
-                #loss_div = self.div_loss( div_rec , div_gt ) 
- 
+
+                # reconstruction losses compute on full-resolution field during test/val epoch
+                if (phase == 'val') or (phase == 'test'):                    
+                    if self.scale_dwscaling > 1.0 :
+                        outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
+                        outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_dwscaling, mode='bicubic')
+                        outputs_v = torch.nn.functional.interpolate(outputs_v, scale_factor=self.scale_dwscaling, mode='bicubic')
+
+                        if not self.use_sst:
+                            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
+                        else:
+                            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
+                        targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
+                        u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
+                        v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
+                        
+                        g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
+    
+                        self.patch_weight = self.patch_weight_diag
+
                 loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
                 loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
 
