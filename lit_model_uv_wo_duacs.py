@@ -502,7 +502,7 @@ def get_4dvarnet_sst(hparams):
                 return NN_4DVar.Solver_Grad_4DVarNN(
                             Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                                 hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
-                            Model_HwithSSTBN_nolin_tanh_wo_duacs(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat),
+                            Model_HwithSSTBN_nolin_tanh_wo_duacs(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat,dt_sst_obs=hparams.dt_sst_obs),
                             NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                                 hparams.dim_grad_solver, hparams.dropout),
                             hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
@@ -750,10 +750,12 @@ class Model_HwithSSTBN_nolin_tanh_wo_duacs(torch.nn.Module):
     def __init__(self,shape_data, dT=5,dim=5,width_kernel=3,padding_mode='reflect',dt_sst_obs=-1):
         super(Model_HwithSSTBN_nolin_tanh_wo_duacs, self).__init__()
 
+        print('..... model H: dt_sst_obs = %d'%dt_sst_obs)
         self.dim_obs = 2
         self.dim_obs_channel = np.array([shape_data, dim])
         if ( dt_sst_obs == -1 ) or (dt_sst_obs > dT) :
             self.dt_sst_obs = dT
+            self.dt_crop = 0
         else:
             self.dt_sst_obs = dt_sst_obs
             self.dt_crop = int( (dT - self.dt_sst_obs ) / 2 )
