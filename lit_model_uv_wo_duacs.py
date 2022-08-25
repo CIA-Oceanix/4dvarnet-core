@@ -614,7 +614,9 @@ def get_cropped_hanning_mask(patch_size, crop, **kwargs):
 
 def get_cropped_hanning_mask_ronan(patch_size, crop, **kwargs):
     _crop = np.copy( crop )
-    print(_crop)
+    print(patch_size)
+    print(patch_size['time'])
+    print(_crop,flush=True)
     _crop[0] = int( (patch_size['time'] - _crop[0]) / 2 )
     print(_crop)
     
