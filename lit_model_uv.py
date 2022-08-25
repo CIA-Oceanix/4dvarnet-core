@@ -2342,7 +2342,9 @@ class LitModelUV(pl.LightningModule):
                         div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div )
                         div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div )
  
-                
+                    loss_div = self.div_loss( div_rec , div_gt )
+                    loss_strain = self.strain_loss( strain_rec , strain_gt )
+               
                 loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
                 loss += self.hparams.alpha_mse_uv * loss_uv
                 if self.hparams.alpha_mse_div > 0. :
