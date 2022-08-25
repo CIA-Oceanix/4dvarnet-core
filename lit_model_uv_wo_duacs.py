@@ -621,7 +621,7 @@ def get_cropped_hanning_mask_ronan(patch_size, crop, **kwargs):
     pw = get_constant_crop(patch_size, _crop)
         
     #t_msk =kornia.filters.get_hanning_kernel1d(patch_size['time'])
-    t_msk = np.zeros((patch_size['time']))
+    t_msk = torch.zeros((patch_size['time']))
     t_msk[_crop['time']:patch_size['time']-_crop['time']] = kornia.filters.get_hanning_kernel1d(crop['time'])
     
     patch_weight = t_msk[:, None, None] * pw
