@@ -625,15 +625,13 @@ def get_cropped_hanning_mask_ronan(patch_size, crop, **kwargs):
     t_msk  = np.zeros((patch_size['time'],))
     t_msk[_crop['time']:patch_size['time']-_crop['time']] = t_msk1.cpu().numpy()
     t_msk = torch.Tensor( t_msk )
+
+    #print(t_msk1,flush=True) 
+    #print()
+    #print(t_msk1.size(),flush=True) 
+    #print(t_msk,flush=True) 
+    #print(t_msk.size(),flush=True) 
     
-    
-    print(t_msk1,flush=True) 
-    print()
-    print(t_msk1.size(),flush=True) 
-    print(t_msk,flush=True) 
-    print(t_msk.size(),flush=True) 
-    
-     
     patch_weight = t_msk[:, None, None] * pw
     return patch_weight.cpu().numpy()
 
