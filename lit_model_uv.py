@@ -2318,7 +2318,8 @@ class LitModelUV(pl.LightningModule):
                         
                         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
     
-                        self.patch_weight = self.patch_weight_diag
+                    self.patch_weight = self.patch_weight_diag
+                    
 
                 loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
                 loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
