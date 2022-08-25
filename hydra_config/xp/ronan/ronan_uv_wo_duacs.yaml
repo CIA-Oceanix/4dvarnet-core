@@ -6,7 +6,7 @@ entrypoint:
    weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_146/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT07-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=122-val_loss=1.5874.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_146/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT21-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=93-val_loss=2.0468.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_148/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT11-nowgeo-nodivstrain-grad_05_03_150-epoch=15-val_loss=2.6993.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_148/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT11-nowgeo-nodivstrain-grad_05_03_150-epoch=15-val_loss=2.6993.ckpt'
 params:
   flag_update_training_config: False # True # 
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
@@ -19,7 +19,7 @@ params:
   phi_param: 'unet1'#'unet-std'#
   ckpt_name: 'modelUVwSSTGF_woDUACS-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
   use_sst_obs: False # 
-  use_sst_state: True # False
+  use_sst_state: False # True # 
   patch_weight:
     _target_: lit_model_uv_wo_duacs.get_cropped_hanning_mask
     patch_size: ${datamodule.slice_win}
@@ -48,8 +48,9 @@ datamodule:
 defaults:
   - /xp/ronan/base_xp_uv_wo_duacs
   - /splits/dc_boost_swot@datamodule
+  - /xp/xp_aug/aug/with_state_uv_wo_duacs
 #  - /xp/xp_aug/aug/with_aug_state_uv_wo_duacs
-  - /xp/xp_aug/aug/with_mm_aug_state_uv_wo_duacs
+#  - /xp/xp_aug/aug/with_mm_aug_state_uv_wo_duacs
   - /xp/xp_aug/dl/d240_p240x5_s240x1
   - /xp/xp_aug/sst/with_sst
   - /xp/xp_aug/loss/map
