@@ -613,7 +613,7 @@ def get_cropped_hanning_mask(patch_size, crop, **kwargs):
     return patch_weight.cpu().numpy()
 
 def get_cropped_hanning_mask_ronan(patch_size, crop, **kwargs):
-    _crop = np.copy( crop )
+    _crop = 1. * crop
     print(patch_size)
     print(patch_size['time'])
     print(_crop,flush=True)
