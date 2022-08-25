@@ -2301,6 +2301,28 @@ class LitModelUV(pl.LightningModule):
                 outputs_v = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
                 outputs = outputs[:, 0:self.hparams.dT, :, :]
                     
+                # reconstruction losses compute on full-resolution field during test/val epoch
+                if (phase == 'val') or (phase == 'test'):                    
+                    if self.scale_dwscaling > 1.0 :
+                        outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
+                        outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_dwscaling, mode='bicubic')
+                        outputs_v = torch.nn.functional.interpolate(outputs_v, scale_factor=self.scale_dwscaling, mode='bicubic')
+
+                        if not self.use_sst:
+                            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
+                        else:
+                            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
+                        targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
+                        u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
+                        v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
+                        
+                        g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
+    
+                        self.patch_weight = self.patch_weight_diag
+
+                loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
+                loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
+
                 if self.type_div_train_loss == 0 :
                     div_rec = self.compute_div(outputs_u,outputs_v)
                     div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
@@ -2319,8 +2341,6 @@ class LitModelUV(pl.LightningModule):
                         div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div )
                         div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div )
  
-                loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
-                loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
                 
                 loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
                 loss += self.hparams.alpha_mse_uv * loss_uv
