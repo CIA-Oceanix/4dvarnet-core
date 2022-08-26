@@ -167,6 +167,8 @@ class FourDVarNetHydraRunner:
                     mod.hparams.type_div_train_loss = self.cfg.type_div_train_loss
                     mod.hparams.alpha_mse_div = self.cfg.alpha_mse_div
                     mod.hparams.alpha_mse_strain = self.cfg.alpha_mse_strain
+                    print('.... Update sst resolution: %d'%self.cfg.scale_dwscaling_sst)
+                    mod.hparams.scale_dwscaling_sst = self.cfg.scale_dwscaling_sst
                     #mod.hparams.thr_l1_sampling_uv =  self.cfg.thr_l1_sampling_uv
 
         return mod

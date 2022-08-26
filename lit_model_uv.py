@@ -1026,12 +1026,14 @@ class LitModelUV(pl.LightningModule):
         
         old_suffix = '-{epoch:02d}-{val_loss:.4f}'
 
-
         suffix_chkpt = '-'+self.hparams.phi_param+'_%03d-augdata'%self.hparams.DimAE
         
         if self.scale_dwscaling > 1.0 :
             suffix_chkpt = suffix_chkpt+'-dws%02d'%int(self.scale_dwscaling)
 
+        if self.scale_dwscaling_sst > 1. :
+            suffix_chkpt = suffix_chkpt+'-dws-sst%02d'%int(self.scale_dwscaling_sst)
+            
         if self.model_sampling_uv is not None:
             suffix_chkpt = suffix_chkpt+'-sampling_sst_%d_%03d'%(self.hparams.nb_feat_sampling_operator,int(100*self.hparams.thr_l1_sampling_uv))
         
