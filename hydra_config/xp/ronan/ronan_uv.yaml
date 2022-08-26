@@ -75,7 +75,7 @@ params:
   nb_feat_sampling_operator: 0
   alpha_sampling_uv: 10.
   thr_l1_sampling_uv: 0.10
-  scale_dwscaling_sst: 2.
+  scale_dwscaling_sst: ??
 datamodule:
   aug_train_data: True 
 defaults:
