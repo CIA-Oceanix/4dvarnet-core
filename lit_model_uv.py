@@ -1066,6 +1066,13 @@ class LitModelUV(pl.LightningModule):
                 suffix_chkpt = suffix_chkpt+'-DirectInv'
             suffix_chkpt = suffix_chkpt+'-dT%02d'%(self.hparams.dT)
                 
+            if ( self.hparams.alpha_mse_strain == 0. ) | ( self.hparams.alpha_mse_div == 0. ) :
+                if ( self.hparams.alpha_mse_strain == 0. ) & ( self.hparams.alpha_mse_div == 0. ) :                    
+                    suffix_chkpt = suffix_chkpt+'-nodivstrain'
+                elif self.hparams.alpha_mse_strain == 0. :                    
+                    suffix_chkpt = suffix_chkpt+'-nostrain'
+                else :                    
+                    suffix_chkpt = suffix_chkpt+'-nodiv'
         suffix_chkpt = suffix_chkpt+old_suffix
         
         return filename_chkpt.replace(old_suffix,suffix_chkpt)
