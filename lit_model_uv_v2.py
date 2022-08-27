@@ -2086,7 +2086,7 @@ class LitModelUV(pl.LightningModule):
         
         return obs,new_masks
 
-    def run_model(self,state, obs, new_masks,state_init,phase):
+    def run_model(self,state, obs, new_masks,state_init,lat_rad,lon_rad,phase):
         state = torch.autograd.Variable(state, requires_grad=True)
 
         outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
@@ -2104,6 +2104,59 @@ class LitModelUV(pl.LightningModule):
             outputs = outputsSLR + outputsSLRHR[:, self.hparams.dT:2*self.hparams.dT, :, :]
             outputs_u = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
             outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
+
+        # U,V prediction
+        if self.residual_wrt_geo_velocities == 1 :
+            #lat_rad = torch.deg2rad(lat)
+            #lon_rad = torch.deg2rad(lon)
+            
+            # denormalize ssh
+            u_geo_rec , v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
+            #u_geo_gt  , v_geo_gt  = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
+
+            outputs_u = outputs_u + u_geo_rec
+            outputs_v = outputs_v + v_geo_rec
+            
+        elif self.residual_wrt_geo_velocities == 2 : 
+            #lat_rad = torch.deg2rad(lat)
+            #lon_rad = torch.deg2rad(lon)
+            
+            # denormalize ssh
+            u_geo_rec, v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
+            #u_geo_gt, v_geo_gt = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
+
+            u_geo_factor, v_geo_factor = self.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.) 
+
+            alpha_uv_geo = 0.05
+            outputs_u = alpha_uv_geo * u_geo_factor * outputs_u
+            outputs_v = alpha_uv_geo * v_geo_factor * outputs_v
+
+            #print('%f %f'%(np.mean(u_geo_factor.detach().cpu().numpy()),np.mean(v_geo_factor.detach().cpu().numpy())))
+        elif self.residual_wrt_geo_velocities == 3 :
+            #lat_rad = torch.deg2rad(lat)
+            #lon_rad = torch.deg2rad(lon)
+            
+            # denormalize ssh
+            u_geo_rec , v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
+            #u_geo_gt  , v_geo_gt  = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
+
+            alpha_uv_geo = 0.05
+            outputs_u = alpha_uv_geo * outputs_u + u_geo_rec
+            outputs_v = alpha_uv_geo * outputs_v + v_geo_rec
+        elif self.residual_wrt_geo_velocities == 4 : 
+            #lat_rad = torch.deg2rad(lat)
+            #lon_rad = torch.deg2rad(lon)
+            
+            # denormalize ssh
+            u_geo_rec, v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
+            #u_geo_gt, v_geo_gt = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
+
+            u_geo_factor, v_geo_factor = self.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.) 
+
+            alpha_uv_geo = 0.05
+            outputs_u = alpha_uv_geo * u_geo_factor * outputs_u
+            outputs_v = alpha_uv_geo * v_geo_factor * outputs_v
+
         
         return outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad
 
@@ -2172,64 +2225,67 @@ class LitModelUV(pl.LightningModule):
             flag_display_loss = False#True
             
             if self.hparams.n_grad > 0 :                
-                outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad = self.run_model(state, obs, new_masks,state_init,phase)
+                outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad = self.run_model(state, obs, new_masks,state_init,
+                                                                                                                         lat_rad,lon_rad,phase)
                         
                 # projection losses
                 loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss(targets_OI,targets_GT_wo_nan, 
                                                                               u_gt_wo_nan, v_gt_wo_nan,outputs, 
                                                                               outputsSLR, outputsSLRHR,phase)
                 
-                # U,V prediction
-                if self.residual_wrt_geo_velocities == 1 :
-                    #lat_rad = torch.deg2rad(lat)
-                    #lon_rad = torch.deg2rad(lon)
-                    
-                    # denormalize ssh
-                    u_geo_rec , v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
-                    u_geo_gt  , v_geo_gt  = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
-
-                    outputs_u = outputs_u + u_geo_rec
-                    outputs_v = outputs_v + v_geo_rec
-                    
-                elif self.residual_wrt_geo_velocities == 2 : 
-                    #lat_rad = torch.deg2rad(lat)
-                    #lon_rad = torch.deg2rad(lon)
-                    
-                    # denormalize ssh
-                    u_geo_rec, v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
-                    u_geo_gt, v_geo_gt = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
-
-                    u_geo_factor, v_geo_factor = self.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.) 
-
-                    alpha_uv_geo = 0.05
-                    outputs_u = alpha_uv_geo * u_geo_factor * outputs_u
-                    outputs_v = alpha_uv_geo * v_geo_factor * outputs_v
-
-                    #print('%f %f'%(np.mean(u_geo_factor.detach().cpu().numpy()),np.mean(v_geo_factor.detach().cpu().numpy())))
-                elif self.residual_wrt_geo_velocities == 3 :
-                    #lat_rad = torch.deg2rad(lat)
-                    #lon_rad = torch.deg2rad(lon)
-                    
-                    # denormalize ssh
-                    u_geo_rec , v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
-                    u_geo_gt  , v_geo_gt  = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
-
-                    alpha_uv_geo = 0.05
-                    outputs_u = alpha_uv_geo * outputs_u + u_geo_rec
-                    outputs_v = alpha_uv_geo * outputs_v + v_geo_rec
-                elif self.residual_wrt_geo_velocities == 4 : 
-                    #lat_rad = torch.deg2rad(lat)
-                    #lon_rad = torch.deg2rad(lon)
-                    
-                    # denormalize ssh
-                    u_geo_rec, v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
-                    u_geo_gt, v_geo_gt = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
-
-                    u_geo_factor, v_geo_factor = self.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.) 
-
-                    alpha_uv_geo = 0.05
-                    outputs_u = alpha_uv_geo * u_geo_factor * outputs_u
-                    outputs_v = alpha_uv_geo * v_geo_factor * outputs_v
+                if 1*0 :
+                
+                    # U,V prediction
+                    if self.residual_wrt_geo_velocities == 1 :
+                        #lat_rad = torch.deg2rad(lat)
+                        #lon_rad = torch.deg2rad(lon)
+                        
+                        # denormalize ssh
+                        u_geo_rec , v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
+                        u_geo_gt  , v_geo_gt  = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
+    
+                        outputs_u = outputs_u + u_geo_rec
+                        outputs_v = outputs_v + v_geo_rec
+                        
+                    elif self.residual_wrt_geo_velocities == 2 : 
+                        #lat_rad = torch.deg2rad(lat)
+                        #lon_rad = torch.deg2rad(lon)
+                        
+                        # denormalize ssh
+                        u_geo_rec, v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
+                        u_geo_gt, v_geo_gt = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
+    
+                        u_geo_factor, v_geo_factor = self.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.) 
+    
+                        alpha_uv_geo = 0.05
+                        outputs_u = alpha_uv_geo * u_geo_factor * outputs_u
+                        outputs_v = alpha_uv_geo * v_geo_factor * outputs_v
+    
+                        #print('%f %f'%(np.mean(u_geo_factor.detach().cpu().numpy()),np.mean(v_geo_factor.detach().cpu().numpy())))
+                    elif self.residual_wrt_geo_velocities == 3 :
+                        #lat_rad = torch.deg2rad(lat)
+                        #lon_rad = torch.deg2rad(lon)
+                        
+                        # denormalize ssh
+                        u_geo_rec , v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
+                        u_geo_gt  , v_geo_gt  = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
+    
+                        alpha_uv_geo = 0.05
+                        outputs_u = alpha_uv_geo * outputs_u + u_geo_rec
+                        outputs_v = alpha_uv_geo * outputs_v + v_geo_rec
+                    elif self.residual_wrt_geo_velocities == 4 : 
+                        #lat_rad = torch.deg2rad(lat)
+                        #lon_rad = torch.deg2rad(lon)
+                        
+                        # denormalize ssh
+                        u_geo_rec, v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
+                        u_geo_gt, v_geo_gt = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
+    
+                        u_geo_factor, v_geo_factor = self.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.) 
+    
+                        alpha_uv_geo = 0.05
+                        outputs_u = alpha_uv_geo * u_geo_factor * outputs_u
+                        outputs_v = alpha_uv_geo * v_geo_factor * outputs_v
 
                 # reconstruction losses compute on full-resolution field during test/val epoch
                 if (phase == 'val') or (phase == 'test'):                    
