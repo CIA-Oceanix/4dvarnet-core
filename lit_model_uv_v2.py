@@ -2105,7 +2105,7 @@ class LitModelUV(pl.LightningModule):
             outputs_u = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
             outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
         
-        return outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR
+        return outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad
 
     def compute_loss(self, batch, phase, state_init=(None,)):
         
@@ -2155,7 +2155,7 @@ class LitModelUV(pl.LightningModule):
             flag_display_loss = False#True
             
             if self.hparams.n_grad > 0 :                
-                outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR = self.run_model(state, obs, new_masks,state_init,phase)
+                outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad = self.run_model(state, obs, new_masks,state_init,phase)
         
                 if 1*0 :
                     state = torch.autograd.Variable(state, requires_grad=True)
