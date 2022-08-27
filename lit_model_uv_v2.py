@@ -2173,66 +2173,12 @@ class LitModelUV(pl.LightningModule):
             
             if self.hparams.n_grad > 0 :                
                 outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad = self.run_model(state, obs, new_masks,state_init,phase)
-        
-                if 1*0 :
-                    state = torch.autograd.Variable(state, requires_grad=True)
-    
-                    outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
-        
-                    if (phase == 'val') or (phase == 'test'):
-                        outputs = outputs.detach()
-        
-                    outputsSLRHR = outputs
-                    outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
-                    if self.aug_state :
-                        outputs = outputsSLR + outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
-                        outputs_u = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
-                        outputs_v = outputsSLRHR[:, 4*self.hparams.dT:5*self.hparams.dT, :, :]
-                    else:
-                        outputs = outputsSLR + outputsSLRHR[:, self.hparams.dT:2*self.hparams.dT, :, :]
-                        outputs_u = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
-                        outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
-
-                
+                        
                 # projection losses
                 loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss(targets_OI,targets_GT_wo_nan, 
                                                                               u_gt_wo_nan, v_gt_wo_nan,outputs, 
                                                                               outputsSLR, outputsSLRHR,phase)
                 
-                if 1* 0: 
-                    yGT = torch.cat((targets_OI,
-                                     targets_GT_wo_nan - outputsSLR),
-                                    dim=1)
-                    if self.aug_state :
-                        yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
-                    
-                    if (phase == 'val') or (phase == 'test'):
-                        self.patch_weight = self.patch_weight_train
-                                            
-                    yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
-                    loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
-                        yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
-                    )
-
-                # reconstruction losses compute on full-resolution field during test/val epoch
-                if (phase == 'val') or (phase == 'test'):                    
-                    if self.scale_dwscaling > 1.0 :
-                        outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
-                        outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_dwscaling, mode='bicubic')
-                        outputs_v = torch.nn.functional.interpolate(outputs_v, scale_factor=self.scale_dwscaling, mode='bicubic')
-
-                        if not self.use_sst:
-                            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
-                        else:
-                            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
-                        targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
-                        u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
-                        v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
-                        
-                        g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
-    
-                        self.patch_weight = self.patch_weight_diag
-                        
                 # U,V prediction
                 if self.residual_wrt_geo_velocities == 1 :
                     #lat_rad = torch.deg2rad(lat)
@@ -2284,6 +2230,26 @@ class LitModelUV(pl.LightningModule):
                     alpha_uv_geo = 0.05
                     outputs_u = alpha_uv_geo * u_geo_factor * outputs_u
                     outputs_v = alpha_uv_geo * v_geo_factor * outputs_v
+
+                # reconstruction losses compute on full-resolution field during test/val epoch
+                if (phase == 'val') or (phase == 'test'):                    
+                    if self.scale_dwscaling > 1.0 :
+                        outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
+                        outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_dwscaling, mode='bicubic')
+                        outputs_v = torch.nn.functional.interpolate(outputs_v, scale_factor=self.scale_dwscaling, mode='bicubic')
+
+                        if not self.use_sst:
+                            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
+                        else:
+                            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
+                        targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
+                        u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
+                        v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
+                        
+                        g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
+    
+                        self.patch_weight = self.patch_weight_diag
+                        
                     
                 if self.type_div_train_loss == 0 :
                     div_rec = self.compute_div(outputs_u,outputs_v)
