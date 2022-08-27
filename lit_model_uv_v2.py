@@ -2200,7 +2200,7 @@ class LitModelUV(pl.LightningModule):
             g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
 
             self.patch_weight = self.patch_weight_diag
-        return outputs,outputs_u,outputs_v,targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,g_targets_GT_x,g_targets_GT_y,lat_rad,lon_rad
+        return outputs,outputs_u,outputs_v,targets_OI,targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,g_targets_GT_x,g_targets_GT_y,lat_rad,lon_rad
 
     def compute_loss(self, batch, phase, state_init=(None,)):
         
@@ -2262,7 +2262,7 @@ class LitModelUV(pl.LightningModule):
                 # reconstruction losses compute on full-resolution field during test/val epoch
                 if ( (phase == 'val') or (phase == 'test') ) and (self.scale_dwscaling > 1.0) :
                     _t = self.reinterpolate_outputs(outputs,outputs_u,outputs_v,batch)
-                    outputs,outputs_u,outputs_v,targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,g_targets_GT_x,g_targets_GT_y,lat_rad,lon_rad = _t 
+                    outputs,outputs_u,outputs_v,targets_GT_OI,targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,g_targets_GT_x,g_targets_GT_y,lat_rad,lon_rad = _t 
                     
                     if 1 * 0 :
                         if self.scale_dwscaling > 1.0 :
