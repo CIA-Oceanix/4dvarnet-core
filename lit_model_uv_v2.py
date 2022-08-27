@@ -2038,14 +2038,47 @@ class LitModelUV(pl.LightningModule):
         v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
         
         if not self.use_sst:
-            return targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, u_gt_wo_nan, v_gt_wo_nan, lat, lon
+            sst_gt = None
+            
+        #    return targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, u_gt_wo_nan, v_gt_wo_nan, lat, lon
+        #else:
+        return targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat, lon
+    
+    def get_obs_and_mask(self,targets_OI,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan):
+                
+        if self.model_sampling_uv is not None :
+            w_sampling_uv = self.model_sampling_uv( sst_gt )
+            w_sampling_uv = w_sampling_uv[1]
+            
+            #mask_sampling_uv = torch.bernoulli( w_sampling_uv )
+            mask_sampling_uv = 1. - torch.nn.functional.threshold( 1.0 - w_sampling_uv , 0.9 , 0.)
+            obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI) , u_gt_wo_nan , v_gt_wo_nan ) ,dim=1)
+            
+            #print('%f '%( float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean(w_sampling_uv)) )
         else:
-            return targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat, lon
+            mask_sampling_uv = torch.zeros_like(u_gt_wo_nan) 
+            obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI), 0. * targets_OI ,  0. * targets_OI ) ,dim=1)
+            
+        new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
+
+        if self.aug_state :
+            obs = torch.cat( (obs, 0. * targets_OI,) ,dim=1)
+            new_masks = torch.cat( (new_masks, torch.zeros_like(inputs_Mask)), dim=1)
         
+        if self.use_sst_state :
+            obs = torch.cat( (obs,sst_gt,) ,dim=1)
+            new_masks = torch.cat( (new_masks, torch.ones_like(inputs_Mask)), dim=1)
+
+        if self.use_sst_obs :
+            new_masks = [ new_masks, torch.ones_like(sst_gt) ]
+            obs = [ obs, sst_gt ]
+        
+        return obs,new_masks
 
     def compute_loss(self, batch, phase, state_init=(None,)):
         
         _batch = self.pre_process_batch(batch)
+        targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat, lon = _batch
         
         if 1*0 :
             if self.scale_dwscaling > 1.0 :
@@ -2053,10 +2086,11 @@ class LitModelUV(pl.LightningModule):
             else:
                 _batch = batch
                 
-        if not self.use_sst:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, u_gt_wo_nan, v_gt_wo_nan, lat, lon = _batch
-        else:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat, lon = _batch
+            if not self.use_sst:
+                targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, u_gt_wo_nan, v_gt_wo_nan, lat, lon = _batch
+                sst_gt
+            else:
+                targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat, lon = _batch
 
         #targets_OI, inputs_Mask, targets_GT = batch
         # handle patch with no observation
@@ -2078,7 +2112,7 @@ class LitModelUV(pl.LightningModule):
                     )
         state = self.get_init_state(_batch, state_init)
 
-        #obs,new_masks = self.get_obs_and_mask(targets_OI,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan)
+        obs,new_masks = self.get_obs_and_mask(targets_OI,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan)
 
         if 1*0 :
             if self.scale_dwscaling_sst > 1 :
@@ -2089,33 +2123,34 @@ class LitModelUV(pl.LightningModule):
             u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
             v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
                 
-        if self.model_sampling_uv is not None :
-            w_sampling_uv = self.model_sampling_uv( sst_gt )
-            w_sampling_uv = w_sampling_uv[1]
+        if 1*0 :
+            if self.model_sampling_uv is not None :
+                w_sampling_uv = self.model_sampling_uv( sst_gt )
+                w_sampling_uv = w_sampling_uv[1]
+                
+                #mask_sampling_uv = torch.bernoulli( w_sampling_uv )
+                mask_sampling_uv = 1. - torch.nn.functional.threshold( 1.0 - w_sampling_uv , 0.9 , 0.)
+                obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI) , u_gt_wo_nan , v_gt_wo_nan ) ,dim=1)
+                
+                #print('%f '%( float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean(w_sampling_uv)) )
+            else:
+                mask_sampling_uv = torch.zeros_like(u_gt_wo_nan) 
+                obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI), 0. * targets_OI ,  0. * targets_OI ) ,dim=1)
+                
+            new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
+    
+    
+            if self.aug_state :
+                obs = torch.cat( (obs, 0. * targets_OI,) ,dim=1)
+                new_masks = torch.cat( (new_masks, torch.zeros_like(inputs_Mask)), dim=1)
             
-            #mask_sampling_uv = torch.bernoulli( w_sampling_uv )
-            mask_sampling_uv = 1. - torch.nn.functional.threshold( 1.0 - w_sampling_uv , 0.9 , 0.)
-            obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI) , u_gt_wo_nan , v_gt_wo_nan ) ,dim=1)
-            
-            #print('%f '%( float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean(w_sampling_uv)) )
-        else:
-            mask_sampling_uv = torch.zeros_like(u_gt_wo_nan) 
-            obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI), 0. * targets_OI ,  0. * targets_OI ) ,dim=1)
-            
-        new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
-
-
-        if self.aug_state :
-            obs = torch.cat( (obs, 0. * targets_OI,) ,dim=1)
-            new_masks = torch.cat( (new_masks, torch.zeros_like(inputs_Mask)), dim=1)
-        
-        if self.use_sst_state :
-            obs = torch.cat( (obs,sst_gt,) ,dim=1)
-            new_masks = torch.cat( (new_masks, torch.ones_like(inputs_Mask)), dim=1)
-
-        if self.use_sst_obs :
-            new_masks = [ new_masks, torch.ones_like(sst_gt) ]
-            obs = [ obs, sst_gt ]
+            if self.use_sst_state :
+                obs = torch.cat( (obs,sst_gt,) ,dim=1)
+                new_masks = torch.cat( (new_masks, torch.ones_like(inputs_Mask)), dim=1)
+    
+            if self.use_sst_obs :
+                new_masks = [ new_masks, torch.ones_like(sst_gt) ]
+                obs = [ obs, sst_gt ]
 
         # gradient norm field
         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT_wo_nan)
