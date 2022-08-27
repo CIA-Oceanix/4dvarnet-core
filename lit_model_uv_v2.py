@@ -2044,16 +2044,19 @@ class LitModelUV(pl.LightningModule):
         
 
     def compute_loss(self, batch, phase, state_init=(None,)):
-
-        if self.scale_dwscaling > 1.0 :
-            _batch = self.dwn_sample_batch(batch,scale=self.scale_dwscaling)
-        else:
-            _batch = batch
-            
-        if not self.use_sst:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, u_gt_wo_nan, v_gt_wo_nan, lat, lon = _batch
-        else:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat, lon = _batch
+        
+        _batch = self.pre_process_batch(batch)
+        
+        if 1*0 :
+            if self.scale_dwscaling > 1.0 :
+                _batch = self.dwn_sample_batch(batch,scale=self.scale_dwscaling)
+            else:
+                _batch = batch
+                
+            if not self.use_sst:
+                targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, u_gt_wo_nan, v_gt_wo_nan, lat, lon = _batch
+            else:
+                targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat, lon = _batch
 
         #targets_OI, inputs_Mask, targets_GT = batch
         # handle patch with no observation
@@ -2073,6 +2076,8 @@ class LitModelUV(pl.LightningModule):
                         ('l0_samp', 0.),
                         ('l1_samp', 0.)])
                     )
+        state = self.get_init_state(_batch, state_init)
+
         if 1*0 :
             if self.scale_dwscaling_sst > 1 :
                 sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
@@ -2097,7 +2102,6 @@ class LitModelUV(pl.LightningModule):
             
         new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
 
-        state = self.get_init_state(_batch, state_init)
 
         if self.aug_state :
             obs = torch.cat( (obs, 0. * targets_OI,) ,dim=1)
