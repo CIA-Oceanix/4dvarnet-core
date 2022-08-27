@@ -2107,6 +2107,23 @@ class LitModelUV(pl.LightningModule):
         
         return outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad
 
+    def compute_reg_loss(self,targets_OI,targets_GT_wo_nan, u_gt_wo_nan, v_gt_wo_nan,outputs, outputsSLR, outputsSLRHR,phase):
+        yGT = torch.cat((targets_OI,
+                         targets_GT_wo_nan - outputsSLR),
+                        dim=1)
+        if self.aug_state :
+            yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
+        
+        if (phase == 'val') or (phase == 'test'):
+            self.patch_weight = self.patch_weight_train
+                                
+        yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
+        loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
+            yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
+        )
+        
+        return loss_AE, loss_AE_GT, loss_SR, loss_LR
+
     def compute_loss(self, batch, phase, state_init=(None,)):
         
         _batch = self.pre_process_batch(batch)
@@ -2177,21 +2194,25 @@ class LitModelUV(pl.LightningModule):
                         outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
 
                 
-                # reconstruction losses
-                # projection losses    
-                yGT = torch.cat((targets_OI,
-                                 targets_GT_wo_nan - outputsSLR),
-                                dim=1)
-                if self.aug_state :
-                    yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
+                # projection losses
+                loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss(targets_OI,targets_GT_wo_nan, 
+                                                                              u_gt_wo_nan, v_gt_wo_nan,outputs, 
+                                                                              outputsSLR, outputsSLRHR,phase)
                 
-                if (phase == 'val') or (phase == 'test'):
-                    self.patch_weight = self.patch_weight_train
-                                        
-                yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
-                loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
-                    yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
-                )
+                if 1* 0: 
+                    yGT = torch.cat((targets_OI,
+                                     targets_GT_wo_nan - outputsSLR),
+                                    dim=1)
+                    if self.aug_state :
+                        yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
+                    
+                    if (phase == 'val') or (phase == 'test'):
+                        self.patch_weight = self.patch_weight_train
+                                            
+                    yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
+                    loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
+                        yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
+                    )
 
                 # reconstruction losses compute on full-resolution field during test/val epoch
                 if (phase == 'val') or (phase == 'test'):                    
