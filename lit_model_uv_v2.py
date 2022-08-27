@@ -2233,8 +2233,8 @@ class LitModelUV(pl.LightningModule):
                         
                 # U,V prediction
                 if self.residual_wrt_geo_velocities == 1 :
-                    lat_rad = torch.deg2rad(lat)
-                    lon_rad = torch.deg2rad(lon)
+                    #lat_rad = torch.deg2rad(lat)
+                    #lon_rad = torch.deg2rad(lon)
                     
                     # denormalize ssh
                     u_geo_rec , v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
@@ -2244,8 +2244,8 @@ class LitModelUV(pl.LightningModule):
                     outputs_v = outputs_v + v_geo_rec
                     
                 elif self.residual_wrt_geo_velocities == 2 : 
-                    lat_rad = torch.deg2rad(lat)
-                    lon_rad = torch.deg2rad(lon)
+                    #lat_rad = torch.deg2rad(lat)
+                    #lon_rad = torch.deg2rad(lon)
                     
                     # denormalize ssh
                     u_geo_rec, v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
@@ -2259,8 +2259,8 @@ class LitModelUV(pl.LightningModule):
 
                     #print('%f %f'%(np.mean(u_geo_factor.detach().cpu().numpy()),np.mean(v_geo_factor.detach().cpu().numpy())))
                 elif self.residual_wrt_geo_velocities == 3 :
-                    lat_rad = torch.deg2rad(lat)
-                    lon_rad = torch.deg2rad(lon)
+                    #lat_rad = torch.deg2rad(lat)
+                    #lon_rad = torch.deg2rad(lon)
                     
                     # denormalize ssh
                     u_geo_rec , v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
@@ -2270,8 +2270,8 @@ class LitModelUV(pl.LightningModule):
                     outputs_u = alpha_uv_geo * outputs_u + u_geo_rec
                     outputs_v = alpha_uv_geo * outputs_v + v_geo_rec
                 elif self.residual_wrt_geo_velocities == 4 : 
-                    lat_rad = torch.deg2rad(lat)
-                    lon_rad = torch.deg2rad(lon)
+                    #lat_rad = torch.deg2rad(lat)
+                    #lon_rad = torch.deg2rad(lon)
                     
                     # denormalize ssh
                     u_geo_rec, v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
@@ -2292,8 +2292,8 @@ class LitModelUV(pl.LightningModule):
                     if flag_display_loss :
                         print('\n..  loss div = %e' % (self.hparams.alpha_mse_div *loss_div) )                     
                 else:                                        
-                    lat_rad = torch.deg2rad(lat)
-                    lon_rad = torch.deg2rad(lon)
+                    #lat_rad = torch.deg2rad(lat)
+                    #lon_rad = torch.deg2rad(lon)
                                         
                     if ( (phase == 'val') or (phase == 'test') ) :
                         div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
