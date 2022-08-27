@@ -2094,7 +2094,7 @@ class LitModelUV(pl.LightningModule):
     def compute_loss(self, batch, phase, state_init=(None,)):
         
         _batch = self.pre_process_batch(batch)
-        targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat, lon, g_targets_GT_x, g_targets_GT_y = _batch
+        targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y = _batch
         
         if 1*0 :
             if self.scale_dwscaling > 1.0 :
