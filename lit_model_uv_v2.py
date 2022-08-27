@@ -2067,7 +2067,8 @@ class LitModelUV(pl.LightningModule):
             
             #print('%f '%( float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean(w_sampling_uv)) )
         else:
-            mask_sampling_uv = torch.zeros_like(u_gt_wo_nan) 
+            mask_sampling_uv = torch.zeros_like(u_gt_wo_nan)
+            w_sampling_uv = None
             obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI), 0. * targets_OI ,  0. * targets_OI ) ,dim=1)
             
         new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
@@ -2084,7 +2085,7 @@ class LitModelUV(pl.LightningModule):
             new_masks = [ new_masks, torch.ones_like(sst_gt) ]
             obs = [ obs, sst_gt ]
         
-        return obs,new_masks
+        return obs,new_masks,w_sampling_uv,mask_sampling_uv
 
     def run_model(self,state, obs, new_masks,state_init,lat_rad,lon_rad,phase):
         state = torch.autograd.Variable(state, requires_grad=True)
@@ -2242,7 +2243,7 @@ class LitModelUV(pl.LightningModule):
         state = self.get_init_state(_batch, state_init)
 
         # obs and mask data
-        obs,new_masks = self.get_obs_and_mask(targets_OI,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan)
+        obs,new_masks,w_sampling_uv,mask_sampling_uv = self.get_obs_and_mask(targets_OI,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan)
 
         # run forward_model
         
