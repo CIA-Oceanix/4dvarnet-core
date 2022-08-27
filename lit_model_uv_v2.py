@@ -2177,6 +2177,28 @@ class LitModelUV(pl.LightningModule):
         
         return loss_AE, loss_AE_GT, loss_SR, loss_LR
 
+
+    def reinterpolate_outputs(self,outputs,outputs_u,outputs_v,batch):
+        
+        if not self.use_sst:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
+        else:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
+
+        if self.scale_dwscaling > 1.0 :
+            outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
+            outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_dwscaling, mode='bicubic')
+            outputs_v = torch.nn.functional.interpolate(outputs_v, scale_factor=self.scale_dwscaling, mode='bicubic')
+
+            targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
+            u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
+            v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
+            
+            g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
+
+            self.patch_weight = self.patch_weight_diag
+        return outputs,outputs_u,outputs_v,targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,g_targets_GT_x,g_targets_GT_y
+
     def compute_loss(self, batch, phase, state_init=(None,)):
         
         _batch = self.pre_process_batch(batch)
@@ -2235,23 +2257,27 @@ class LitModelUV(pl.LightningModule):
                 
 
                 # reconstruction losses compute on full-resolution field during test/val epoch
-                if (phase == 'val') or (phase == 'test'):                     
-                    if self.scale_dwscaling > 1.0 :
-                        outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
-                        outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_dwscaling, mode='bicubic')
-                        outputs_v = torch.nn.functional.interpolate(outputs_v, scale_factor=self.scale_dwscaling, mode='bicubic')
-
-                        if not self.use_sst:
-                            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
-                        else:
-                            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
-                        targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
-                        u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
-                        v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
-                        
-                        g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
+                if ( (phase == 'val') or (phase == 'test') ) and (self.scale_dwscaling > 1.0) :
+                    _t = self.reinterpolate_outputs(outputs,outputs_u,outputs_v,batch)
+                    outputs,outputs_u,outputs_v,targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,g_targets_GT_x,g_targets_GT_y = _t 
+                    
+                    if 1 * 0 :
+                        if self.scale_dwscaling > 1.0 :
+                            outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
+                            outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_dwscaling, mode='bicubic')
+                            outputs_v = torch.nn.functional.interpolate(outputs_v, scale_factor=self.scale_dwscaling, mode='bicubic')
     
-                        self.patch_weight = self.patch_weight_diag
+                            if not self.use_sst:
+                                targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
+                            else:
+                                targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
+                            targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
+                            u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
+                            v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
+                            
+                            g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
+        
+                            self.patch_weight = self.patch_weight_diag
                         
                     
                 if self.type_div_train_loss == 0 :
