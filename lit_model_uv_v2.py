@@ -2238,7 +2238,6 @@ class LitModelUV(pl.LightningModule):
         obs,new_masks,w_sampling_uv,mask_sampling_uv = self.get_obs_and_mask(targets_OI,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan)
 
         # run forward_model
-        
         with torch.set_grad_enabled(True):
             flag_display_loss = False#True
             
@@ -2246,6 +2245,14 @@ class LitModelUV(pl.LightningModule):
                 outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad = self.run_model(state, obs, new_masks,state_init,
                                                                                                                          lat_rad,lon_rad,phase)
                         
+            else:
+                outputs = self.model.phi_r(obs)
+                                
+                outputs_u = outputs[:, 1*self.hparams.dT:2*self.hparams.dT, :, :]
+                outputs_v = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
+                outputs = outputs[:, 0:self.hparams.dT, :, :]
+
+            if 1*1 :    
                 # projection losses
                 loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss(targets_OI,targets_GT_wo_nan, sst_gt,
                                                                               u_gt_wo_nan, v_gt_wo_nan,outputs, 
@@ -2256,25 +2263,7 @@ class LitModelUV(pl.LightningModule):
                 if ( (phase == 'val') or (phase == 'test') ) and (self.scale_dwscaling > 1.0) :
                     _t = self.reinterpolate_outputs(outputs,outputs_u,outputs_v,batch)
                     targets_OI,targets_GT_wo_nan,sst_gt,u_gt_wo_nan,v_gt_wo_nan,lat_rad,lon_rad,outputs,outputs_u,outputs_v,g_targets_GT_x,g_targets_GT_y = _t 
-                                       
-                    if 1 * 0 :
-                        if self.scale_dwscaling > 1.0 :
-                            outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
-                            outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_dwscaling, mode='bicubic')
-                            outputs_v = torch.nn.functional.interpolate(outputs_v, scale_factor=self.scale_dwscaling, mode='bicubic')
-    
-                            if not self.use_sst:
-                                targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
-                            else:
-                                targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
-                            targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
-                            u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
-                            v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
-                            
-                            g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
-        
-                            self.patch_weight = self.patch_weight_diag
-                        
+                                                              
                     
                 if self.type_div_train_loss == 0 :
                     div_rec = self.compute_div(outputs_u,outputs_v)
@@ -2366,7 +2355,7 @@ class LitModelUV(pl.LightningModule):
                 if flag_display_loss :
                     print('..  loss = %e' %loss )                     
 
-            else:
+            if 1*0 :
                 outputs = self.model.phi_r(obs)
                                 
                 outputs_u = outputs[:, 1*self.hparams.dT:2*self.hparams.dT, :, :]
