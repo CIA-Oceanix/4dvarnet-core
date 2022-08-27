@@ -2078,7 +2078,7 @@ class LitModelUV(pl.LightningModule):
                     )
         state = self.get_init_state(_batch, state_init)
 
-        #obs,new_masks = self.get_obs_and_mask()
+        #obs,new_masks = self.get_obs_and_mask(targets_OI,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan)
 
         if 1*0 :
             if self.scale_dwscaling_sst > 1 :
