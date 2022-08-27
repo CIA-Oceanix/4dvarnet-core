@@ -2053,10 +2053,10 @@ class LitModelUV(pl.LightningModule):
             else:
                 _batch = batch
                 
-            if not self.use_sst:
-                targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, u_gt_wo_nan, v_gt_wo_nan, lat, lon = _batch
-            else:
-                targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat, lon = _batch
+        if not self.use_sst:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, u_gt_wo_nan, v_gt_wo_nan, lat, lon = _batch
+        else:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat, lon = _batch
 
         #targets_OI, inputs_Mask, targets_GT = batch
         # handle patch with no observation
@@ -2077,6 +2077,8 @@ class LitModelUV(pl.LightningModule):
                         ('l1_samp', 0.)])
                     )
         state = self.get_init_state(_batch, state_init)
+
+        obs,new_masks = self.get_obs_and_mask()
 
         if 1*0 :
             if self.scale_dwscaling_sst > 1 :
