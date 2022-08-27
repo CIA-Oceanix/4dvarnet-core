@@ -2040,9 +2040,22 @@ class LitModelUV(pl.LightningModule):
         if not self.use_sst:
             sst_gt = None
             
+        # gradient norm field
+        g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT_wo_nan)
+
+        # load latLon for Obs model if needed 
+        #print('.... Use lat/lon in model_H ')
+        #print(self.use_lat_lon_in_obs_model,flush=True)
+        if self.use_lat_lon_in_obs_model  == True :
+            lat_rad = torch.deg2rad(lat)
+            lon_rad = torch.deg2rad(lon)
+            
+            self.model.model_H.lat_rad = lat_rad
+            self.model.model_H.lon_rad = lon_rad
+
         #    return targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, u_gt_wo_nan, v_gt_wo_nan, lat, lon
         #else:
-        return targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat, lon
+        return targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat, lon, g_targets_GT_x, g_targets_GT_y
     
     def get_obs_and_mask(self,targets_OI,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan):
                 
@@ -2078,7 +2091,7 @@ class LitModelUV(pl.LightningModule):
     def compute_loss(self, batch, phase, state_init=(None,)):
         
         _batch = self.pre_process_batch(batch)
-        targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat, lon = _batch
+        targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat, lon, g_targets_GT_x, g_targets_GT_y = _batch
         
         if 1*0 :
             if self.scale_dwscaling > 1.0 :
@@ -2151,19 +2164,6 @@ class LitModelUV(pl.LightningModule):
             if self.use_sst_obs :
                 new_masks = [ new_masks, torch.ones_like(sst_gt) ]
                 obs = [ obs, sst_gt ]
-
-        # gradient norm field
-        g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT_wo_nan)
-
-        # load latLon for Obs model if needed 
-        #print('.... Use lat/lon in model_H ')
-        #print(self.use_lat_lon_in_obs_model,flush=True)
-        if self.use_lat_lon_in_obs_model  == True :
-            lat_rad = torch.deg2rad(lat)
-            lon_rad = torch.deg2rad(lon)
-            
-            self.model.model_H.lat_rad = lat_rad
-            self.model.model_H.lon_rad = lon_rad
 
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
