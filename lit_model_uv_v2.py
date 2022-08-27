@@ -2052,10 +2052,13 @@ class LitModelUV(pl.LightningModule):
             
             self.model.model_H.lat_rad = lat_rad
             self.model.model_H.lon_rad = lon_rad
+        else:
+            lat_rad = None
+            lon_rad = None
 
         #    return targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, u_gt_wo_nan, v_gt_wo_nan, lat, lon
         #else:
-        return targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat, lon, g_targets_GT_x, g_targets_GT_y
+        return targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y
     
     def get_obs_and_mask(self,targets_OI,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan):
                 
