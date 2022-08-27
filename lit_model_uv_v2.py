@@ -2048,15 +2048,12 @@ class LitModelUV(pl.LightningModule):
         # load latLon for Obs model if needed 
         #print('.... Use lat/lon in model_H ')
         #print(self.use_lat_lon_in_obs_model,flush=True)
-        if self.use_lat_lon_in_obs_model  == True :
-            lat_rad = torch.deg2rad(lat)
-            lon_rad = torch.deg2rad(lon)
+        lat_rad = torch.deg2rad(lat)
+        lon_rad = torch.deg2rad(lon)
             
+        if self.use_lat_lon_in_obs_model  == True :
             self.model.model_H.lat_rad = lat_rad
             self.model.model_H.lon_rad = lon_rad
-        else:
-            lat_rad = None
-            lon_rad = None
 
         #    return targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, u_gt_wo_nan, v_gt_wo_nan, lat, lon
         #else:
