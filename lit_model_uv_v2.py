@@ -2045,9 +2045,7 @@ class LitModelUV(pl.LightningModule):
         # gradient norm field
         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT_wo_nan)
 
-        # load latLon for Obs model if needed 
-        #print('.... Use lat/lon in model_H ')
-        #print(self.use_lat_lon_in_obs_model,flush=True)
+        # lat/lon in radians
         lat_rad = torch.deg2rad(lat)
         lon_rad = torch.deg2rad(lon)
             
@@ -2055,8 +2053,6 @@ class LitModelUV(pl.LightningModule):
             self.model.model_H.lat_rad = lat_rad
             self.model.model_H.lon_rad = lon_rad
 
-        #    return targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, u_gt_wo_nan, v_gt_wo_nan, lat, lon
-        #else:
         return targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y
     
     def get_obs_and_mask(self,targets_OI,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan):
@@ -2089,6 +2085,27 @@ class LitModelUV(pl.LightningModule):
             obs = [ obs, sst_gt ]
         
         return obs,new_masks
+
+    def run_model(self,state, obs, new_masks,state_init,phase):
+        state = torch.autograd.Variable(state, requires_grad=True)
+
+        outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
+
+        if (phase == 'val') or (phase == 'test'):
+            outputs = outputs.detach()
+
+        outputsSLRHR = outputs
+        outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
+        if self.aug_state :
+            outputs = outputsSLR + outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
+            outputs_u = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
+            outputs_v = outputsSLRHR[:, 4*self.hparams.dT:5*self.hparams.dT, :, :]
+        else:
+            outputs = outputsSLR + outputsSLRHR[:, self.hparams.dT:2*self.hparams.dT, :, :]
+            outputs_u = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
+            outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
+        
+        return outputs, outputs_u, outputs_v, outputsSLRHR
 
     def compute_loss(self, batch, phase, state_init=(None,)):
         
@@ -2125,72 +2142,39 @@ class LitModelUV(pl.LightningModule):
                         ('l0_samp', 0.),
                         ('l1_samp', 0.)])
                     )
+         
+        # intial state
         state = self.get_init_state(_batch, state_init)
 
+        # obs and mask data
         obs,new_masks = self.get_obs_and_mask(targets_OI,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan)
 
-        if 1*0 :
-            if self.scale_dwscaling_sst > 1 :
-                sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
-                sst_gt = torch.nn.functional.interpolate(sst_gt, scale_factor=self.scale_dwscaling_sst, mode='bicubic')
-                
-            targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
-            u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
-            v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
-                
-        if 1*0 :
-            if self.model_sampling_uv is not None :
-                w_sampling_uv = self.model_sampling_uv( sst_gt )
-                w_sampling_uv = w_sampling_uv[1]
-                
-                #mask_sampling_uv = torch.bernoulli( w_sampling_uv )
-                mask_sampling_uv = 1. - torch.nn.functional.threshold( 1.0 - w_sampling_uv , 0.9 , 0.)
-                obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI) , u_gt_wo_nan , v_gt_wo_nan ) ,dim=1)
-                
-                #print('%f '%( float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean(w_sampling_uv)) )
-            else:
-                mask_sampling_uv = torch.zeros_like(u_gt_wo_nan) 
-                obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI), 0. * targets_OI ,  0. * targets_OI ) ,dim=1)
-                
-            new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
-    
-    
-            if self.aug_state :
-                obs = torch.cat( (obs, 0. * targets_OI,) ,dim=1)
-                new_masks = torch.cat( (new_masks, torch.zeros_like(inputs_Mask)), dim=1)
-            
-            if self.use_sst_state :
-                obs = torch.cat( (obs,sst_gt,) ,dim=1)
-                new_masks = torch.cat( (new_masks, torch.ones_like(inputs_Mask)), dim=1)
-    
-            if self.use_sst_obs :
-                new_masks = [ new_masks, torch.ones_like(sst_gt) ]
-                obs = [ obs, sst_gt ]
-
-        # need to evaluate grad/backward during the evaluation and training phase for phi_r
+        # run forward_model
+        
         with torch.set_grad_enabled(True):
             flag_display_loss = False#True
             
             if self.hparams.n_grad > 0 :                
-                state = torch.autograd.Variable(state, requires_grad=True)
-
-                outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
+                outputs, outputs_u, outputs_v, outputsSLRHR = self.run_model(state, obs, new_masks,state_init,phase)
+        
+                if 1*0 :
+                    state = torch.autograd.Variable(state, requires_grad=True)
     
-                if (phase == 'val') or (phase == 'test'):
-                    outputs = outputs.detach()
-                         
-                        
-    
-                outputsSLRHR = outputs
-                outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
-                if self.aug_state :
-                    outputs = outputsSLR + outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
-                    outputs_u = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
-                    outputs_v = outputsSLRHR[:, 4*self.hparams.dT:5*self.hparams.dT, :, :]
-                else:
-                    outputs = outputsSLR + outputsSLRHR[:, self.hparams.dT:2*self.hparams.dT, :, :]
-                    outputs_u = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
-                    outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
+                    outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
+        
+                    if (phase == 'val') or (phase == 'test'):
+                        outputs = outputs.detach()
+        
+                    outputsSLRHR = outputs
+                    outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
+                    if self.aug_state :
+                        outputs = outputsSLR + outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
+                        outputs_u = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
+                        outputs_v = outputsSLRHR[:, 4*self.hparams.dT:5*self.hparams.dT, :, :]
+                    else:
+                        outputs = outputsSLR + outputsSLRHR[:, self.hparams.dT:2*self.hparams.dT, :, :]
+                        outputs_u = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
+                        outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
 
                 
                 # reconstruction losses
