@@ -2161,13 +2161,16 @@ class LitModelUV(pl.LightningModule):
         
         return outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad
 
-    def compute_reg_loss(self,targets_OI,targets_GT_wo_nan, u_gt_wo_nan, v_gt_wo_nan,outputs, outputsSLR, outputsSLRHR,phase):
+    def compute_reg_loss(self,targets_OI,targets_GT_wo_nan, u_gt_wo_nan, sst_gt, v_gt_wo_nan,outputs, outputsSLR, outputsSLRHR,phase):
         yGT = torch.cat((targets_OI,
                          targets_GT_wo_nan - outputsSLR),
                         dim=1)
         if self.aug_state :
             yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
         
+        if self.use_sst_state :
+            yGT = torch.cat((yGT,sst_gt), dim=1)
+            
         if (phase == 'val') or (phase == 'test'):
             self.patch_weight = self.patch_weight_train
                                 
@@ -2183,6 +2186,7 @@ class LitModelUV(pl.LightningModule):
         
         if not self.use_sst:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
+            sst_gt = None
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
 
@@ -2208,18 +2212,6 @@ class LitModelUV(pl.LightningModule):
         _batch = self.pre_process_batch(batch)
         targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y = _batch
         
-        if 1*0 :
-            if self.scale_dwscaling > 1.0 :
-                _batch = self.dwn_sample_batch(batch,scale=self.scale_dwscaling)
-            else:
-                _batch = batch
-                
-            if not self.use_sst:
-                targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, u_gt_wo_nan, v_gt_wo_nan, lat, lon = _batch
-                sst_gt
-            else:
-                targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat, lon = _batch
-
         #targets_OI, inputs_Mask, targets_GT = batch
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:
@@ -2255,7 +2247,7 @@ class LitModelUV(pl.LightningModule):
                                                                                                                          lat_rad,lon_rad,phase)
                         
                 # projection losses
-                loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss(targets_OI,targets_GT_wo_nan, 
+                loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss(targets_OI,targets_GT_wo_nan, sst_gt,
                                                                               u_gt_wo_nan, v_gt_wo_nan,outputs, 
                                                                               outputsSLR, outputsSLRHR,phase)
                 
@@ -2333,8 +2325,6 @@ class LitModelUV(pl.LightningModule):
                 if self.median_filter_width > 1:
                     outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
                                
-                if self.use_sst_state :
-                    yGT = torch.cat((yGT,sst_gt), dim=1)
     
                 loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
                 loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
