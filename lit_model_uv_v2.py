@@ -2235,9 +2235,7 @@ class LitModelUV(pl.LightningModule):
                 
 
                 # reconstruction losses compute on full-resolution field during test/val epoch
-                if (phase == 'val') or (phase == 'test'): 
-                    outputs,outputs_u,outputs_v,g_targets_GT_x,g_targets_GT_y = self.reinterpolate_outputs(outputs,outputs_u,outputs_v,batch)
-                    
+                if (phase == 'val') or (phase == 'test'):                     
                     if self.scale_dwscaling > 1.0 :
                         outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
                         outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_dwscaling, mode='bicubic')
