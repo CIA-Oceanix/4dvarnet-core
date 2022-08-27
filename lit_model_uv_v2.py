@@ -2092,7 +2092,7 @@ class LitModelUV(pl.LightningModule):
             
             #print('%f '%( float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean(w_sampling_uv)) )
         else:
-            mask_sampling_uv = torch.zeros_like(u_gt) 
+            mask_sampling_uv = torch.zeros_like(u_gt_wo_nan) 
             obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI), 0. * targets_OI ,  0. * targets_OI ) ,dim=1)
             
         new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
@@ -2112,7 +2112,7 @@ class LitModelUV(pl.LightningModule):
             obs = [ obs, sst_gt ]
 
         # gradient norm field
-        g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
+        g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT_wo_nan)
 
         # load latLon for Obs model if needed 
         #print('.... Use lat/lon in model_H ')
