@@ -41,7 +41,7 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_171/checkpoints/modelUVwSSTGF-unet1_050-augdata-DirectInv-wSST-dT07-epoch=28-val_loss=2.4926.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_179/checkpoints/modelUVwSSTGF-unet1_050-augdata-dws-sst05-augstate-dT07-sstobs-nolinear-tanh-bn_20-nowgeo-nostrain-grad_05_03_150-epoch=05-val_loss=1.6552.ckpt'
 params:
-  flag_update_training_config: True # False # 
+  flag_update_training_config: False # True # 
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
   k_n_grad: 1
   n_grad: 0
@@ -76,7 +76,7 @@ params:
   nb_feat_sampling_operator: 0
   alpha_sampling_uv: 10.
   thr_l1_sampling_uv: 0.10
-  scale_dwscaling_sst: ??
+  scale_dwscaling_sst: 1.
 datamodule:
   aug_train_data: True 
 defaults:

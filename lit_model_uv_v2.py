@@ -2119,9 +2119,6 @@ class LitModelUV(pl.LightningModule):
             outputs_v = outputs_v + v_geo_rec
             
         elif self.residual_wrt_geo_velocities == 2 : 
-            #lat_rad = torch.deg2rad(lat)
-            #lon_rad = torch.deg2rad(lon)
-            
             # denormalize ssh
             u_geo_rec, v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
             #u_geo_gt, v_geo_gt = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
@@ -2134,9 +2131,6 @@ class LitModelUV(pl.LightningModule):
 
             #print('%f %f'%(np.mean(u_geo_factor.detach().cpu().numpy()),np.mean(v_geo_factor.detach().cpu().numpy())))
         elif self.residual_wrt_geo_velocities == 3 :
-            #lat_rad = torch.deg2rad(lat)
-            #lon_rad = torch.deg2rad(lon)
-            
             # denormalize ssh
             u_geo_rec , v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
             #u_geo_gt  , v_geo_gt  = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
@@ -2145,9 +2139,6 @@ class LitModelUV(pl.LightningModule):
             outputs_u = alpha_uv_geo * outputs_u + u_geo_rec
             outputs_v = alpha_uv_geo * outputs_v + v_geo_rec
         elif self.residual_wrt_geo_velocities == 4 : 
-            #lat_rad = torch.deg2rad(lat)
-            #lon_rad = torch.deg2rad(lon)
-            
             # denormalize ssh
             u_geo_rec, v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
             #u_geo_gt, v_geo_gt = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
@@ -2216,7 +2207,6 @@ class LitModelUV(pl.LightningModule):
         return targets_OI,targets_GT_wo_nan,sst_gt,u_gt_wo_nan,v_gt_wo_nan,lat_rad,lon_rad,outputs,outputs_u,outputs_v,g_targets_GT_x,g_targets_GT_y
 
     def compute_rec_loss(self,targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,outputs,outputs_u,outputs_v,lat_rad,lon_rad,phase):
-        
         flag_display_loss = False
 
         # median filter
@@ -2230,6 +2220,7 @@ class LitModelUV(pl.LightningModule):
 
         # MSE for SSH-derived (u,v) fields
         flag_loss_GAll_geo = True
+        
         if flag_loss_GAll_geo :
             # denormalize ssh
             u_geo_rec , v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
@@ -2330,174 +2321,41 @@ class LitModelUV(pl.LightningModule):
                                                                           u_gt_wo_nan, v_gt_wo_nan,outputs, 
                                                                           outputsSLR, outputsSLRHR,phase)
 
-            # reconstruction losses compute on full-resolution field during test/val epoch
+            # re-interpolate at full-resolution field during test/val epoch
             if ( (phase == 'val') or (phase == 'test') ) and (self.scale_dwscaling > 1.0) :
                 _t = self.reinterpolate_outputs(outputs,outputs_u,outputs_v,batch)
                 targets_OI,targets_GT_wo_nan,sst_gt,u_gt_wo_nan,v_gt_wo_nan,lat_rad,lon_rad,outputs,outputs_u,outputs_v,g_targets_GT_x,g_targets_GT_y = _t 
                                                               
-            # reconstruction loss
+            # reconstruction losses
             loss_All,loss_GAll,loss_uv,loss_div,loss_strain = self.compute_rec_loss(targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,
                                                                                     outputs,outputs_u,outputs_v,
                                                                                     lat_rad,lon_rad,phase)
             
             
-            if 1*0 :
-                if self.type_div_train_loss == 0 :
-                    div_rec = self.compute_div(outputs_u,outputs_v)
-                    div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
-                    
-                    loss_div = self.div_loss( div_rec , div_gt )
-                    loss_strain = 0.
-                    if flag_display_loss :
-                        print('\n..  loss div = %e' % (self.hparams.alpha_mse_div *loss_div) )                     
-                else:                                        
-                    #lat_rad = torch.deg2rad(lat)
-                    #lon_rad = torch.deg2rad(lon)
-                                        
-                    if ( (phase == 'val') or (phase == 'test') ) :
-                        div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
-                        div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
-                                                
-                        #self.sig_filter_div_diag = 0.
-                        #div_gt,curl_gt,strain_gt    = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
-                        #div_rec,curl_rec,strain_rec = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
-
-                        if 1*0 : 
-                            _div_gt,_curl_gt,_strain_gt  = compute_div_curl_strain_with_lat_lon(u_gt_wo_nan[0,:,:,:].detach().cpu().numpy(),v_gt_wo_nan[0,:,:,:].detach().cpu().numpy(),lat_rad[0,:].detach().cpu().numpy(),lon_rad[0,:].detach().cpu().numpy(),sigma=self.sig_filter_div_diag)
-                            _div_rec,_curl_rec,_strain_rec = compute_div_curl_strain_with_lat_lon(outputs_u[0,:,:,:].detach().cpu().numpy(),outputs_v[0,:,:,:].detach().cpu().numpy(),lat_rad[0,:].detach().cpu().numpy(),lon_rad[0,:].detach().cpu().numpy(),sigma=self.sig_filter_div_diag)    
-    
-                            print('.. div var exp = %f'%( 100. * ( 1. - torch.mean( (div_rec[:,3,20:220,20:220]-div_gt[:,3,20:220,20:220])**2 / torch.var( div_gt[:,3,20:220,20:220] ) ) ) ))             
-                            print('.. strain var exp = %f'%( 100. * ( 1. - torch.mean( (strain_rec[:,3,20:220,20:220]-strain_gt[:,3,20:220,20:220])**2 / torch.var( strain_gt[:,3,20:220,20:220] ) ) ) ))             
-                            print('.. curl var exp = %f'%( 100. * ( 1. - torch.mean( (curl_rec[:,3,20:220,20:220]-curl_gt[:,3,20:220,20:220])**2 / torch.var( curl_gt[:,3,20:220,20:220] ) ) ) ))             
-        
-                            print('.. 2 div var exp = %f'%( 100. * ( 1. - np.mean( (_div_rec[3,20:220,20:220]-_div_gt[3,20:220,20:220])**2 / np.var( _div_gt[3,20:220,20:220] ) ) ) ))             
-                            print('.. 2 strain var exp = %f'%( 100. * ( 1. - np.mean( (_strain_rec[3,20:220,20:220]-_strain_gt[3,20:220,20:220])**2 / np.var( _strain_gt[3,20:220,20:220] ) ) ) ))             
-                            print('.. 2 curl var exp = %f'%( 100. * ( 1. - np.mean( (_curl_rec[3,20:220,20:220]-_curl_gt[3,20:220,20:220])**2 / np.var( _curl_gt[3,20:220,20:220] ) ) ) ))             
-
-                    else:
-                        div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div )
-                        div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div )
-                        #div_gt,curl_gt,strain_gt = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div )
-                        #div_rec,curl_rec,strain_rec = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div )
-                        
-                    loss_div = self.div_loss( div_rec , div_gt )
-                    loss_strain = self.strain_loss( strain_rec , strain_gt )
-
-                    if flag_display_loss :
-                        print('\n..  loss div = %e' % (self.hparams.alpha_mse_div *loss_div) )                     
-                        print('..  loss strain = %e' % (self.hparams.alpha_mse_strain *loss_strain) )
-                        
-                # median filter
-                if self.median_filter_width > 1:
-                    outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
-                               
-    
-                loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
-                loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
-
-                if flag_display_loss :
-                    print('..  loss ssh = %e' % (self.hparams.alpha_mse_ssh * loss_All) )                     
-                    print('..  loss gssh = %e' % (self.hparams.alpha_mse_gssh * loss_GAll) )                     
-                    print('..  loss uv = %e' % (self.hparams.alpha_mse_uv * loss_uv) )                     
-
-                if self.residual_wrt_geo_velocities > 0 :
-                    loss_uv_geo = self.uv_loss( [u_geo_rec,v_geo_rec], [u_geo_gt,v_geo_gt])
-                    loss_GAll = ( self.hparams.alpha_mse_uv_geo / self.hparams.alpha_mse_gssh )  * loss_uv_geo
-                    if flag_display_loss :
-                        print('..  loss uv geo = %e' % ( self.hparams.alpha_mse_uv_geo * loss_uv_geo ) )                     
-                        print('..  loss gssh = %e' % (self.hparams.alpha_mse_gssh * loss_GAll) )                     
-
-            if 1*1 :
-                loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
-                #print('  %f'%torch.mean( w_sampling_uv ))
+            loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
             
-                if self.model_sampling_uv is not None :
-                    loss_l1_sampling_uv = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) *  torch.mean( w_sampling_uv )
-                    loss_l1_sampling_uv = torch.nn.functional.relu( loss_l1_sampling_uv - self.hparams.thr_l1_sampling_uv )
-                    loss_l0_sampling_uv = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean( mask_sampling_uv ) 
+            if self.model_sampling_uv is not None :
+                loss_l1_sampling_uv = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) *  torch.mean( w_sampling_uv )
+                loss_l1_sampling_uv = torch.nn.functional.relu( loss_l1_sampling_uv - self.hparams.thr_l1_sampling_uv )
+                loss_l0_sampling_uv = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean( mask_sampling_uv ) 
 
-                # total loss
-                loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
-                loss += self.hparams.alpha_mse_uv * loss_uv
-                if self.hparams.alpha_mse_div > 0. :
-                    loss += self.hparams.alpha_mse_div * loss_div
-                    
-                if self.hparams.alpha_mse_strain > 0. :
-                    loss += self.hparams.alpha_mse_strain *loss_strain
-                    
-                loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
-                loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
-                if self.model_sampling_uv is not None :
-                    loss += self.hparams.alpha_sampling_uv * loss_l1_sampling_uv
-
-                if flag_display_loss :
-                    print('..  loss = %e' %loss )                     
-
-            if 1*0 :
-                outputs = self.model.phi_r(obs)
-                                
-                outputs_u = outputs[:, 1*self.hparams.dT:2*self.hparams.dT, :, :]
-                outputs_v = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
-                outputs = outputs[:, 0:self.hparams.dT, :, :]
-                    
-                # reconstruction losses compute on full-resolution field during test/val epoch
-                if (phase == 'val') or (phase == 'test'):                    
-                    if self.scale_dwscaling > 1.0 :
-                        outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
-                        outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_dwscaling, mode='bicubic')
-                        outputs_v = torch.nn.functional.interpolate(outputs_v, scale_factor=self.scale_dwscaling, mode='bicubic')
-
-                        if not self.use_sst:
-                            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
-                        else:
-                            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
-                        targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
-                        u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
-                        v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
-                        
-                        g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
-    
-                    self.patch_weight = self.patch_weight_diag
-                    
-
-                loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
-                loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
-
-                if self.type_div_train_loss == 0 :
-                    div_rec = self.compute_div(outputs_u,outputs_v)
-                    div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
-                    
-                    loss_div = self.div_loss( div_rec , div_gt )
-                    loss_strain = 0.
-                else:                                        
-                    lat_rad = torch.deg2rad(lat)
-                    lon_rad = torch.deg2rad(lon)
-                                        
-                    if ( (phase == 'val') or (phase == 'test') ) :
-                        div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
-                        div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
-                                                 
-                    else:
-                        div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div )
-                        div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div )
- 
-                    loss_div = self.div_loss( div_rec , div_gt )
-                    loss_strain = self.strain_loss( strain_rec , strain_gt )
-               
-                loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
-                loss += self.hparams.alpha_mse_uv * loss_uv
-                if self.hparams.alpha_mse_div > 0. :
-                    loss += self.hparams.alpha_mse_div * loss_div
-                    
-                if self.hparams.alpha_mse_strain > 0. :
-                    loss += self.hparams.alpha_mse_strain *loss_strain
-
-                loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
+            # total loss
+            loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
+            loss += self.hparams.alpha_mse_uv * loss_uv
+            if self.hparams.alpha_mse_div > 0. :
+                loss += self.hparams.alpha_mse_div * loss_div
                 
-                outputsSLRHR = None #0. * outputs
-                hidden_new = None #0. * outputs
-                cell_new = None # . * outputs
-                normgrad = 0. 
+            if self.hparams.alpha_mse_strain > 0. :
+                loss += self.hparams.alpha_mse_strain *loss_strain
+                
+            loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
+            loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
+            if self.model_sampling_uv is not None :
+                loss += self.hparams.alpha_sampling_uv * loss_l1_sampling_uv
+
+            if flag_display_loss :
+                print('..  loss = %e' %loss )                     
+
             # metrics
             # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
             mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(
@@ -2526,14 +2384,6 @@ class LitModelUV(pl.LightningModule):
                 ('l1_samp', l1_samp)])
 
         if ( (phase == 'val') or (phase == 'test') ) & ( self.use_sst == True ) :
-            #if self.scale_dwscaling > 1 :
-            #    # target data at original resolution
-            #    targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
-            
-            #    outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
-            #    outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_dwscaling, mode='bicubic')
-            #    outputs_v = torch.nn.functional.interpolate(outputs_v, scale_factor=self.scale_dwscaling, mode='bicubic')
-            
             out_feat = sst_gt[:,int(self.hparams.dT/2),:,:].view(-1,1,sst_gt.size(2),sst_gt.size(3))
             
             if self.use_sst_obs :
