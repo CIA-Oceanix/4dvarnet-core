@@ -2165,6 +2165,7 @@ class LitModelUV(pl.LightningModule):
         yGT = torch.cat((targets_OI,
                          targets_GT_wo_nan - outputsSLR),
                         dim=1)
+        
         if self.aug_state :
             yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
         
@@ -2252,6 +2253,7 @@ class LitModelUV(pl.LightningModule):
                 outputs_v = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
                 outputs = outputs[:, 0:self.hparams.dT, :, :]
 
+                outputsSLR = None
                 outputsSLRHR = None #0. * outputs
                 hidden_new = None #0. * outputs
                 cell_new = None # . * outputs
