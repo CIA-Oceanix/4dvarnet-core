@@ -2171,10 +2171,10 @@ class LitModelUV(pl.LightningModule):
         
         if self.use_sst_state :
             yGT = torch.cat((yGT,sst_gt), dim=1)
-            
+
         if (phase == 'val') or (phase == 'test'):
             self.patch_weight = self.patch_weight_train
-                                
+                                            
         yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
         loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
             yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
@@ -2263,6 +2263,7 @@ class LitModelUV(pl.LightningModule):
                 cell_new = None # . * outputs
                 normgrad = 0. 
 
+            if 1*1 :
                 # reconstruction losses compute on full-resolution field during test/val epoch
                 if ( (phase == 'val') or (phase == 'test') ) and (self.scale_dwscaling > 1.0) :
                     _t = self.reinterpolate_outputs(outputs,outputs_u,outputs_v,batch)
