@@ -2272,7 +2272,7 @@ class LitModelUV(pl.LightningModule):
             print('..  loss uv = %e' % (self.hparams.alpha_mse_uv * loss_uv) )                     
 
 
-        return loss_All,loss_GAll,loss_div,loss_strain 
+        return loss_All,loss_GAll,loss_uv,loss_div,loss_strain 
 
     def compute_loss(self, batch, phase, state_init=(None,)):
         
@@ -2336,9 +2336,9 @@ class LitModelUV(pl.LightningModule):
                 targets_OI,targets_GT_wo_nan,sst_gt,u_gt_wo_nan,v_gt_wo_nan,lat_rad,lon_rad,outputs,outputs_u,outputs_v,g_targets_GT_x,g_targets_GT_y = _t 
                                                               
             # reconstruction loss
-            loss_All,loss_GAll,los_div,loss_strain = self.compute_rec_loss(targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,
-                                                                           outputs,outputs_u,outputs_v,
-                                                                           lat_rad,lon_rad,phase)
+            loss_All,loss_GAll,loss_uv,loss_div,loss_strain = self.compute_rec_loss(targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,
+                                                                                    outputs,outputs_u,outputs_v,
+                                                                                    lat_rad,lon_rad,phase)
             
             
             if 1*0 :
