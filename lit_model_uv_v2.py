@@ -2215,6 +2215,65 @@ class LitModelUV(pl.LightningModule):
         
         return targets_OI,targets_GT_wo_nan,sst_gt,u_gt_wo_nan,v_gt_wo_nan,lat_rad,lon_rad,outputs,outputs_u,outputs_v,g_targets_GT_x,g_targets_GT_y
 
+    def compute_rec_loss(self,targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,outputs,outputs_u,outputs_v,lat_rad,lon_rad,phase):
+        
+        flag_display_loss = False
+
+        # median filter
+        if self.median_filter_width > 1:
+            outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
+                               
+    
+        # MSE loss for ssh and (u,v) components
+        loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
+        loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
+
+        # MSE for SSH-derived (u,v) fields
+        flag_loss_GAll_geo = True
+        if flag_loss_GAll_geo :
+            # denormalize ssh
+            u_geo_rec , v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
+            u_geo_gt  , v_geo_gt  = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
+                                    
+            loss_uv_geo = self.uv_loss( [u_geo_rec,v_geo_rec], [u_geo_gt,v_geo_gt])
+            loss_GAll = ( self.hparams.alpha_mse_uv_geo / self.hparams.alpha_mse_gssh )  * loss_uv_geo
+            if flag_display_loss :
+                print('..  loss uv geo = %e' % ( self.hparams.alpha_mse_uv_geo * loss_uv_geo ) )                     
+                print('..  loss gssh = %e' % (self.hparams.alpha_mse_gssh * loss_GAll) )                     
+
+        if self.type_div_train_loss == 0 :
+            div_rec = self.compute_div(outputs_u,outputs_v)
+            div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
+            
+            loss_div = self.div_loss( div_rec , div_gt )
+            loss_strain = 0.
+            if flag_display_loss :
+                print('\n..  loss div = %e' % (self.hparams.alpha_mse_div *loss_div) )                     
+        else:                                                                        
+            if ( (phase == 'val') or (phase == 'test') ) :
+                div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
+                div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
+                                        
+            else:
+                div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div )
+                div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div )
+                
+            loss_div = self.div_loss( div_rec , div_gt )
+            loss_strain = self.strain_loss( strain_rec , strain_gt )
+            
+            if flag_display_loss :
+                print('\n..  loss div = %e' % (self.hparams.alpha_mse_div *loss_div) )                     
+                print('..  loss strain = %e' % (self.hparams.alpha_mse_strain *loss_strain) )
+                        
+
+        if flag_display_loss :
+            print('..  loss ssh = %e' % (self.hparams.alpha_mse_ssh * loss_All) )                     
+            print('..  loss gssh = %e' % (self.hparams.alpha_mse_gssh * loss_GAll) )                     
+            print('..  loss uv = %e' % (self.hparams.alpha_mse_uv * loss_uv) )                     
+
+
+        return loss_All,loss_GAll,loss_div,loss_strain 
+
     def compute_loss(self, batch, phase, state_init=(None,)):
         
         _batch = self.pre_process_batch(batch)
@@ -2271,13 +2330,18 @@ class LitModelUV(pl.LightningModule):
                                                                           u_gt_wo_nan, v_gt_wo_nan,outputs, 
                                                                           outputsSLR, outputsSLRHR,phase)
 
-            if 1*1 :
-                # reconstruction losses compute on full-resolution field during test/val epoch
-                if ( (phase == 'val') or (phase == 'test') ) and (self.scale_dwscaling > 1.0) :
-                    _t = self.reinterpolate_outputs(outputs,outputs_u,outputs_v,batch)
-                    targets_OI,targets_GT_wo_nan,sst_gt,u_gt_wo_nan,v_gt_wo_nan,lat_rad,lon_rad,outputs,outputs_u,outputs_v,g_targets_GT_x,g_targets_GT_y = _t 
+            # reconstruction losses compute on full-resolution field during test/val epoch
+            if ( (phase == 'val') or (phase == 'test') ) and (self.scale_dwscaling > 1.0) :
+                _t = self.reinterpolate_outputs(outputs,outputs_u,outputs_v,batch)
+                targets_OI,targets_GT_wo_nan,sst_gt,u_gt_wo_nan,v_gt_wo_nan,lat_rad,lon_rad,outputs,outputs_u,outputs_v,g_targets_GT_x,g_targets_GT_y = _t 
                                                               
-                    
+            # reconstruction loss
+            loss_All,loss_GAll,los_div,loss_strain = self.compute_rec_loss(targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,
+                                                                           outputs,outputs_u,outputs_v,
+                                                                           lat_rad,lon_rad,phase)
+            
+            
+            if 1*0 :
                 if self.type_div_train_loss == 0 :
                     div_rec = self.compute_div(outputs_u,outputs_v)
                     div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
@@ -2342,10 +2406,11 @@ class LitModelUV(pl.LightningModule):
                     if flag_display_loss :
                         print('..  loss uv geo = %e' % ( self.hparams.alpha_mse_uv_geo * loss_uv_geo ) )                     
                         print('..  loss gssh = %e' % (self.hparams.alpha_mse_gssh * loss_GAll) )                     
-                    
+
+            if 1*1 :
                 loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
                 #print('  %f'%torch.mean( w_sampling_uv ))
-                
+            
                 if self.model_sampling_uv is not None :
                     loss_l1_sampling_uv = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) *  torch.mean( w_sampling_uv )
                     loss_l1_sampling_uv = torch.nn.functional.relu( loss_l1_sampling_uv - self.hparams.thr_l1_sampling_uv )
