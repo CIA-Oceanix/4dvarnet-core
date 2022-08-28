@@ -2246,6 +2246,10 @@ class LitModelUV(pl.LightningModule):
                 outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad = self.run_model(state, obs, new_masks,state_init,
                                                                                                                          lat_rad,lon_rad,phase)
                         
+                # projection losses
+                loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss(targets_OI,targets_GT_wo_nan, sst_gt,
+                                                                              u_gt_wo_nan, v_gt_wo_nan,outputs, 
+                                                                              outputsSLR, outputsSLRHR,phase)
             else:
                 outputs = self.model.phi_r(obs)
                                 
@@ -2258,13 +2262,6 @@ class LitModelUV(pl.LightningModule):
                 hidden_new = None #0. * outputs
                 cell_new = None # . * outputs
                 normgrad = 0. 
-
-            if 1*1 :    
-                # projection losses
-                loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss(targets_OI,targets_GT_wo_nan, sst_gt,
-                                                                              u_gt_wo_nan, v_gt_wo_nan,outputs, 
-                                                                              outputsSLR, outputsSLRHR,phase)
-                
 
                 # reconstruction losses compute on full-resolution field during test/val epoch
                 if ( (phase == 'val') or (phase == 'test') ) and (self.scale_dwscaling > 1.0) :
