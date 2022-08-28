@@ -2252,6 +2252,11 @@ class LitModelUV(pl.LightningModule):
                 outputs_v = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
                 outputs = outputs[:, 0:self.hparams.dT, :, :]
 
+                outputsSLRHR = None #0. * outputs
+                hidden_new = None #0. * outputs
+                cell_new = None # . * outputs
+                normgrad = 0. 
+
             if 1*1 :    
                 # projection losses
                 loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss(targets_OI,targets_GT_wo_nan, sst_gt,
