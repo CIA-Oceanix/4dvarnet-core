@@ -1152,7 +1152,7 @@ class LitModelUV(pl.LightningModule):
         
         self.model.n_grad = self.hparams.n_grad
         #self.compute_derivativeswith_lon_lat.to(device)
-        
+                
     def on_train_epoch_start(self):
         if self.model_name in ('4dvarnet', '4dvarnet_sst'):
             opt = self.optimizers()
@@ -2162,23 +2162,30 @@ class LitModelUV(pl.LightningModule):
         return outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad
 
     def compute_reg_loss(self,targets_OI,targets_GT_wo_nan, u_gt_wo_nan, sst_gt, v_gt_wo_nan,outputs, outputsSLR, outputsSLRHR,phase):
-        yGT = torch.cat((targets_OI,
-                         targets_GT_wo_nan - outputsSLR),
-                        dim=1)
         
-        if self.aug_state :
-            yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
-        
-        if self.use_sst_state :
-            yGT = torch.cat((yGT,sst_gt), dim=1)
-
         if (phase == 'val') or (phase == 'test'):
             self.patch_weight = self.patch_weight_train
-                                            
-        yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
-        loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
-            yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
-        )
+
+        if outputsSLR is not None :
+            yGT = torch.cat((targets_OI,
+                             targets_GT_wo_nan - outputsSLR),
+                            dim=1)
+            if self.aug_state :
+                yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
+            
+            if self.use_sst_state :
+                yGT = torch.cat((yGT,sst_gt), dim=1)
+    
+                                                
+            yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
+            loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
+                yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
+            )
+        else:
+           loss_AE = 0. 
+           loss_AE_GT = 0. 
+           loss_SR = 0. 
+           loss_LR = 0.
         
         return loss_AE, loss_AE_GT, loss_SR, loss_LR
 
@@ -2246,10 +2253,6 @@ class LitModelUV(pl.LightningModule):
                 outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad = self.run_model(state, obs, new_masks,state_init,
                                                                                                                          lat_rad,lon_rad,phase)
                         
-                # projection losses
-                loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss(targets_OI,targets_GT_wo_nan, sst_gt,
-                                                                              u_gt_wo_nan, v_gt_wo_nan,outputs, 
-                                                                              outputsSLR, outputsSLRHR,phase)
             else:
                 outputs = self.model.phi_r(obs)
                                 
@@ -2262,6 +2265,11 @@ class LitModelUV(pl.LightningModule):
                 hidden_new = None #0. * outputs
                 cell_new = None # . * outputs
                 normgrad = 0. 
+
+            # projection losses
+            loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss(targets_OI,targets_GT_wo_nan, sst_gt,
+                                                                          u_gt_wo_nan, v_gt_wo_nan,outputs, 
+                                                                          outputsSLR, outputsSLRHR,phase)
 
             if 1*1 :
                 # reconstruction losses compute on full-resolution field during test/val epoch
