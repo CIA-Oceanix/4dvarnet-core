@@ -2117,7 +2117,7 @@ class LitModelUV(pl.LightningModule):
 
         return targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y
     
-    def get_obs_and_mask(self,targets_OI,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan):
+    def get_obs_and_mask_lr(self,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan):
                 
         if self.model_sampling_uv is not None :
             w_sampling_uv = self.model_sampling_uv( sst_gt )
@@ -2125,18 +2125,50 @@ class LitModelUV(pl.LightningModule):
             
             #mask_sampling_uv = torch.bernoulli( w_sampling_uv )
             mask_sampling_uv = 1. - torch.nn.functional.threshold( 1.0 - w_sampling_uv , 0.9 , 0.)
-            obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI) , u_gt_wo_nan , v_gt_wo_nan ) ,dim=1)
+            obs = torch.cat( (inputs_Mask * inputs_obs , mask_sampling_uv * u_gt_wo_nan , mask_sampling_uv * v_gt_wo_nan ) ,dim=1)
+            
+            #print('%f '%( float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean(w_sampling_uv)) )
+        else:
+            mask_sampling_uv = torch.zeros_like(inputs_obs)
+            w_sampling_uv = None
+            obs = torch.cat( (inputs_Mask * inputs_obs, torch.zeros_like(inputs_Mask) ,  torch.zeros_like(inputs_Mask) ) ,dim=1)
+            
+        new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
+
+        if self.aug_state :
+            obs = torch.cat( (obs, torch.zeros_like(inputs_Mask),) ,dim=1)
+            new_masks = torch.cat( (new_masks, torch.zeros_like(inputs_Mask)), dim=1)
+        
+        if self.use_sst_state :
+            obs = torch.cat( (obs,sst_gt,) ,dim=1)
+            new_masks = torch.cat( (new_masks, torch.ones_like(inputs_Mask)), dim=1)
+
+        if self.use_sst_obs :
+            new_masks = [ new_masks, torch.ones_like(sst_gt) ]
+            obs = [ obs, sst_gt ]
+        
+        return obs,new_masks,w_sampling_uv,mask_sampling_uv
+
+    def get_obs_and_mask_hr(self,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan):
+                
+        if self.model_sampling_uv is not None :
+            w_sampling_uv = self.model_sampling_uv( sst_gt )
+            w_sampling_uv = w_sampling_uv[1]
+            
+            #mask_sampling_uv = torch.bernoulli( w_sampling_uv )
+            mask_sampling_uv = 1. - torch.nn.functional.threshold( 1.0 - w_sampling_uv , 0.9 , 0.)
+            obs = torch.cat( (inputs_Mask * inputs_obs , u_gt_wo_nan , v_gt_wo_nan ) ,dim=1)
             
             #print('%f '%( float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean(w_sampling_uv)) )
         else:
             mask_sampling_uv = torch.zeros_like(u_gt_wo_nan)
             w_sampling_uv = None
-            obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI), 0. * targets_OI ,  0. * targets_OI ) ,dim=1)
+            obs = torch.cat( ( inputs_Mask * inputs_obs , torch.zeros_like(inputs_Mask) ,  torch.zeros_like(inputs_Mask) ) ,dim=1)
             
         new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
 
         if self.aug_state :
-            obs = torch.cat( (obs, 0. * targets_OI,) ,dim=1)
+            obs = torch.cat( (obs, torch.zeros_like(inputs_Mask),) ,dim=1)
             new_masks = torch.cat( (new_masks, torch.zeros_like(inputs_Mask)), dim=1)
         
         if self.use_sst_state :
@@ -2375,7 +2407,7 @@ class LitModelUV(pl.LightningModule):
         state = self.get_init_state_lr_from_hr(_batch, out_hr=out_hr)
 
         # obs and mask data
-        obs,new_masks,w_sampling_uv,mask_sampling_uv = self.get_obs_and_mask(targets_OI,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan)
+        obs,new_masks,w_sampling_uv,mask_sampling_uv = self.get_obs_and_mask_lr(inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan)
 
         # run forward_model
         with torch.set_grad_enabled(True):
