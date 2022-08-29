@@ -1081,28 +1081,52 @@ class LitModelUV(pl.LightningModule):
     def create_model(self):
         print('...... Set low-resolution model'%self.hparams.use_sst_obs,flush=True)
         hparams_lr = self.hparams
-        hparams_lr.shape_state[1:2] = int(hparams_lr.shape_state[1:2] / hparams_lr.scale_lr )    
-        self.model_4dvarnet_lr = 1. #get_4dvarnet_sst(hparams_lr)
+        hparams_lr.shape_state[1:2] = int(hparams_lr.shape_state[1:2] / hparams_lr.scale_lr ) 
+        hparams_lr.shape_state[0] = hparams_lr.shape_state[0]-self.dT
+        print('.... shape state : %dx%dx%d'%(hparams_lr.shape_state[0],hparams_lr.shape_state[1],hparams_lr.shape_state[2]) )
+        self.model_4dvarnet_lr = get_4dvarnet_sst(hparams_lr)
         
-        print('...... Set fine-scale model %d'%self.hparams.use_sst_obs,flush=True)
+        print('...... Set fine-scale model',flush=True)
         hparams_hr = self.hparams
-        hparams_hr.shape_state[0] = hparams_hr.dim_sst_hr_model    
+        hparams_hr.shape_state[0] =  int( hparams_hr.dT_hr_model *  hparams_hr.shape_state[0] / self.dT )
+        print('.... shape state : %dx%dx%d'%(hparams_hr.shape_state[0],hparams_hr.shape_state[1],hparams_hr.shape_state[2]) )        
         self.model_4dvarnet_lr = get_4dvarnet_sst(hparams_hr)
 
     def forward(self, batch, phase='test'):
         losses = []
         metrics = []
-        state_init = [None]
-        out=None
+        state_init_lr = [None]
+        state_init_hr = [None]
+        
+        out = None
         
         for _ in range(self.hparams.n_fourdvar_iter):
-            if ( phase == 'test' ) & ( self.use_sst ):
-                _loss, out, state, _metrics,sst_feat = self.compute_loss(batch, phase=phase, state_init=state_init)
+            if ( phase == 'test' ) & ( self.use_sst ):                
+                # run low-resolution model
+                if state_init_hr is not None:
+                    state_init_lr = self.get_init_state_lr_from_hr( batch , state_init_hr )
+                    
+                _loss_lr, out_lr, state_lr, _metrics,sst_feat = self.compute_loss_lr(batch, phase=phase, state_init_lr=state_init_lr)
+                                
+                # run high-resolution model
+                state_init_hr = self.get_init_state_hr_from_lr( state_lr )
+                
+                _loss, out_hr, state_hr, _metrics_lr,sst_feat_lr = self.compute_loss_hr(batch, phase=phase, state_init_hr=state_init_hr)
             else:
-                _loss, out, state, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
+                # run low-resolution model
+                if state_init_hr is not None:
+                    state_init_lr = self.get_init_state_lr_from_hr( state_init_hr )
+                    
+                _loss_lr, out, state_lr, _metrics,sst_feat = self.compute_loss_lr(batch, phase=phase, state_init_lr=state_init_lr)
+                                
+                # run high-resolution model
+                state_init_hr = self.get_init_state_hr_from_lr( state_lr )                
+                _loss, out, state_hr, _metrics_lr,sst_feat_lr = self.compute_loss_hr(batch, phase=phase, state_init_hr=state_init_hr)
             
             if self.hparams.n_grad > 0 :
-                state_init = [None if s is None else s.detach() for s in state]
+                state_init_lr = [None if s is None else s.detach() for s in state_lr]
+                state_init_hr = [None if s is None else s.detach() for s in state_hr]
+
             losses.append(_loss)
             metrics.append(_metrics)
             
@@ -1836,9 +1860,6 @@ class LitModelUV(pl.LightningModule):
                                         
                                         
                                         lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
-
-                #save_netcdf_with_obs(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh,
-                #         lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
             else:
                 def extract_seq(out,key,dw=20):
                     seq = torch.cat([chunk[key] for chunk in outputs]).numpy()
@@ -1879,7 +1900,6 @@ class LitModelUV(pl.LightningModule):
                                         sst_feat=self.x_sst_feat_ssh,
                                         lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
 
-
     def teardown(self, stage='test'):
 
         self.logger.log_hyperparams(
@@ -1887,37 +1907,82 @@ class LitModelUV(pl.LightningModule):
                 self.latest_metrics
     )
 
-    def get_init_state(self, batch, state=(None,),mask_sampling = None):
-        if state[0] is not None:
-            return state[0]
-
-        #if not self.use_sst:
-        #    targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt = batch
-        #else:
-        #    #targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt = batch
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
-        
+    def get_init_state_lr_from_hr(self, batch,out_hr=(None,),mask_sampling = None):
         targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon, gx, gy = batch
+        if out_hr[0] is not None:            
+            # compute low-resolution lr state from hr state            
+            init_ssh = torch.nn.functional.avg_pool2d(out_hr[0].detach(), (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
+            init_u = torch.nn.functional.avg_pool2d(out_hr[1].detach(), (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
+            init_v = torch.nn.functional.avg_pool2d(out_hr[2].detach(), (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
 
-        if mask_sampling is not None :
-            init_u = mask_sampling * u_gt
-            init_v = mask_sampling * v_gt
-        else:
+        else:              
             init_u = torch.zeros_like(targets_GT)
             init_v = torch.zeros_like(targets_GT)
+
+            init_ssh = inputs_Mask * inputs_obs
+        
+        if mask_sampling is not None :
+            init_u += mask_sampling * u_gt
+            init_v += mask_sampling * v_gt
+
+        if self.aug_state :
+            init_state = torch.cat((init_ssh ,
+                                    init_ssh ,
+                                    init_u,init_v),
+                                    dim=1)
+        else:
+            init_state = torch.cat((init_ssh ,
+                                    init_u,init_v),
+                                    dim=1)
+        if self.use_sst_state :
+            init_state = torch.cat((init_state,
+                                    sst_gt,),
+                                    dim=1)
+        return init_state
+
+    def get_init_state_hr_from_lr(self, batch, out_lr=(None,),state_hr=(None,),mask_sampling = None):
+            
+        if out_lr[0] is  None :
+            print('...  THIS IS UNEXPECTED init state from hr with no hr state .....')
+                        
+        # re-interpolate lr state to hr grid 
+        init_ssh_from_lr = torch.nn.functional.interpolate(out_lr[0].detach(), scale_factor=self.scale_dwscaling, mode='bicubic')
+        init_u_from_lr = torch.nn.functional.interpolate(out_lr[1].detach(), scale_factor=self.scale_dwscaling, mode='bicubic')
+        init_v_from_lr = torch.nn.functional.interpolate(out_lr[2].detach(), scale_factor=self.scale_dwscaling, mode='bicubic')
+            
+        targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon, gx, gy = batch
+
+        if state_hr[0] is not None: 
+            if self.aug_state :
+                init_state = torch.cat((init_ssh_from_lr,
+                                        state_hr[0][:,self.dT:2*self.dT,:,:],
+                                        state_hr[0][:,2*self.dT:3*self.dT,:,:],
+                                        init_u_from_lr,init_v_from_lr),
+                                       dim=1)
+            else:      
+                init_state = torch.cat((init_ssh_from_lr,
+                                        state_hr[0][:,self.dT:2*self.dT,:,:],
+                                        init_u_from_lr,init_v_from_lr),
+                                       dim=1)
+            
+            if self.use_sst_state :
+                init_state = torch.cat((init_state,
+                                        sst_gt,),
+                                       dim=1)
+            return init_state
             
         if self.aug_state :
-            init_state = torch.cat((targets_OI,
-                                    inputs_Mask * (inputs_obs - targets_OI),
-                                    inputs_Mask * (inputs_obs - targets_OI),
-                                    init_u,init_v),
+            init_state = torch.cat((init_ssh_from_lr,
+                                    inputs_Mask * (inputs_obs - init_ssh_from_lr),
+                                    inputs_Mask * (inputs_obs - init_ssh_from_lr),
+                                    init_u_from_lr,init_v_from_lr),
                                    dim=1)
         else:
-            init_state = torch.cat((targets_OI,
+            init_state = torch.cat((init_ssh_from_lr,
                                     inputs_Mask * (inputs_obs - targets_OI),
-                                    init_u,init_v),
+                                    init_u_from_lr,init_v_from_lr),
                                    dim=1)
-
+ 
         if self.use_sst_state :
             init_state = torch.cat((init_state,
                                     sst_gt,),
@@ -2094,13 +2159,51 @@ class LitModelUV(pl.LightningModule):
         
         return obs,new_masks,w_sampling_uv,mask_sampling_uv
 
-    def run_model(self,state, obs, new_masks,state_init,lat_rad,lon_rad,phase,flag_model_lr):
+    def run_model_lr(self,state, obs, new_masks,state_init,lat_rad,lon_rad,phase,flag_model_lr):
         state = torch.autograd.Variable(state, requires_grad=True)
 
-        if flag_model_lr == True :
-            outputs, hidden_new, cell_new, normgrad = self.model_4dvarnet_lr(state, obs, new_masks, *state_init[1:])
+        outputs, hidden_new, cell_new, normgrad = self.model_4dvarnet_lr(state, obs, new_masks, *state_init[1:])
+ 
+        if (phase == 'val') or (phase == 'test'):
+            outputs = outputs.detach()
+
+        outputsSLRHR = outputs
+        outputs = outputs[:, 0:self.hparams.dT, :, :]
+        
+        if self.aug_state :
+            outputs_u = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
+            outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
         else:
-            outputs, hidden_new, cell_new, normgrad = self.model_4dvarnet_hr(state, obs, new_masks, *state_init[1:])
+            outputs_u = outputsSLRHR[:, 1*self.hparams.dT:2*self.hparams.dT, :, :]
+            outputs_v = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
+
+        # U,V prediction
+        if ( self.residual_wrt_geo_velocities == 1 ) or (self.residual_wrt_geo_velocities == 3):            
+            # denormalize ssh
+            u_geo_rec , v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
+
+            alpha_uv_geo = 0.05
+            outputs_u = alpha_uv_geo * outputs_u + u_geo_rec
+            outputs_v = alpha_uv_geo * outputs_v + v_geo_rec
+            
+        elif ( self.residual_wrt_geo_velocities == 2 ) or ( self.residual_wrt_geo_velocities == 4 ): 
+            # denormalize ssh
+            u_geo_rec, v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
+            #u_geo_gt, v_geo_gt = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
+
+            u_geo_factor, v_geo_factor = self.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.) 
+
+            alpha_uv_geo = 0.05
+            outputs_u = alpha_uv_geo * u_geo_factor * outputs_u
+            outputs_v = alpha_uv_geo * v_geo_factor * outputs_v
+
+        
+        return outputs, outputs_u, outputs_v, outputsSLRHR, hidden_new, cell_new, normgrad
+
+    def run_model_hr(self,state, obs, new_masks,state_init,lat_rad,lon_rad,phase):
+        state = torch.autograd.Variable(state, requires_grad=True)
+
+        outputs, hidden_new, cell_new, normgrad = self.model_4dvarnet_hr(state, obs, new_masks, *state_init[1:])
 
         if (phase == 'val') or (phase == 'test'):
             outputs = outputs.detach()
@@ -2249,7 +2352,7 @@ class LitModelUV(pl.LightningModule):
 
         return loss_All,loss_GAll,loss_uv,loss_uv_geo,loss_div,loss_strain 
 
-    def compute_loss_lr(self, batch, phase, state_init_lr=(None,)):
+    def compute_loss_lr(self, batch, phase, out_hr=(None,),state_init_lr=(None,)):
 
         ##############################################
         # run lr model
@@ -2279,7 +2382,7 @@ class LitModelUV(pl.LightningModule):
                     )
          
         # intial state
-        state = self.get_init_state(_batch, state_init_lr)
+        state = self.get_init_state_lr(_batch, state_init_lr,out_hr)
 
         # obs and mask data
         obs,new_masks,w_sampling_uv,mask_sampling_uv = self.get_obs_and_mask(targets_OI,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan)
@@ -2289,11 +2392,11 @@ class LitModelUV(pl.LightningModule):
             flag_display_loss = False#True
             
             if self.hparams.n_grad > 0 :                
-                outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad = self.run_model(state, obs, new_masks,state_init_lr,
-                                                                                                                         lat_rad,lon_rad,phase,flag_model_lr=True)
+                outputs, outputs_u, outputs_v, outputsSLRHR, hidden_new, cell_new, normgrad = self.run_model_lr(state, obs, new_masks,state_init_lr,
+                                                                                                                         lat_rad,lon_rad,phase)
                         
             else:
-                outputs = self.model.phi_r(obs)
+                outputs = self.model_4dvarnet_lr.phi_r(obs)
                                 
                 outputs_u = outputs[:, 1*self.hparams.dT:2*self.hparams.dT, :, :]
                 outputs_v = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
@@ -2382,14 +2485,13 @@ class LitModelUV(pl.LightningModule):
             return loss, [outputs,outputs_u,outputs_v], [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
 
 
-    def compute_loss_hr(self, batch, phase, state_lr, state_init_hr=(None,)):
+    def compute_loss_hr(self, batch, phase, out_lr, state_init_hr=(None,)):
 
         ##############################################
         # run lr model
         targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad = batch
 
-        g_targets_GT_x, g_targets_GT_y = 
-        
+        g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT_wo_nan)        
         
         #targets_OI, inputs_Mask, targets_GT = batch
         # handle patch with no observation
@@ -2411,7 +2513,7 @@ class LitModelUV(pl.LightningModule):
                     )
          
         # intial state
-        state = self.get_init_state(_batch, state_init_lr)
+        state = self.get_init_state_hr(batch, out_lr, state_init_hr )
 
         # obs and mask data
         obs,new_masks,w_sampling_uv,mask_sampling_uv = self.get_obs_and_mask(targets_OI,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan)
@@ -2421,11 +2523,11 @@ class LitModelUV(pl.LightningModule):
             flag_display_loss = False#True
             
             if self.hparams.n_grad > 0 :                
-                outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad = self.run_model(state, obs, new_masks,state_init_lr,
-                                                                                                                         lat_rad,lon_rad,phase,flag_model_lr=True)
+                outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad = self.run_model_hr(state, obs, new_masks,state_init_hr,
+                                                                                                                         lat_rad,lon_rad,phase)
                         
             else:
-                outputs = self.model.phi_r(obs)
+                outputs = self.model_4dvarnet_hr.phi_r(obs)
                                 
                 outputs_u = outputs[:, 1*self.hparams.dT:2*self.hparams.dT, :, :]
                 outputs_v = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
