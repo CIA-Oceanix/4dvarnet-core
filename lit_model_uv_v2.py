@@ -2219,18 +2219,15 @@ class LitModelUV(pl.LightningModule):
         loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
 
         # MSE for SSH-derived (u,v) fields
-        flag_loss_GAll_geo = True
-        
-        if flag_loss_GAll_geo :
-            # denormalize ssh
-            u_geo_rec , v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
-            u_geo_gt  , v_geo_gt  = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
-                                    
-            loss_uv_geo = self.uv_loss( [u_geo_rec,v_geo_rec], [u_geo_gt,v_geo_gt])
-            loss_GAll = ( self.hparams.alpha_mse_uv_geo / self.hparams.alpha_mse_gssh )  * loss_uv_geo
-            if flag_display_loss :
-                print('..  loss uv geo = %e' % ( self.hparams.alpha_mse_uv_geo * loss_uv_geo ) )                     
-                print('..  loss gssh = %e' % (self.hparams.alpha_mse_gssh * loss_GAll) )                     
+        # denormalize ssh
+        u_geo_rec , v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
+        u_geo_gt  , v_geo_gt  = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
+                                
+        loss_uv_geo = self.uv_loss( [u_geo_rec,v_geo_rec], [u_geo_gt,v_geo_gt])
+            #loss_GAll = ( self.hparams.alpha_mse_uv_geo / self.hparams.alpha_mse_gssh )  * loss_uv_geo
+            #if flag_display_loss :
+            #    print('..  loss uv geo = %e' % ( self.hparams.alpha_mse_uv_geo * loss_uv_geo ) )                     
+            #    print('..  loss gssh = %e' % (self.hparams.alpha_mse_gssh * loss_GAll) )                     
 
         if self.type_div_train_loss == 0 :
             div_rec = self.compute_div(outputs_u,outputs_v)
@@ -2263,7 +2260,7 @@ class LitModelUV(pl.LightningModule):
             print('..  loss uv = %e' % (self.hparams.alpha_mse_uv * loss_uv) )                     
 
 
-        return loss_All,loss_GAll,loss_uv,loss_div,loss_strain 
+        return loss_All,loss_GAll,loss_uv,loss_uv_geo,loss_div,loss_strain 
 
     def compute_loss(self, batch, phase, state_init=(None,)):
         
@@ -2327,7 +2324,7 @@ class LitModelUV(pl.LightningModule):
                 targets_OI,targets_GT_wo_nan,sst_gt,u_gt_wo_nan,v_gt_wo_nan,lat_rad,lon_rad,outputs,outputs_u,outputs_v,g_targets_GT_x,g_targets_GT_y = _t 
                                                               
             # reconstruction losses
-            loss_All,loss_GAll,loss_uv,loss_div,loss_strain = self.compute_rec_loss(targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,
+            loss_All,loss_GAll,loss_uv,loss_uv_geo,loss_div,loss_strain = self.compute_rec_loss(targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,
                                                                                     outputs,outputs_u,outputs_v,
                                                                                     lat_rad,lon_rad,phase)
             
@@ -2339,23 +2336,31 @@ class LitModelUV(pl.LightningModule):
                 loss_l1_sampling_uv = torch.nn.functional.relu( loss_l1_sampling_uv - self.hparams.thr_l1_sampling_uv )
                 loss_l0_sampling_uv = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean( mask_sampling_uv ) 
 
-            # total loss
-            loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
+            ######################################
+            # Computation of total loss
+            # reconstruction loss
+            loss = self.hparams.alpha_mse_ssh * loss_All 
+            loss += self.hparams.alpha_mse_gssh * loss_GAll
             loss += self.hparams.alpha_mse_uv * loss_uv
+            loss += self.hparams.alpha_mse_uv_geo * loss_uv_geo
+            
             if self.hparams.alpha_mse_div > 0. :
                 loss += self.hparams.alpha_mse_div * loss_div
-                
             if self.hparams.alpha_mse_strain > 0. :
                 loss += self.hparams.alpha_mse_strain *loss_strain
-                
+               
+            # regularization loss
             loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
             loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
+            
+            # sampling loss
             if self.model_sampling_uv is not None :
                 loss += self.hparams.alpha_sampling_uv * loss_l1_sampling_uv
 
             if flag_display_loss :
                 print('..  loss = %e' %loss )                     
 
+            ######################################
             # metrics
             # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
             mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(
