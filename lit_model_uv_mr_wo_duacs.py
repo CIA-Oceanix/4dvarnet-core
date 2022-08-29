@@ -1903,11 +1903,9 @@ class LitModelUV(pl.LightningModule):
             init_ssh = torch.nn.functional.avg_pool2d(out_hr[0].detach(), (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
             init_u = torch.nn.functional.avg_pool2d(out_hr[1].detach(), (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
             init_v = torch.nn.functional.avg_pool2d(out_hr[2].detach(), (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
-
         else:              
             init_u = torch.zeros_like(targets_GT)
             init_v = torch.zeros_like(targets_GT)
-
             init_ssh = inputs_Mask * inputs_obs
         
         if mask_sampling is not None :
@@ -2151,7 +2149,7 @@ class LitModelUV(pl.LightningModule):
         
         return obs,new_masks,w_sampling_uv,mask_sampling_uv
 
-    def run_model_lr(self,state, obs, new_masks,state_init,lat_rad,lon_rad,phase,flag_model_lr):
+    def run_model_lr(self,state, obs, new_masks,state_init,lat_rad,lon_rad,phase):
         state = torch.autograd.Variable(state, requires_grad=True)
 
         outputs, hidden_new, cell_new, normgrad = self.model_4dvarnet_lr(state, obs, new_masks, *state_init[1:])
