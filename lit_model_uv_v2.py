@@ -2140,12 +2140,12 @@ class LitModelUV(pl.LightningModule):
                             dim=1)
             if self.aug_state :
                 yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
-            
+                                                            
+            yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
+
             if self.use_sst_state :
                 yGT = torch.cat((yGT,sst_gt), dim=1)
-    
-                                                
-            yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
+            
             loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
                 yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
             )
