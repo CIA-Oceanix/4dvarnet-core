@@ -1116,7 +1116,7 @@ class LitModelUV(pl.LightningModule):
             else:
                 # run low-resolution model
                 if state_init_hr[0] is not None:
-                    state_init_lr = self.get_init_state_lr_from_hr( state_init_hr )
+                    state_init_lr = self.get_init_state_lr_from_hr( batch , state_init_hr )
                     
                 _loss_lr, out, state_lr, _metrics,sst_feat = self.compute_loss_lr(batch, phase=phase, state_init_lr=state_init_lr)
                                 
