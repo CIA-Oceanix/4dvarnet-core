@@ -1174,7 +1174,8 @@ class LitModelUV(pl.LightningModule):
     def on_epoch_start(self):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
-        self.model.n_grad = self.hparams.n_grad
+        self.model_4dvarnet_lr.n_grad = self.hparams.n_grad
+        self.model_4dvarnet_hr.n_grad = self.hparams.n_grad
         #self.compute_derivativeswith_lon_lat.to(device)
                 
     def on_train_epoch_start(self):
@@ -1185,8 +1186,8 @@ class LitModelUV(pl.LightningModule):
                 print('... Update Iterations number/learning rate #%d: NGrad = %d -- lr = %f' % (
                     self.current_epoch, self.hparams.nb_grad_update[indx], self.hparams.lr_update[indx]))
 
-                self.hparams.n_grad = self.hparams.nb_grad_update[indx]
-                self.model.n_grad = self.hparams.n_grad
+                self.model_4dvarnet_lr.n_grad = self.hparams.n_grad
+                self.model_4dvarnet_hr.n_grad = self.hparams.n_grad
 
                 mm = 0
                 lrCurrent = self.hparams.lr_update[indx]
@@ -1194,7 +1195,8 @@ class LitModelUV(pl.LightningModule):
                 for pg in opt.param_groups:
                     pg['lr'] = lr[mm]  # * self.hparams.learning_rate
                     mm += 1
-        self.patch_weight = self.patch_weight_train 
+        #self.patch_weight_lr = self.patch_weight_train 
+        #self.patch_weight = self.patch_weight_train 
 
     def training_epoch_end(self, outputs):
         best_ckpt_path = self.trainer.checkpoint_callback.best_model_path
