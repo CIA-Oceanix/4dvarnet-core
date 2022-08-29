@@ -2381,6 +2381,9 @@ class LitModelUV(pl.LightningModule):
         with torch.set_grad_enabled(True):
             flag_display_loss = False#True
             
+            print(state[0].size(),flush=True)
+            print(obs[0].size(),flush=True)
+            
             if self.hparams.n_grad > 0 :                
                 outputs, outputs_u, outputs_v, outputsSLRHR, hidden_new, cell_new, normgrad = self.run_model_lr(state, obs, new_masks,state_init_lr,
                                                                                                                          lat_rad,lon_rad,phase)
