@@ -1140,36 +1140,28 @@ class LitModelUV(pl.LightningModule):
         opt = torch.optim.Adam
         if hasattr(self.hparams, 'opt'):
             opt = lambda p: hydra.utils.call(self.hparams.opt, p)
-        if self.model_name == '4dvarnet':
+            
             if self.model_sampling_uv is not None :
-                optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
-                    {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
-                    {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
-                    {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                optimizer = opt([{'params': self.model_4dvarnet_lr.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model_4dvarnet_lr.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model_4dvarnet_lr.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model_4dvarnet_lr.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                    {'params': self.model_4dvarnet_hr.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model_4dvarnet_hr.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model_4dvarnet_hr.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model_4dvarnet_hr.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                     {'params': self.model_sampling_uv.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                     ])
             else:
-                optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
-                    {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
-                    {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
-                    {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                optimizer = opt([{'params': self.model_4dvarnet_lr.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model_4dvarnet_lr.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model_4dvarnet_lr.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model_4dvarnet_lr.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                    {'params': self.model_4dvarnet_hr.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model_4dvarnet_hr.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model_4dvarnet_hr.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
+                    {'params': self.model_4dvarnet_hr.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]}
                     ])
-            return optimizer
-        elif self.model_name == '4dvarnet_sst':
-            if self.model_sampling_uv is not None :
-                optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
-                    {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
-                    {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
-                    {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
-                    {'params': self.model_sampling_uv.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
-                    ])
-            else:
-                optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
-                                    {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
-                                    {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
-                                    {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
-                                    ])
-
             return optimizer
         else:
             opt = optim.Adam(self.parameters(), lr=1e-4)
