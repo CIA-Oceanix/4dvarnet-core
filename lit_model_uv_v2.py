@@ -939,7 +939,7 @@ class LitModelUV(pl.LightningModule):
         self.sig_filter_div_diag = self.hparams.sig_filter_div_diag if hasattr(self.hparams, 'sig_filter_div_diag') else self.hparams.sig_filter_div
         self.hparams.alpha_mse_strain = self.hparams.alpha_mse_strain if hasattr(self.hparams, 'alpha_mse_strain') else 0.
 
-        self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 0
+        self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 1
         
         self.scale_dwscaling = self.hparams.scale_dwscaling if hasattr(self.hparams, 'scale_dwscaling') else 1.0
         if self.scale_dwscaling > 1. :            
@@ -952,8 +952,8 @@ class LitModelUV(pl.LightningModule):
 
 
         self.residual_wrt_geo_velocities = self.hparams.residual_wrt_geo_velocities if hasattr(self.hparams, 'residual_wrt_geo_velocities') else 0
-        if self.residual_wrt_geo_velocities > 0 :
-            self.type_div_train_loss = 1
+        #if self.residual_wrt_geo_velocities > 0 :
+        #    self.type_div_train_loss = 1
         self.use_lat_lon_in_obs_model = self.hparams.use_lat_lon_in_obs_model if hasattr(self.hparams, 'use_lat_lon_in_obs_model') else False
         if ( self.residual_wrt_geo_velocities == 3 ) or ( self.residual_wrt_geo_velocities == 4 ):
             self.use_lat_lon_in_obs_model = True
@@ -2107,38 +2107,15 @@ class LitModelUV(pl.LightningModule):
             outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
 
         # U,V prediction
-        if self.residual_wrt_geo_velocities == 1 :
-            #lat_rad = torch.deg2rad(lat)
-            #lon_rad = torch.deg2rad(lon)
-            
+        if ( self.residual_wrt_geo_velocities == 1 ) or (self.residual_wrt_geo_velocities == 3):            
             # denormalize ssh
             u_geo_rec , v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
-            #u_geo_gt  , v_geo_gt  = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
-
-            outputs_u = outputs_u + u_geo_rec
-            outputs_v = outputs_v + v_geo_rec
-            
-        elif self.residual_wrt_geo_velocities == 2 : 
-            # denormalize ssh
-            u_geo_rec, v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
-            #u_geo_gt, v_geo_gt = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
-
-            u_geo_factor, v_geo_factor = self.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.) 
-
-            alpha_uv_geo = 0.05
-            outputs_u = alpha_uv_geo * u_geo_factor * outputs_u
-            outputs_v = alpha_uv_geo * v_geo_factor * outputs_v
-
-            #print('%f %f'%(np.mean(u_geo_factor.detach().cpu().numpy()),np.mean(v_geo_factor.detach().cpu().numpy())))
-        elif self.residual_wrt_geo_velocities == 3 :
-            # denormalize ssh
-            u_geo_rec , v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
-            #u_geo_gt  , v_geo_gt  = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
 
             alpha_uv_geo = 0.05
             outputs_u = alpha_uv_geo * outputs_u + u_geo_rec
             outputs_v = alpha_uv_geo * outputs_v + v_geo_rec
-        elif self.residual_wrt_geo_velocities == 4 : 
+            
+        elif ( self.residual_wrt_geo_velocities == 2 ) or ( self.residual_wrt_geo_velocities == 4 ): 
             # denormalize ssh
             u_geo_rec, v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
             #u_geo_gt, v_geo_gt = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
