@@ -42,7 +42,7 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_180/checkpoints/modelUVwSSTGF-unet1_050-augdata-dws-sst10-augstate-dT07-sstobs-nolinear-tanh-bn_20-nowgeo-nostrain-grad_05_03_150-epoch=07-val_loss=2.1617.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_181/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-nowgeo-nostrain-grad_05_03_150-epoch=01-val_loss=1.1214.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_183/checkpoints/modelUVwSSTGF-v2-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo2-nodivstrain-grad_05_03_150-epoch=09-val_loss=1.9603.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_186/checkpoints/modelUVwSSTGF-v2-unet1_050-augdata-dws02-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo2-nodivstrain-grad_05_03_150-epoch=11-val_loss=1.9269.ckpt'
+   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_186/checkpoints/modelUVwSSTGF-v2-unet1_050-augdata-dws02-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo2-nodivstrain-grad_05_03_150-epoch=69-val_loss=1.2998.ckpt'
    
 # ####################
 # Models selected from 4DVarNet UV preprint

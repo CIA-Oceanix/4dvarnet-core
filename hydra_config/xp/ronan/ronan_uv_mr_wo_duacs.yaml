@@ -1,0 +1,92 @@
+# @package _global_
+
+# Ici tu peux surcharger les parties de la config que tu veux sans impacter les autres, par exemple:
+
+entrypoint:
+   weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_2/checkpoints/modelSLAwSSTGF-unet1_050-augdata-DirectInv-wSST-dT07-epoch=145-val_loss=0.5605.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/SLANATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_8/checkpoints/modelSLAwSSTGF-unet-std_050-augdata-DirectInv-wSST-dT07-epoch=76-val_loss=0.4715.ckpt'   
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_18/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn-att_10-grad_05_03_150-epoch=106-val_loss=1.3091.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_23/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=85-val_loss=1.1946.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_36/checkpoints/modelUVwSSTGF-unet1_050-augdata-sampling_sst_10_005_-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=05-val_loss=1.8202.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_57/checkpoints/modelUVwSSTGF-unet1_050-augdata-sampling_sst_10_010-augstate-dT07-grad_05_03_150-epoch=56-val_loss=1.4166.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_56/checkpoints/modelUVwSSTGF-unet1_050-augdata-sampling_sst_10_010-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=27-val_loss=0.8478.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_62/checkpoints/modelUVwSSTGF-unet1_050-augdata-sampling_sst_10_015-augstate-dT07-grad_05_03_150-epoch=55-val_loss=1.4354.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_65/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-grad_05_03_150-epoch=86-val_loss=3.0276.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_27/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-grad_05_03_150-epoch=85-val_loss=1.1134.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_73/checkpoints/modelUVwSSTGF-unet1_050-augdata-DirectInv-wSST-dT07-epoch=165-val_loss=2.7599.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_74/checkpoints/modelUVwoSSTGF-unet1_050-augdata-DirectInv-dT07-epoch=13-val_loss=4.6596.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_81/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo--grad_05_03_150-epoch=96-val_loss=2.2158.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_83/checkpoints/modelUVwoSSTGF-unet1_050-augdata-augstate-dT07-wgeo--grad_05_03_150-epoch=72-val_loss=3.1684.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_85/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-geoD--grad_05_03_150-epoch=85-val_loss=1.5134.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_86/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_05-wgeo--grad_05_03_150-epoch=92-val_loss=1.9794.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_89/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo1--grad_05_03_150-epoch=97-val_loss=1.4860.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_92/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo2--grad_05_03_150-epoch=91-val_loss=2.0933.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_98/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo1-nodivstrain-grad_05_03_150-epoch=91-val_loss=1.4862.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_96/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo2-nodivstrain-grad_05_03_150-epoch=97-val_loss=1.6160.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_110/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo3-nodivstrain-grad_05_03_150-epoch=60-val_loss=1.3480.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_107/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-wgeo3-nodivstrain-grad_05_03_150-epoch=111-val_loss=2.5652.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_108/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-wgeo2-nodivstrain-grad_05_03_150-epoch=90-val_loss=2.7591.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_113/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=87-val_loss=1.0798.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_114/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo2-nodivstrain-grad_05_03_150-epoch=84-val_loss=1.0424.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_120/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=01-val_loss=0.9199.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_121/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=65-val_loss=0.9022.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_133/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo4-nodivstrain-grad_05_03_150-epoch=72-val_loss=1.2066.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_131/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-nowgeo-nodivstrain-grad_05_03_150-epoch=20-val_loss=2.5785.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_132/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-wgeo4-nodivstrain-grad_05_03_150-epoch=88-val_loss=2.7918.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_147/checkpoints/modelUVwSSTGF-unet1_050-augdata-dws02-augstate-dT07-nowgeo-nostrain-grad_05_03_150-epoch=05-val_loss=2.4105.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_144/checkpoints/modelUVwSSTGF-unet1_050-augdata-dws02-augstate-dT07-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=199-val_loss=1.2407.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_169/checkpoints/modelUVwSSTGF-unet1_050-augdata-DirectInv-dT07-epoch=146-val_loss=3.9638.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_130/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-nowgeo-nostrain-grad_05_03_150-epoch=84-val_loss=0.9944.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_171/checkpoints/modelUVwSSTGF-unet1_050-augdata-DirectInv-wSST-dT07-epoch=28-val_loss=2.4926.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_179/checkpoints/modelUVwSSTGF-unet1_050-augdata-dws-sst05-augstate-dT07-sstobs-nolinear-tanh-bn_20-nowgeo-nostrain-grad_05_03_150-epoch=05-val_loss=1.6552.ckpt'
+params:
+  flag_update_training_config: False # True # 
+  sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
+  k_n_grad: 3
+  n_grad: 5
+  dT: 21
+  scale_dwscaling: 4.
+  dim_sst_hr_model: 7 
+  DimAE: 50
+  dim_obs_sst_feat: 20
+  dim_grad_solver: 150
+  phi_param: 'unet1'#'unet-std'#
+  ckpt_name: 'modelUVwSSTGF-v2-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
+  use_sst_obs: True # False # 
+  use_sst_state: False # True # 
+  patch_weight:
+    _target_: lit_model_uv.get_cropped_hanning_mask
+    patch_size: ${datamodule.slice_win}
+    crop:
+      time: 1
+  val_diag_freq: 5 
+  padding_mode: reflect
+  residual_wrt_geo_velocities: ?? #False #
+  type_div_train_loss: 1
+  alpha_mse_ssh: 50. # loss
+  alpha_mse_gssh: 0. #1000.
+  alpha_mse_uv: 50.
+  alpha_mse_uv_geo: 10.
+  alpha_mse_div: 0. # 1000. #5 0. # 00. # 100. 
+  alpha_mse_strain: 0. #1000.
+  sig_filter_div: 1.
+  norm_obs: l2
+  norm_prior: l2
+  sampling_model: 'sampling-from-sst'
+  nb_feat_sampling_operator: 0
+  alpha_sampling_uv: 10.
+  thr_l1_sampling_uv: 0.10
+  scale_dwscaling_sst: 1.
+datamodule:
+  aug_train_data: True 
+defaults:
+  - /xp/ronan/base_xp_uv
+  - /splits/dc_boost_swot@datamodule
+  - /xp/xp_aug/aug/with_aug_state_uv
+#  - /xp/xp_aug/aug/with_mm_aug_state_uv
+  - /xp/xp_aug/dl/d240_p240x5_s240x1
+  - /xp/xp_aug/sst/with_sst
+  - /xp/xp_aug/loss/map
+  - /xp/xp_aug/train_strat/const_lr_ngrad_5_3cas
+  - _self_ 
