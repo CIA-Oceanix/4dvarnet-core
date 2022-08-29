@@ -2374,7 +2374,7 @@ class LitModelUV(pl.LightningModule):
                     )
          
         # intial state
-        state = self.get_init_state_lr_from_hr(_batch, out_hrr=out_hr)
+        state = self.get_init_state_lr_from_hr(_batch, out_hr=out_hr)
 
         # obs and mask data
         obs,new_masks,w_sampling_uv,mask_sampling_uv = self.get_obs_and_mask(targets_OI,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan)
