@@ -1104,7 +1104,7 @@ class LitModelUV(pl.LightningModule):
         for _ in range(self.hparams.n_fourdvar_iter):
             if ( phase == 'test' ) & ( self.use_sst ):                
                 # run low-resolution model
-                if state_init_hr is not None:
+                if state_init_hr[0] is not None:
                     state_init_lr = self.get_init_state_lr_from_hr( batch , state_init_hr )
                     
                 _loss_lr, out_lr, state_lr, _metrics,sst_feat = self.compute_loss_lr(batch, phase=phase, state_init_lr=state_init_lr)
@@ -1115,7 +1115,7 @@ class LitModelUV(pl.LightningModule):
                 _loss, out_hr, state_hr, _metrics_lr,sst_feat_lr = self.compute_loss_hr(batch, phase=phase, state_init_hr=state_init_hr)
             else:
                 # run low-resolution model
-                if state_init_hr is not None:
+                if state_init_hr[0] is not None:
                     state_init_lr = self.get_init_state_lr_from_hr( state_init_hr )
                     
                 _loss_lr, out, state_lr, _metrics,sst_feat = self.compute_loss_lr(batch, phase=phase, state_init_lr=state_init_lr)
@@ -1904,6 +1904,7 @@ class LitModelUV(pl.LightningModule):
 
     def get_init_state_lr_from_hr(self, batch,out_hr=(None,),mask_sampling = None):
         targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon, gx, gy = batch
+        
         if out_hr[0] is not None:            
             # compute low-resolution lr state from hr state            
             init_ssh = torch.nn.functional.avg_pool2d(out_hr[0].detach(), (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
