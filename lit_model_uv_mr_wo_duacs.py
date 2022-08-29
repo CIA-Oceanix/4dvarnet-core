@@ -1091,7 +1091,7 @@ class LitModelUV(pl.LightningModule):
         hparams_hr = self.hparams
         hparams_hr.shape_state[0] =  int( hparams_hr.dT_hr_model *  hparams_hr.shape_state[0] / self.hparams.dT )
         print('.... shape state : %dx%dx%d'%(hparams_hr.shape_state[0],hparams_hr.shape_state[1],hparams_hr.shape_state[2]) )        
-        self.model_4dvarnet_lr = get_4dvarnet_sst(hparams_hr)
+        self.model_4dvarnet_hr = get_4dvarnet_sst(hparams_hr)
 
     def forward(self, batch, phase='test'):
         losses = []
@@ -1984,9 +1984,12 @@ class LitModelUV(pl.LightningModule):
                                    dim=1)
         return init_state
 
-    def loss_ae(self, state_out):
-        return torch.mean((self.model.phi_r(state_out) - state_out) ** 2)
+    def loss_ae_lr(self, state_out):
+        return torch.mean((self.model_4dvarnet_lr.phi_r(state_out) - state_out) ** 2)
 
+    def loss_ae_hr(self, state_out):
+        return torch.mean((self.model.model_4dvarnet_hr.phi_r(state_out) - state_out) ** 2)
+    
     def sla_loss(self, gt, out):
         g_outputs_x, g_outputs_y = self.gradient_img(out)
         g_gt_x, g_gt_y = self.gradient_img(gt)
