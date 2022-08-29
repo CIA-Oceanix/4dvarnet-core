@@ -47,7 +47,7 @@ params:
   k_n_grad: 3
   n_grad: 5
   dT: 21
-  scale_dwscaling: 4.
+  scale_lr: 4.
   dT_hr_model: 7 
   DimAE: 50
   dim_obs_sst_feat: 20
