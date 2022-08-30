@@ -1944,15 +1944,16 @@ class LitModelUV(pl.LightningModule):
             init_u_ = torch.nn.functional.avg_pool2d(out_hr[1].detach(), (int(self.scale_lr),int(self.scale_lr)))
             init_v_ = torch.nn.functional.avg_pool2d(out_hr[2].detach(), (int(self.scale_lr),int(self.scale_lr)))
             
-            init_ssh = out_lr[0]
-            init_u = out_lr[1]
-            init_v = out_lr[2]
-
             if 1*0 :
+                init_ssh = out_lr[0]
+                init_u = out_lr[1]
+                init_v = out_lr[2]
+
+            if 1*1 :
                 _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
-                init_ssh[:,_dt:_dt+self.hparams.dT_hr_model,:,:] = init_ssh_
-                init_u[:,_dt:_dt+self.hparams.dT_hr_model,:,:] = init_u_
-                init_v[:,_dt:_dt+self.hparams.dT_hr_model,:,:] = init_v_   
+                init_ssh = torch.cat((out_lr[0][:,:_dt,:,:],init_ssh_,out_lr[0][:,_dt+self.hparams.dT_hr_model:,:,:]),dim=1)
+                init_u = torch.cat((out_lr[1][:,:_dt,:,:],init_ssh_,out_lr[1][:,_dt+self.hparams.dT_hr_model:,:,:]),dim=1)
+                init_v = torch.cat((out_lr[2][:,:_dt,:,:],init_ssh_,out_lr[2][:,_dt+self.hparams.dT_hr_model:,:,:]),dim=1)
                 
                 init_ssh = init_ssh.detach()
                 init_u = init_u.detach()
@@ -2651,8 +2652,6 @@ class LitModelUV(pl.LightningModule):
         
         targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y = _batch
             
-        print( inputs_obs.size() )
-        
         # low-resolution reference
         targets_lr = torch.nn.functional.avg_pool2d(targets_GT_wo_nan, (int(self.scale_lr),int(self.scale_lr)))        
         targets_lr = torch.nn.functional.interpolate(targets_lr, scale_factor=self.scale_lr, mode='bicubic')
