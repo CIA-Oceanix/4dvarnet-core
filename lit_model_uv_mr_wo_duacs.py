@@ -1089,7 +1089,7 @@ class LitModelUV(pl.LightningModule):
         print('...... Set fine-scale model',flush=True)
         self.hparams.shape_state_hr[0] = int( self.hparams.dT_hr_model *  self.hparams.shape_state_hr[0] / self.hparams.dT )
         self.hparams.shape_state = self.hparams.shape_state_hr
-        dT = self.hparams.dT.copy()
+        dT = self.hparams.dT
         self.hparams.dT = self.hparams.dT_hr_model
         print('.... shape state hr : %dx%dx%d - dT = %d/%d'%(self.hparams.shape_state[0],self.hparams.shape_state[1],self.hparams.shape_state[2],self.hparams.dT,dT) )        
         self.model_4dvarnet_hr = get_4dvarnet_sst(self.hparams)
