@@ -2467,7 +2467,7 @@ class LitModelUV(pl.LightningModule):
                 normgrad = 0. 
 
             # projection losses
-            loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss_lr(targets_OI,targets_GT_wo_nan, sst_gt,
+            loss_AE, loss_AE_GT = self.compute_reg_loss_lr(targets_OI,targets_GT_wo_nan, sst_gt,
                                                                            u_gt_wo_nan, v_gt_wo_nan,outputs, 
                                                                            outputsSLRHR, phase)
                                                               
@@ -2493,7 +2493,6 @@ class LitModelUV(pl.LightningModule):
                
             # regularization loss
             loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
-            loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
             
             if flag_display_loss :
                 print('..  loss = %e' %loss )                     
