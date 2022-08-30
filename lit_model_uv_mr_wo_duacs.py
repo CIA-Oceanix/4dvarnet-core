@@ -612,6 +612,28 @@ def get_cropped_hanning_mask(patch_size, crop, **kwargs):
     patch_weight = t_msk[:, None, None] * pw
     return patch_weight.cpu().numpy()
 
+def get_cropped_hanning_mask_ronan(patch_size, crop, **kwargs):
+    _crop = dict([('time',int( (patch_size['time'] - crop['time']) / 2 )),('lat',crop['lat']),('lon',crop['lon'])])
+    #print(crop)
+    #print(patch_size)
+    #print(_crop,flush=True)
+    
+    pw = get_constant_crop(patch_size, _crop)
+        
+    #t_msk =kornia.filters.get_hanning_kernel1d(patch_size['time'])
+    t_msk1 = kornia.filters.get_hanning_kernel1d(crop['time'])
+    t_msk  = np.zeros((patch_size['time'],))
+    t_msk[_crop['time']:patch_size['time']-_crop['time']] = t_msk1.cpu().numpy()
+    t_msk = torch.Tensor( t_msk )
+
+    #print(t_msk1,flush=True) 
+    #print()
+    #print(t_msk1.size(),flush=True) 
+    #print(t_msk,flush=True) 
+    #print(t_msk.size(),flush=True) 
+    
+    patch_weight = t_msk[:, None, None] * pw
+    return patch_weight.cpu().numpy()
 
 class Div_uv(torch.nn.Module):
     def __init__(self,_filter='diff-non-centered'):
@@ -940,12 +962,12 @@ class LitModelUV(pl.LightningModule):
         
         self.scale_dwscaling = self.hparams.scale_dwscaling if hasattr(self.hparams, 'scale_dwscaling') else 1.0
 
-        self.patch_weight_hr = torch.nn.Parameter(
-              torch.from_numpy(call(self.hparams.patch_weight)), requires_grad=False)
         _w = torch.from_numpy(call(self.hparams.patch_weight))
         _w =  torch.nn.functional.avg_pool2d(_w.view(1,-1,_w.size(1),_w.size(2)), (int(self.scale_dwscaling),int(self.scale_dwscaling)))
         self.patch_weight_lr = torch.nn.Parameter(_w.view(-1,_w.size(2),_w.size(3)), requires_grad=False)
 
+        self.patch_weight_hr = torch.nn.Parameter(
+              torch.from_numpy(call(self.hparams.patch_weight)), requires_grad=False)
         _w = torch.from_numpy(call(self.hparams.patch_weight))
         self.patch_weight_hr = torch.nn.Parameter(_w, requires_grad=False)
 
@@ -2045,7 +2067,7 @@ class LitModelUV(pl.LightningModule):
                 
         return l_ae, l_ae_gt
 
-    def reg_loss_hr(self, y_gt, oi, out, out_lr, out_lrhr):
+    def reg_loss_hr(self, y_gt, y_lr, out, out_lr, out_lrhr):
         l_ae = self.loss_ae_hr(out_lrhr)
         l_ae_gt = self.loss_ae_hr(y_gt)
 
@@ -2058,9 +2080,9 @@ class LitModelUV(pl.LightningModule):
 
         print('.... size out_lr')
         print(out_lr.size())
-        print(oi.size(),flush=True)
+        print(y_lr.size(),flush=True)
         if out_lr is not None:
-            l_sr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr - oi, self.patch_weight)
+            l_sr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr - y_lr, self.patch_weight)
         else:
             l_sr = 0.
 
@@ -2321,12 +2343,9 @@ class LitModelUV(pl.LightningModule):
         
         return loss_AE, loss_AE_GT
 
-    def compute_reg_loss_hr(self,targets_OI,targets_GT_wo_nan, u_gt_wo_nan, sst_gt, v_gt_wo_nan,outputs, outputsSLR, outputsSLRHR,phase):
+    def compute_reg_loss_hr(self,targets_lr,targets_GT_wo_nan, u_gt_wo_nan, sst_gt, v_gt_wo_nan,outputs, outputsSLR, outputsSLRHR,phase):
         
-        if outputsSLRHR is not None :
-            targets_lr = torch.nn.functional.avg_pool2d(targets_GT_wo_nan, (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
-            targets_lr = torch.nn.functional.interpolate(targets_lr, scale_factor=self.scale_dwscaling_sst, mode='bicubic')
-            
+        if outputsSLRHR is not None :            
             yGT = torch.cat((targets_lr,
                              targets_GT_wo_nan - targets_lr),
                             dim=1)
