@@ -1937,7 +1937,7 @@ class LitModelUV(pl.LightningModule):
         init_u_from_lr = torch.nn.functional.interpolate(out_lr[1].detach(), scale_factor=self.scale_dwscaling, mode='bicubic')
         init_v_from_lr = torch.nn.functional.interpolate(out_lr[2].detach(), scale_factor=self.scale_dwscaling, mode='bicubic')
             
-        targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon, gx, gy = batch
+        targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
 
         if state_hr[0] is not None: 
             if self.aug_state :
