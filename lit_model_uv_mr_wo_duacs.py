@@ -1166,9 +1166,9 @@ class LitModelUV(pl.LightningModule):
             metrics.append(_metrics)
         
         out = out_hr
-        sst_feat = sst_feat_hr
             
         if ( phase == 'test' ) & ( self.use_sst ):
+            sst_feat = sst_feat_hr
             return losses, out, metrics, sst_feat
         else:    
             return losses, out, metrics
