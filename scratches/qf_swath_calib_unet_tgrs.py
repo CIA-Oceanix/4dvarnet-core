@@ -12,6 +12,7 @@ import pickle
 import swath_calib.configs
 import swath_calib.utils
 import swath_calib.models
+import swath_calib.unet
 import swath_calib.dataset
 import swath_calib.versioning_cb
 import swath_calib.report
@@ -57,7 +58,7 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
             model = utils.get_model(cfg.fourdvar_cfg, cfg.fourdvar_mod_ckpt, dm=dm, add_overrides=overrides)
 
             
-            trainer = pl.Trainer(gpus=[0], logger=False)
+            trainer = pl.Trainer(gpus=[6], logger=False)
                 
             swath_data = {}
             for stage, dl in [
@@ -91,11 +92,12 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
         train_dl = torch.utils.data.DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=3)
         val_dl = torch.utils.data.DataLoader(val_ds, batch_size=1, shuffle=False, num_workers=3)
         
-        net = swath_calib.models.build_net(
-                in_channels=len(train_ds.pp_vars),
-                out_channels=len(train_ds.gt_vars),
-                **cfg.net_cfg
-        )
+        # net = swath_calib.models.build_net(
+        #         in_channels=len(train_ds.pp_vars),
+        #         out_channels=len(train_ds.gt_vars),
+        #         **cfg.net_cfg
+        # )
+        net = swath_calib.unet.UNet(n_channels=len(train_ds.pp_vars), n_classes=len(train_ds.gt_vars))
 
 
         normnet = torch.nn.Sequential(
@@ -116,7 +118,7 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
         logger = pl.loggers.TensorBoardLogger('lightning_logs', name=f'{xp_num}_{cfgn}', version='')
         vcb = swath_calib.versioning_cb.VersioningCallback()
         trainer = pl.Trainer(
-            gpus=[0],
+            gpus=[6],
             logger=logger,
             # fast_dev_run=1,
             callbacks=[
@@ -315,7 +317,7 @@ if __name__ == '__main__':
         net_cfg=dict(
             nhidden = 128,
             depth = 3,
-            kernel_size = (3, 3),
+            kernel_size = 3,
             num_repeat = 1,
             residual = True,
             norm_type = 'none',
@@ -324,13 +326,12 @@ if __name__ == '__main__':
             mix_residual = False,
             mix_act_type = 'none',
             mix_norm_type = 'none',
-            apply_per_side = False,
         ),
         lit_cfg=dict(
-            lr_init=3e-3,
-            wd=1e-3,
+            lr_init=2e-3,
+            wd=1e-2,
             loss_w={
-                'tot':(5., 1., 1.),
+                'tot':(5., 3., 3.),
                 'rec':(0., 0., 0.,)
             },
         ),
@@ -363,12 +364,6 @@ if __name__ == '__main__':
         # )) ,
         # ('no_mix', dict(net_cfg=dict(mix=False))) ,
         # ('no_res', dict(net_cfg=dict(residual=False))) ,
-        # ('no_mix_no_res', dict(net_cfg=dict(residual=False))) ,
-        ('sst_no_mix_no_res', dict(
-            net_cfg=dict(residual=False),
-            fourdvar_cfg='qxp20_5nad_sst',
-            fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp20/qxp20_5nad_sst')),
-        )) ,
         # ('linear', dict(net_cfg=dict(depth=0))) ,
         # ('smaller', dict(net_cfg=dict(depth=1, nhidden=32))) ,
         # ('bigger', dict(net_cfg=dict(depth=5, nhidden=512))) ,
@@ -380,10 +375,11 @@ if __name__ == '__main__':
         #     sigmas_obs = (0,*sorted(list(set([int(s) for s in np.logspace(0,3,15)])))) ,
         #     sigmas_xb = (0,*sorted(list(set([int(s) for s in np.logspace(0,3,15)])))) 
         # ))),
-        # ('no_decomp', dict(swath_ds_cfg=dict(
-        #     sigmas_obs = (0,) ,
-        #     sigmas_xb = (0,) 
-        # ))),
+        ('no_xb_no_decomp', dict(swath_ds_cfg=dict(xb_var='zeros', sigmas_xb=tuple() ,sigmas_obs=(0,)))) ,
+        ('no_decomp', dict(swath_ds_cfg=dict(
+            sigmas_obs = (0,) ,
+            sigmas_xb = (0,) 
+        ))),
         # ('40x2', dict(swath_ds_cfg=dict(
         #     sigmas_obs=(0,*[(i+1)*2 for i in range(40)]),
         #     sigmas_xb=(0,*[(i+1)*2 for i in range(40)]),
@@ -412,7 +408,7 @@ if __name__ == '__main__':
                     override, 
         ).swath_ds_cfg.sigmas_obs)
 
-    vxp = 7
+    vxp = 5
     results = []
     for xpn in xpns:
         trained_cfg_w_metrics =None

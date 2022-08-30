@@ -53,7 +53,7 @@ class ConvSamePad(torch.nn.Module):
             side_limit = sizes['nc'] // 2
             return einops.rearrange(
                 [
-                    self._forward(x[..., :side_limit]),
+                    self._forward(x[..., :side_limit].flip(-1)).flip(-1),
                     self._forward(x[..., side_limit:]),
                 ],
                 'sides b c time hnc -> b c time (hnc sides)'
@@ -75,9 +75,11 @@ def build_net(
     mix_residual = False,
     mix_act_type = 'none',
     mix_norm_type = 'none',
+    apply_per_side =True,
 ):
 
     def norm(norm_type='bn', nh=nhidden):
+        print(norm_type)
         if norm_type=='none':
             return nn.Identity()
         elif norm_type=='bn':
@@ -129,7 +131,7 @@ def build_net(
         *[ nn.Sequential(
             ResidualBlock(
                 nn.Sequential(
-                    ConvSamePad(in_channels=nhidden,out_channels=nhidden, kernel_size=kernel_size),
+                    ConvSamePad(in_channels=nhidden,out_channels=nhidden, kernel_size=kernel_size, apply_per_side=apply_per_side),
                     norm(norm_type),
                     act(act_type=act_type),
                 ), res=residual),
@@ -138,13 +140,13 @@ def build_net(
         for _ in range(depth) ],
     )
     net = nn.Sequential(
-            ConvSamePad(in_channels=in_channels,out_channels=nhidden, kernel_size=1),
+            ConvSamePad(in_channels=in_channels,out_channels=nhidden, kernel_size=1, apply_per_side=apply_per_side),
             norm(norm_type=norm_type),
             act(act_type=act_type),
             nn.Sequential(
                 *[inner_net for _ in range(num_repeat)]
             ),
-            ConvSamePad(in_channels=nhidden, out_channels=out_channels, kernel_size=1),
+            ConvSamePad(in_channels=nhidden, out_channels=out_channels, kernel_size=1, apply_per_side=apply_per_side),
     )
     return net
 
