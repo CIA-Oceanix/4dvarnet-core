@@ -2596,6 +2596,8 @@ class LitModelUV(pl.LightningModule):
         
         targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y = _batch
             
+        print( inputs_obs.size() )
+        
         # low-resolution reference
         targets_lr = torch.nn.functional.avg_pool2d(targets_GT_wo_nan, (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))        
         targets_lr = torch.nn.functional.interpolate(targets_lr, scale_factor=self.scale_dwscaling, mode='bicubic')
