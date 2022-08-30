@@ -2561,7 +2561,7 @@ class LitModelUV(pl.LightningModule):
                 ('l1_samp', l1_samp)])
 
         if ( (phase == 'val') or (phase == 'test') ) & ( self.use_sst == True ) :
-            out_feat = sst_gt[:,int(self.hparams.dT/2),:,:].view(-1,1,sst_gt.size(2),sst_gt.size(3))
+            out_feat = sst_gt[:,int(self.hparams.dT_hr_model /2),:,:].view(-1,1,sst_gt.size(2),sst_gt.size(3))
             
             if self.use_sst_obs :
                 #sst_feat = self.model.model_H.conv21( inputs_SST )
