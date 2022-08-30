@@ -1946,6 +1946,7 @@ class LitModelUV(pl.LightningModule):
         
         targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
 
+        print('.... get_init_state_hr ')
         print( inputs_obs.size() )
         print( init_ssh_from_lr.size() )
 
