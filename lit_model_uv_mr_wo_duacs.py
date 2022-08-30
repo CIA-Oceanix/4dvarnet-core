@@ -2630,7 +2630,7 @@ class LitModelUV(pl.LightningModule):
                     )
          
         # intial state
-        state = self.get_init_state_hr_from_lr(batch, out_lr, state_init_hr )
+        state = self.get_init_state_hr_from_lr(_batch, out_lr, state_init_hr )
 
         # obs and mask data
         init_ssh_from_lr = torch.nn.functional.interpolate(out_lr[0].detach(), scale_factor=self.scale_dwscaling, mode='bicubic')
