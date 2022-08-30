@@ -1944,7 +1944,7 @@ class LitModelUV(pl.LightningModule):
         init_v_from_lr = init_v_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
 
         
-        targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
+        targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon, gx, gy = batch
 
         print('.... get_init_state_hr ')
         print( inputs_obs.size() )
