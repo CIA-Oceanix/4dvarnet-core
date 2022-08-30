@@ -1929,9 +1929,9 @@ class LitModelUV(pl.LightningModule):
         
         if out_hr[0] is not None:            
             # compute low-resolution lr state from hr state            
-            init_ssh = torch.nn.functional.avg_pool2d(out_hr[0].detach(), (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
-            init_u = torch.nn.functional.avg_pool2d(out_hr[1].detach(), (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
-            init_v = torch.nn.functional.avg_pool2d(out_hr[2].detach(), (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
+            init_ssh = torch.nn.functional.avg_pool2d(out_hr[0].detach(), (int(self.scale_lr),int(self.scale_lr)))
+            init_u = torch.nn.functional.avg_pool2d(out_hr[1].detach(), (int(self.scale_lr),int(self.scale_lr)))
+            init_v = torch.nn.functional.avg_pool2d(out_hr[2].detach(), (int(self.scale_lr),int(self.scale_lr)))
         else:              
             init_u = torch.zeros_like(targets_GT)
             init_v = torch.zeros_like(targets_GT)
@@ -2637,7 +2637,7 @@ class LitModelUV(pl.LightningModule):
         print( inputs_obs.size() )
         
         # low-resolution reference
-        targets_lr = torch.nn.functional.avg_pool2d(targets_GT_wo_nan, (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))        
+        targets_lr = torch.nn.functional.avg_pool2d(targets_GT_wo_nan, (int(self.scale_lr),int(self.scale_lr)))        
         targets_lr = torch.nn.functional.interpolate(targets_lr, scale_factor=self.scale_lr, mode='bicubic')
  
         self.patch_weight = self.patch_weight_hr
