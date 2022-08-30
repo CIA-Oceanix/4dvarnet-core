@@ -2271,10 +2271,12 @@ class LitModelUV(pl.LightningModule):
     def compute_reg_loss(self,targets_OI,targets_GT_wo_nan, u_gt_wo_nan, sst_gt, v_gt_wo_nan,outputs, outputsSLR, outputsSLRHR,phase):
         
         if outputsSLRHR is not None :
-            yGT = torch.cat( targets_GT_wo_nan ,
-                            dim=1)
+
             if self.aug_state :
-                yGT = torch.cat((yGT, targets_GT_wo_nan ), dim=1)
+                yGT = torch.cat((targets_GT_wo_nan, targets_GT_wo_nan ), dim=1)
+            else :
+                yGT = targets_GT_wo_nan
+
             
             yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
 
