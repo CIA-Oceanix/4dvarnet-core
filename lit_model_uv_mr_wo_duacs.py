@@ -2638,7 +2638,7 @@ class LitModelUV(pl.LightningModule):
 
         print('.... get_obs_mask_state_hr ')
         print( obs[0].size() )
-        print( state[0].size() )
+        print( state.size() )
         print( new_masks[0].size(),flush=True )
         print( obs[1].size() )
         print( new_masks[1].size(),flush=True )
