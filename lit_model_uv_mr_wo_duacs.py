@@ -953,17 +953,17 @@ class LitModelUV(pl.LightningModule):
         self.aug_state = self.hparams.aug_state if hasattr(self.hparams, 'aug_state') else False
         self.save_rec_netcdf = self.hparams.save_rec_netcdf if hasattr(self.hparams, 'save_rec_netcdf') else './'
         self.sig_filter_laplacian = self.hparams.sig_filter_laplacian if hasattr(self.hparams, 'sig_filter_laplacian') else 0.5
-        self.scale_dwscaling_sst = self.hparams.scale_dwscaling_sst if hasattr(self.hparams, 'scale_dwscaling_sst') else 1.0
+        self.scale_lr_sst = self.hparams.scale_lr_sst if hasattr(self.hparams, 'scale_dwscaling_sst') else 1.0
         self.sig_filter_div = self.hparams.sig_filter_div if hasattr(self.hparams, 'sig_filter_div') else 1.0
         self.sig_filter_div_diag = self.hparams.sig_filter_div_diag if hasattr(self.hparams, 'sig_filter_div_diag') else self.hparams.sig_filter_div
         self.hparams.alpha_mse_strain = self.hparams.alpha_mse_strain if hasattr(self.hparams, 'alpha_mse_strain') else 0.
 
         self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 1
         
-        self.scale_dwscaling = self.hparams.scale_dwscaling if hasattr(self.hparams, 'scale_dwscaling') else 1.0
+        self.scale_lr = self.hparams.scale_lr if hasattr(self.hparams, 'scale_lr') else 1.0
 
         _w = torch.from_numpy(call(self.hparams.patch_weight))
-        _w =  torch.nn.functional.avg_pool2d(_w.view(1,-1,_w.size(1),_w.size(2)), (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+        _w =  torch.nn.functional.avg_pool2d(_w.view(1,-1,_w.size(1),_w.size(2)), (int(self.scale_lr),int(self.scale_lr)))
         self.patch_weight_lr = torch.nn.Parameter(_w.view(-1,_w.size(2),_w.size(3)), requires_grad=False)
 
         _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
@@ -1030,7 +1030,7 @@ class LitModelUV(pl.LightningModule):
         print('..  Div loss type : %d'%self.type_div_train_loss)
         
     def compute_lr_state(self,x):
-        return torch.nn.functional.avg_pool2d(x, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+        return torch.nn.functional.avg_pool2d(x, (int(self.scale_lr),int(self.scale_lr)))
  
     def compute_div(self,u,v):
         # siletring
@@ -1053,11 +1053,11 @@ class LitModelUV(pl.LightningModule):
 
         suffix_chkpt = '-'+self.hparams.phi_param+'_%03d-augdata'%self.hparams.DimAE
         
-        if self.scale_dwscaling > 1.0 :
-            suffix_chkpt = suffix_chkpt+'-dws%02d'%int(self.scale_dwscaling)
+        if self.scale_lr > 1.0 :
+            suffix_chkpt = suffix_chkpt+'-lr%02d'%int(self.scale_lr)
 
-        if self.scale_dwscaling_sst > 1. :
-            suffix_chkpt = suffix_chkpt+'-dws-sst%02d'%int(self.scale_dwscaling_sst)
+        if self.scale_lr_sst > 1. :
+            suffix_chkpt = suffix_chkpt+'-dws-sst%02d'%int(self.scale_lr_sst)
             
         if self.model_sampling_uv is not None:
             suffix_chkpt = suffix_chkpt+'-sampling_sst_%d_%03d'%(self.hparams.nb_feat_sampling_operator,int(100*self.hparams.thr_l1_sampling_uv))
@@ -1293,9 +1293,9 @@ class LitModelUV(pl.LightningModule):
         out_u = out[1]
         out_v = out[2]
 
-        #    out_pred = torch.nn.functional.interpolate(out_pred, scale_factor=self.scale_dwscaling, mode='bicubic')
-        #    out_u = torch.nn.functional.interpolate(out_u, scale_factor=self.scale_dwscaling, mode='bicubic')
-        #    out_v = torch.nn.functional.interpolate(out_v, scale_factor=self.scale_dwscaling, mode='bicubic')
+        #    out_pred = torch.nn.functional.interpolate(out_pred, scale_factor=self.scale_lr, mode='bicubic')
+        #    out_u = torch.nn.functional.interpolate(out_u, scale_factor=self.scale_lr, mode='bicubic')
+        #    out_v = torch.nn.functional.interpolate(out_v, scale_factor=self.scale_lr, mode='bicubic')
             
             
         if not self.use_sst :
@@ -1857,8 +1857,8 @@ class LitModelUV(pl.LightningModule):
         self.latest_metrics.update(md)
         self.logger.log_metrics(md, step=self.current_epoch)
 
-        if self.scale_dwscaling_sst > 1. :
-            print('.... Using downscaled SST by %.1f'%self.scale_dwscaling_sst)
+        if self.scale_lr_sst > 1. :
+            print('.... Using downscaled SST by %.1f'%self.scale_lr_sst)
         print('..... Log directory: '+self.logger.log_dir)
         
         if self.save_rec_netcdf == True :
@@ -1929,9 +1929,9 @@ class LitModelUV(pl.LightningModule):
         
         if out_hr[0] is not None:            
             # compute low-resolution lr state from hr state            
-            init_ssh = torch.nn.functional.avg_pool2d(out_hr[0].detach(), (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
-            init_u = torch.nn.functional.avg_pool2d(out_hr[1].detach(), (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
-            init_v = torch.nn.functional.avg_pool2d(out_hr[2].detach(), (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
+            init_ssh = torch.nn.functional.avg_pool2d(out_hr[0].detach(), (int(self.scale_lr_sst),int(self.scale_lr_sst)))
+            init_u = torch.nn.functional.avg_pool2d(out_hr[1].detach(), (int(self.scale_lr_sst),int(self.scale_lr_sst)))
+            init_v = torch.nn.functional.avg_pool2d(out_hr[2].detach(), (int(self.scale_lr_sst),int(self.scale_lr_sst)))
         else:              
             init_u = torch.zeros_like(targets_GT)
             init_v = torch.zeros_like(targets_GT)
@@ -1963,9 +1963,9 @@ class LitModelUV(pl.LightningModule):
                         
         # re-interpolate lr state to hr grid 
         # for hr time window
-        init_ssh_from_lr = torch.nn.functional.interpolate(out_lr[0].detach(), scale_factor=self.scale_dwscaling, mode='bicubic')
-        init_u_from_lr = torch.nn.functional.interpolate(out_lr[1].detach(), scale_factor=self.scale_dwscaling, mode='bicubic')
-        init_v_from_lr = torch.nn.functional.interpolate(out_lr[2].detach(), scale_factor=self.scale_dwscaling, mode='bicubic')
+        init_ssh_from_lr = torch.nn.functional.interpolate(out_lr[0].detach(), scale_factor=self.scale_lr, mode='bicubic')
+        init_u_from_lr = torch.nn.functional.interpolate(out_lr[1].detach(), scale_factor=self.scale_lr, mode='bicubic')
+        init_v_from_lr = torch.nn.functional.interpolate(out_lr[2].detach(), scale_factor=self.scale_lr, mode='bicubic')
                     
         _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
         init_ssh_from_lr = init_ssh_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
@@ -2081,7 +2081,7 @@ class LitModelUV(pl.LightningModule):
         print('.... reg loss')
         print(gt_lr.size())
         print(out_lr_bis.size())
-        print(w_lr.size())
+        print(w_lr.size(),flus=True)
         
         l_lr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr_bis - gt_lr, w_lr)
 
@@ -2100,12 +2100,12 @@ class LitModelUV(pl.LightningModule):
             else:
                 targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
     
-                targets_OI = torch.nn.functional.avg_pool2d(targets_OI, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
-                targets_GT = torch.nn.functional.avg_pool2d(targets_GT, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
-                u_gt = torch.nn.functional.avg_pool2d(u_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
-                v_gt = torch.nn.functional.avg_pool2d(v_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+                targets_OI = torch.nn.functional.avg_pool2d(targets_OI, (int(self.scale_lr),int(self.scale_lr)))
+                targets_GT = torch.nn.functional.avg_pool2d(targets_GT, (int(self.scale_lr),int(self.scale_lr)))
+                u_gt = torch.nn.functional.avg_pool2d(u_gt, (int(self.scale_lr),int(self.scale_lr)))
+                v_gt = torch.nn.functional.avg_pool2d(v_gt, (int(self.scale_lr),int(self.scale_lr)))
                 if self.use_sst:
-                    sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+                    sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_lr),int(self.scale_lr)))
                 
                 targets_GT = targets_GT.detach()
                 sst_gt = sst_gt.detach()
@@ -2116,14 +2116,14 @@ class LitModelUV(pl.LightningModule):
                 inputs_Mask = inputs_Mask.detach()
                 inputs_obs = inputs_obs.detach()
                 
-                inputs_Mask = torch.nn.functional.avg_pool2d(inputs_Mask.float(), (int(self.scale_dwscaling),int(self.scale_dwscaling)))
-                inputs_obs  = torch.nn.functional.avg_pool2d(inputs_obs, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+                inputs_Mask = torch.nn.functional.avg_pool2d(inputs_Mask.float(), (int(self.scale_lr),int(self.scale_lr)))
+                inputs_obs  = torch.nn.functional.avg_pool2d(inputs_obs, (int(self.scale_lr),int(self.scale_lr)))
                 
                 inputs_obs  = inputs_obs / ( inputs_Mask + 1e-7 )
                 inputs_Mask = (inputs_Mask > 0.).float()   
                 
-                lat = torch.nn.functional.avg_pool1d(lat.view(-1,1,lat.size(1)), (int(self.scale_dwscaling)))
-                lon = torch.nn.functional.avg_pool1d(lon.view(-1,1,lon.size(1)), (int(self.scale_dwscaling)))
+                lat = torch.nn.functional.avg_pool1d(lat.view(-1,1,lat.size(1)), (int(self.scale_lr)))
+                lon = torch.nn.functional.avg_pool1d(lon.view(-1,1,lon.size(1)), (int(self.scale_lr)))
                 
                 lat = lat.view(-1,lat.size(2))
                 lon = lon.view(-1,lon.size(2))
@@ -2138,8 +2138,8 @@ class LitModelUV(pl.LightningModule):
 
 
     def pre_process_batch_for_lr(self,batch):
-        if self.scale_dwscaling > 1.0 :
-            _batch = self.dwn_sample_batch(batch,scale=self.scale_dwscaling)
+        if self.scale_lr > 1.0 :
+            _batch = self.dwn_sample_batch(batch,scale=self.scale_lr)
         else:
             _batch = batch
             
@@ -2148,9 +2148,9 @@ class LitModelUV(pl.LightningModule):
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = _batch
 
-        if self.scale_dwscaling_sst > 1 :
-            sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
-            sst_gt = torch.nn.functional.interpolate(sst_gt, scale_factor=self.scale_dwscaling_sst, mode='bicubic')
+        if self.scale_lr_sst > 1 :
+            sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_lr_sst),int(self.scale_lr_sst)))
+            sst_gt = torch.nn.functional.interpolate(sst_gt, scale_factor=self.scale_lr_sst, mode='bicubic')
             
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
         u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
@@ -2206,7 +2206,7 @@ class LitModelUV(pl.LightningModule):
     def get_obs_and_mask_hr(self,init_ssh_lr,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan):
                 
         _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
-        init_ssh_from_lr = torch.nn.functional.interpolate(init_ssh_lr, scale_factor=self.scale_dwscaling, mode='bicubic')
+        init_ssh_from_lr = torch.nn.functional.interpolate(init_ssh_lr, scale_factor=self.scale_lr, mode='bicubic')
         init_ssh_from_lr = init_ssh_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
         
         if self.model_sampling_uv is not None :
@@ -2383,9 +2383,9 @@ class LitModelUV(pl.LightningModule):
         lat_rad = torch.deg2rad(lat)
         lon_rad = torch.deg2rad(lon)
 
-        outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
-        outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_dwscaling, mode='bicubic')
-        outputs_v = torch.nn.functional.interpolate(outputs_v, scale_factor=self.scale_dwscaling, mode='bicubic')
+        outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_lr, mode='bicubic')
+        outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_lr, mode='bicubic')
+        outputs_v = torch.nn.functional.interpolate(outputs_v, scale_factor=self.scale_lr, mode='bicubic')
 
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
         u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
@@ -2574,8 +2574,8 @@ class LitModelUV(pl.LightningModule):
                 out_feat = torch.cat( (out_feat,self.model_4dvarnet_lr.model_H.extract_sst_feature( sst_gt )) , dim = 1 )
                 ssh_feat = self.model_4dvarnet_lr.model_H.extract_state_feature( outputsSLRHR )
                 
-                ssh_feat = torch.nn.functional.interpolate(ssh_feat, scale_factor=self.scale_dwscaling, mode='bicubic')
-                out_feat = torch.nn.functional.interpolate(out_feat, scale_factor=self.scale_dwscaling, mode='bicubic')
+                ssh_feat = torch.nn.functional.interpolate(ssh_feat, scale_factor=self.scale_lr, mode='bicubic')
+                out_feat = torch.nn.functional.interpolate(out_feat, scale_factor=self.scale_lr, mode='bicubic')
                 out_feat = torch.cat( (out_feat,ssh_feat) , dim=1)
                 
             if self.model_sampling_uv is not None :
@@ -2637,8 +2637,8 @@ class LitModelUV(pl.LightningModule):
         print( inputs_obs.size() )
         
         # low-resolution reference
-        targets_lr = torch.nn.functional.avg_pool2d(targets_GT_wo_nan, (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))        
-        targets_lr = torch.nn.functional.interpolate(targets_lr, scale_factor=self.scale_dwscaling, mode='bicubic')
+        targets_lr = torch.nn.functional.avg_pool2d(targets_GT_wo_nan, (int(self.scale_lr_sst),int(self.scale_lr_sst)))        
+        targets_lr = torch.nn.functional.interpolate(targets_lr, scale_factor=self.scale_lr, mode='bicubic')
  
         self.patch_weight = self.patch_weight_hr
 
@@ -2775,8 +2775,8 @@ class LitModelUV(pl.LightningModule):
                 out_feat = torch.cat( (out_feat,self.model.model_H.extract_sst_feature( sst_gt )) , dim = 1 )
                 ssh_feat = self.model.model_H.extract_state_feature( outputsSLRHR )
                 
-                if self.scale_dwscaling > 1 :
-                    ssh_feat = torch.nn.functional.interpolate(ssh_feat, scale_factor=self.scale_dwscaling, mode='bicubic')
+                if self.scale_lr > 1 :
+                    ssh_feat = torch.nn.functional.interpolate(ssh_feat, scale_factor=self.scale_lr, mode='bicubic')
                 out_feat = torch.cat( (out_feat,ssh_feat) , dim=1)
                 
             if self.model_sampling_uv is not None :
