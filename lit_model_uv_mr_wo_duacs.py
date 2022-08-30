@@ -867,9 +867,7 @@ class Model_HwithSSTBN_nolin_tanh_withlatlon(torch.nn.Module):
                 if x.size(1) > 4*self.dT :
                     x_all = torch.cat((x_all,x[:, 4*self.dT:, :, :]),dim=1)
         
-        #print('..... s_all_size')
-        #print(x_all.size())
-               
+              
         x1     = self.convx12( torch.tanh( self.convx11( x_all ) ) )
         x_feat = self.bn_feat( self.convx22( torch.tanh( self.convx21( torch.tanh(x1) ) ) ) )
         
@@ -2509,9 +2507,6 @@ class LitModelUV(pl.LightningModule):
         # run forward_model
         with torch.set_grad_enabled(True):
             flag_display_loss = False#True
-            
-            print(state[0].size(),flush=True)
-            print(obs[0].size(),flush=True)
             
             if self.hparams.n_grad > 0 :                
                 outputs, outputs_u, outputs_v, outputsSLRHR, hidden_new, cell_new, normgrad = self.run_model_lr(state, obs, new_masks,state_init_lr,
