@@ -2027,9 +2027,15 @@ class LitModelUV(pl.LightningModule):
 
         return loss
 
-    def reg_loss(self, y_gt, oi, out, out_lr, out_lrhr):
-        l_ae = self.loss_ae(out_lrhr)
-        l_ae_gt = self.loss_ae(y_gt)
+    def reg_loss_lr(self, y_gt, oi, out, out_lrhr):
+        l_ae = self.loss_ae_lr(out_lrhr)
+        l_ae_gt = self.loss_ae_lr(y_gt)
+                
+        return l_ae, l_ae_gt
+
+    def reg_loss_hr(self, y_gt, oi, out, out_lr, out_lrhr):
+        l_ae = self.loss_ae_hr(out_lrhr)
+        l_ae_gt = self.loss_ae_hr(y_gt)
         
         if out_lr is not None:
             l_sr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr - oi, self.patch_weight)
@@ -2041,6 +2047,7 @@ class LitModelUV(pl.LightningModule):
         l_lr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr_bis - gt_lr, self.model_LR(self.patch_weight))
 
         return l_ae, l_ae_gt, l_sr, l_lr
+
 
     def dwn_sample_batch(self,batch,scale = 1. ):
         if scale > 1. :          
@@ -2268,7 +2275,32 @@ class LitModelUV(pl.LightningModule):
         
         return outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad
 
-    def compute_reg_loss(self,targets_OI,targets_GT_wo_nan, u_gt_wo_nan, sst_gt, v_gt_wo_nan,outputs, outputsSLR, outputsSLRHR,phase):
+    def compute_reg_loss_lr(self,targets_OI,targets_GT_wo_nan, u_gt_wo_nan, sst_gt, v_gt_wo_nan,outputs, outputsSLRHR,phase):
+        
+        if outputsSLRHR is not None :
+
+            if self.aug_state :
+                yGT = torch.cat((targets_GT_wo_nan, targets_GT_wo_nan ), dim=1)
+            else :
+                yGT = targets_GT_wo_nan
+
+            
+            yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
+
+            if self.use_sst_state :
+                yGT = torch.cat((yGT,sst_gt), dim=1)
+    
+                                                
+            loss_AE, loss_AE_GT =  self.reg_loss_lr(
+                yGT, targets_OI, outputs, outputsSLRHR
+            )
+        else:
+           loss_AE = 0. 
+           loss_AE_GT = 0. 
+        
+        return loss_AE, loss_AE_GT
+
+    def compute_reg_loss_hr(self,targets_OI,targets_GT_wo_nan, u_gt_wo_nan, sst_gt, v_gt_wo_nan,outputs, outputsSLR, outputsSLRHR,phase):
         
         if outputsSLRHR is not None :
 
@@ -2294,7 +2326,6 @@ class LitModelUV(pl.LightningModule):
            loss_LR = 0.
         
         return loss_AE, loss_AE_GT, loss_SR, loss_LR
-
 
     def reinterpolate_outputs(self,outputs,outputs_u,outputs_v,batch):
         
@@ -2423,7 +2454,6 @@ class LitModelUV(pl.LightningModule):
                 outputs, outputs_u, outputs_v, outputsSLRHR, hidden_new, cell_new, normgrad = self.run_model_lr(state, obs, new_masks,state_init_lr,
                                                                                                                          lat_rad,lon_rad,phase)
                 
-                outputsSLR = None
             else:
                 outputs = self.model_4dvarnet_lr.phi_r(obs)
                                 
@@ -2431,16 +2461,15 @@ class LitModelUV(pl.LightningModule):
                 outputs_v = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
                 outputs = outputs[:, 0:self.hparams.dT, :, :]
 
-                outputsSLR = None
                 outputsSLRHR = None #0. * outputs
                 hidden_new = None #0. * outputs
                 cell_new = None # . * outputs
                 normgrad = 0. 
 
             # projection losses
-            loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss(targets_OI,targets_GT_wo_nan, sst_gt,
-                                                                          u_gt_wo_nan, v_gt_wo_nan,outputs, 
-                                                                          outputsSLR, outputsSLRHR, phase)
+            loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss_lr(targets_OI,targets_GT_wo_nan, sst_gt,
+                                                                           u_gt_wo_nan, v_gt_wo_nan,outputs, 
+                                                                           outputsSLRHR, phase)
                                                               
             # reconstruction losses
             loss_All,loss_GAll,loss_uv,loss_uv_geo,loss_div,loss_strain = self.compute_rec_loss(targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,
