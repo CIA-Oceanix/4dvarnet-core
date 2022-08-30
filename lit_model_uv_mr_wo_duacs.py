@@ -1949,6 +1949,7 @@ class LitModelUV(pl.LightningModule):
         print('.... get_init_state_hr ')
         print( inputs_obs.size() )
         print( init_ssh_from_lr.size() )
+        print( inputs_Mask.size() )
 
         if state_hr[0] is not None: 
             if self.aug_state :
