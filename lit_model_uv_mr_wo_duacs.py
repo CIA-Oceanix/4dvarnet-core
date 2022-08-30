@@ -2069,28 +2069,11 @@ class LitModelUV(pl.LightningModule):
                 
         return l_ae, l_ae_gt
 
-    def reg_loss_hr(self, y_gt, y_lr, out, out_lr, out_lrhr):
+    def reg_loss_hr(self, y_gt, out_lrhr):
         l_ae = self.loss_ae_hr(out_lrhr)
         l_ae_gt = self.loss_ae_hr(y_gt)
 
-        gt_lr = self.compute_lr_state(y_gt)
-        out_lr_bis = self.compute_lr_state(out)
-        w_lr = self.compute_lr_state(self.patch_weight.view(1,self.hparams.dT_hr_model,self.patch_weight.size(1),self.patch_weight.size(2)))
-        w_lr = torch.squeeze( w_lr )   
-        
-        print('.... reg loss')
-        print(gt_lr.size())
-        print(out_lr_bis.size())
-        print(w_lr.size(),flus=True)
-        
-        l_lr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr_bis - gt_lr, w_lr)
-
-        if out_lr is not None:
-            l_sr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr - y_lr, self.patch_weight)
-        else:
-            l_sr = 0.
-
-        return l_ae, l_ae_gt, l_sr, l_lr
+        return l_ae, l_ae_gt
 
 
     def dwn_sample_batch(self,batch,scale = 1. ):
@@ -2347,7 +2330,7 @@ class LitModelUV(pl.LightningModule):
         
         return loss_AE, loss_AE_GT
 
-    def compute_reg_loss_hr(self,targets_lr,targets_GT_wo_nan, u_gt_wo_nan, sst_gt, v_gt_wo_nan,outputs, outputsSLR, outputsSLRHR,phase):
+    def compute_reg_loss_hr(self,targets_lr,targets_GT_wo_nan, u_gt_wo_nan, sst_gt, v_gt_wo_nan, outputsSLRHR,phase):
         
         if outputsSLRHR is not None :            
             yGT = torch.cat((targets_lr,
@@ -2361,16 +2344,12 @@ class LitModelUV(pl.LightningModule):
             if self.use_sst_state :
                 yGT = torch.cat((yGT,sst_gt), dim=1)
                                                      
-            loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss_hr(
-                yGT, targets_lr, outputs, outputsSLR, outputsSLRHR
-            )
+            loss_AE, loss_AE_GT =  self.reg_loss_hr(yGT , outputsSLRHR)
         else:
            loss_AE = 0. 
            loss_AE_GT = 0. 
-           loss_SR = 0. 
-           loss_LR = 0.
         
-        return loss_AE, loss_AE_GT, loss_SR, loss_LR
+        return loss_AE, loss_AE_GT
 
     def reinterpolate_outputs(self,outputs,outputs_u,outputs_v,batch):
         
@@ -2518,8 +2497,8 @@ class LitModelUV(pl.LightningModule):
                                                               
             # reconstruction losses
             loss_All,loss_GAll,loss_uv,loss_uv_geo,loss_div,loss_strain = self.compute_rec_loss(targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,
-                                                                                    outputs,outputs_u,outputs_v,
-                                                                                    lat_rad,lon_rad,phase)            
+                                                                                                outputs,outputs_u,outputs_v,
+                                                                                                lat_rad,lon_rad,phase)            
             
             loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
             
@@ -2709,9 +2688,8 @@ class LitModelUV(pl.LightningModule):
             print(outputsSLRHR.size())
             
             # projection losses
-            loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss_hr(targets_lr,targets_GT_wo_nan, sst_gt,
-                                                                             u_gt_wo_nan, v_gt_wo_nan,outputs, 
-                                                                             outputsSLR, outputsSLRHR,phase)
+            loss_AE, loss_AE_GT = self.compute_reg_loss_hr(targets_lr,targets_GT_wo_nan, sst_gt,
+                                                                             u_gt_wo_nan, v_gt_wo_nan,outputsSLRHR,phase)
                                                               
             # reconstruction losses
             loss_All,loss_GAll,loss_uv,loss_uv_geo,loss_div,loss_strain = self.compute_rec_loss(targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,
@@ -2740,7 +2718,7 @@ class LitModelUV(pl.LightningModule):
                
             # regularization loss
             loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
-            loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
+            #loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
             
             # sampling loss
             if self.model_sampling_uv is not None :
