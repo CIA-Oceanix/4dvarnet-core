@@ -1083,7 +1083,7 @@ class LitModelUV(pl.LightningModule):
 
         print('...... Set low-resolution model',flush=True)
         print('.... shape state lr : %dx%dx%d'%(self.hparams.shape_state_lr[0],self.hparams.shape_state_lr[1],self.hparams.shape_state_lr[2]) )
-        self.params.shape_state = self.hparams.shape_state_lr
+        self.hparams.shape_state = self.hparams.shape_state_lr
         self.model_4dvarnet_lr = get_4dvarnet_sst(self.hparams)
         
         print('...... Set fine-scale model',flush=True)
