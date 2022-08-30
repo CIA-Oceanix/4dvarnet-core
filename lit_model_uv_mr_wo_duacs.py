@@ -1089,7 +1089,7 @@ class LitModelUV(pl.LightningModule):
         print('...... Set fine-scale model',flush=True)
         self.hparams.shape_state_hr[0] = int( self.hparams.dT_hr_model *  self.hparams.shape_state_hr[0] / self.hparams.dT )
         self.hparams.shape_state = self.hparams.shape_state_hr
-        dT = self.hparams.dT
+        dT = self.hparams.dT.copy()
         self.hparams.dT = self.hparams.dT_hr_model
         print('.... shape state hr : %dx%dx%d - dT = %d/%d'%(self.hparams.shape_state[0],self.hparams.shape_state[1],self.hparams.shape_state[2],self.hparams.dT,dT) )        
         self.model_4dvarnet_hr = get_4dvarnet_sst(self.hparams)
@@ -2329,7 +2329,7 @@ class LitModelUV(pl.LightningModule):
                 yGT = torch.cat((yGT,sst_gt), dim=1)
     
                                                 
-            loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
+            loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss_hr(
                 yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
             )
         else:
@@ -2675,8 +2675,7 @@ class LitModelUV(pl.LightningModule):
             loss_All,loss_GAll,loss_uv,loss_uv_geo,loss_div,loss_strain = self.compute_rec_loss(targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,
                                                                                     outputs,outputs_u,outputs_v,
                                                                                     lat_rad,lon_rad,phase)
-            
-            
+                        
             loss_OI, loss_GOI = self.sla_loss(targets_lr, targets_GT_wo_nan)
             
             if self.model_sampling_uv is not None :
