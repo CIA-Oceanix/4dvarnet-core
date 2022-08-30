@@ -2778,8 +2778,8 @@ class LitModelUV(pl.LightningModule):
                 out_feat = torch.cat( (out_feat,self.model_4dvarnet_hr.model_H.extract_sst_feature( sst_gt )) , dim = 1 )
                 ssh_feat = self.model_4dvarnet_hr.model_H.extract_state_feature( outputsSLRHR )
                 
-                if self.scale_lr > 1 :
-                    ssh_feat = torch.nn.functional.interpolate(ssh_feat, scale_factor=self.scale_lr, mode='bicubic')
+                if self.scale_dwscaling_sst > 1 :
+                    ssh_feat = torch.nn.functional.interpolate(ssh_feat, scale_factor=self.scale_dwscaling_sst, mode='bicubic')
                 out_feat = torch.cat( (out_feat,ssh_feat) , dim=1)
                 
             if self.model_sampling_uv is not None :
