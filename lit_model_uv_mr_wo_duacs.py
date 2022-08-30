@@ -1089,7 +1089,7 @@ class LitModelUV(pl.LightningModule):
         print('...... Set fine-scale model',flush=True)
         self.hparams.shape_state_hr[0] = int( self.hparams.dT_hr_model *  self.hparams.shape_state_hr[0] / self.hparams.dT )
         self.hparams.shape_state = self.hparams.shape_state_hr
-        dT = self.hparams.dT.copy()
+        dT = self.hparams.dT
         self.hparams.dT = self.hparams.dT_hr_model
         print('.... shape state hr : %dx%dx%d - dT = %d/%d'%(self.hparams.shape_state[0],self.hparams.shape_state[1],self.hparams.shape_state[2],self.hparams.dT,dT) )        
         self.model_4dvarnet_hr = get_4dvarnet_sst(self.hparams)
@@ -2148,7 +2148,6 @@ class LitModelUV(pl.LightningModule):
             mask_sampling_uv = 1. - torch.nn.functional.threshold( 1.0 - w_sampling_uv , 0.9 , 0.)
             obs = torch.cat( (inputs_Mask * inputs_obs , mask_sampling_uv * u_gt_wo_nan , mask_sampling_uv * v_gt_wo_nan ) ,dim=1)
             
-            #print('%f '%( float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean(w_sampling_uv)) )
         else:
             mask_sampling_uv = torch.zeros_like(inputs_obs)
             w_sampling_uv = None
@@ -2256,15 +2255,15 @@ class LitModelUV(pl.LightningModule):
             outputs = outputs.detach()
 
         outputsSLRHR = outputs
-        outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
+        outputsSLR = outputs[:, 0:self.hparams.dT_hr_model, :, :]
         if self.aug_state :
-            outputs = outputsSLR + outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
-            outputs_u = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
-            outputs_v = outputsSLRHR[:, 4*self.hparams.dT:5*self.hparams.dT, :, :]
+            outputs = outputsSLR + outputsSLRHR[:, 2*self.hparams.dT_hr_model:3*self.hparams.dT_hr_model, :, :]
+            outputs_u = outputsSLRHR[:, 3*self.hparams.dT_hr_model:4*self.hparams.dT_hr_model, :, :]
+            outputs_v = outputsSLRHR[:, 4*self.hparams.dT_hr_model:5*self.hparams.dT_hr_model, :, :]
         else:
-            outputs = outputsSLR + outputsSLRHR[:, self.hparams.dT:2*self.hparams.dT, :, :]
-            outputs_u = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
-            outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
+            outputs = outputsSLR + outputsSLRHR[:, self.hparams.dT_hr_model:2*self.hparams.dT_hr_model, :, :]
+            outputs_u = outputsSLRHR[:, 2*self.hparams.dT_hr_model:3*self.hparams.dT_hr_model, :, :]
+            outputs_v = outputsSLRHR[:, 3*self.hparams.dT_hr_model:4*self.hparams.dT_hr_model, :, :]
 
         # U,V prediction
         if ( self.residual_wrt_geo_velocities == 1 ) or (self.residual_wrt_geo_velocities == 3):            
@@ -2656,10 +2655,10 @@ class LitModelUV(pl.LightningModule):
                         
             else:
                 outputs = self.model_4dvarnet_hr.phi_r(obs)
-                                
-                outputs_u = outputs[:, 1*self.hparams.dT:2*self.hparams.dT, :, :]
-                outputs_v = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
-                outputs = outputs[:, 0:self.hparams.dT, :, :]
+                                                
+                outputs_u = outputs[:, 1*self.hparams.dT_hr_model:2*self.hparams.dT_hr_model, :, :]
+                outputs_v = outputs[:, 2*self.hparams.dT_hr_model:3*self.hparams.dT_hr_model, :, :]
+                outputs = outputs[:, 0:self.hparams.dT_hr_model, :, :]
 
                 outputsSLR = None
                 outputsSLRHR = None #0. * outputs
