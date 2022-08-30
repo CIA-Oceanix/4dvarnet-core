@@ -972,7 +972,6 @@ class LitModelUV(pl.LightningModule):
 
         self.create_model()
         
-        #self.model_LR = ModelLR()
         self.grad_crop = lambda t: t[...,1:-1, 1:-1]
         self.gradient_img = lambda t: torch.unbind(
                 self.grad_crop(2.*kornia.filters.spatial_gradient(t, normalized=True)), 2)
@@ -1006,6 +1005,9 @@ class LitModelUV(pl.LightningModule):
         print('..... div. computation (sigma): %f -- %f'%(self.sig_filter_div,self.sig_filter_div_diag))
         print('..  Div loss type : %d'%self.type_div_train_loss)
         
+    def compute_lr_state(self,x):
+        return torch.nn.functional.avg_pool2d(x, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+ 
     def compute_div(self,u,v):
         # siletring
         f_u = kornia.filters.gaussian_blur2d(u, (5,5), (self.sig_filter_div,self.sig_filter_div), border_type='reflect')
@@ -2046,18 +2048,21 @@ class LitModelUV(pl.LightningModule):
     def reg_loss_hr(self, y_gt, oi, out, out_lr, out_lrhr):
         l_ae = self.loss_ae_hr(out_lrhr)
         l_ae_gt = self.loss_ae_hr(y_gt)
+
+        gt_lr = self.compute_lr_state(y_gt)
+        out_lr_bis = self.compute_lr_state(out)
+        w_lr = self.compute_lr_state(self.patch_weight)
+        print( w_lr.size() )
         
+        l_lr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr_bis - gt_lr, w_lr)
+
+        print('.... size out_lr')
+        print(out_lr.size())
+        print(oi.size(),flush=True)
         if out_lr is not None:
             l_sr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr - oi, self.patch_weight)
         else:
             l_sr = 0.
-        
-        gt_lr = torch.nn.functional.avg_pool2d(y_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))        
-        out_lr_bis = torch.nn.functional.avg_pool2d(out, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
-        w_lr = torch.nn.functional.avg_pool2d(self.patch_weight, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
-        print( w_lr.size() )
-        
-        l_lr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr_bis - gt_lr, w_lr)
 
         return l_ae, l_ae_gt, l_sr, l_lr
 
