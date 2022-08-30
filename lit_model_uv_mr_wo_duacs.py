@@ -969,8 +969,6 @@ class LitModelUV(pl.LightningModule):
         _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
         _w = torch.from_numpy(call(self.hparams.patch_weight))
         _w = _w[_dt:_dt+self.hparams.dT_hr_model,:,:]
-        print(_w.shape )
-        print('....w shape')
         self.patch_weight_hr = torch.nn.Parameter(_w, requires_grad=False)
 
         self.residual_wrt_geo_velocities = self.hparams.residual_wrt_geo_velocities if hasattr(self.hparams, 'residual_wrt_geo_velocities') else 0
@@ -1109,6 +1107,8 @@ class LitModelUV(pl.LightningModule):
 
         print('...... Set low-resolution model',flush=True)
         print('.... shape state lr : %dx%dx%d'%(self.hparams.shape_state_lr[0],self.hparams.shape_state_lr[1],self.hparams.shape_state_lr[2]) )
+        self.hparams.shape_state_lr[1] = int( self.hparams.shape_state_lr[1] / self.hparams.scale_lr )
+        self.hparams.shape_state_lr[2] = int( self.hparams.shape_state_lr[2] / self.hparams.scale_lr )
         self.hparams.shape_state = self.hparams.shape_state_lr
         self.model_4dvarnet_lr = get_4dvarnet_sst(self.hparams)
         
