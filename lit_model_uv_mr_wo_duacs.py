@@ -2160,7 +2160,7 @@ class LitModelUV(pl.LightningModule):
         
         return obs,new_masks,w_sampling_uv,mask_sampling_uv
 
-    def get_obs_and_mask_hr(self,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan):
+    def get_obs_and_mask_hr(self,init_ssh_lr,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan):
                 
         if self.model_sampling_uv is not None :
             w_sampling_uv = self.model_sampling_uv( sst_gt )
@@ -2174,9 +2174,9 @@ class LitModelUV(pl.LightningModule):
         else:
             mask_sampling_uv = torch.zeros_like(u_gt_wo_nan)
             w_sampling_uv = None
-            obs = torch.cat( ( inputs_Mask * inputs_obs , torch.zeros_like(inputs_Mask) ,  torch.zeros_like(inputs_Mask) ) ,dim=1)
+            obs = torch.cat( ( init_ssh_lr , inputs_Mask * ( inputs_obs - init_ssh_lr ) , torch.zeros_like(inputs_Mask) ,  torch.zeros_like(inputs_Mask) ) ,dim=1)
             
-        new_masks = torch.cat( ( inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
+        new_masks = torch.cat( ( torch.ones_like(inputs_Mask) , inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
 
         if self.aug_state :
             obs = torch.cat( (obs, torch.zeros_like(inputs_Mask),) ,dim=1)
