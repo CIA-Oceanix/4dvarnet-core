@@ -2173,11 +2173,6 @@ class LitModelUV(pl.LightningModule):
         init_ssh_from_lr = torch.nn.functional.interpolate(init_ssh_lr, scale_factor=self.scale_dwscaling, mode='bicubic')
         init_ssh_from_lr = init_ssh_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
         
-        print('.... get_obs_mask_state_hr ')
-        print( inputs_obs.size() )
-        print( init_ssh_lr.size() )
-        print( inputs_Mask.size(),flush=True )
-
         if self.model_sampling_uv is not None :
             w_sampling_uv = self.model_sampling_uv( sst_gt )
             w_sampling_uv = w_sampling_uv[1]
@@ -2639,6 +2634,14 @@ class LitModelUV(pl.LightningModule):
 
         # obs and mask data
         obs,new_masks,w_sampling_uv,mask_sampling_uv = self.get_obs_and_mask_hr(out_lr[0].detach(),inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan)
+
+
+        print('.... get_obs_mask_state_hr ')
+        print( obs[0].size() )
+        print( state[0].size() )
+        print( new_masks[0].size(),flush=True )
+        print( obs[1].size() )
+        print( new_masks[1].size(),flush=True )
 
         # run forward_model
         with torch.set_grad_enabled(True):
