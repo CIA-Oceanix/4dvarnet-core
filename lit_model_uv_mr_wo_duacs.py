@@ -966,7 +966,9 @@ class LitModelUV(pl.LightningModule):
         _w =  torch.nn.functional.avg_pool2d(_w.view(1,-1,_w.size(1),_w.size(2)), (int(self.scale_dwscaling),int(self.scale_dwscaling)))
         self.patch_weight_lr = torch.nn.Parameter(_w.view(-1,_w.size(2),_w.size(3)), requires_grad=False)
 
+        _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
         _w = torch.from_numpy(call(self.hparams.patch_weight))
+        _w = _w[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
         print(_w.shape )
         print('....w shape')
         self.patch_weight_hr = torch.nn.Parameter(_w, requires_grad=False)
