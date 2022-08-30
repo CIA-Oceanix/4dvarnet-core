@@ -1948,19 +1948,15 @@ class LitModelUV(pl.LightningModule):
             init_u = out_lr[1]
             init_v = out_lr[2]
 
-            _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
-            init_ssh[:,_dt:_dt+self.hparams.dT_hr_model,:,:] = init_ssh_
-            init_u[:,_dt:_dt+self.hparams.dT_hr_model,:,:] = init_u_
-            init_v[:,_dt:_dt+self.hparams.dT_hr_model,:,:] = init_v_   
-            
-            init_ssh = init_ssh.detach()
-            init_u = init_u.detach()
-            init_v = init_v.detach()
-            
-            print(' init state after one step ')
-            print(init_ssh.size())
-            print(init_u.size())
-            print(init_v.size(),flush=True)
+            if 1*0 :
+                _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
+                init_ssh[:,_dt:_dt+self.hparams.dT_hr_model,:,:] = init_ssh_
+                init_u[:,_dt:_dt+self.hparams.dT_hr_model,:,:] = init_u_
+                init_v[:,_dt:_dt+self.hparams.dT_hr_model,:,:] = init_v_   
+                
+                init_ssh = init_ssh.detach()
+                init_u = init_u.detach()
+                init_v = init_v.detach()
         else:              
             init_u = torch.zeros_like(targets_GT)
             init_v = torch.zeros_like(targets_GT)
@@ -2690,14 +2686,6 @@ class LitModelUV(pl.LightningModule):
         # obs and mask data
         obs,new_masks,w_sampling_uv,mask_sampling_uv = self.get_obs_and_mask_hr(out_lr[0].detach(),inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan)
 
-
-        print('.... get_obs_mask_state_hr ')
-        print( obs[0].size() )
-        print( state.size() )
-        print( new_masks[0].size(),flush=True )
-        print( obs[1].size() )
-        print( new_masks[1].size(),flush=True )
-
         # run forward_model
         with torch.set_grad_enabled(True):
             flag_display_loss = False#True
@@ -2720,15 +2708,6 @@ class LitModelUV(pl.LightningModule):
                 normgrad = 0. 
 
 
-            print('...... self.compute_reg_loss_hr')
-            print(targets_lr.size())
-            print(targets_GT_wo_nan.size())
-            print(sst_gt.size())
-            print(u_gt_wo_nan.size())
-            print(v_gt_wo_nan.size())
-            print(outputsSLR.size())
-            print(outputsSLRHR.size())
-            
             # projection losses
             loss_AE, loss_AE_GT = self.compute_reg_loss_hr(targets_lr,targets_GT_wo_nan, sst_gt,
                                                                              u_gt_wo_nan, v_gt_wo_nan,outputsSLRHR,phase)
