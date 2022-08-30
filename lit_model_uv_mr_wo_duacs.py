@@ -2057,7 +2057,7 @@ class LitModelUV(pl.LightningModule):
         w_lr = torch.nn.functional.avg_pool2d(self.patch_weight, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
         print( w_lr.size() )
         
-        l_lr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr_bis - gt_lr, self.model_LR(self.patch_weight))
+        l_lr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr_bis - gt_lr, w_lr)
 
         return l_ae, l_ae_gt, l_sr, l_lr
 
