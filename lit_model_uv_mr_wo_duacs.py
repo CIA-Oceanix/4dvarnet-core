@@ -1294,10 +1294,6 @@ class LitModelUV(pl.LightningModule):
         out_pred = out[0]        
         out_u = out[1]
         out_v = out[2]
-
-        #    out_pred = torch.nn.functional.interpolate(out_pred, scale_factor=self.scale_lr, mode='bicubic')
-        #    out_u = torch.nn.functional.interpolate(out_u, scale_factor=self.scale_lr, mode='bicubic')
-        #    out_v = torch.nn.functional.interpolate(out_v, scale_factor=self.scale_lr, mode='bicubic')
             
             
         if not self.use_sst :
@@ -1926,14 +1922,32 @@ class LitModelUV(pl.LightningModule):
                 self.latest_metrics
     )
 
-    def get_init_state_lr_from_hr(self, batch,out_hr=(None,),mask_sampling = None):
+    def get_init_state_lr_from_hr(self, batch,out_hr=(None,),out_lr=(None,),mask_sampling = None):
         targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon, gx, gy = batch
         
         if out_hr[0] is not None:            
             # compute low-resolution lr state from hr state            
-            init_ssh = torch.nn.functional.avg_pool2d(out_hr[0].detach(), (int(self.scale_lr),int(self.scale_lr)))
-            init_u = torch.nn.functional.avg_pool2d(out_hr[1].detach(), (int(self.scale_lr),int(self.scale_lr)))
-            init_v = torch.nn.functional.avg_pool2d(out_hr[2].detach(), (int(self.scale_lr),int(self.scale_lr)))
+            init_ssh_ = torch.nn.functional.avg_pool2d(out_hr[0].detach(), (int(self.scale_lr),int(self.scale_lr)))
+            init_u_ = torch.nn.functional.avg_pool2d(out_hr[1].detach(), (int(self.scale_lr),int(self.scale_lr)))
+            init_v_ = torch.nn.functional.avg_pool2d(out_hr[2].detach(), (int(self.scale_lr),int(self.scale_lr)))
+            
+            init_ssh = out_lr[0]
+            init_u = out_lr[1]
+            init_v = out_lr[2]
+
+            _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
+            init_ssh[:,_dt:_dt+self.hparams.dT_hr_model,:,:] = init_ssh_
+            init_u[:,_dt:_dt+self.hparams.dT_hr_model,:,:] = init_u_
+            init_v[:,_dt:_dt+self.hparams.dT_hr_model,:,:] = init_v_   
+            
+            init_ssh = init_ssh.detach()
+            init_u = init_u.detach()
+            init_v = init_v.detach()
+            
+            print(' init state after one step ')
+            print(init_ssh.size())
+            print(init_u.size())
+            print(init_v.size(),flush=True)
         else:              
             init_u = torch.zeros_like(targets_GT)
             init_v = torch.zeros_like(targets_GT)
