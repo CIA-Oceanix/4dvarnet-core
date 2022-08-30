@@ -2075,14 +2075,16 @@ class LitModelUV(pl.LightningModule):
 
         gt_lr = self.compute_lr_state(y_gt)
         out_lr_bis = self.compute_lr_state(out)
-        w_lr = self.compute_lr_state(self.patch_weight)
-        print( w_lr.size() )
+        w_lr = self.compute_lr_state(self.patch_weight.view(1,self.hparams.dT_hr_model,self.patch_weight.size(1),self.patch_weight.size(2)))
+        w_lr = torch.squeeze( w_lr )   
+        
+        print('.... reg loss')
+        print(gt_lr.size())
+        print(out_lr_bis.size())
+        print(w_lr.size())
         
         l_lr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr_bis - gt_lr, w_lr)
 
-        print('.... size out_lr')
-        print(out_lr.size())
-        print(y_lr.size(),flush=True)
         if out_lr is not None:
             l_sr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr - y_lr, self.patch_weight)
         else:
