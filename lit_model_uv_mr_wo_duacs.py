@@ -2698,6 +2698,16 @@ class LitModelUV(pl.LightningModule):
                 cell_new = None # . * outputs
                 normgrad = 0. 
 
+
+            print('...... self.compute_reg_loss_hr')
+            print(targets_lr.size())
+            print(targets_GT_wo_nan.size())
+            print(sst_gt.size())
+            print(u_gt_wo_nan.size())
+            print(v_gt_wo_nan.size())
+            print(outputsSLR.size())
+            print(outputsSLRHR.size())
+            
             # projection losses
             loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss_hr(targets_lr,targets_GT_wo_nan, sst_gt,
                                                                              u_gt_wo_nan, v_gt_wo_nan,outputs, 
