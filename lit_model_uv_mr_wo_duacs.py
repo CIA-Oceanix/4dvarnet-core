@@ -1080,7 +1080,6 @@ class LitModelUV(pl.LightningModule):
     
     def create_model(self):
         print('...... Create 4dvarnet models')
-        print('.... shape state : %dx%dx%d'%(self.hparams.shape_state[0],self.hparams.shape_state[1],self.hparams.shape_state[2]) )
 
         print('...... Set low-resolution model',flush=True)
         print('.... shape state lr : %dx%dx%d'%(self.hparams.shape_state_lr[0],self.hparams.shape_state_lr[1],self.hparams.shape_state_lr[2]) )
