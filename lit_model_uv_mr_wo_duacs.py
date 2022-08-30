@@ -2030,8 +2030,12 @@ class LitModelUV(pl.LightningModule):
     def reg_loss(self, y_gt, oi, out, out_lr, out_lrhr):
         l_ae = self.loss_ae(out_lrhr)
         l_ae_gt = self.loss_ae(y_gt)
-        l_sr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr - oi, self.patch_weight)
-
+        
+        if out_lr is not None:
+            l_sr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr - oi, self.patch_weight)
+        else:
+            l_sr = 0.
+        
         gt_lr = self.model_LR(oi)
         out_lr_bis = self.model_LR(out)
         l_lr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr_bis - gt_lr, self.model_LR(self.patch_weight))
@@ -2266,9 +2270,6 @@ class LitModelUV(pl.LightningModule):
 
     def compute_reg_loss(self,targets_OI,targets_GT_wo_nan, u_gt_wo_nan, sst_gt, v_gt_wo_nan,outputs, outputsSLR, outputsSLRHR,phase):
         
-        if (phase == 'val') or (phase == 'test'):
-            self.patch_weight = self.patch_weight_train
-
         if outputsSLRHR is not None :
             yGT = torch.cat( targets_GT_wo_nan ,
                             dim=1)
@@ -2437,7 +2438,7 @@ class LitModelUV(pl.LightningModule):
             # projection losses
             loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss(targets_OI,targets_GT_wo_nan, sst_gt,
                                                                           u_gt_wo_nan, v_gt_wo_nan,outputs, 
-                                                                          outputsSLR, outputsSLRHR,phase)
+                                                                          outputsSLR, outputsSLRHR, phase)
                                                               
             # reconstruction losses
             loss_All,loss_GAll,loss_uv,loss_uv_geo,loss_div,loss_strain = self.compute_rec_loss(targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,
