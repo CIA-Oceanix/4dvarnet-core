@@ -2424,12 +2424,12 @@ class LitModelUV(pl.LightningModule):
                 print('\n..  loss div = %e' % (self.hparams.alpha_mse_div *loss_div) )                     
         else:
             if ( (phase == 'val') or (phase == 'test') ) :
-                div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div_diag, flag_lr = True )
-                div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag, flag_lr = True )
+                div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div_diag, flag_lr = flag_lr )
+                div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag, flag_lr = flag_lr )
                                         
             else:
-                div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div, flag_lr = True )
-                div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div, flag_lr = True )
+                div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div, flag_lr = flag_lr )
+                div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div, flag_lr = flag_lr )
                 
             loss_div = self.div_loss( div_rec , div_gt )
             loss_strain = self.strain_loss( strain_rec , strain_gt )
