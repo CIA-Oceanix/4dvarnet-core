@@ -1933,10 +1933,17 @@ class LitModelUV(pl.LightningModule):
             print('...  THIS IS UNEXPECTED init state from hr with no hr state .....')
                         
         # re-interpolate lr state to hr grid 
+        # for hr time window
         init_ssh_from_lr = torch.nn.functional.interpolate(out_lr[0].detach(), scale_factor=self.scale_dwscaling, mode='bicubic')
         init_u_from_lr = torch.nn.functional.interpolate(out_lr[1].detach(), scale_factor=self.scale_dwscaling, mode='bicubic')
         init_v_from_lr = torch.nn.functional.interpolate(out_lr[2].detach(), scale_factor=self.scale_dwscaling, mode='bicubic')
-            
+                    
+        _dt = int( (self.haprams.dT-self.haprams.dT_hr_model)/2 )
+        init_ssh_from_lr = init_ssh_from_lr[:,_dt:_dt+self.haprams.dT_hr_model,:,:]
+        init_u_from_lr = init_u_from_lr[:,_dt:_dt+self.haprams.dT_hr_model,:,:]
+        init_v_from_lr = init_v_from_lr[:,_dt:_dt+self.haprams.dT_hr_model,:,:]
+
+        
         targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
 
         if state_hr[0] is not None: 
@@ -2542,12 +2549,53 @@ class LitModelUV(pl.LightningModule):
             return loss, [outputs,outputs_u,outputs_v], [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
 
 
+    def pre_process_batch_for_hr(self,batch):
+        # time window for hr component
+        _dt = int( (self.haprams.dT-self.haprams.dT_hr_model)/2 )
+        
+
+        if not self.use_sst:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
+        else:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
+            sst_gt = sst_gt[:,_dt:_dt+self.haprams.dT_hr_model,:,:]
+    
+        targets_OI = targets_OI[:,_dt:_dt+self.haprams.dT_hr_model,:,:]
+        inputs_Mask = inputs_Mask[:,_dt:_dt+self.haprams.dT_hr_model,:,:]
+        inputs_obs = inputs_obs[:,_dt:_dt+self.haprams.dT_hr_model,:,:]
+        targets_GT = targets_GT[:,_dt:_dt+self.haprams.dT_hr_model,:,:]
+        u_gt = u_gt[:,_dt:_dt+self.haprams.dT_hr_model,:,:]
+        v_gt = v_gt[:,_dt:_dt+self.haprams.dT_hr_model,:,:]
+                    
+        targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
+        u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
+        v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
+        
+        if not self.use_sst:
+            sst_gt = None
+            
+        # gradient norm field
+        g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT_wo_nan)
+
+        # lat/lon in radians
+        lat_rad = torch.deg2rad(lat)
+        lon_rad = torch.deg2rad(lon)
+            
+        if self.use_lat_lon_in_obs_model  == True :
+            self.model.model_H.lat_rad = lat_rad
+            self.model.model_H.lon_rad = lon_rad
+
+        return targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y
+
     def compute_loss_hr(self, batch, phase, out_lr, state_init_hr=(None,)):
 
         ##############################################
         # run lr model
-        targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad = batch
+        _batch = self.pre_process_batch_for_hr(batch)
+        self.patch_weight = self.patch_weight_lr
         
+        targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y = _batch
+            
         # low-resolution reference
         targets_lr = torch.nn.functional.avg_pool2d(targets_GT_wo_nan, (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))        
         targets_lr = torch.nn.functional.interpolate(targets_lr, scale_factor=self.scale_dwscaling, mode='bicubic')
