@@ -972,7 +972,7 @@ class LitModelUV(pl.LightningModule):
 
         self.create_model()
         
-        self.model_LR = ModelLR()
+        #self.model_LR = ModelLR()
         self.grad_crop = lambda t: t[...,1:-1, 1:-1]
         self.gradient_img = lambda t: torch.unbind(
                 self.grad_crop(2.*kornia.filters.spatial_gradient(t, normalized=True)), 2)
@@ -2052,8 +2052,11 @@ class LitModelUV(pl.LightningModule):
         else:
             l_sr = 0.
         
-        gt_lr = self.model_LR(oi)
-        out_lr_bis = self.model_LR(out)
+        gt_lr = torch.nn.functional.avg_pool2d(y_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))        
+        out_lr_bis = torch.nn.functional.avg_pool2d(out, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+        w_lr = torch.nn.functional.avg_pool2d(self.patch_weight, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+        print( w_lr.size() )
+        
         l_lr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr_bis - gt_lr, self.model_LR(self.patch_weight))
 
         return l_ae, l_ae_gt, l_sr, l_lr
@@ -2316,21 +2319,22 @@ class LitModelUV(pl.LightningModule):
     def compute_reg_loss_hr(self,targets_OI,targets_GT_wo_nan, u_gt_wo_nan, sst_gt, v_gt_wo_nan,outputs, outputsSLR, outputsSLRHR,phase):
         
         if outputsSLRHR is not None :
-
-            if self.aug_state :
-                yGT = torch.cat((targets_GT_wo_nan, targets_GT_wo_nan ), dim=1)
-            else :
-                yGT = targets_GT_wo_nan
-
+            targets_lr = torch.nn.functional.avg_pool2d(targets_GT_wo_nan, (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
+            targets_lr = torch.nn.functional.interpolate(targets_lr, scale_factor=self.scale_dwscaling_sst, mode='bicubic')
             
+            yGT = torch.cat((targets_lr,
+                             targets_GT_wo_nan - targets_lr),
+                            dim=1)
+            if self.aug_state :
+                yGT = torch.cat((yGT, targets_GT_wo_nan - targets_lr), dim=1)
+                                                            
             yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
 
             if self.use_sst_state :
                 yGT = torch.cat((yGT,sst_gt), dim=1)
-    
-                                                
+                                                     
             loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss_hr(
-                yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
+                yGT, targets_lr, outputs, outputsSLR, outputsSLRHR
             )
         else:
            loss_AE = 0. 
