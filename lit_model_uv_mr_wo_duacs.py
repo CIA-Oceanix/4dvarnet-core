@@ -2547,6 +2547,12 @@ class LitModelUV(pl.LightningModule):
         ##############################################
         # run lr model
         targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad = batch
+        
+        # low-resolution reference
+        targets_lr = torch.nn.functional.avg_pool2d(targets_GT_wo_nan, (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))        
+        targets_lr = torch.nn.functional.interpolate(targets_lr, scale_factor=self.scale_dwscaling, mode='bicubic')
+ 
+        self.patch_weight = self.patch_weight_hr
 
         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT_wo_nan)        
         
@@ -2570,10 +2576,12 @@ class LitModelUV(pl.LightningModule):
                     )
          
         # intial state
-        state = self.get_init_state_hr(batch, out_lr, state_init_hr )
+        state = self.get_init_state_hr_from_lr(batch, out_lr, state_init_hr )
 
         # obs and mask data
-        obs,new_masks,w_sampling_uv,mask_sampling_uv = self.get_obs_and_mask(targets_OI,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan)
+        init_ssh_from_lr = torch.nn.functional.interpolate(out_lr[0].detach(), scale_factor=self.scale_dwscaling, mode='bicubic')
+        
+        obs,new_masks,w_sampling_uv,mask_sampling_uv = self.get_obs_and_mask_hr(init_ssh_from_lr,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan)
 
         # run forward_model
         with torch.set_grad_enabled(True):
@@ -2581,7 +2589,7 @@ class LitModelUV(pl.LightningModule):
             
             if self.hparams.n_grad > 0 :                
                 outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad = self.run_model_hr(state, obs, new_masks,state_init_hr,
-                                                                                                                         lat_rad,lon_rad,phase)
+                                                                                                                            lat_rad,lon_rad,phase)
                         
             else:
                 outputs = self.model_4dvarnet_hr.phi_r(obs)
@@ -2597,14 +2605,9 @@ class LitModelUV(pl.LightningModule):
                 normgrad = 0. 
 
             # projection losses
-            loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss(targets_OI,targets_GT_wo_nan, sst_gt,
-                                                                          u_gt_wo_nan, v_gt_wo_nan,outputs, 
-                                                                          outputsSLR, outputsSLRHR,phase)
-
-            # re-interpolate at full-resolution field during test/val epoch
-            if ( (phase == 'val') or (phase == 'test') ) and (self.scale_dwscaling > 1.0) :
-                _t = self.reinterpolate_outputs(outputs,outputs_u,outputs_v,batch)
-                targets_OI,targets_GT_wo_nan,sst_gt,u_gt_wo_nan,v_gt_wo_nan,lat_rad,lon_rad,outputs,outputs_u,outputs_v,g_targets_GT_x,g_targets_GT_y = _t 
+            loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss_hr(targets_lr,targets_GT_wo_nan, sst_gt,
+                                                                             u_gt_wo_nan, v_gt_wo_nan,outputs, 
+                                                                             outputsSLR, outputsSLRHR,phase)
                                                               
             # reconstruction losses
             loss_All,loss_GAll,loss_uv,loss_uv_geo,loss_div,loss_strain = self.compute_rec_loss(targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,
@@ -2612,7 +2615,7 @@ class LitModelUV(pl.LightningModule):
                                                                                     lat_rad,lon_rad,phase)
             
             
-            loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
+            loss_OI, loss_GOI = self.sla_loss(targets_lr, targets_GT_wo_nan)
             
             if self.model_sampling_uv is not None :
                 loss_l1_sampling_uv = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) *  torch.mean( w_sampling_uv )
