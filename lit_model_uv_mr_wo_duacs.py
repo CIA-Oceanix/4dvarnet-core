@@ -1083,16 +1083,15 @@ class LitModelUV(pl.LightningModule):
         print('.... shape state : %dx%dx%d'%(self.hparams.shape_state[0],self.hparams.shape_state[1],self.hparams.shape_state[2]) )
 
         print('...... Set low-resolution model',flush=True)
-        hparams_lr = self.hparams
+        hparams_lr = self.hparams.copy()
         hparams_lr.shape_state[1] = int(hparams_lr.shape_state[1] / hparams_lr.scale_lr )
         hparams_lr.shape_state[2] = int(hparams_lr.shape_state[2] / hparams_lr.scale_lr )        
         hparams_lr.shape_state[0] = hparams_lr.shape_state[0]-self.hparams.dT
         print('.... shape state lr : %dx%dx%d'%(hparams_lr.shape_state[0],hparams_lr.shape_state[1],hparams_lr.shape_state[2]) )
-        print('.... shape state : %dx%dx%d'%(self.hparams.shape_state[0],self.hparams.shape_state[1],self.hparams.shape_state[2]) )
         self.model_4dvarnet_lr = get_4dvarnet_sst(hparams_lr)
         
         print('...... Set fine-scale model',flush=True)
-        hparams_hr = self.hparams
+        hparams_hr = self.hparams.copy()
         hparams_hr.shape_state[0] =  int( hparams_hr.dT_hr_model *  self.hparams.shape_state[0] / self.hparams.dT )
         print('.... shape state hr : %dx%dx%d'%(hparams_hr.shape_state[0],hparams_hr.shape_state[1],hparams_hr.shape_state[2]) )        
         self.model_4dvarnet_hr = get_4dvarnet_sst(hparams_hr)
