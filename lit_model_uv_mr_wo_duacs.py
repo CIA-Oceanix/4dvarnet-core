@@ -1002,7 +1002,9 @@ class LitModelUV(pl.LightningModule):
             self.model.model_H.aug_state = self.hparams.aug_state
             self.model.model_H.var_tr_uv = self.var_tr_uv        
         
-        self.compute_derivativeswith_lon_lat = Torch_compute_derivatives_with_lon_lat(dT=self.hparams.dT)
+        self.compute_derivativeswith_lon_lat_lr = Torch_compute_derivatives_with_lon_lat(dT=self.hparams.dT)
+        self.compute_derivativeswith_lon_lat_hr = Torch_compute_derivatives_with_lon_lat(dT=self.hparams.dT_hr_model)
+
         #if self.flag_compute_div_with_lat_scaling :
         #    self.div_field = Div_uv_with_lat_lon_scaling()
         #else:
@@ -2030,21 +2032,34 @@ class LitModelUV(pl.LightningModule):
 
         return loss, loss_grad
     
-    def compute_uv_from_ssh(self,ssh, lat_rad, lon_rad,sigma=0.):
+    def compute_uv_from_ssh(self,ssh, lat_rad, lon_rad,sigma=0.,flag_lr=False):
         ssh = np.sqrt(self.var_Tr) * ssh + self.mean_Tr
-        u_geo, v_geo = self.compute_derivativeswith_lon_lat.compute_geo_velocities(ssh, lat_rad, lon_rad,sigma=0.)
-        
+        if flag_lr == True :
+            u_geo, v_geo = self.compute_derivativeswith_lon_lat_lr.compute_geo_velocities(ssh, lat_rad, lon_rad,sigma=0.)
+        else:
+            u_geo, v_geo = self.compute_derivativeswith_lon_lat_hr.compute_geo_velocities(ssh, lat_rad, lon_rad,sigma=0.)
+
         return u_geo / np.sqrt(self.var_tr_uv) , v_geo / np.sqrt(self.var_tr_uv)
 
-    def compute_geo_factor(self,outputs, lat_rad, lon_rad,sigma=0.):
-        return self.compute_derivativeswith_lon_lat.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.)
+    def compute_geo_factor(self,outputs, lat_rad, lon_rad,sigma=0.,flag_lr=False):
+         if flag_lr == True :
+            return self.compute_derivativeswith_lon_lat_lr.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.)
+         else:
+            return self.compute_derivativeswith_lon_lat_hr.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.)
 
-    def compute_div_curl_strain(self,u,v,lat_rad, lon_rad , sigma =0.):
-        if sigma > 0:
-            u = self.compute_derivativeswith_lon_lat.heat_equation_all_channels(u,iter=5,lam=self.sig_filter_div_diag)
-            v = self.compute_derivativeswith_lon_lat.heat_equation_all_channels(v,iter=5,lam=self.sig_filter_div_diag)
-        
-        div_gt,curl_gt,strain_gt    = self.compute_derivativeswith_lon_lat.compute_div_curl_strain(u, v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
+    def compute_div_curl_strain(self,u,v,lat_rad, lon_rad , sigma =0.,flag_lr=False):
+        if flag_lr == True :
+            if sigma > 0:
+                u = self.compute_derivativeswith_lon_lat_lr.heat_equation_all_channels(u,iter=5,lam=self.sig_filter_div_diag)
+                v = self.compute_derivativeswith_lon_lat_lr.heat_equation_all_channels(v,iter=5,lam=self.sig_filter_div_diag)
+            
+            div_gt,curl_gt,strain_gt    = self.compute_derivativeswith_lon_lat_lr.compute_div_curl_strain(u, v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
+        else:
+            if sigma > 0:
+                u = self.compute_derivativeswith_lon_lat_hr.heat_equation_all_channels(u,iter=5,lam=self.sig_filter_div_diag)
+                v = self.compute_derivativeswith_lon_lat_hr.heat_equation_all_channels(v,iter=5,lam=self.sig_filter_div_diag)
+            
+            div_gt,curl_gt,strain_gt    = self.compute_derivativeswith_lon_lat_hr.compute_div_curl_strain(u, v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
     
         return div_gt,curl_gt,strain_gt 
     
@@ -2376,7 +2391,7 @@ class LitModelUV(pl.LightningModule):
         
         return targets_OI,targets_GT_wo_nan,sst_gt,u_gt_wo_nan,v_gt_wo_nan,lat_rad,lon_rad,outputs,outputs_u,outputs_v,g_targets_GT_x,g_targets_GT_y
 
-    def compute_rec_loss(self,targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,outputs,outputs_u,outputs_v,lat_rad,lon_rad,phase):
+    def compute_rec_loss(self,targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,outputs,outputs_u,outputs_v,lat_rad,lon_rad,phase,flag_lr):
         flag_display_loss = False
 
         # median filter
@@ -2407,14 +2422,14 @@ class LitModelUV(pl.LightningModule):
             loss_strain = 0.
             if flag_display_loss :
                 print('\n..  loss div = %e' % (self.hparams.alpha_mse_div *loss_div) )                     
-        else:                                                                        
+        else:
             if ( (phase == 'val') or (phase == 'test') ) :
-                div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
-                div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
+                div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div_diag, flag_lr = True )
+                div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag, flag_lr = True )
                                         
             else:
-                div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div )
-                div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div )
+                div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div, flag_lr = True )
+                div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div, flag_lr = True )
                 
             loss_div = self.div_loss( div_rec , div_gt )
             loss_strain = self.strain_loss( strain_rec , strain_gt )
@@ -2498,7 +2513,7 @@ class LitModelUV(pl.LightningModule):
             # reconstruction losses
             loss_All,loss_GAll,loss_uv,loss_uv_geo,loss_div,loss_strain = self.compute_rec_loss(targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,
                                                                                                 outputs,outputs_u,outputs_v,
-                                                                                                lat_rad,lon_rad,phase)            
+                                                                                                lat_rad,lon_rad,phase, flag_lr = True)            
             
             loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
             
@@ -2694,7 +2709,7 @@ class LitModelUV(pl.LightningModule):
             # reconstruction losses
             loss_All,loss_GAll,loss_uv,loss_uv_geo,loss_div,loss_strain = self.compute_rec_loss(targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,
                                                                                     outputs,outputs_u,outputs_v,
-                                                                                    lat_rad,lon_rad,phase)
+                                                                                    lat_rad,lon_rad,phase, flag_lr = False)
                         
             loss_OI, loss_GOI = self.sla_loss(targets_lr, targets_GT_wo_nan)
             
