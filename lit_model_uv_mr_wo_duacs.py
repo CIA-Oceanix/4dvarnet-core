@@ -2269,18 +2269,18 @@ class LitModelUV(pl.LightningModule):
         if (phase == 'val') or (phase == 'test'):
             self.patch_weight = self.patch_weight_train
 
-        if outputsSLR is not None :
-            yGT = torch.cat((targets_OI,
-                             targets_GT_wo_nan - outputsSLR),
+        if outputsSLRHR is not None :
+            yGT = torch.cat( targets_GT_wo_nan ,
                             dim=1)
             if self.aug_state :
-                yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
+                yGT = torch.cat((yGT, targets_GT_wo_nan ), dim=1)
             
+            yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
+
             if self.use_sst_state :
                 yGT = torch.cat((yGT,sst_gt), dim=1)
     
                                                 
-            yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
             loss_AE, loss_AE_GT, loss_SR, loss_LR =  self.reg_loss(
                 yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
             )
@@ -2419,7 +2419,8 @@ class LitModelUV(pl.LightningModule):
             if self.hparams.n_grad > 0 :                
                 outputs, outputs_u, outputs_v, outputsSLRHR, hidden_new, cell_new, normgrad = self.run_model_lr(state, obs, new_masks,state_init_lr,
                                                                                                                          lat_rad,lon_rad,phase)
-                        
+                
+                outputsSLR = None
             else:
                 outputs = self.model_4dvarnet_lr.phi_r(obs)
                                 
