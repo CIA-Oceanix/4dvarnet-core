@@ -1130,6 +1130,7 @@ class LitModelUV(pl.LightningModule):
         state_init_lr = [None]
         state_init_hr = [None]
         out_lr = [None]
+        out_lr_init = [None]
         out_hr = [None]
         
         out = None
@@ -1137,13 +1138,13 @@ class LitModelUV(pl.LightningModule):
         for _ in range(self.hparams.n_fourdvar_iter):
             if ( phase == 'test' ) & ( self.use_sst ):                
                 # run low-resolution model
-                _loss_lr, out_lr, state_lr, _metrics,sst_feat = self.compute_loss_lr(batch, phase=phase, out_hr=out_hr, state_init_lr=state_init_lr)
+                _loss_lr, out_lr, state_lr, _metrics,sst_feat = self.compute_loss_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init,state_init_lr=state_init_lr)
                                 
                 # run high-resolution model
                 _loss, out_hr, state_hr, _metrics_lr,sst_feat_lr = self.compute_loss_hr(batch, phase=phase, out_lr=out_lr, state_init_hr=state_init_hr)
             else:
                 # run low-resolution model
-                _loss_lr, out, state_lr, _metrics,sst_feat = self.compute_loss_lr(batch, phase=phase, out_hr=out_hr, state_init_lr=state_init_lr)
+                _loss_lr, out, state_lr, _metrics,sst_feat = self.compute_loss_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init, state_init_lr=state_init_lr)
  
                 # run high-resolution model
                 _loss, out, state_hr, _metrics_lr,sst_feat_lr = self.compute_loss_hr(batch, phase=phase, out_lr=out_lr,  state_init_hr=state_init_hr)
@@ -1151,7 +1152,8 @@ class LitModelUV(pl.LightningModule):
             if self.hparams.n_grad > 0 :
                 state_init_lr = [None if s is None else s.detach() for s in state_lr]
                 state_init_hr = [None if s is None else s.detach() for s in state_hr]
-
+                out_lr_init = [None if s is None else s.detach() for s in out_lr]
+                
             losses.append(_loss)
             metrics.append(_metrics)
             
@@ -2461,7 +2463,7 @@ class LitModelUV(pl.LightningModule):
 
         return loss_All,loss_GAll,loss_uv,loss_uv_geo,loss_div,loss_strain 
 
-    def compute_loss_lr(self, batch, phase, out_hr=(None,),state_init_lr=(None,)):
+    def compute_loss_lr(self, batch, phase, out_hr=(None,),out_lr_init=(None,),state_init_lr=(None,)):
 
         ##############################################
         # run lr model
@@ -2491,7 +2493,7 @@ class LitModelUV(pl.LightningModule):
                     )
          
         # intial state
-        state = self.get_init_state_lr_from_hr(_batch, out_hr=out_hr)
+        state = self.get_init_state_lr_from_hr(_batch, out_hr=out_hr, out_lr=out_lr_init)
 
         # obs and mask data
         obs,new_masks,w_sampling_uv,mask_sampling_uv = self.get_obs_and_mask_lr(inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan)
