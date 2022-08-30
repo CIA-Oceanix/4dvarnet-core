@@ -2173,10 +2173,10 @@ class LitModelUV(pl.LightningModule):
         init_ssh_from_lr = torch.nn.functional.interpolate(init_ssh_lr, scale_factor=self.scale_dwscaling, mode='bicubic')
         init_ssh_from_lr = init_ssh_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
         
-        print('.... get_init_state_hr ')
+        print('.... get_obs_mask_state_hr ')
         print( inputs_obs.size() )
         print( init_ssh_lr.size() )
-        print( inputs_Mask.size() )
+        print( inputs_Mask.size(),flush=True )
 
         if self.model_sampling_uv is not None :
             w_sampling_uv = self.model_sampling_uv( sst_gt )
@@ -2184,13 +2184,13 @@ class LitModelUV(pl.LightningModule):
             
             #mask_sampling_uv = torch.bernoulli( w_sampling_uv )
             mask_sampling_uv = 1. - torch.nn.functional.threshold( 1.0 - w_sampling_uv , 0.9 , 0.)
-            obs = torch.cat( (inputs_Mask * inputs_obs , u_gt_wo_nan , v_gt_wo_nan ) ,dim=1)
+            obs = torch.cat( (init_ssh_from_lr , inputs_Mask * ( inputs_obs - init_ssh_from_lr ) , u_gt_wo_nan , v_gt_wo_nan ) ,dim=1)
             
             #print('%f '%( float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean(w_sampling_uv)) )
         else:
             mask_sampling_uv = torch.zeros_like(u_gt_wo_nan)
             w_sampling_uv = None
-            obs = torch.cat( ( init_ssh_lr , inputs_Mask * ( inputs_obs - init_ssh_lr ) , torch.zeros_like(inputs_Mask) ,  torch.zeros_like(inputs_Mask) ) ,dim=1)
+            obs = torch.cat( ( init_ssh_from_lr , inputs_Mask * ( inputs_obs - init_ssh_from_lr ) , torch.zeros_like(inputs_Mask) ,  torch.zeros_like(inputs_Mask) ) ,dim=1)
             
         new_masks = torch.cat( ( torch.ones_like(inputs_Mask) , inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
 
