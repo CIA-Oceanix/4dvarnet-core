@@ -1938,10 +1938,10 @@ class LitModelUV(pl.LightningModule):
         init_u_from_lr = torch.nn.functional.interpolate(out_lr[1].detach(), scale_factor=self.scale_dwscaling, mode='bicubic')
         init_v_from_lr = torch.nn.functional.interpolate(out_lr[2].detach(), scale_factor=self.scale_dwscaling, mode='bicubic')
                     
-        _dt = int( (self.haprams.dT-self.haprams.dT_hr_model)/2 )
-        init_ssh_from_lr = init_ssh_from_lr[:,_dt:_dt+self.haprams.dT_hr_model,:,:]
-        init_u_from_lr = init_u_from_lr[:,_dt:_dt+self.haprams.dT_hr_model,:,:]
-        init_v_from_lr = init_v_from_lr[:,_dt:_dt+self.haprams.dT_hr_model,:,:]
+        _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
+        init_ssh_from_lr = init_ssh_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+        init_u_from_lr = init_u_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+        init_v_from_lr = init_v_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
 
         
         targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
@@ -2551,21 +2551,21 @@ class LitModelUV(pl.LightningModule):
 
     def pre_process_batch_for_hr(self,batch):
         # time window for hr component
-        _dt = int( (self.haprams.dT-self.haprams.dT_hr_model)/2 )
+        _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
         
 
         if not self.use_sst:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
-            sst_gt = sst_gt[:,_dt:_dt+self.haprams.dT_hr_model,:,:]
+            sst_gt = sst_gt[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
     
-        targets_OI = targets_OI[:,_dt:_dt+self.haprams.dT_hr_model,:,:]
-        inputs_Mask = inputs_Mask[:,_dt:_dt+self.haprams.dT_hr_model,:,:]
-        inputs_obs = inputs_obs[:,_dt:_dt+self.haprams.dT_hr_model,:,:]
-        targets_GT = targets_GT[:,_dt:_dt+self.haprams.dT_hr_model,:,:]
-        u_gt = u_gt[:,_dt:_dt+self.haprams.dT_hr_model,:,:]
-        v_gt = v_gt[:,_dt:_dt+self.haprams.dT_hr_model,:,:]
+        targets_OI = targets_OI[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+        inputs_Mask = inputs_Mask[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+        inputs_obs = inputs_obs[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+        targets_GT = targets_GT[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+        u_gt = u_gt[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+        v_gt = v_gt[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
                     
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
         u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
