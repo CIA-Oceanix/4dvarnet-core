@@ -1151,7 +1151,7 @@ class LitModelUV(pl.LightningModule):
  
                 # run high-resolution model
                 print('..... high-resolution step',flush=True)
-                _loss, out_hr, state_hr, _metrics_hr = self.compute_loss_hr(batch, phase=phase, out_lr=out_lr,  state_init_hr=state_init_hr)
+                _loss_hr, out_hr, state_hr, _metrics_hr = self.compute_loss_hr(batch, phase=phase, out_lr=out_lr,  state_init_hr=state_init_hr)
             
             if self.hparams.n_grad > 0 :
                 state_init_lr = [None if s is None else s.detach() for s in state_lr]
