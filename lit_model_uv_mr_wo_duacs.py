@@ -1996,13 +1996,13 @@ class LitModelUV(pl.LightningModule):
         if state_hr[0] is not None: 
             if self.aug_state :
                 init_state = torch.cat((init_ssh_from_lr,
-                                        state_hr[0][:,self.dT:2*self.dT,:,:],
-                                        state_hr[0][:,2*self.dT:3*self.dT,:,:],
+                                        state_hr[0][:,self.hparams.dT_hr_model:2*self.hparams.dT_hr_model,:,:],
+                                        state_hr[0][:,2*self.hparams.dT_hr_model:3*self.hparams.dT_hr_model,:,:],
                                         init_u_from_lr,init_v_from_lr),
                                        dim=1)
             else:      
                 init_state = torch.cat((init_ssh_from_lr,
-                                        state_hr[0][:,self.dT:2*self.dT,:,:],
+                                        state_hr[0][:,self.hparams.dT_hr_model:2*self.hparams.dT_hr_model,:,:],
                                         init_u_from_lr,init_v_from_lr),
                                        dim=1)
             
