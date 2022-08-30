@@ -1946,6 +1946,9 @@ class LitModelUV(pl.LightningModule):
         
         targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
 
+        print( inputs_obs.size() )
+        print( init_ssh_from_lr.size() )
+
         if state_hr[0] is not None: 
             if self.aug_state :
                 init_state = torch.cat((init_ssh_from_lr,
