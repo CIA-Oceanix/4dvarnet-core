@@ -71,6 +71,8 @@ params:
   alpha_mse_uv_geo: 10.
   alpha_mse_div: 0. # 1000. #5 0. # 00. # 100. 
   alpha_mse_strain: 0. #1000.
+  alpha_loss_lr: 1.
+  alpha_loss_hr: 1.  
   sig_filter_div: 1.
   norm_obs: l2
   norm_prior: l2
