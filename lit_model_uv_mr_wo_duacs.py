@@ -1136,6 +1136,8 @@ class LitModelUV(pl.LightningModule):
         out = None
         
         for _ in range(self.hparams.n_fourdvar_iter):
+            
+            print('.... foward step: phase '+phase,flush=True)
             if ( phase == 'test' ) & ( self.use_sst ):                
                 # run low-resolution model
                 _loss_lr, out_lr, state_lr, _metrics_lr,sst_feat_lr = self.compute_loss_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init,state_init_lr=state_init_lr)
