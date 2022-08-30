@@ -1135,7 +1135,7 @@ class LitModelUV(pl.LightningModule):
         
         for _ in range(self.hparams.n_fourdvar_iter):
             
-            print('.... foward step: phase '+phase,flush=True)
+            #print('.... foward step: phase '+phase,flush=True)
             if ( phase == 'test' ) & ( self.use_sst ):                
                 # run low-resolution model
                 _loss_lr, out_lr, state_lr, _metrics_lr,sst_feat_lr = self.compute_loss_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init,state_init_lr=state_init_lr)
@@ -1143,12 +1143,12 @@ class LitModelUV(pl.LightningModule):
                 # run high-resolution model
                 _loss_hr, out_hr, state_hr, _metrics_hr,sst_feat_hr = self.compute_loss_hr(batch, phase=phase, out_lr=out_lr, state_init_hr=state_init_hr)
             else:
-                print('..... low-resolution step',flush=True)
+                #print('..... low-resolution step',flush=True)
                 # run low-resolution model
                 _loss_lr, out_lr, state_lr, _metrics_lr = self.compute_loss_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init, state_init_lr=state_init_lr)
  
                 # run high-resolution model
-                print('..... high-resolution step',flush=True)
+                #print('..... high-resolution step',flush=True)
                 _loss_hr, out_hr, state_hr, _metrics_hr = self.compute_loss_hr(batch, phase=phase, out_lr=out_lr,  state_init_hr=state_init_hr)
             
             if self.hparams.n_grad > 0 :
