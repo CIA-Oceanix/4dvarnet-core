@@ -494,8 +494,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             dl_kwargs=None,
             compute=False,
             use_auto_padding=False,
-            pp='std',
-            time_hr=0
+            pp='std'
     ):
         super().__init__()
         

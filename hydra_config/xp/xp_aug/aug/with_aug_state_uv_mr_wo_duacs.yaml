@@ -3,7 +3,7 @@
 params:
   aug_state: True
   shape_state_hr:
-    - mul${mul:${datamodule.time_hr},5} 
+    - mul${mul:${params.dt_hr_model},5} 
     - ${datamodule.slice_win.lon}
     - ${datamodule.slice_win.lat}
   shape_state_lr:
