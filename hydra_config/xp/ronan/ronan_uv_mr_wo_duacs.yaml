@@ -48,6 +48,8 @@ params:
   scale_dwscaling_sst: 1.
 datamodule:
   aug_train_data: True 
+  slice_win: 
+    time_hr: ${params.dT_hr_model}
 defaults:
   - /xp/ronan/base_xp_uv
   - /splits/dc_boost_swot@datamodule

@@ -8,10 +8,8 @@ params:
     - ${datamodule.slice_win.lat}
   shape_state_lr:
     - ${mul:${datamodule.slice_win.time},4} 
-    - ${div:${datamodule.slice_win.lon},4}
-    - ${div:${datamodule.slice_win.lat},4}
-#    - ${div:${datamodule.slice_win.lon},${params.scale_lr}}
-#    - ${div:${datamodule.slice_win.lat},${params.scale_lr}}
+    - ${div:${datamodule.slice_win.lon},${params.scale_lr}}
+    - ${div:${datamodule.slice_win.lat},${params.scale_lr}}
   shape_data:
     - ${mul:${datamodule.slice_win.time},5} 
     - ${datamodule.slice_win.lon}
