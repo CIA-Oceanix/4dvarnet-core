@@ -12,7 +12,7 @@ params:
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
   k_n_grad: 3
   n_grad: 5
-  dT: 31
+  dT: ??
   scale_lr: 3
   dT_hr_model: 7 
   DimAE: 50
