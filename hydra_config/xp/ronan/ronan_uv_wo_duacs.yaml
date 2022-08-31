@@ -9,8 +9,8 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_146/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT21-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=93-val_loss=2.0468.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_148/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT11-nowgeo-nodivstrain-grad_05_03_150-epoch=15-val_loss=2.6993.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_165/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT31-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=111-val_loss=1.2686.ckpt'
-#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_163/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT31-nowgeo-nodivstrain-grad_05_03_150-epoch=63-val_loss=3.0665.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_165/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT31-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=188-val_loss=1.2501.ckpt'
+   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_163/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT31-nowgeo-nodivstrain-grad_05_03_150-epoch=66-val_loss=3.0296.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_165/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT31-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=188-val_loss=1.2501.ckpt'
 params:
   flag_update_training_config: False # True # 
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
