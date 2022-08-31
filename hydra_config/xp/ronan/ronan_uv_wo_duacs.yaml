@@ -49,6 +49,7 @@ params:
   thr_l1_sampling_uv: 0.10
   scale_dwscaling : 2.
 datamodule:
+  resize_factor: 1
   aug_train_data: True  
 defaults:
   - /xp/ronan/base_xp_uv_wo_duacs
