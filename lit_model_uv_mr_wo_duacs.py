@@ -1425,9 +1425,6 @@ class LitModelUV(pl.LightningModule):
     def build_test_xr_ds_sst(self, outputs, diag_ds):
 
         outputs_keys = list(outputs[0][0].keys())
-        print( len(outputs) ) 
-        print( len(outputs[0]) ) 
-        print( outputs[0][0]['gt'].shape )
         
         with diag_ds.get_coords():
             self.test_patch_coords = [
@@ -1581,15 +1578,6 @@ class LitModelUV(pl.LightningModule):
         path_save4 = self.logger.log_dir + '/SNR.png'
         snr_fig = plot_snr(self.x_gt, self.x_oi, self.x_rec, path_save4)
         self.test_figs['snr'] = snr_fig
-
-        print( self.x_gt.data.shape )
-        print( self.x_oi.data.shape )
-        print( self.x_rec.data.shape , flush=True )
-
-        print( self.test_xr_ds.pred  )
-        print( self.test_xr_ds.gt )
-        print( self.test_xr_ds.oi.data.shape , flush=True )
-
 
         self.logger.experiment.add_figure(f'{log_pref} SNR', snr_fig, global_step=self.current_epoch)
         psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
