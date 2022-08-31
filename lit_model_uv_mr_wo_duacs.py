@@ -1443,10 +1443,8 @@ class LitModelUV(pl.LightningModule):
                   'lon': _t['lon']
                   }
             
-            _temp.append(_t_)
-            
-        print(self.test_patch_coords[0]['time'].shape,flush=True)
-        print(_temp[0]['time'].shape,flush=True)
+            _temp.append(_t_)        
+        self.test_patch_coords = _temp            
 
         def iter_item(outputs):
             n_batch_chunk = len(outputs)
