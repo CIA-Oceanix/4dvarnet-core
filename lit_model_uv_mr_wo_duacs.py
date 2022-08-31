@@ -1106,7 +1106,7 @@ class LitModelUV(pl.LightningModule):
         print('...... Create 4dvarnet models')
         
         print(self.hparams.shape_state_lr)
-        print(self.hparams.shape_state_hr)
+        print(self.hparams.shape_state_hr,flush=True)
 
 
         print('...... Set low-resolution model',flush=True)
