@@ -1971,20 +1971,14 @@ class LitModelUV(pl.LightningModule):
             init_u_ = torch.nn.functional.avg_pool2d(out_hr[1].detach(), (int(self.scale_lr),int(self.scale_lr)))
             init_v_ = torch.nn.functional.avg_pool2d(out_hr[2].detach(), (int(self.scale_lr),int(self.scale_lr)))
             
-            if 1*0 :
-                init_ssh = out_lr[0]
-                init_u = out_lr[1]
-                init_v = out_lr[2]
-
-            if 1*1 :
-                _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
-                init_ssh = torch.cat((out_lr[0][:,:_dt,:,:],init_ssh_,out_lr[0][:,_dt+self.hparams.dT_hr_model:,:,:]),dim=1)
-                init_u = torch.cat((out_lr[1][:,:_dt,:,:],init_ssh_,out_lr[1][:,_dt+self.hparams.dT_hr_model:,:,:]),dim=1)
-                init_v = torch.cat((out_lr[2][:,:_dt,:,:],init_ssh_,out_lr[2][:,_dt+self.hparams.dT_hr_model:,:,:]),dim=1)
-                
-                init_ssh = init_ssh.detach()
-                init_u = init_u.detach()
-                init_v = init_v.detach()
+            _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
+            init_ssh = torch.cat((out_lr[0][:,:_dt,:,:], init_ssh_ , out_lr[0][:,_dt+self.hparams.dT_hr_model:,:,:]),dim=1)
+            init_u = torch.cat((out_lr[1][:,:_dt,:,:]  , init_u_   , out_lr[1][:,_dt+self.hparams.dT_hr_model:,:,:]),dim=1)
+            init_v = torch.cat((out_lr[2][:,:_dt,:,:]  , init_v_   , out_lr[2][:,_dt+self.hparams.dT_hr_model:,:,:]),dim=1)
+            
+            init_ssh = init_ssh.detach()
+            init_u = init_u.detach()
+            init_v = init_v.detach()
         else:              
             init_u = torch.zeros_like(targets_GT)
             init_v = torch.zeros_like(targets_GT)
@@ -2264,7 +2258,7 @@ class LitModelUV(pl.LightningModule):
             
             #mask_sampling_uv = torch.bernoulli( w_sampling_uv )
             mask_sampling_uv = 1. - torch.nn.functional.threshold( 1.0 - w_sampling_uv , 0.9 , 0.)
-            obs = torch.cat( (init_ssh_from_lr , inputs_Mask * ( inputs_obs - init_ssh_from_lr ) , u_gt_wo_nan , v_gt_wo_nan ) ,dim=1)
+            obs = torch.cat( (init_ssh_from_lr , inputs_Mask * ( inputs_obs - init_ssh_from_lr ) , mask_sampling_uv * u_gt_wo_nan , mask_sampling_uv * v_gt_wo_nan ) ,dim=1)
             
             #print('%f '%( float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean(w_sampling_uv)) )
         else:
@@ -2325,7 +2319,6 @@ class LitModelUV(pl.LightningModule):
             alpha_uv_geo = 0.05
             outputs_u = alpha_uv_geo * u_geo_factor * outputs_u
             outputs_v = alpha_uv_geo * v_geo_factor * outputs_v
-
         
         return outputs, outputs_u, outputs_v, outputsSLRHR, hidden_new, cell_new, normgrad
 
@@ -2379,7 +2372,6 @@ class LitModelUV(pl.LightningModule):
                 yGT = torch.cat((targets_GT_wo_nan, targets_GT_wo_nan ), dim=1)
             else :
                 yGT = targets_GT_wo_nan
-
             
             yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
 
@@ -2460,10 +2452,6 @@ class LitModelUV(pl.LightningModule):
         u_geo_gt  , v_geo_gt  = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
                                 
         loss_uv_geo = self.uv_loss( [u_geo_rec,v_geo_rec], [u_geo_gt,v_geo_gt])
-            #loss_GAll = ( self.hparams.alpha_mse_uv_geo / self.hparams.alpha_mse_gssh )  * loss_uv_geo
-            #if flag_display_loss :
-            #    print('..  loss uv geo = %e' % ( self.hparams.alpha_mse_uv_geo * loss_uv_geo ) )                     
-            #    print('..  loss gssh = %e' % (self.hparams.alpha_mse_gssh * loss_GAll) )                     
 
         if self.type_div_train_loss == 0 :
             div_rec = self.compute_div(outputs_u,outputs_v)
