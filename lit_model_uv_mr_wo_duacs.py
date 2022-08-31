@@ -2424,8 +2424,7 @@ class LitModelUV(pl.LightningModule):
 
         # median filter
         if self.median_filter_width > 1:
-            outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
-                               
+            outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))                               
     
         # MSE loss for ssh and (u,v) components
         loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
@@ -2479,8 +2478,6 @@ class LitModelUV(pl.LightningModule):
         self.patch_weight = self.patch_weight_lr
         
         targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y = _batch
-
-        print(targets_OI.size())
         
         #targets_OI, inputs_Mask, targets_GT = batch
         # handle patch with no observation
