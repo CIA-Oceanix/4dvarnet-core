@@ -9,6 +9,8 @@ from scipy import stats
 import solver as NN_4DVar
 from metrics import save_netcdf, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, plot_ensemble, maps_score
 
+import matplotlib.pyplot as plt
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class BiLinUnit(torch.nn.Module):
@@ -36,7 +38,6 @@ class BiLinUnit(torch.nn.Module):
 class Encoder(torch.nn.Module):
     def __init__(self, dim_inp, dim_out, dim_ae, dw, dw2, ss, nb_blocks, rateDropout=0.):
         super(Encoder, self).__init__()
-
         self.nb_blocks = nb_blocks
         self.dim_ae = dim_ae
         # self.conv1HR  = torch.nn.Conv2d(dim_inp,self.dim_ae,(2*dw+1,2*dw+1),padding=dw,bias=False)
@@ -66,7 +67,6 @@ class Encoder(torch.nn.Module):
 
         # HR component
         x_hr = self.nn_hr(xinp)
-
         return x_lr + x_hr
 
 class Encoder_OI(torch.nn.Module):
@@ -169,6 +169,7 @@ class Phi_r_OI(torch.nn.Module):
             x = self.encoder(x)
         x = self.decoder(x)
         return x
+        
 
 class Model_H(torch.nn.Module):
     def __init__(self, shape_data):
@@ -248,4 +249,3 @@ class ModelLR(torch.nn.Module):
 
     def forward(self, im):
         return self.pool(im)
-

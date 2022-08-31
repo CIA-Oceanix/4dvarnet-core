@@ -1,0 +1,16 @@
+train_slices: 
+  - _target_: builtins.slice
+    _args_: ['2019-01-01', '2019-07-31']
+  - _target_: builtins.slice
+    _args_: ['2019-11-01', '2019-12-31']
+test_slices: 
+  - _target_: builtins.slice
+    _args_: ${adjust_testslices:['2019-08-01', '2019-10-31'],${params.dT}}
+val_slices: 
+  - _target_: builtins.slice
+    _args_: ['2019-08-01', '2019-10-31']
+
+
+oi_var: "bbpm443"
+gt_var: "bbpm443"
+obs_mask_var: "mask"

@@ -307,7 +307,6 @@ class LitModelAugstate(pl.LightningModule):
     def gather_outputs(self, outputs, log_pref):
         data_path = Path(f'{self.logger.log_dir}/{log_pref}_data')
         data_path.mkdir(exist_ok=True, parents=True)
-        print(len(outputs))
         torch.save(outputs, data_path / f'{self.global_rank}.t')
 
         if dist.is_initialized():
