@@ -13,7 +13,7 @@ params:
   k_n_grad: 3
   n_grad: 5
   dT: 31
-  scale_lr: 4
+  scale_lr: ??
   dT_hr_model: 7 
   DimAE: 50
   dim_obs_sst_feat: 20
@@ -32,7 +32,7 @@ params:
   residual_wrt_geo_velocities: 0 #False #
   type_div_train_loss: 1
   alpha_mse_ssh: 50. # loss
-  alpha_mse_gssh: # 1000.
+  alpha_mse_gssh: 1000.
   alpha_mse_uv: 50.
   alpha_mse_uv_geo: 10.
   alpha_mse_div: 0. # 1000. #5 0. # 00. # 100. 
