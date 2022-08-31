@@ -19,7 +19,7 @@ params:
   dim_grad_solver: 150
   phi_param: 'unet1'#'unet-std'#
   ckpt_name: 'modelUVGF-MR_dw2-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
-  use_sst_obs: True # False # 
+  use_sst_obs: False # True # 
   use_sst_state: False # True # 
   patch_weight:
     _target_: lit_model_uv_mr_wo_duacs.get_cropped_hanning_mask_ronan
@@ -48,7 +48,7 @@ params:
   scale_dwscaling_sst: 1.
 datamodule:
   aug_train_data: True
-  resize_factor: 1
+  resize_factor: 2
   use_auto_padding: False
 defaults:
   - /xp/ronan/base_xp_uv
