@@ -207,7 +207,7 @@ class XrDataset(Dataset):
                 for dim in slice_win
         }
         print('... ds shape %dx%dx%d ' %(self.ds.coords['time'].shape[0],self.ds.coords['lon'].shape[0],self.ds.coords['lat'].shape[0]))             
-        
+        print(self.slice_win)
 
     def __del__(self):
         self.ds.close()
