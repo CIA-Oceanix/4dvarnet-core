@@ -85,9 +85,9 @@ class XrDataset(Dataset):
         self.interp_na = interp_na
         # try/except block for handling both netcdf and zarr files
         
-        print('.... resize factor: %d'%resize_factor)
         print('.... path '+path)
         print('....  var: :'+var,flush=True)
+        print('.... resize factor: %d'%resize_factor)
         try:
             _ds = xr.open_dataset(path)
         except OSError as ex:
@@ -119,7 +119,8 @@ class XrDataset(Dataset):
             if resize_factor!=1:
                 _ds = _ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
                 self.resolution = self.resolution*resize_factor
-            
+                print(_ds.data.shape)
+                
             # dimensions
             self.ds = _ds.sel(**(dim_range or {}))
             self.Nt, self.Nx, self.Ny = tuple(self.ds.dims[d] for d in ['time', 'lon', 'lat'])
