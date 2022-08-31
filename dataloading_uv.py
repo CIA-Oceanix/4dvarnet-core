@@ -115,7 +115,6 @@ class XrDataset(Dataset):
         if resize_factor!=1:
             self.ds = self.ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
             self.resolution = self.resolution*resize_factor         
-        print('... ds shape %dx%dx%d ' %(self.ds.coords['time'].shape[0],self.ds.coords['lon'].shape[0],self.ds.coords['lat'].shape[0]))             
         
         # reshape
         # dimensions
@@ -199,14 +198,13 @@ class XrDataset(Dataset):
 
         if compute:
             self.ds = self.ds.compute()
-
-        self.slice_win = slice_win
         
         self.strides = strides or {}
         self.ds_size = {
                 dim: max((self.ds.dims[dim] - slice_win[dim]) // self.strides.get(dim, 1) + 1, 0)
                 for dim in slice_win
         }
+        print('... ds shape %dx%dx%d ' %(self.ds.coords['time'].shape[0],self.ds.coords['lon'].shape[0],self.ds.coords['lat'].shape[0]))             
         
 
     def __del__(self):
