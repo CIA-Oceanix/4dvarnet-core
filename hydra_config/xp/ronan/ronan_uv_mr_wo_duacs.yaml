@@ -48,7 +48,8 @@ params:
   scale_dwscaling_sst: 1.
 datamodule:
   aug_train_data: True
-  resize_factor: 2 
+  resize_factor: 2
+  auto_padding: True 
 defaults:
   - /xp/ronan/base_xp_uv
   - /splits/dc_boost_swot@datamodule
