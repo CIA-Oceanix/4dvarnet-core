@@ -171,10 +171,6 @@ class FourDVarNetHydraRunner:
                     mod.hparams.scale_dwscaling_sst = self.cfg.scale_dwscaling_sst
                     #mod.hparams.thr_l1_sampling_uv =  self.cfg.thr_l1_sampling_uv
 
-        print('.......... shapes')
-        print(self.cfg.shape_state_lr)
-        print(self.cfg.shape_state_hr)
-
         return mod
 
     def train(self, ckpt_path=None, **trainer_kwargs):
@@ -276,10 +272,6 @@ def _main(cfg):
     else:
         logger=True
     lit_mod_cls = get_class(cfg.lit_mod_cls)
-    
-    print('.......... shapes')
-    print(cfg.params.shape_state_lr)
-    print(cfg.params.shape_state_hr)
     
     runner = FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls, callbacks=callbacks, logger=logger)
     call(cfg.entrypoint, self=runner)
