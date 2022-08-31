@@ -123,14 +123,12 @@ class XrDataset(Dataset):
             self.original_coords = self.ds.coords
             self.padded_coords = self.ds.coords
 
-
         if not self.auto_padding:
             self.ds = _ds.sel(**(dim_range or {}))
             self.original_coords = self.ds.coords
             self.padded_coords = self.ds.coords
 
-        if self.auto_padding:
-                
+        if self.auto_padding:                
             # dimensions
             self.ds = _ds.sel(**(dim_range or {}))
             self.Nt, self.Nx, self.Ny = tuple(self.ds.dims[d] for d in ['time', 'lon', 'lat'])
@@ -203,6 +201,9 @@ class XrDataset(Dataset):
             self.ds = self.ds.compute()
 
         self.slice_win = slice_win
+        print('... Slicing window ')
+        print(self.slice_win)
+        
         self.strides = strides or {}
         self.ds_size = {
                 dim: max((self.ds.dims[dim] - slice_win[dim]) // self.strides.get(dim, 1) + 1, 0)
