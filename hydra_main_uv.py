@@ -172,8 +172,8 @@ class FourDVarNetHydraRunner:
                     #mod.hparams.thr_l1_sampling_uv =  self.cfg.thr_l1_sampling_uv
 
         print('.......... shapes')
-        print(self.cfg.params.shape_state_lr)
-        print(self.cfg.params.shape_state_hr)
+        print(self.cfg.shape_state_lr)
+        print(self.cfg.shape_state_hr)
 
         return mod
 
