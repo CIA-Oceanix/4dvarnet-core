@@ -466,7 +466,7 @@ if 1*0 :
         return np.sqrt( ( dv_dx + du_dy ) **2 +  (du_dx - dv_dy) **2 )
 
 
-def get_4dvarnet_lr(hparams,shape_state):
+def get_4dvarnet(hparams,shape_state):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                     hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
@@ -547,7 +547,7 @@ def get_4dvarnet_sst(hparams,shape_state,dT):
                             hparams.norm_obs, hparams.norm_prior, shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
     else:
-       return get_4dvarnet(hparams)
+       return get_4dvarnet(hparams,shape_state)
 
 
 
