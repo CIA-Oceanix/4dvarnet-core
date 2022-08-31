@@ -1,10 +1,11 @@
-#Â @package _global_
+#Â @package _global_
 
 datamodule:
   slice_win: 
     lat: 240
     lon: 240
     time: ${params.dT}
+    time_hr: ${params.dT_hr_model}
   strides: 
     lat: 20
     lon: 20
