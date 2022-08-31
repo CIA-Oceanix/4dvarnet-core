@@ -48,7 +48,7 @@ params:
   scale_dwscaling_sst: 1.
 datamodule:
   aug_train_data: True
-  resize_factor: 2
+  resize_factor: 1
   use_auto_padding: False
 defaults:
   - /xp/ronan/base_xp_uv
