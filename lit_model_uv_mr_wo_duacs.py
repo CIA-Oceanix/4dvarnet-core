@@ -1533,6 +1533,11 @@ class LitModelUV(pl.LightningModule):
         )
 
     def sla_uv_diag(self, t_idx=3, log_pref='test'):
+        
+        print( self.x_gt )
+        print( self.x_oi )
+        print( self.x_rec , flush=True )
+        
         path_save0 = self.logger.log_dir + '/maps.png'
         t_idx = 3
         fig_maps = plot_maps(
