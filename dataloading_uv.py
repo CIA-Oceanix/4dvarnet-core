@@ -201,8 +201,6 @@ class XrDataset(Dataset):
             self.ds = self.ds.compute()
 
         self.slice_win = slice_win
-        print('... Slicing window ')
-        print(self.slice_win)
         
         self.strides = strides or {}
         self.ds_size = {
