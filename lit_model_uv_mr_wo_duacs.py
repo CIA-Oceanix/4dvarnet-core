@@ -1282,11 +1282,19 @@ class LitModelUV(pl.LightningModule):
         return loss
 
     def diag_step(self, batch, batch_idx, log_pref='test'):
+        _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
         if not self.use_sst:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt = batch
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
         else:
-            #targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt = batch
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
+            sst_gt = sst_gt[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+    
+        targets_OI = targets_OI[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+        inputs_Mask = inputs_Mask[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+        inputs_obs = inputs_obs[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+        targets_GT = targets_GT[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+        u_gt = u_gt[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+        v_gt = v_gt[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
            
         if ( self.use_sst ) :
           #losses, out, metrics = self(batch, phase='test')
@@ -1423,7 +1431,7 @@ class LitModelUV(pl.LightningModule):
     def build_test_xr_ds_sst(self, outputs, diag_ds):
 
         outputs_keys = list(outputs[0][0].keys())
-        
+                
         with diag_ds.get_coords():
             self.test_patch_coords = [
                diag_ds[i]
@@ -1445,6 +1453,7 @@ class LitModelUV(pl.LightningModule):
             
             _temp.append(_t_)        
         self.test_patch_coords = _temp            
+        print(self.test_patch_coords[0]['time'].shape,flush=True)
 
         def iter_item(outputs):
             n_batch_chunk = len(outputs)
@@ -1464,6 +1473,9 @@ class LitModelUV(pl.LightningModule):
             for  xs, coords
             in zip(iter_item(outputs), self.test_patch_coords)
         ]
+        
+        
+        
 
         fin_ds = xr.merge([xr.zeros_like(ds[['time','lat', 'lon']]) for ds in dses])
 
