@@ -114,11 +114,8 @@ class XrDataset(Dataset):
         self.ds = _ds.sel(**(dim_range or {}))
         if resize_factor!=1:
             self.ds = self.ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
-            self.resolution = self.resolution*resize_factor
-                       
-        print( self.ds.coords['lat'].shape )
-        print( self.ds.coords['lon'].shape )
-        print( self.ds.coords['time'].shape )
+            self.resolution = self.resolution*resize_factor         
+        print('... ds shape %dx%dx%d ' %(self.ds.coords['time'].shape[0],self.ds.coords['lon'].shape[0],self.ds.coords['lat'].shape[0]))             
         
         # reshape
         # dimensions
