@@ -1431,8 +1431,9 @@ class LitModelUV(pl.LightningModule):
     def build_test_xr_ds_sst(self, outputs, diag_ds):
 
         outputs_keys = list(outputs[0][0].keys())
+        print( len(outputs) ) 
         print( len(outputs[0]) ) 
-        print( outputs[0] )
+        print( outputs[0][0]['gt'].shape )
         
         with diag_ds.get_coords():
             self.test_patch_coords = [
