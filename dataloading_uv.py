@@ -116,7 +116,8 @@ class XrDataset(Dataset):
             self.ds = self.ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
             self.resolution = self.resolution*resize_factor
                        
-        print( self.ds.data.shape )
+        print( self.ds )
+        
         # reshape
         # dimensions
         if not self.auto_padding:
