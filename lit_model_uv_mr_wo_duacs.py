@@ -1104,17 +1104,13 @@ class LitModelUV(pl.LightningModule):
     
     def create_model(self):
         print('...... Create 4dvarnet models')
-        
-        print(self.hparams.shape_state_lr)
-        print(self.hparams.shape_state_hr,flush=True)
-
 
         print('...... Set low-resolution model',flush=True)
         print('.... shape state lr : %dx%dx%d'%(self.hparams.shape_state_lr[0],self.hparams.shape_state_lr[1],self.hparams.shape_state_lr[2]) )
         self.model_4dvarnet_lr = get_4dvarnet_sst(self.hparams,self.hparams.shape_state_lr,dT=self.hparams.dT)
         
         print('...... Set fine-scale model',flush=True)
-        print('.... shape state hr : %dx%dx%d - dT = %d/%d'%(self.hparams.shape_state[0],self.hparams.shape_state[1],self.hparams.shape_state[2],self.hparams.dT,self.hparams.dT_hr_model) )        
+        print('.... shape state hr : %dx%dx%d - dT = %d/%d'%(self.hparams.shape_state_hr[0],self.hparams.shape_state_hr[1],self.hparams.shape_state_hr[2],self.hparams.dT,self.hparams.dT_hr_model) )        
         self.model_4dvarnet_hr = get_4dvarnet_sst(self.hparams,self.hparams.shape_state_hr,dT=self.hparams.dT_hr_model)
         
         print(self.model_4dvarnet_hr.phi_r.encoder.conv_tr.weight.size())
