@@ -1438,8 +1438,6 @@ class LitModelUV(pl.LightningModule):
                for i in range(len(diag_ds))
             ]
         _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
-        #print(self.test_patch_coords,flush=True)
-        #print(self.test_patch_coords[0]['time'],flush=True)
         print(self.test_patch_coords[0]['time'][_dt:_dt+2],flush=True)
                         
 
@@ -1491,9 +1489,9 @@ class LitModelUV(pl.LightningModule):
         # set the weight to a binadry (time window center  + spatial bounding box)
         if True :
             print(".... Set weight matrix to binary mask for final outputs")
-            w = np.zeros_like( self.patch_weight.detach().cpu().numpy() )
+            w = np.zeros_like( self.self.patch_weight_hr.detach().cpu().numpy() )
             w[int(self.hparams.dT/2),:,:] = 1.
-            w = w * self.patch_weight.detach().cpu().numpy()
+            #w = w * self.patch_weight_hr.detach().cpu().numpy()
         else:
             w = self.patch_weight.detach().cpu().numpy()
             print('..... weight mask ')
