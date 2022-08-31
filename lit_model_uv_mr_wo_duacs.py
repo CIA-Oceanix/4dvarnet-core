@@ -1534,9 +1534,9 @@ class LitModelUV(pl.LightningModule):
 
     def sla_uv_diag(self, t_idx=3, log_pref='test'):
         
-        print( self.x_gt )
-        print( self.x_oi )
-        print( self.x_rec , flush=True )
+        print( self.x_gt.data.shape )
+        print( self.x_oi.data.shape )
+        print( self.x_rec.data.shape , flush=True )
         
         path_save0 = self.logger.log_dir + '/maps.png'
         t_idx = 3
@@ -1586,6 +1586,11 @@ class LitModelUV(pl.LightningModule):
         path_save4 = self.logger.log_dir + '/SNR.png'
         snr_fig = plot_snr(self.x_gt, self.x_oi, self.x_rec, path_save4)
         self.test_figs['snr'] = snr_fig
+
+        print( self.test_xr_ds.pred  )
+        print( self.test_xr_ds.gt )
+        print( self.test_xr_ds.oi.data.shape , flush=True )
+
 
         self.logger.experiment.add_figure(f'{log_pref} SNR', snr_fig, global_step=self.current_epoch)
         psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
