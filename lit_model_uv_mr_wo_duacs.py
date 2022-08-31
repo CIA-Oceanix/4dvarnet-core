@@ -1484,7 +1484,7 @@ class LitModelUV(pl.LightningModule):
         if True :
             print(".... Set weight matrix to binary mask for final outputs")
             w = np.zeros_like( self.patch_weight_hr.detach().cpu().numpy() )
-            w[int(self.hparams.dT/2),:,:] = 1.
+            w[int(self.hparams.dT_hr_model/2),:,:] = 1.
             #w = w * self.patch_weight_hr.detach().cpu().numpy()
         else:
             w = self.patch_weight.detach().cpu().numpy()
