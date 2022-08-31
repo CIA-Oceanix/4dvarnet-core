@@ -12,7 +12,7 @@ params:
   k_n_grad: 3
   n_grad: 5
   dT: 21
-  scale_lr: 3.
+  scale_lr: ??
   dT_hr_model: 7 
   DimAE: 50
   dim_obs_sst_feat: 20
@@ -48,7 +48,7 @@ params:
   scale_dwscaling_sst: 1.
 datamodule:
   aug_train_data: True
-  resize_factor: 2
+  resize_factor: 1
   use_auto_padding: False
 defaults:
   - /xp/ronan/base_xp_uv
