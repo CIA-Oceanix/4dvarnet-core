@@ -111,16 +111,25 @@ class XrDataset(Dataset):
 
         # reshape
         # dimensions
+        self.ds = _ds.sel(**(dim_range or {}))
+        if resize_factor!=1:
+            self.ds = self.ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
+            self.resolution = self.resolution*resize_factor
+                       
+        print( self.ds.data.shape )
+        # reshape
+        # dimensions
+        if not self.auto_padding:
+            self.original_coords = self.ds.coords
+            self.padded_coords = self.ds.coords
+
+
         if not self.auto_padding:
             self.ds = _ds.sel(**(dim_range or {}))
             self.original_coords = self.ds.coords
             self.padded_coords = self.ds.coords
 
         if self.auto_padding:
-            if resize_factor!=1:
-                _ds = _ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
-                self.resolution = self.resolution*resize_factor
-                print(_ds.data.shape)
                 
             # dimensions
             self.ds = _ds.sel(**(dim_range or {}))
