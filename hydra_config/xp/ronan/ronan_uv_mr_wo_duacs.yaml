@@ -46,7 +46,7 @@ params:
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
   k_n_grad: 3
   n_grad: 5
-  dT: 11
+  dT: 21
   scale_lr: 4.
   dT_hr_model: 7 
   DimAE: 50
@@ -61,7 +61,7 @@ params:
     patch_size: ${datamodule.slice_win}
     crop:
       time: 5
-  val_diag_freq: 1 
+  val_diag_freq: 2 
   padding_mode: reflect
   residual_wrt_geo_velocities: 0 #False #
   type_div_train_loss: 1
