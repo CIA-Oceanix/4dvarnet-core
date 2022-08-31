@@ -499,7 +499,6 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         super().__init__()
         
         print('.... resize_factor %d'%resize_factor,flush=True)
-        print('XXXXXXXXXXXXXXXXXXX')
         print('')
         
         self.resize_factor = resize_factor
