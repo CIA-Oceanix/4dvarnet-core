@@ -1437,17 +1437,19 @@ class LitModelUV(pl.LightningModule):
                diag_ds[i]
                for i in range(len(diag_ds))
             ]
-        _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
-        _temp = [] 
-        for _t in self.test_patch_coords:
-            _t_ ={'time':_t['time'][_dt:self.hparams.dT_hr_model+_dt],
-                  'lat': _t['lat'],
-                  'lon': _t['lon']
-                  }
             
-            _temp.append(_t_)        
-        self.test_patch_coords = _temp            
-        print(self.test_patch_coords[0]['time'].shape,flush=True)
+        if 1*0 :
+            _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
+            _temp = [] 
+            for _t in self.test_patch_coords:
+                _t_ ={'time':_t['time'][_dt:self.hparams.dT_hr_model+_dt],
+                      'lat': _t['lat'],
+                      'lon': _t['lon']
+                      }
+                
+                _temp.append(_t_)        
+            self.test_patch_coords = _temp            
+            print(self.test_patch_coords[0]['time'].shape,flush=True)
 
         def iter_item(outputs):
             n_batch_chunk = len(outputs)
@@ -1534,9 +1536,6 @@ class LitModelUV(pl.LightningModule):
 
     def sla_uv_diag(self, t_idx=3, log_pref='test'):
         
-        print( self.x_gt.data.shape )
-        print( self.x_oi.data.shape )
-        print( self.x_rec.data.shape , flush=True )
         
         path_save0 = self.logger.log_dir + '/maps.png'
         t_idx = 3
@@ -1586,6 +1585,10 @@ class LitModelUV(pl.LightningModule):
         path_save4 = self.logger.log_dir + '/SNR.png'
         snr_fig = plot_snr(self.x_gt, self.x_oi, self.x_rec, path_save4)
         self.test_figs['snr'] = snr_fig
+
+        print( self.x_gt.data.shape )
+        print( self.x_oi.data.shape )
+        print( self.x_rec.data.shape , flush=True )
 
         print( self.test_xr_ds.pred  )
         print( self.test_xr_ds.gt )
