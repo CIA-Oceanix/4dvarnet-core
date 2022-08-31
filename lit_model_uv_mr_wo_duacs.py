@@ -1430,7 +1430,7 @@ class LitModelUV(pl.LightningModule):
                for i in range(len(diag_ds))
             ]
         _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
-        print(self.test_patch_coords['time'],flush=True)
+        print(self.test_patch_coords,flush=True)
     
         _temp = []
         for _k in range(self.hparams.dT-_dt):
