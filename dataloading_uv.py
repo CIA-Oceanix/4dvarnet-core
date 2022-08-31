@@ -197,10 +197,6 @@ class XrDataset(Dataset):
             self.ds = self.ds.compute()
         
         self.slice_win = slice_win
-        self.ds_size = {
-                dim: max((self.ds.dims[dim] - slice_win[dim]) // self.strides.get(dim, 1) + 1, 0)
-                for dim in slice_win
-        }
         self.strides = strides or {}
         self.ds_size = {
                 dim: max((self.ds.dims[dim] - slice_win[dim]) // self.strides.get(dim, 1) + 1, 0)
