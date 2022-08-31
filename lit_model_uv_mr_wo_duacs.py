@@ -1113,9 +1113,6 @@ class LitModelUV(pl.LightningModule):
         print('.... shape state hr : %dx%dx%d - dT = %d/%d'%(self.hparams.shape_state_hr[0],self.hparams.shape_state_hr[1],self.hparams.shape_state_hr[2],self.hparams.dT,self.hparams.dT_hr_model) )        
         self.model_4dvarnet_hr = get_4dvarnet_sst(self.hparams,self.hparams.shape_state_hr,dT=self.hparams.dT_hr_model)
         
-        print(self.model_4dvarnet_hr.phi_r.encoder.conv_tr.weight.size())
-        print(self.model_4dvarnet_hr.phi_r.encoder.conv_tr.weight.size(),flush=True)
-
     def forward(self, batch, phase='test'):
         losses = []
         metrics = []
