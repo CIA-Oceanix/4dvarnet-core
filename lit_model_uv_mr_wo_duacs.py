@@ -2480,6 +2480,7 @@ class LitModelUV(pl.LightningModule):
         
         targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y = _batch
 
+        print(targets_OI.size())
         
         #targets_OI, inputs_Mask, targets_GT = batch
         # handle patch with no observation
