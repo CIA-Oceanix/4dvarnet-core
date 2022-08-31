@@ -1123,7 +1123,7 @@ class LitModelUV(pl.LightningModule):
         #self.hparams.dT = dT
         
         print(self.model_4dvarnet_hr.phi_r.encoder.conv_tr.weight.size())
-        print(self.model_4dvarnet_hr.phi_r.encoder.conv_tr.weight.size())
+        print(self.model_4dvarnet_hr.phi_r.encoder.conv_tr.weight.size(),flush=True)
 
     def forward(self, batch, phase='test'):
         losses = []
