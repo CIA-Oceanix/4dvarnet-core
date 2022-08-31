@@ -1,4 +1,4 @@
-#Â @package _global_
+# @package _global_
 
 datamodule:
   slice_win: 
