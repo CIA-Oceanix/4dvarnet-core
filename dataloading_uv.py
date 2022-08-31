@@ -88,6 +88,7 @@ class XrDataset(Dataset):
         print('.... path '+path)
         print('....  var: :'+var,flush=True)
         print('.... resize factor: %d'%resize_factor)
+        print('.... auto padding %d'%self.auto_padding)
         try:
             _ds = xr.open_dataset(path)
         except OSError as ex:
