@@ -5,7 +5,6 @@ datamodule:
     lat: 240
     lon: 240
     time: ${params.dT}
-    time_hr: ${params.dT_hr_model}
   strides: 
     lat: 20
     lon: 20
