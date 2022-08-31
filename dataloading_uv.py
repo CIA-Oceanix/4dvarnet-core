@@ -85,6 +85,7 @@ class XrDataset(Dataset):
         self.interp_na = interp_na
         # try/except block for handling both netcdf and zarr files
         
+        print('.... resize factor: %d'%resize_factor)
         print('.... path '+path)
         print('....  var: :'+var,flush=True)
         try:
