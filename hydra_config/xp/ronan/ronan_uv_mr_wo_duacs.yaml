@@ -46,7 +46,7 @@ params:
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
   k_n_grad: 3
   n_grad: 5
-  dT: 21
+  dT: 11
   scale_lr: 4.
   dT_hr_model: 7 
   DimAE: 50
