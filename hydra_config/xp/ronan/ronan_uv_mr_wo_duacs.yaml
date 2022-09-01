@@ -4,7 +4,7 @@
 
 entrypoint:
    weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-MRwoDUACS-hydra-exp/'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-MRwoDUACS-hydra-exp/version_217/checkpoints/modelUVGF-MR-unet1_050-augdata-lr04-augstate-dT21-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=164-val_loss=3.8369.ckpt'
+   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-MRwoDUACS-hydra-exp/version_217/checkpoints/modelUVGF-MR-unet1_050-augdata-lr04-augstate-dT21-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=61-val_loss=3.7559.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-MRwoDUACS-hydra-exp/version_229/checkpoints/modelUVGF-MR_dw2-unet1_050-augdata-lr03-augstate-dT21-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=127-val_loss=1.8120.ckpt'
 lit_mod_cls: lit_model_uv_mr_wo_duacs.LitModelUV
 params:
