@@ -17,6 +17,7 @@ params:
   k_n_grad: 3
   n_grad: 5
   dT: ??
+  scale_dwscaling : 4.
   DimAE: 50
   dim_obs_sst_feat: 20
   dim_grad_solver: 150
@@ -47,7 +48,6 @@ params:
   nb_feat_sampling_operator: 0
   alpha_sampling_uv: 10.
   thr_l1_sampling_uv: 0.10
-  scale_dwscaling : 2.
 datamodule:
   resize_factor: 1
   aug_train_data: 2  
