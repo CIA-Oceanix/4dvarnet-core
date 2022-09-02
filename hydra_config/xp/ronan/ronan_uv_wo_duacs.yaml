@@ -10,7 +10,7 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_148/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT11-nowgeo-nodivstrain-grad_05_03_150-epoch=15-val_loss=2.6993.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_165/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT31-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=111-val_loss=1.2686.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_163/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT31-nowgeo-nodivstrain-grad_05_03_150-epoch=66-val_loss=3.0296.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_232/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT31-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=177-val_loss=1.2300.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_232/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT31-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=177-val_loss=1.2300.ckpt'
 params:
   flag_update_training_config: False # True # 
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
@@ -21,8 +21,8 @@ params:
   dim_obs_sst_feat: 20
   dim_grad_solver: 150
   phi_param: 'unet1'#'unet-std'#
-  ckpt_name: 'modelUVwSSTGF_woDUACS-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
-  use_sst_obs: True # False # 
+  ckpt_name: 'modelUVwSSTGF-nouv-woDUACS-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
+  use_sst_obs: False # True # 
   dt_sst_obs: 7
   use_sst_state: False # True # 
   patch_weight:
@@ -36,7 +36,7 @@ params:
   type_div_train_loss: 1
   alpha_mse_ssh: 50. # loss
   alpha_mse_gssh: 1000.
-  alpha_mse_uv: 50.
+  alpha_mse_uv: 0. # 50.
   alpha_mse_uv_geo: 25.
   alpha_mse_div: 0. # 1000. #500. # 100. 
   alpha_mse_strain: 0. #1000.
