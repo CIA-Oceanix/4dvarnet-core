@@ -320,11 +320,11 @@ class FourDVarNetDataset(Dataset):
         if self.aug_train_data > 0 :
             _len = len(self.obs_mask_ds)
             self.perm = np.random.permutation(_len)
-            print('...N %d'%_len)
-            print(self.perm,flush=True)
             for _ in range(1,self.aug_train_data):
                 self.perm = np.concatenate((self.perm,np.random.permutation(_len)),axis=0)
-
+            print('.... Data augmentation : %d/%d'%(len(self.perm),_len))
+            
+            
         if u_var is not None:
             self.u_ds = XrDataset(
                 u_path, u_var,
