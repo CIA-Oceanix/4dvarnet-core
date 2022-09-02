@@ -18,7 +18,7 @@ params:
   k_n_grad: 3
   n_grad: 5
   dT: 31
-  scale_dwscaling : 4.
+  scale_dwscaling : ??
   DimAE: 50
   dim_obs_sst_feat: 20
   dim_grad_solver: 150
