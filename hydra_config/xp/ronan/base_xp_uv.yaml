@@ -73,7 +73,7 @@ datamodule:
   #u_var: u
   v_path: ${file_paths.natl_v_daily}
   v_var: v
-  aug_train_data: false
+  aug_train_data: 0
   resolution: 1/20
   dl_kwargs:
     batch_size: 2

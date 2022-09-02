@@ -317,8 +317,10 @@ class FourDVarNetDataset(Dataset):
             auto_padding=use_auto_padding,
         )
 
-        if self.aug_train_data:
+        if self.aug_train_data > 0 :
             self.perm = np.random.permutation(len(self.obs_mask_ds))
+            for _ in range(1,self.aug_train_data):
+                self.perm = np.concatenate((self.perm,np.random.permutation(len(self.obs_mask_ds()))))
 
         if u_var is not None:
             self.u_ds = XrDataset(
@@ -496,7 +498,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             v_var=None,
             uv_decode=True,
             resize_factor=1,
-            aug_train_data=False,
+            aug_train_data=0,
             resolution="1/20",
             dl_kwargs=None,
             compute=False,
