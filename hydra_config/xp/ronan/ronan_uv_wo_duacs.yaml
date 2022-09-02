@@ -49,10 +49,10 @@ params:
   nb_feat_sampling_operator: 0
   alpha_sampling_uv: 10.
   thr_l1_sampling_uv: 0.10
-  aug_train_data: ${datamodule.aug_train_data}
+  aug_train_data: ??
 datamodule:
   resize_factor: 1
-  aug_train_data: ??  
+  aug_train_data: ${params.aug_train_data}  
 defaults:
   - /xp/ronan/base_xp_uv_wo_duacs
   - /splits/dc_boost_swot@datamodule
