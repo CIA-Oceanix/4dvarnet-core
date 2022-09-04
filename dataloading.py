@@ -266,6 +266,10 @@ class FourDVarNetDataset(Dataset):
         self.return_coords = False
         self.pp=pp
 
+        self.dim_range = dim_range
+        self.slice_win = slice_win
+        self.strides = strides
+
         self.gt_ds = XrDataset(
             gt_path, gt_var,
             slice_win=slice_win,
@@ -389,6 +393,22 @@ class FourDVarNetDataset(Dataset):
 
         obs_mask_item = ~np.isnan(_obs_item)
         obs_item = np.where(~np.isnan(_obs_item), _obs_item, np.zeros_like(_obs_item))
+
+        # remove patches from data
+        supervised = False
+        if supervised==False:
+            n_patch = 30
+            s_patch = 10
+            for i in range(len(obs_item)):
+                posx = np.random.randint(s_patch,self.slice_win['lon']-s_patch,n_patch)
+                posy = np.random.randint(s_patch,self.slice_win['lat']-s_patch,n_patch)
+                ix = np.stack([np.arange(posx[ipatch]-s_patch,posx[ipatch]+s_patch+1) for ipatch in range(n_patch)])
+                iy = np.stack([np.arange(posy[ipatch]-s_patch,posy[ipatch]+s_patch+1) for ipatch in range(n_patch)])
+                ix, iy = np.transpose(np.stack([np.meshgrid(ix[ipatch],iy[ipatch]) for ipatch in range(n_patch)]),
+                                      (1,0,2,3))
+                gt_item[i,ix,iy] = 0.
+                obs_item[i,~ix,~iy] = 0.
+                obs_mask_item[i,~ix,~iy] = 0.
 
         if self.sst_ds == None:
             return oi_item, obs_mask_item, obs_item, gt_item

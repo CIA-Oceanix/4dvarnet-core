@@ -159,10 +159,10 @@ class Prior_SPDE(torch.nn.Module):
         for batch in range(n_b):
             M = list()   # linear model evolution matrix
             tau = torch.empty(self.n_t,self.nb_nodes).to(device)           # regularization term
-            for k in range(self.n_t):
+            for k in range(self.n_t-1):
                 if self.diff_only==False:
                     A = DiffOperator(self.n_x,self.n_y,self.dx,self.dy,
-                                         m[batch,:,:,k],H[batch,:,:,:,k],kappa[batch,:,:,k])
+                                         m[batch,:,:,k+1],H[batch,:,:,:,k+1],kappa[batch,:,:,k+1])
                     #A = DiffOperator_Isotropic(self.n_x,self.n_y,self.dx,self.dy,kappa)
                 else:
                     A = DiffOperator(self.n_x,self.n_y,self.dx,self.dy,None,H[batch],kappa)
@@ -175,28 +175,40 @@ class Prior_SPDE(torch.nn.Module):
                     B = A
                 M.append(self.Id+self.dt*B)
                 if torch.is_tensor(kappa):
-                    tau[k]    = regularize_variance(self.nu, torch.flatten(kappa[batch,:,:,k]))
+                    tau[k]    = regularize_variance(self.nu, torch.flatten(kappa[batch,:,:,k+1]))
                 else:
                     tau[k]    = regularize_variance(self.nu, kappa)
+            tau = torch.tensor([30,300,300,300,300])
             # Build the global precision matrix
-            #QR = spspmm(sparse_eye(self.nb_nodes,1./tau[k]),(self.dx*self.dy)*self.Id)   # case of right-hand side white noise
-            QR = self.Id
+            Q0 = spspmm(sparse_eye(self.nb_nodes,1./((tau[0]**2)*self.dt)),
+                    (self.dx*self.dy)*self.Id)
             # first line
-            Qg = torch.hstack([spspmm(spspmm(M[0],M[0]),QR),
-                                  -1.*spspmm(M[1],QR),
-                                  sparse_repeat(self.nb_nodes,1,self.n_t-2)])
+            QR = spspmm(sparse_eye(self.nb_nodes,1./((tau[1]**2)*self.dt)),
+                        (self.dx*self.dy)*self.Id) # case of right-hand side white noise
+            Q0 = spspmm(sparse_eye(self.nb_nodes,1./((tau[0]**2)*self.dt)),
+                        (self.dx*self.dy)*self.Id)
+            # first line
+            Qg = torch.hstack([Q0+self.Id,
+                               -1.*spspmm(M[0],QR),
+                               sparse_repeat(self.nb_nodes,1,self.n_t-2)])
             # loop
             for i in np.arange(1,self.n_t-1):
+                QR1 = spspmm(sparse_eye(self.nb_nodes,1./((tau[i-1]**2)*self.dt)),
+                        (self.dx*self.dy)*self.Id)
+                QR2 = spspmm(sparse_eye(self.nb_nodes,1./((tau[i]**2)*self.dt)),
+                        (self.dx*self.dy)*self.Id)
                 Qg_ = torch.hstack([sparse_repeat(self.nb_nodes,1,i-1),
-                                  -1.*spspmm(M[i-1],QR),
-                                  spspmm(spspmm(M[i],M[i])+self.Id,QR),
-                                  -1.*spspmm(M[i+1],QR),
+                                  -1.*spspmm(M[i-1],QR1),
+                                  spspmm(spspmm(M[i-1],M[i-1])+self.Id,QR1),
+                                  -1.*spspmm(M[i],QR2),
                                   sparse_repeat(self.nb_nodes,1,self.n_t-4-(i-2))])
                 Qg  = torch.vstack([Qg,Qg_])
             # last line
+            QR = spspmm(sparse_eye(self.nb_nodes,1./((tau[self.n_t-2]**2)*self.dt)),
+                        (self.dx*self.dy)*self.Id)
             Qg_ = torch.hstack([sparse_repeat(self.nb_nodes,1,self.n_t-2),
                               -1.*spspmm(M[self.n_t-2],QR),
-                              spspmm(spspmm(M[self.n_t-1],M[self.n_t-1]),QR)])
+                              spspmm(spspmm(M[self.n_t-2],M[self.n_t-2]),QR)])
             Qg  = torch.vstack([Qg,Qg_])
             Q.append(Qg)
         Q = torch.stack(Q)
@@ -258,7 +270,7 @@ class Phi_r(torch.nn.Module):
             if self.diff_only==True:
                 kappa = .33
                 m = None
-                H = self.decoder(params)[2]
+                H = self.decoder(params)
             else:
                 kappa = self.decoder(params)[0]
                 m = self.decoder(params)[1]

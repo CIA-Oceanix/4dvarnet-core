@@ -40,7 +40,7 @@ class LitModel(pl.LightningModule):
         self.mean_Tr = kwargs['mean_Tr']
         self.mean_Tt = kwargs['mean_Tt']
 
-        self.diff_only = kwargs['diff_only']
+        self.diff_only = self.hparams.diff_only
 
         # main model: Prior SPDE (known) + Solver OI
         self.model = Phi_r3(self.shapeData,diff_only=True)

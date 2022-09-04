@@ -1,0 +1,55 @@
+# @package _global_
+
+xp_name: df_osse_gf_wosst
+params:
+  model: 4dvarnet_OI
+  files_cfg:
+    oi_path: ${file_paths.oi_path}
+    oi_var: ssh_obs
+    oi_decode: false
+    obs_mask_path: ${file_paths.obs_mask_path}
+    obs_mask_var: ssh_obs
+    obs_mask_decode: false
+    gt_path: ${file_paths.gt_path}
+    gt_var: ssh
+    gt_decode: false
+    sst_path: null
+    sst_var: null
+    sst_decode: null
+  dT: 29
+  patch_weight:
+    crop:
+      time: 3
+  k_n_grad: 3
+  n_grad: 5
+  val_diag_freq: 5 
+  padding_mode: reflect
+  alpha_mse_ssh: 50. # loss
+  alpha_mse_gssh: 1000.
+  norm_obs: l2
+  norm_prior: l2
+  shape_state:
+    - ${datamodule.slice_win.time}
+    - ${datamodule.slice_win.lon}
+    - ${datamodule.slice_win.lat}
+  shape_data:
+    - ${datamodule.slice_win.time}
+    - ${datamodule.slice_win.lon}
+    - ${datamodule.slice_win.lat}
+
+lit_mod_cls: lit_model_OI.LitModelOI
+datamodule:
+  resize_factor: 1
+
+defaults:
+  - /xp/base_xp
+#  - /splits/osse
+  - /splits/dc_boost_swot@datamodule
+  - /xp/baseline/aug/without_aug_state
+  - /xp/baseline/dl/d200_p200x5_s200x1
+  - /xp/baseline/sst/without_sst
+  - /xp/baseline/loss/map
+  - /xp/baseline/train_strat/const_lr_ngrad_5_3cas
+#  - /params/fourdvarnet_ose
+#  - /training/ose
+  - _self_ 

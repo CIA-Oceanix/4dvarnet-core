@@ -414,6 +414,7 @@ class Solver_Grad_4DVarNN(nn.Module):
 
     def var_cost(self , x, yobs, mask):
         dy = self.model_H(x,yobs,mask)
+        #dy = torch.zeros(dy.size()).to(device)
         dx = x - self.phi_r(x)
 
         loss = self.model_VarCost( dx , dy )
