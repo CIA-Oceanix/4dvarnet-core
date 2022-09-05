@@ -12,7 +12,7 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_163/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT31-nowgeo-nodivstrain-grad_05_03_150-epoch=66-val_loss=3.0296.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_232/checkpoints/modelUVwSSTGF_woDUACS-unet1_050-augdata-dws02-augstate-dT31-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=177-val_loss=1.2300.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_244/checkpoints/modelUVwSSTGF-nouv-woDUACS-unet1_050-augdata-dws04-augstate-dT31-nowgeo-nodivstrain-grad_05_03_150-epoch=08-val_loss=0.9272.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_246/checkpoints/modelUVwSSTGF-nouv-woDUACS-unet1_050-augdata02-dws02-augstate-dT31-nowgeo-nodivstrain-grad_05_03_150-epoch=57-val_loss=0.5887.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_246/checkpoints/modelUVwSSTGF-nouv-woDUACS-unet1_050-augdata02-dws02-augstate-dT31-nowgeo-nodivstrain-grad_05_03_150-epoch=57-val_loss=0.5887.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_248/checkpoints/modelUVwSSTGF-woDUACS-unet1_050-augdata02-dws02-augstate-dT31-nowgeo-nodivstrain-grad_05_03_150-epoch=27-val_loss=2.8797.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_246/checkpoints/modelUVwSSTGF-nouv-woDUACS-unet1_050-augdata02-augstate-dT31-nowgeo-nodivstrain-grad_05_03_150-epoch=37-val_loss=0.6518.ckpt'
 params:
@@ -26,7 +26,7 @@ params:
   dim_obs_sst_feat: 20
   dim_grad_solver: 150
   phi_param: 'unet1'#'unet-std'#
-  ckpt_name: 'modelUVwSSTGF-woDUACS-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
+  ckpt_name: 'modelUVwSSTGF-woDUACS-phiOI-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
   use_sst_obs: False # True # 
   dt_sst_obs: 7
   use_sst_state: False # True # 
@@ -54,7 +54,7 @@ params:
   thr_l1_sampling_uv: 0.10
   aug_train_data: 2
 datamodule:
-  resize_factor: 1
+  resize_factor: 2
   aug_train_data: ${params.aug_train_data}  
 defaults:
   - /xp/ronan/base_xp_uv_wo_duacs

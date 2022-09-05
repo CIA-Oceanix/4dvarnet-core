@@ -19,7 +19,7 @@ from scipy import stats
 import solver as NN_4DVar
 import metrics
 from metrics import save_netcdf,save_netcdf_with_obs,save_netcdf_uv, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
-from models import Model_H, Model_HwithSST, Model_HwithSSTBN,Phi_r, ModelLR, Gradient_img, Model_HwithSSTBN_nolin_tanh, Model_HwithSST_nolin_tanh, Model_HwithSSTBNandAtt
+from models import Model_H, Model_HwithSST, Model_HwithSSTBN,Phi_r,Phi_r_OI, ModelLR, Gradient_img, Model_HwithSSTBN_nolin_tanh, Model_HwithSST_nolin_tanh, Model_HwithSSTBNandAtt
 from models import Model_HwithSSTBNAtt_nolin_tanh
 
 
@@ -469,7 +469,7 @@ if 1*0 :
 
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                Phi_r_OI(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                     hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
                 Model_H(hparams.shape_state[0]),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
@@ -492,7 +492,7 @@ def get_4dvarnet_sst(hparams):
             print('...... residual_wrt_geo_velocities = %d'%hparams.residual_wrt_geo_velocities,flush=True)
             if ( hparams.residual_wrt_geo_velocities == 3 ) or ( hparams.residual_wrt_geo_velocities == 4 ): 
                 return NN_4DVar.Solver_Grad_4DVarNN(
-                            Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                            Phi_r_OI(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                                 hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
                             Model_HwithSSTBN_nolin_tanh_withlatlon(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat),
                             NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
@@ -500,7 +500,7 @@ def get_4dvarnet_sst(hparams):
                             hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
             else:
                 return NN_4DVar.Solver_Grad_4DVarNN(
-                            Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                            Phi_r_OI(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                                 hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
                             Model_HwithSSTBN_nolin_tanh_wo_duacs(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat,dt_sst_obs=hparams.dt_sst_obs),
                             NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
