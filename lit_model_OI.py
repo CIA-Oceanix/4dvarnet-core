@@ -207,6 +207,15 @@ class LitModelOI(LitModelAugstate):
         init_state = inputs_Mask * inputs_obs
         return init_state
 
+    def loss_ae(self, state_out):
+        #Ignore autoencoder loss for fixed point solver
+        if self.model_name in ['FP_solver']:
+            return 0.
+        else: 
+            #same as in lit_model_augstate
+            return torch.mean((self.model.phi_r(state_out) - state_out) ** 2)
+
+
     def compute_loss(self, batch, phase, state_init=(None,)):
 
         _, inputs_Mask, inputs_obs, targets_GT = batch
@@ -244,8 +253,6 @@ class LitModelOI(LitModelAugstate):
 
             loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
             loss_AE = self.loss_ae(outputs)
-
-            # total loss
             loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
             loss += 0.5 * self.hparams.alpha_proj * loss_AE
 
