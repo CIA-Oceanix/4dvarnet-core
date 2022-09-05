@@ -157,7 +157,7 @@ class Encoder_OI(torch.nn.Module):
         return x
 
 class Phi_r_OI(torch.nn.Module):
-    def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic=False):
+    def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic=False,phi_param='unet1'):
         super().__init__()
         self.stochastic = stochastic
         self.encoder = Encoder_OI(shape_data, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
