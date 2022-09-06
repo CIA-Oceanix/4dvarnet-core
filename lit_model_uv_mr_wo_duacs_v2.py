@@ -1049,7 +1049,10 @@ class LitModelUV(pl.LightningModule):
         
         old_suffix = '-{epoch:02d}-{val_loss:.4f}'
 
-        suffix_chkpt = '-'+self.hparams.phi_param+'_%03d-augdata'%self.hparams.DimAE
+        suffix_chkpt = '-'+self.hparams.phi_param+'_%03d-augdata%02d'%(self.hparams.DimAE,self.hparams.aug_train_data)
+        
+        if self.hparams.alpha_mse_uv == 0.:
+            suffix_chkpt = suffix_chkpt+'-nouv'
         
         if self.scale_lr > 1.0 :
             suffix_chkpt = suffix_chkpt+'-lr%02d'%int(self.scale_lr)

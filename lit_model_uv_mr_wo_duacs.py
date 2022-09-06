@@ -19,7 +19,7 @@ from scipy import stats
 import solver as NN_4DVar
 import metrics
 from metrics import save_netcdf,save_netcdf_with_obs,save_netcdf_uv, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
-from models import Model_H, Model_HwithSST, Model_HwithSSTBN,Phi_r, ModelLR, Gradient_img, Model_HwithSSTBN_nolin_tanh, Model_HwithSST_nolin_tanh, Model_HwithSSTBNandAtt
+from models import Model_H, Model_HwithSST, Model_HwithSSTBN,Phi_r, Phi_r_OI, ModelLR, Gradient_img, Model_HwithSSTBN_nolin_tanh, Model_HwithSST_nolin_tanh, Model_HwithSSTBNandAtt
 from models import Model_HwithSSTBNAtt_nolin_tanh
 
 
@@ -549,6 +549,78 @@ def get_4dvarnet_sst(hparams,shape_state,dT):
     else:
        return get_4dvarnet(hparams,shape_state)
 
+def get_4dvarnet_sst_OI(hparams,shape_state,dT):
+    print('...... Set mdoel %d'%hparams.use_sst_obs,flush=True)
+    if hparams.use_sst_obs : 
+        if hparams.sst_model == 'linear-bn' :
+            return NN_4DVar.Solver_Grad_4DVarNN(
+                        Phi_r_OI(shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                            hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
+                        Model_HwithSSTBN(shape_state[0], dT=dT,dim=hparams.dim_obs_sst_feat),
+                        NN_4DVar.model_GradUpdateLSTM(shape_state, hparams.UsePriodicBoundary,
+                            hparams.dim_grad_solver, hparams.dropout),
+                        hparams.norm_obs, hparams.norm_prior, shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+        elif hparams.sst_model == 'nolinear-tanh-bn' :
+            print('...... residual_wrt_geo_velocities = %d'%hparams.residual_wrt_geo_velocities,flush=True)
+            if ( hparams.residual_wrt_geo_velocities == 3 ) or ( hparams.residual_wrt_geo_velocities == 4 ): 
+                return NN_4DVar.Solver_Grad_4DVarNN(
+                            Phi_r_OI(shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                                hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
+                            Model_HwithSSTBN_nolin_tanh_withlatlon(shape_state[0], dT=dT,dim=hparams.dim_obs_sst_feat),
+                            NN_4DVar.model_GradUpdateLSTM(shape_state, hparams.UsePriodicBoundary,
+                                hparams.dim_grad_solver, hparams.dropout),
+                            hparams.norm_obs, hparams.norm_prior, shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+            else:
+                return NN_4DVar.Solver_Grad_4DVarNN(
+                            Phi_r_OI(shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                                hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
+                            Model_HwithSSTBN_nolin_tanh(shape_state[0], dT=dT,dim=hparams.dim_obs_sst_feat),
+                            NN_4DVar.model_GradUpdateLSTM(shape_state, hparams.UsePriodicBoundary,
+                                hparams.dim_grad_solver, hparams.dropout),
+                            hparams.norm_obs, hparams.norm_prior, shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+            
+            return NN_4DVar.Solver_Grad_4DVarNN(
+                        Phi_r_OI(shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                            hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
+                        Model_HwithSSTBN_nolin_tanh(shape_state[0], dT=dT,dim=hparams.dim_obs_sst_feat),
+                        NN_4DVar.model_GradUpdateLSTM(shape_state, hparams.UsePriodicBoundary,
+                            hparams.dim_grad_solver, hparams.dropout),
+                        hparams.norm_obs, hparams.norm_prior, shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+        elif hparams.sst_model == 'nolinear-tanh' :
+            return NN_4DVar.Solver_Grad_4DVarNN(
+                        Phi_r_OI(shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                            hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
+                        Model_HwithSST_nolin_tanh(shape_state[0], dT=dT,dim=hparams.dim_obs_sst_feat),
+                        NN_4DVar.model_GradUpdateLSTM(shape_state, hparams.UsePriodicBoundary,
+                            hparams.dim_grad_solver, hparams.dropout),
+                        hparams.norm_obs, hparams.norm_prior, shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+        elif hparams.sst_model == 'linear':
+            return NN_4DVar.Solver_Grad_4DVarNN(
+                            Phi_r_OI(shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                                hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
+                            Model_HwithSST(shape_state[0], dT=dT,dim=hparams.dim_obs_sst_feat),
+                            NN_4DVar.model_GradUpdateLSTM(shape_state, hparams.UsePriodicBoundary,
+                                hparams.dim_grad_solver, hparams.dropout),
+                            hparams.norm_obs, hparams.norm_prior, shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+        elif hparams.sst_model == 'linear-bn-att':
+            return NN_4DVar.Solver_Grad_4DVarNN(
+                            Phi_r_OI(shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                                hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
+                            Model_HwithSSTBNandAtt(shape_state[0], dT=dT,dim=hparams.dim_obs_sst_feat),
+                            NN_4DVar.model_GradUpdateLSTM(shape_state, hparams.UsePriodicBoundary,
+                                hparams.dim_grad_solver, hparams.dropout),
+                            hparams.norm_obs, hparams.norm_prior, shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+        elif hparams.sst_model == 'nolinear-tanh-bn-att':
+            return NN_4DVar.Solver_Grad_4DVarNN(
+                            Phi_r_OI(shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                                hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
+                            Model_HwithSSTBNAtt_nolin_tanh(shape_state[0], dT=dT,dim=hparams.dim_obs_sst_feat),
+                            NN_4DVar.model_GradUpdateLSTM(shape_state, hparams.UsePriodicBoundary,
+                                hparams.dim_grad_solver, hparams.dropout),
+                            hparams.norm_obs, hparams.norm_prior, shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+
+    else:
+       return get_4dvarnet(hparams,shape_state)
 
 
 class ModelSamplingFromSST(torch.nn.Module):
@@ -1108,6 +1180,7 @@ class LitModelUV(pl.LightningModule):
         print('...... Set low-resolution model',flush=True)
         print('.... shape state lr : %dx%dx%d'%(self.hparams.shape_state_lr[0],self.hparams.shape_state_lr[1],self.hparams.shape_state_lr[2]) )
         self.model_4dvarnet_lr = get_4dvarnet_sst(self.hparams,self.hparams.shape_state_lr,dT=self.hparams.dT)
+        #self.model_4dvarnet_lr = get_4dvarnet_OI(self.hparams,self.hparams.shape_state_lr,dT=self.hparams.dT)
         
         print('...... Set fine-scale model',flush=True)
         print('.... shape state hr : %dx%dx%d - dT = %d/%d'%(self.hparams.shape_state_hr[0],self.hparams.shape_state_hr[1],self.hparams.shape_state_hr[2],self.hparams.dT,self.hparams.dT_hr_model) )        
