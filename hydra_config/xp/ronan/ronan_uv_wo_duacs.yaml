@@ -43,7 +43,7 @@ params:
   type_div_train_loss: 1
   alpha_mse_ssh: 50. # loss
   alpha_mse_gssh: 1000.
-  alpha_mse_uv: 0. #50.
+  alpha_mse_uv: 10. #50.
   alpha_mse_uv_geo: 0. #25.
   alpha_mse_div: 0. # 1000. #500. # 100. 
   alpha_mse_strain: 0. #1000.
@@ -56,7 +56,7 @@ params:
   thr_l1_sampling_uv: 0.10
   aug_train_data: 2
 datamodule:
-  resize_factor: 2
+  resize_factor: 1
   aug_train_data: ${params.aug_train_data}  
 defaults:
   - /xp/ronan/base_xp_uv_wo_duacs
