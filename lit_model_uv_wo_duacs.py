@@ -1088,6 +1088,9 @@ class LitModelUV(pl.LightningModule):
 
         suffix_chkpt = '-'+self.hparams.phi_param+'_%03d-augdata%02d'%(self.hparams.DimAE,self.hparams.aug_train_data)
         
+        if self.hparams.alpha_mse_uv == 0.:
+            suffix_chkpt = suffix_chkpt+'-nouv'
+            
         if self.scale_dwscaling > 1.0 :
             suffix_chkpt = suffix_chkpt+'-dws%02d'%int(self.scale_dwscaling)
         
