@@ -1042,6 +1042,15 @@ class LitModelUV(pl.LightningModule):
             self.hparams.n_fourdvar_iter = 1
 
         self.model = self.create_model()
+        
+        self.model.summary()
+        
+        self.model.phi_r.summary()
+        self.model_H.summary()
+        self.model_Grad.summary()
+        self.model_VarCost.summary()
+
+        
         self.model_LR = ModelLR()
         self.grad_crop = lambda t: t[...,1:-1, 1:-1]
         self.gradient_img = lambda t: torch.unbind(
