@@ -988,7 +988,7 @@ class LitModelUV(pl.LightningModule):
             self.model_sampling_uv = None
         
             
-        if self.hparams.k_n_grad == 0 :
+        if self.hparams.n_grad == 0 :
             self.hparams.n_fourdvar_iter = 1
 
         self.create_model()
@@ -1087,7 +1087,7 @@ class LitModelUV(pl.LightningModule):
                 else :                    
                     suffix_chkpt = suffix_chkpt+'-nodiv'
                                             
-            suffix_chkpt = suffix_chkpt+'-grad_%02d_%02d_%03d'%(self.hparams.n_grad,self.hparams.k_n_grad,self.hparams.dim_grad_solver)
+            suffix_chkpt = suffix_chkpt+'-grad_%02d_%02d_%02d_%02d_%03d'%(self.hparams.n_grad,self.hparams.n_fourdvar_iter,self.hparams.n_fourdvar_iter_lr,self.hparams.n_fourdvar_iter_hr,self.hparams.dim_grad_solver)
         else:
             if ( self.use_sst ) & ( self.use_sst_state ) :
                 suffix_chkpt = suffix_chkpt+'-DirectInv-wSST'
@@ -1117,6 +1117,50 @@ class LitModelUV(pl.LightningModule):
         print('.... shape state hr : %dx%dx%d - dT = %d/%d'%(self.hparams.shape_state_hr[0],self.hparams.shape_state_hr[1],self.hparams.shape_state_hr[2],self.hparams.dT,self.hparams.dT_hr_model) )        
         self.model_4dvarnet_hr = get_4dvarnet_sst(self.hparams,self.hparams.shape_state_hr,dT=self.hparams.dT_hr_model)
         
+
+    def run_loop_lr(self,batch, phase, out_hr, out_lr_init,state_init_lr):
+        # first iteration with initialization from hr if provided
+        #loss_lr, out_lr, state_lr, _metrics_lr,sst_feat_lr 
+        out_comp = self.compute_loss_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init,state_init_lr=state_init_lr)
+        
+        loss_lr = out_comp[0]
+        out_lr = out_comp[1]
+        state_lr = out_comp[2]
+        
+        for __ in range(self.hparams.n_fourdvar_iter_lr-1):
+            state_init_lr = [None if s is None else s.detach() for s in state_lr]
+            out_lr_init = [None if s is None else s.detach() for s in out_lr]
+            
+            _out_comp = self.compute_loss_lr(batch, phase=phase, out_hr=[None], out_lr_init=out_lr_init,state_init_lr=state_init_lr)
+            out_lr = _out_comp[1]
+            state_lr = _out_comp[2]
+                    
+            loss_lr += _out_comp[0]
+            
+        if ( phase == 'test' ) & ( self.use_sst ):                
+            return loss_lr,_out_comp[1],_out_comp[2],_out_comp[3],_out_comp[4]
+        else:
+            return loss_lr,_out_comp[1],_out_comp[2],_out_comp[3]
+
+    def run_loop_hr(self,batch, phase, out_lr,  state_init_hr):
+        out_comp = self.compute_loss_hr(batch, phase=phase, out_lr=out_lr,  state_init_hr=state_init_hr)
+
+        loss_hr = out_comp[0]
+        state_hr = out_comp[2]
+
+        for __ in range(self.hparams.n_fourdvar_iter_hr-1):
+            state_init_hr = [None if s is None else s.detach() for s in state_hr]
+            
+            _out_comp = self.compute_loss_hr(batch, phase=phase, out_lr=[None],  state_init_hr=state_init_hr)
+            state_hr = _out_comp[2]                    
+            loss_hr += _out_comp[0]
+
+        if ( phase == 'test' ) & ( self.use_sst ):                
+            return loss_hr,_out_comp[1],_out_comp[2],_out_comp[3],_out_comp[4]
+        else:
+            return loss_hr,_out_comp[1],_out_comp[2],_out_comp[3]
+                
+
     def forward(self, batch, phase='test'):
         losses = []
         metrics = []
@@ -1129,28 +1173,19 @@ class LitModelUV(pl.LightningModule):
         out = None
         
         for _ in range(self.hparams.n_fourdvar_iter):
+            if ( phase == 'test' ) & ( self.use_sst ): 
+                # lr loop
+                _loss_lr, out_lr, state_lr, _metrics_lr,sst_feat_lr = self.run_loop_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init,state_init_lr=state_init_lr)
             
-            #print('.... foward step: phase '+phase,flush=True)
-            if ( phase == 'test' ) & ( self.use_sst ):                
-                # run low-resolution model
-                if self.use_init_lr_from_hr == True :
-                    _loss_lr, out_lr, state_lr, _metrics_lr,sst_feat_lr = self.compute_loss_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init,state_init_lr=state_init_lr)
-                else:
-                    _loss_lr, out_lr, state_lr, _metrics_lr,sst_feat_lr = self.compute_loss_lr(batch, phase=phase, out_hr=(None,), out_lr_init=out_lr_init,state_init_lr=state_init_lr)
-                                
-                # run high-resolution model
-                _loss_hr, out_hr, state_hr, _metrics_hr,sst_feat_hr = self.compute_loss_hr(batch, phase=phase, out_lr=out_lr, state_init_hr=state_init_hr)
+                # hr loop
+                _loss_hr, out_hr, state_hr, _metrics_hr,sst_feat_hr = self.run_loop_hr(batch, phase=phase, out_lr=out_lr, state_init_hr=state_init_hr)                
             else:
-                #print('..... low-resolution step',flush=True)
-                # run low-resolution model
-                if self.use_init_lr_from_hr == True :
-                    _loss_lr, out_lr, state_lr, _metrics_lr = self.compute_loss_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init, state_init_lr=state_init_lr)
-                else:
-                    _loss_lr, out_lr, state_lr, _metrics_lr = self.compute_loss_lr(batch, phase=phase, out_hr=(None,), out_lr_init=out_lr_init, state_init_lr=state_init_lr)
- 
-                # run high-resolution model
-                #print('..... high-resolution step',flush=True)
-                _loss_hr, out_hr, state_hr, _metrics_hr = self.compute_loss_hr(batch, phase=phase, out_lr=out_lr,  state_init_hr=state_init_hr)
+                # lr loop
+                _loss_lr, out_lr, state_lr, _metrics_lr = self.run_loop_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init,state_init_lr=state_init_lr)
+            
+                # hr loop
+                _loss_hr, out_hr, state_hr, _metrics_hr = self.run_loop_hr(batch, phase=phase, out_lr=out_lr, state_init_hr=state_init_hr)                
+                
             
             if self.hparams.n_grad > 0 :
                 state_init_lr = [None if s is None else s.detach() for s in state_lr]
@@ -1159,8 +1194,7 @@ class LitModelUV(pl.LightningModule):
             
             _loss = self.hparams.alpha_loss_lr * _loss_lr + self.hparams.alpha_loss_hr * _loss_hr
             _metrics = _metrics_hr
-            
-            
+                        
             losses.append(_loss)
             metrics.append(_metrics)
         

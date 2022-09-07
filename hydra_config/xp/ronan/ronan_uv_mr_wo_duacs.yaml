@@ -13,7 +13,9 @@ lit_mod_cls: lit_model_uv_mr_wo_duacs_v2.LitModelUV
 params:
   flag_update_training_config: False # True # 
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
-  k_n_grad: 3
+  n_fourdvar_iter_lr: 2
+  n_fourdvar_iter_hr: 2
+  n_fourdvar_iter: 1
   n_grad: 5
   dT: ??
   scale_lr: 4
