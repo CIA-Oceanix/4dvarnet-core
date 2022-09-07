@@ -22,6 +22,13 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_263/checkpoints/modelUVwSSTGF-woDUACS-phiOI-unet1_050-augdata02-dws02-augstate-dT31-nowgeo-nodivstrain-grad_05_03_150-epoch=96-val_loss=0.8398.ckpt'
 params:
   flag_update_training_config: False # True # 
+  files_cfg:
+    oi_path: ${file_paths.oi_swot_4nadir} #  ${file_paths.oi_4nadir}  # 
+    oi_var: ssh_mod
+    obs_mask_path: ${file_paths.pseudo_obs} #  ${file_paths.pseudo_obs_4nadir} # 
+    obs_mask_var: ssh_mod
+    gt_path: ${file_paths.natl_ssh_daily}
+    gt_var: ssh
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
   k_n_grad: 3
   n_grad: 5
@@ -31,7 +38,7 @@ params:
   dim_obs_sst_feat: 20
   dim_grad_solver: 150
   phi_param: 'unet1'#'unet-std'#
-  ckpt_name: 'modelUVwSSTGF-woDUACS-phiorig-{epoch:02d}-{val_loss:.4f}'  #'modelUVwSSTGF-woDUACS-phiOI-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
+  ckpt_name: 'modelUV-woDUACS-phiOI-{epoch:02d}-{val_loss:.4f}'  #'modelUVwSSTGF-woDUACS-phiOI-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
   use_sst_obs: False # True # 
   dt_sst_obs: 7
   use_sst_state: False # True # 
