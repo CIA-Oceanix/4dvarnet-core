@@ -1181,6 +1181,8 @@ class LitModelUV(pl.LightningModule):
             _out_comp = self.compute_loss_hr(batch, phase=phase, out_lr=out_lr,  state_init_hr=state_init_hr,use_lr_for_init=False)
             state_hr = _out_comp[2]                    
             loss_hr += _out_comp[0]
+            
+            out_comp = _out_comp
 
         if ( phase == 'test' ) & ( self.use_sst ):                
             return loss_hr,_out_comp[1],_out_comp[2],_out_comp[3],_out_comp[4]
@@ -2388,10 +2390,6 @@ class LitModelUV(pl.LightningModule):
             new_masks = [ new_masks, torch.ones_like(sst_gt) ]
             obs = [ obs, sst_gt ]
         
-        print('....... hr obs/masks')
-        print(obs.size())
-        print(new_masks.size())
-
         return obs,new_masks,w_sampling_uv,mask_sampling_uv
 
     def run_model_lr(self,state, obs, new_masks,state_init,lat_rad,lon_rad,phase):
