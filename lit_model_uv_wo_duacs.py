@@ -1057,7 +1057,7 @@ class LitModelUV(pl.LightningModule):
         print('.... Grad : %d / %d'%(n_par[0],n_par[1]))
         n_par = count_parameters( self.model.model_VarCost )
         print('.... VarCost : %d / %d'%(n_par[0],n_par[1]))
-        n_par = count_parameters( self.model.model_VarCost )
+        n_par = count_parameters( self.model )
         print('.... VarCost : %d / %d'%(n_par[0],n_par[1]))
                         
         self.model_LR = ModelLR()
