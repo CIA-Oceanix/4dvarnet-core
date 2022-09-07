@@ -775,7 +775,7 @@ class Model_H_hr(torch.nn.Module):
         self.dT = dT
     def forward(self, x, y, mask):
         x1 = x[:,:self.dT,:,:] + x[:,self.dT:2*self.dT,:,:]
-        x_ = torch.cat( (x1,x[:,2*self.dT:,:,:]),dim=1)         
+        x_ = torch.cat( (x1,torch.zeros_like(x1),x[:,2*self.dT:,:,:]),dim=1)         
         
         dyout = (x_ - y) * mask
         return dyout
@@ -2333,9 +2333,9 @@ class LitModelUV(pl.LightningModule):
         else:
             mask_sampling_uv = torch.zeros_like(inputs_obs)
             w_sampling_uv = None
-            obs = torch.cat( (inputs_Mask * inputs_obs, torch.zeros_like(inputs_Mask) ,  torch.zeros_like(inputs_Mask) ) ,dim=1)
+            obs = torch.cat( (inputs_Mask * inputs_obs, torch.zeros_like(inputs_Mask) , torch.zeros_like(inputs_Mask) ,  torch.zeros_like(inputs_Mask) ) ,dim=1)
             
-        new_masks = torch.cat( ( inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
+        new_masks = torch.cat( ( inputs_Mask, torch.zeros_like(inputs_Mask), mask_sampling_uv, mask_sampling_uv) , dim=1)
 
         if self.aug_state :
             obs = torch.cat( (obs, torch.zeros_like(inputs_Mask),) ,dim=1)
