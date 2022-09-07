@@ -2045,29 +2045,42 @@ class LitModelUV(pl.LightningModule):
         if out_lr[0] is  None :
             print('...  THIS IS UNEXPECTED init state from hr with no hr state .....')
                         
-        # re-interpolate lr state to hr grid 
-        # for hr time window
-        init_ssh_from_lr = torch.nn.functional.interpolate(out_lr[0].detach(), scale_factor=self.scale_lr, mode='bicubic')
-        init_u_from_lr = torch.nn.functional.interpolate(out_lr[1].detach(), scale_factor=self.scale_lr, mode='bicubic')
-        init_v_from_lr = torch.nn.functional.interpolate(out_lr[2].detach(), scale_factor=self.scale_lr, mode='bicubic')
-                    
-        _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
-        
-        init_ssh_from_lr = init_ssh_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
-        init_u_from_lr = init_u_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
-        init_v_from_lr = init_v_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
-
-        if state_hr[0] is not None:                        
-            init_ssh_from_lr = 0.5* ( init_ssh_from_lr + state_hr[0][:,0:self.hparams.dT_hr_model,:,:] )
+        if out_lr[0] is not None :
+            # re-interpolate lr state to hr grid 
+            # for hr time window
+            init_ssh_from_lr = torch.nn.functional.interpolate(out_lr[0].detach(), scale_factor=self.scale_lr, mode='bicubic')
+            init_u_from_lr = torch.nn.functional.interpolate(out_lr[1].detach(), scale_factor=self.scale_lr, mode='bicubic')
+            init_v_from_lr = torch.nn.functional.interpolate(out_lr[2].detach(), scale_factor=self.scale_lr, mode='bicubic')
+                        
+            _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
             
-            if self.aug_state :
-                init_u_from_lr   = 0.5* ( init_u_from_lr + state_hr[0][:,3*self.hparams.dT_hr_model:4*self.hparams.dT_hr_model,:,:] )
-                init_v_from_lr   = 0.5* ( init_v_from_lr + state_hr[0][:,4*self.hparams.dT_hr_model:5*self.hparams.dT_hr_model,:,:] )
-            else:
-                init_u_from_lr   = 0.5* ( init_u_from_lr + state_hr[0][:,2*self.hparams.dT_hr_model:3*self.hparams.dT_hr_model,:,:] )
-                init_v_from_lr   = 0.5* ( init_v_from_lr + state_hr[0][:,3*self.hparams.dT_hr_model:4*self.hparams.dT_hr_model,:,:] )
+            init_ssh_from_lr = init_ssh_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+            init_u_from_lr = init_u_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+            init_v_from_lr = init_v_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
 
-        
+            if state_hr[0] is not None:                        
+                init_ssh_from_lr = 0.5 * ( init_ssh_from_lr + state_hr[0][:,0:self.hparams.dT_hr_model,:,:] )
+                
+                if self.aug_state :
+                    init_u_from_lr   = 0.5* ( init_u_from_lr + state_hr[0][:,3*self.hparams.dT_hr_model:4*self.hparams.dT_hr_model,:,:] )
+                    init_v_from_lr   = 0.5* ( init_v_from_lr + state_hr[0][:,4*self.hparams.dT_hr_model:5*self.hparams.dT_hr_model,:,:] )
+                else:
+                    init_u_from_lr   = 0.5* ( init_u_from_lr + state_hr[0][:,2*self.hparams.dT_hr_model:3*self.hparams.dT_hr_model,:,:] )
+                    init_v_from_lr   = 0.5* ( init_v_from_lr + state_hr[0][:,3*self.hparams.dT_hr_model:4*self.hparams.dT_hr_model,:,:] )
+        else:
+            if state_hr[0] is not None:                        
+                init_ssh_from_lr = state_hr[0][:,0:self.hparams.dT_hr_model,:,:]
+                
+                if self.aug_state :
+                    init_u_from_lr   = state_hr[0][:,3*self.hparams.dT_hr_model:4*self.hparams.dT_hr_model,:,:]
+                    init_v_from_lr   = state_hr[0][:,4*self.hparams.dT_hr_model:5*self.hparams.dT_hr_model,:,:]
+                else:
+                    init_u_from_lr   = state_hr[0][:,2*self.hparams.dT_hr_model:3*self.hparams.dT_hr_model,:,:]
+                    init_v_from_lr   = state_hr[0][:,3*self.hparams.dT_hr_model:4*self.hparams.dT_hr_model,:,:]
+                    
+            else:
+                print('...  THIS IS UNEXPECTED init state from hr with no hr state and no lr state .....')
+
         targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon, gx, gy = batch
 
         if state_hr[0] is not None: 
