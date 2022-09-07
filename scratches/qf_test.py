@@ -20,13 +20,17 @@ from omegaconf import OmegaConf
 # OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
 import hydra_config
 
-cfg_n, ckpt = 'qxp22_5nad_aug0', 'results/xp22/qxp22_5nad_aug0/version_0/checkpoints/modelCalSLAInterpGF-epoch=173-val_loss=4.9276.ckpt'
-cfg_n, ckpt = 'qxp22_5nad_aug1', 'results/xp22/qxp22_5nad_aug1/version_0/checkpoints/modelCalSLAInterpGF-epoch=49-val_loss=4.8408.ckpt'
-cfg_n, ckpt = 'qxp22_5nad_aug1', 'results/xp22/qxp22_5nad_aug1/version_0/checkpoints/modelCalSLAInterpGF-epoch=93-val_loss=4.2820.ckpt'
-cfg_n, ckpt = 'qxp22_5nad_aug1', 'results/xp22/qxp22_5nad_aug2/version_0/checkpoints/lx709_lt426_mu959.ckpt'
-cfg_n, ckpt = 'qxp22_swot_aug3_ds1', 'results/xp22/qxp22_swot_aug3_ds1/version_0/checkpoints/modelCalSLAInterpGF-epoch=282-val_loss=1.1151.ckpt'
-cfg_n, ckpt = 'qxp22_swot_aug3_ds1', 'results/xp22/qxp22_swot_aug3_ds1/version_0/checkpoints/modelCalSLAInterpGF-epoch=269-val_loss=1.1201.ckpt'
+cfg_n, ckpt = 'qxp23_no_sst_5nad_aug8_ds1_dT29_13', 'results/xp22/qxp23_no_sst_5nad_aug8_ds1_dT29_13/version_0/checkpoints/modelCalSLAInterpGF-epoch=340-val_loss=1.7811.ckpt'
+# cfg_n, ckpt = 'qxp22_swot_w_oi_aug5_ds2', 'results/xp22/qxp22_swot_aug5/version_0/checkpoints/lx659_lt411_mu968.ckpt'
+cfg_n, ckpt = 'qxp22_swot_w_oi_aug2_ds2', 'results/xp22/qxp22_swot_aug2/version_0/checkpoints/modelCalSLAInterpGF-epoch=181-val_loss=2.8195.ckpt'
+# cfg_n, ckpt = 'qxp22_5nad_aug0', 'results/xp22/qxp22_5nad_aug0/version_0/checkpoints/modelCalSLAInterpGF-epoch=173-val_loss=4.9276.ckpt'
+# cfg_n, ckpt = 'qxp22_5nad_aug1', 'results/xp22/qxp22_5nad_aug1/version_0/checkpoints/modelCalSLAInterpGF-epoch=49-val_loss=4.8408.ckpt'
+# cfg_n, ckpt = 'qxp22_5nad_aug1', 'results/xp22/qxp22_5nad_aug1/version_0/checkpoints/modelCalSLAInterpGF-epoch=93-val_loss=4.2820.ckpt'
+# cfg_n, ckpt = 'qxp22_5nad_aug1', 'results/xp22/qxp22_5nad_aug2/version_0/checkpoints/lx709_lt426_mu959.ckpt'
+# cfg_n, ckpt = 'qxp22_swot_aug3_ds1', 'results/xp22/qxp22_swot_aug3_ds1/version_0/checkpoints/modelCalSLAInterpGF-epoch=282-val_loss=1.1151.ckpt'
+# cfg_n, ckpt = 'qxp22_swot_aug3_ds1', 'results/xp22/qxp22_swot_aug3_ds1/version_0/checkpoints/modelCalSLAInterpGF-epoch=269-val_loss=1.1201.ckpt'
 # cfg_n, ckpt = 'qxp22_swot_aug3_ds1', 'results/xp22/qxp22_swot_aug3_ds1/version_0/checkpoints/modelCalSLAInterpGF-epoch=346-val_loss=1.1253.ckpt'
+# cfg_n, ckpt = 'qxp22_swot_aug2', 'results/xp22/qxp22_swot_aug2/version_0/checkpoints/lx666_lt416_mu967.ckpt'
 # cfg_n, ckpt = 'qxp22_swot_aug2', 'results/xp22/qxp22_swot_aug2/version_0/checkpoints/lx666_lt416_mu967.ckpt'
 # cfg_n, ckpt = 'qxp22_swot_aug0', 'results/xp22/qxp22_swot_aug0/version_0/checkpoints/modelCalSLAInterpGF-epoch=191-val_loss=3.5165.ckpt'
 # cfg_n, ckpt = 'qxp22_swot_aug1', 'results/xp22/qxp22_swot_aug2/version_0/checkpoints/modelCalSLAInterpGF-epoch=181-val_loss=2.8195.ckpt'
@@ -48,13 +52,13 @@ cfg_n, ckpt = 'qxp22_swot_aug3_ds1', 'results/xp22/qxp22_swot_aug3_ds1/version_0
 # cfg_n, ckpt = 'qxp22_5nad_aug3_ds1', 'results/xp22/qxp22_5nad_aug3_ds1/version_0/checkpoints/modelCalSLAInterpGF-epoch=331-val_loss=1.4724.ckpt'
 # cfg_n, ckpt = 'qxp22_5nad_aug3_ds1', 'results/xp22/qxp22_5nad_aug3_ds1/version_0/checkpoints/modelCalSLAInterpGF-epoch=342-val_loss=1.4789.ckpt'
 cfg_n, ckpt = 'qfebvre/xp_oi_sst', 'results/xp22/xp_oi_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=335-val_loss=0.7202.ckpt'
-cfg_n, ckpt = 'qfebvre/xp_oi_sst', 'results/xp22/xp_oi_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=337-val_loss=0.7228.ckpt'
-cfg_n, ckpt = 'qfebvre/xp_oi_sst', 'results/xp22/xp_oi_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=335-val_loss=0.7202.ckpt'
-cfg_n, ckpt = 'qxp23_no_sst_5nad_aug3_ds2_dT29_13', 'results/xp23/qxp23_no_sst_5nad_aug3_ds2_dT29_8/version_1/checkpoints/modelCalSLAInterpGF-epoch=283-val_loss=4.5411.ckpt'
-cfg_n, ckpt = 'qxp23_no_sst_5nad_aug3_ds2_dT29_13', 'results/xp23/qxp23_no_sst_5nad_aug3_ds2_dT29_13/version_3/checkpoints/modelCalSLAInterpGF-epoch=277-val_loss=4.9457.ckpt'
-cfg_n, ckpt = 'qxp23_no_sst_5nad_aug3_ds2_dT29_13', 'results/xp23/qxp23_no_sst_5nad_aug3_ds2_dT29_13/version_3/checkpoints/modelCalSLAInterpGF-epoch=154-val_loss=4.8621.ckpt'
-cfg_n, ckpt = 'qxp23_no_sst_5nad_aug8_ds1_dT29_13', 'results/xp23/qxp23_no_sst_5nad_aug8_ds1_dT29_13/version_0/checkpoints/modelCalSLAInterpGF-epoch=340-val_loss=1.7811.ckpt'
-cfg_n, ckpt = 'qxp23_no_sst_5nad_aug8_ds1_dT29_8', 'results/xp23/qxp23_no_sst_5nad_aug8_ds1_dT29_8/version_0/checkpoints/modelCalSLAInterpGF-epoch=281-val_loss=2.1938.ckpt'
+cfg_n, ckpt = 'qfebvre/xp_oi_sst', 'results/xp22/xp_oi_sst/version_2/checkpoints/modelCalSLAInterpGF-epoch=342-val_loss=1.6460.ckpt'
+# cfg_n, ckpt = 'qfebvre/xp_oi_sst', 'results/xp22/xp_oi_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=335-val_loss=0.7202.ckpt'
+# cfg_n, ckpt = 'qxp23_no_sst_5nad_aug3_ds2_dT29_13', 'results/xp23/qxp23_no_sst_5nad_aug3_ds2_dT29_8/version_1/checkpoints/modelCalSLAInterpGF-epoch=283-val_loss=4.5411.ckpt'
+# cfg_n, ckpt = 'qxp23_no_sst_5nad_aug3_ds2_dT29_13', 'results/xp23/qxp23_no_sst_5nad_aug3_ds2_dT29_13/version_3/checkpoints/modelCalSLAInterpGF-epoch=277-val_loss=4.9457.ckpt'
+# cfg_n, ckpt = 'qxp23_no_sst_5nad_aug3_ds2_dT29_13', 'results/xp23/qxp23_no_sst_5nad_aug3_ds2_dT29_13/version_3/checkpoints/modelCalSLAInterpGF-epoch=154-val_loss=4.8621.ckpt'
+# cfg_n, ckpt = 'qxp23_no_sst_5nad_aug8_ds1_dT29_13', 'results/xp23/qxp23_no_sst_5nad_aug8_ds1_dT29_13/version_0/checkpoints/modelCalSLAInterpGF-epoch=340-val_loss=1.7811.ckpt'
+# cfg_n, ckpt = 'qxp23_no_sst_5nad_aug8_ds1_dT29_8', 'results/xp23/qxp23_no_sst_5nad_aug8_ds1_dT29_8/version_0/checkpoints/modelCalSLAInterpGF-epoch=281-val_loss=2.1938.ckpt'
 # cfg_n, ckpt = 'qxp23_no_sst_5nad_aug3_ds2_dT29_8', 'results/xp23/qxp23_no_sst_5nad_aug3_ds2_dT29_8/version_1/checkpoints/modelCalSLAInterpGF-epoch=283-val_loss=4.5411.ckpt'
 
 # cfg_n, ckpt = 'qxp23_no_sst_swot_w_oi_aug3_ds2_dT29_13', 'results/xp23/qxp23_no_sst_swot_w_oi_aug3_ds2_dT29_13/version_2/checkpoints/modelCalSLAInterpGF-epoch=173-val_loss=2.5762.ckpt'
@@ -91,12 +95,16 @@ osse_clean = [
     'params.files_cfg.obs_mask_var=ssh_mod',
 ]
 
+four_nadirs = [
+    'params.files_cfg.obs_mask_var=four_nadirs',
+]
 center_only = [
     'params.patch_weight._target_=lit_model_augstate.get_cropped_hanning_mask',
     'params.patch_weight.crop.time=1',
 ]
 ors = [
         # *no_ds,
+        # *four_nadirs,
         # *center_only,
         # *ose,
         # *ose_sst
@@ -132,7 +140,7 @@ lit_mod_cls = get_class(cfg.lit_mod_cls)
 runner = hydra_main.FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls)
 mod = runner._get_model(ckpt_path=ckpt)
 mod.patch_weight.data = torch.tensor(hydra.utils.call(cfg.params.patch_weight))
-mod = runner.test(ckpt, _mod=mod, gpus=[2])
+mod = runner.test(ckpt, _mod=mod, gpus=1)
 mod.test_figs['psd']
 
 # self = mod
@@ -171,3 +179,5 @@ def anim(test_xr_ds):
 # images = anim(mod.test_xr_ds)
 # images = anim(ds)
 # hv.output(images, holomap='gif', fps=4, dpi=125)
+
+

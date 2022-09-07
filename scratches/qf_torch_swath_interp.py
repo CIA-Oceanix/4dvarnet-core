@@ -967,7 +967,8 @@ if __name__ == '__main__':
 
     fp = 'dgx_ifremer'
     # cfgn = 'qxp20_swot_sst'
-    cfgn = 'baseline/full_core_hanning'
+    # cfgn = 'baseline/full_core_hanning'
+    cfgn = 'qfebvre/xp_oi'
     OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
     overrides = [
         # '+datamodule.dl_kwargs.shuffle=False',
@@ -1000,7 +1001,7 @@ if __name__ == '__main__':
         'params.dT=11',
         'params.patch_weight.crop.time=3',
     ]
-    map_cfg_n, map_ckpt = 'qxp21_5nad_no_sst_11', 'dashboard/qxp21_5nad_no_sst_11/version_0/checkpoints/modelCalSLAInterpGF-epoch=80-val_loss=1.7154.ckpt'
+    map_cfg_n, map_ckpt = 'qxp23_no_sst_5nad_aug3_ds2_dT29_8', 'dashboard/qxp23_no_sst_5nad_aug3_ds2_dT29_8/version_1/checkpoints/modelCalSLAInterpGF-epoch=283-val_loss=4.5411.ckpt'
     # map_cfg_n, map_ckpt = 'qxp20_swot_no_sst', 'results/xp20/qxp20_swot_no_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=131-val_loss=0.4958.ckpt'
     mapmod = utils.get_model(
         map_cfg_n,
@@ -1008,8 +1009,10 @@ if __name__ == '__main__':
         add_overrides=overrides
     )
     
-    print(swath_calib.configs.register_configs())
+    print('#############', swath_calib.configs.register_configs())
+
     cal_cfg_n, cal_ckpt = 'ffFalse_swath_calib_qxp21_5nad_no_sst_11', 'lightning_logs/120_ffFalse_swath_calib_qxp21_5nad_no_sst_11/checkpoints/epoch=114-step=916.ckpt'
+    cal_cfg_n, cal_ckpt = 'swath_calib_qxp23_no_sst_5nad_aug3_ds2_dT29_8', 'lightning_logs/121_swath_calib_qxp23_no_sst_5nad_aug3_ds2_dT29_8/checkpoints/epoch=133-step=959.ckpt'
     cal_cfg = utils.get_cfg(cal_cfg_n)
 
     net = swath_calib.models.build_net(
@@ -1282,7 +1285,7 @@ if __name__ == '__main__':
         print(xr.concat(sums, dim='batch').sum().pipe(lambda ds: ds/ds.weight).drop('weight').pipe(np.sqrt).pipe(lambda da: da*ns[1]))
         return predictions
 
-    # train()
+    train()
     # metrics = test_all()
     # test_one()
     # preds = predict()
