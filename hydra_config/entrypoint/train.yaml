@@ -1,4 +1,4 @@
-_target_: hydra_main.FourDVarNetHydraRunner.train
+_target_: runner.FourDVarNetHydraRunner.train
 ckpt_path: null
 max_epochs: 200
 progress_bar_refresh_rate: 5
