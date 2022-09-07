@@ -2349,6 +2349,11 @@ class LitModelUV(pl.LightningModule):
             new_masks = [ new_masks, torch.ones_like(sst_gt) ]
             obs = [ obs, sst_gt ]
         
+        
+        print('....... lr obs/masks')
+        print(obs.size())
+        print(new_masks.size())
+        
         return obs,new_masks,w_sampling_uv,mask_sampling_uv
 
     def get_obs_and_mask_hr(self,init_ssh_lr,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan):
@@ -2388,6 +2393,10 @@ class LitModelUV(pl.LightningModule):
             new_masks = [ new_masks, torch.ones_like(sst_gt) ]
             obs = [ obs, sst_gt ]
         
+        print('....... hr obs/masks')
+        print(obs.size())
+        print(new_masks.size())
+
         return obs,new_masks,w_sampling_uv,mask_sampling_uv
 
     def run_model_lr(self,state, obs, new_masks,state_init,lat_rad,lon_rad,phase):
