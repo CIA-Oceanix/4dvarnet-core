@@ -1980,8 +1980,8 @@ class LitModelUV(pl.LightningModule):
             init_v = init_v.detach()
         elif out_lr[0] is not None:
             init_ssh = out_lr[0]
-            init_u_  = out_lr[1]
-            init_v_  = out_lr[2]
+            init_u  = out_lr[1]
+            init_v  = out_lr[2]
         else:              
             init_u = torch.zeros_like(targets_GT)
             init_v = torch.zeros_like(targets_GT)
