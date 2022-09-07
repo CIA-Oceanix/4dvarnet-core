@@ -1202,7 +1202,6 @@ class LitModelUV(pl.LightningModule):
                               torch.nn.functional.interpolate(out_lr[1].detach(), scale_factor=self.scale_lr, mode='bicubic') ,
                               torch.nn.functional.interpolate(out_lr[2].detach(), scale_factor=self.scale_lr, mode='bicubic') ] 
                     _metrics_hr = _metrics_lr
-                    sst_feat_hr = sst_feat_lr
 
             
             if self.hparams.n_grad > 0 :
