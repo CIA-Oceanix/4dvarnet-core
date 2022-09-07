@@ -468,7 +468,7 @@ if 1*0 :
 
 
 def get_4dvarnet(hparams):
-    if 1*0 : 
+    if 1*1 : 
         return NN_4DVar.Solver_Grad_4DVarNN(
                     Phi_r_OI(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                         hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
