@@ -64,7 +64,7 @@ params:
   nb_feat_sampling_operator: 0
   alpha_sampling_uv: 10.
   thr_l1_sampling_uv: 0.10
-  aug_train_data: 2
+  aug_train_data: 4
 datamodule:
   resize_factor: 1
   aug_train_data: ${params.aug_train_data}  

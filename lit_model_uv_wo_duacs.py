@@ -1058,7 +1058,7 @@ class LitModelUV(pl.LightningModule):
         n_par = count_parameters( self.model.model_VarCost )
         print('.... VarCost : %d / %d'%(n_par[0],n_par[1]))
         n_par = count_parameters( self.model )
-        print('.... VarCost : %d / %d'%(n_par[0],n_par[1]))
+        print('.... All : %d / %d'%(n_par[0],n_par[1]))
                         
         self.model_LR = ModelLR()
         self.grad_crop = lambda t: t[...,1:-1, 1:-1]
