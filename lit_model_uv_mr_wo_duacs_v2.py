@@ -1178,14 +1178,27 @@ class LitModelUV(pl.LightningModule):
                 _loss_lr, out_lr, state_lr, _metrics_lr,sst_feat_lr = self.run_loop_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init,state_init_lr=state_init_lr)
             
                 # hr loop
-                _loss_hr, out_hr, state_hr, _metrics_hr,sst_feat_hr = self.run_loop_hr(batch, phase=phase, out_lr=out_lr, state_init_hr=state_init_hr)                
+                if self.hparams.n_fourdvar_iter_hr > 0 :
+                    _loss_hr, out_hr, state_hr, _metrics_hr,sst_feat_hr = self.run_loop_hr(batch, phase=phase, out_lr=out_lr, state_init_hr=state_init_hr)                
+                else:
+                    _loss_hr = 0.
+                    state_hr = [None]
+                    out_hr[0] = torch.nn.functional.interpolate(out_lr[0].detach(), scale_factor=self.scale_lr, mode='bicubic')
+                    out_hr[1] = torch.nn.functional.interpolate(out_lr[1].detach(), scale_factor=self.scale_lr, mode='bicubic')
+                    out_hr[2] = torch.nn.functional.interpolate(out_lr[2].detach(), scale_factor=self.scale_lr, mode='bicubic')
             else:
                 # lr loop
                 _loss_lr, out_lr, state_lr, _metrics_lr = self.run_loop_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init,state_init_lr=state_init_lr)
             
-                # hr loop
-                _loss_hr, out_hr, state_hr, _metrics_hr = self.run_loop_hr(batch, phase=phase, out_lr=out_lr, state_init_hr=state_init_hr)                
-                
+                if self.hparams.n_fourdvar_iter_hr > 0 :
+                    # hr loop
+                    _loss_hr, out_hr, state_hr, _metrics_hr = self.run_loop_hr(batch, phase=phase, out_lr=out_lr, state_init_hr=state_init_hr)                
+                else:
+                    _loss_hr = 0.
+                    state_hr = [None]
+                    out_hr[0] = torch.nn.functional.interpolate(out_lr[0].detach(), scale_factor=self.scale_lr, mode='bicubic')
+                    out_hr[1] = torch.nn.functional.interpolate(out_lr[1].detach(), scale_factor=self.scale_lr, mode='bicubic')
+                    out_hr[2] = torch.nn.functional.interpolate(out_lr[2].detach(), scale_factor=self.scale_lr, mode='bicubic')                
             
             if self.hparams.n_grad > 0 :
                 state_init_lr = [None if s is None else s.detach() for s in state_lr]
