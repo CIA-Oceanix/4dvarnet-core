@@ -2042,9 +2042,6 @@ class LitModelUV(pl.LightningModule):
 
     def get_init_state_hr_from_lr(self, batch, out_lr=(None,),state_hr=(None,),mask_sampling = None):
             
-        if out_lr[0] is  None :
-            print('...  THIS IS UNEXPECTED init state from hr with no hr state .....')
-                        
         if out_lr[0] is not None :
             # re-interpolate lr state to hr grid 
             # for hr time window
