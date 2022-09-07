@@ -1043,14 +1043,23 @@ class LitModelUV(pl.LightningModule):
 
         self.model = self.create_model()
         
-        self.model.summary()
+        def count_parameters(model):
+            train_param = sum(p.numel() for p in model.parameters() if p.requires_grad)
+            all_param = sum(p.numel() for p in model.parameters())
+            
+            return train_param,all_param
         
-        self.model.phi_r.summary()
-        self.model_H.summary()
-        self.model_Grad.summary()
-        self.model_VarCost.summary()
-
-        
+        n_par = count_parameters( self.model.phi_r )
+        print('.... Phi : %d / %d'%(n_par[0],n_par[1]))
+        n_par = count_parameters( self.model.model_H )
+        print('.... H : %d / %d'%(n_par[0],n_par[1]))
+        n_par = count_parameters( self.model.model_Grad )
+        print('.... Grad : %d / %d'%(n_par[0],n_par[1]))
+        n_par = count_parameters( self.model.model_VarCost )
+        print('.... VarCost : %d / %d'%(n_par[0],n_par[1]))
+        n_par = count_parameters( self.model.model_VarCost )
+        print('.... VarCost : %d / %d'%(n_par[0],n_par[1]))
+                        
         self.model_LR = ModelLR()
         self.grad_crop = lambda t: t[...,1:-1, 1:-1]
         self.gradient_img = lambda t: torch.unbind(
