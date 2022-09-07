@@ -1183,9 +1183,9 @@ class LitModelUV(pl.LightningModule):
                 else:
                     _loss_hr = 0.
                     state_hr = [None]
-                    out_hr[0] = torch.nn.functional.interpolate(out_lr[0].detach(), scale_factor=self.scale_lr, mode='bicubic')
-                    out_hr[1] = torch.nn.functional.interpolate(out_lr[1].detach(), scale_factor=self.scale_lr, mode='bicubic')
-                    out_hr[2] = torch.nn.functional.interpolate(out_lr[2].detach(), scale_factor=self.scale_lr, mode='bicubic')
+                    out_hr = [ torch.nn.functional.interpolate(out_lr[0].detach(), scale_factor=self.scale_lr, mode='bicubic') ,
+                              torch.nn.functional.interpolate(out_lr[1].detach(), scale_factor=self.scale_lr, mode='bicubic') ,
+                              torch.nn.functional.interpolate(out_lr[2].detach(), scale_factor=self.scale_lr, mode='bicubic') ]              
             else:
                 # lr loop
                 _loss_lr, out_lr, state_lr, _metrics_lr = self.run_loop_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init,state_init_lr=state_init_lr)
@@ -1196,9 +1196,9 @@ class LitModelUV(pl.LightningModule):
                 else:
                     _loss_hr = 0.
                     state_hr = [None]
-                    out_hr[0] = torch.nn.functional.interpolate(out_lr[0].detach(), scale_factor=self.scale_lr, mode='bicubic')
-                    out_hr[1] = torch.nn.functional.interpolate(out_lr[1].detach(), scale_factor=self.scale_lr, mode='bicubic')
-                    out_hr[2] = torch.nn.functional.interpolate(out_lr[2].detach(), scale_factor=self.scale_lr, mode='bicubic')                
+                    out_hr = [ torch.nn.functional.interpolate(out_lr[0].detach(), scale_factor=self.scale_lr, mode='bicubic') ,
+                              torch.nn.functional.interpolate(out_lr[1].detach(), scale_factor=self.scale_lr, mode='bicubic') ,
+                              torch.nn.functional.interpolate(out_lr[2].detach(), scale_factor=self.scale_lr, mode='bicubic') ]              
             
             if self.hparams.n_grad > 0 :
                 state_init_lr = [None if s is None else s.detach() for s in state_lr]
