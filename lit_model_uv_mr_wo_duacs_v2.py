@@ -1187,6 +1187,7 @@ class LitModelUV(pl.LightningModule):
                               torch.nn.functional.interpolate(out_lr[1].detach(), scale_factor=self.scale_lr, mode='bicubic') ,
                               torch.nn.functional.interpolate(out_lr[2].detach(), scale_factor=self.scale_lr, mode='bicubic') ]              
                     _metrics_hr = _metrics_lr
+                    sst_feat_hr = sst_feat_lr
             else:
                 # lr loop
                 _loss_lr, out_lr, state_lr, _metrics_lr = self.run_loop_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init,state_init_lr=state_init_lr)
@@ -1201,6 +1202,8 @@ class LitModelUV(pl.LightningModule):
                               torch.nn.functional.interpolate(out_lr[1].detach(), scale_factor=self.scale_lr, mode='bicubic') ,
                               torch.nn.functional.interpolate(out_lr[2].detach(), scale_factor=self.scale_lr, mode='bicubic') ] 
                     _metrics_hr = _metrics_lr
+                    sst_feat_hr = sst_feat_lr
+
             
             if self.hparams.n_grad > 0 :
                 state_init_lr = [None if s is None else s.detach() for s in state_lr]
