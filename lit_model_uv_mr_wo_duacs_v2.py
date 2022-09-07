@@ -19,7 +19,7 @@ from scipy import stats
 import solver as NN_4DVar
 import metrics
 from metrics import save_netcdf,save_netcdf_with_obs,save_netcdf_uv, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
-from models import Model_H, Model_HwithSST, Model_HwithSSTBN,Phi_r, ModelLR, Gradient_img, Model_HwithSSTBN_nolin_tanh, Model_HwithSST_nolin_tanh, Model_HwithSSTBNandAtt
+from models import Model_H, Model_HwithSST, Model_HwithSSTBN,Phi_r,Phi_r_OI, ModelLR, Gradient_img, Model_HwithSSTBN_nolin_tanh, Model_HwithSST_nolin_tanh, Model_HwithSSTBNandAtt
 from models import Model_HwithSSTBNAtt_nolin_tanh
 
 
@@ -468,7 +468,7 @@ if 1*0 :
 
 def get_4dvarnet(hparams,shape_state):
     return NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r(shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                Phi_r_OI(shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                     hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
                 Model_H(shape_state[0]),
                 NN_4DVar.model_GradUpdateLSTM(shape_state, hparams.UsePriodicBoundary,
@@ -477,7 +477,7 @@ def get_4dvarnet(hparams,shape_state):
 
 def get_4dvarnet_hr(hparams,shape_state,dT):
     return NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r(shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                Phi_r_OI(shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                     hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
                 Model_H_hr(shape_state[0],dT=dT),
                 NN_4DVar.model_GradUpdateLSTM(shape_state, hparams.UsePriodicBoundary,
@@ -1163,6 +1163,7 @@ class LitModelUV(pl.LightningModule):
             state_lr = _out_comp[2]
                     
             loss_lr += _out_comp[0]
+            out_comp = _out_comp
             
         if ( phase == 'test' ) & ( self.use_sst ):                
             return loss_lr,_out_comp[1],_out_comp[2],_out_comp[3],_out_comp[4]
