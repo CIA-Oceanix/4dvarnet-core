@@ -17,6 +17,7 @@ params:
   n_grad: 5
   dT: ??
   scale_lr: 4
+  use_init_lr_from_hr: False
   dT_hr_model: 7 
   DimAE: 50
   dim_obs_sst_feat: 20

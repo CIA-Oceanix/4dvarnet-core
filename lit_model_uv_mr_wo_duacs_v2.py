@@ -959,6 +959,7 @@ class LitModelUV(pl.LightningModule):
         self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 1
         
         self.scale_lr = self.hparams.scale_lr if hasattr(self.hparams, 'scale_lr') else 1.0
+        self.use_init_lr_from_hr = self.hparams.scale_lr if hasattr(self.hparams, 'use_init_lr_from_hr') else False
 
         _w = torch.from_numpy(call(self.hparams.patch_weight))
         _w =  torch.nn.functional.avg_pool2d(_w.view(1,-1,_w.size(1),_w.size(2)), (int(self.scale_lr),int(self.scale_lr)))
@@ -1132,14 +1133,20 @@ class LitModelUV(pl.LightningModule):
             #print('.... foward step: phase '+phase,flush=True)
             if ( phase == 'test' ) & ( self.use_sst ):                
                 # run low-resolution model
-                _loss_lr, out_lr, state_lr, _metrics_lr,sst_feat_lr = self.compute_loss_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init,state_init_lr=state_init_lr)
+                if self.use_init_lr_from_hr == True :
+                    _loss_lr, out_lr, state_lr, _metrics_lr,sst_feat_lr = self.compute_loss_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init,state_init_lr=state_init_lr)
+                else:
+                    _loss_lr, out_lr, state_lr, _metrics_lr,sst_feat_lr = self.compute_loss_lr(batch, phase=phase, out_hr=(None,), out_lr_init=out_lr_init,state_init_lr=state_init_lr)
                                 
                 # run high-resolution model
                 _loss_hr, out_hr, state_hr, _metrics_hr,sst_feat_hr = self.compute_loss_hr(batch, phase=phase, out_lr=out_lr, state_init_hr=state_init_hr)
             else:
                 #print('..... low-resolution step',flush=True)
                 # run low-resolution model
-                _loss_lr, out_lr, state_lr, _metrics_lr = self.compute_loss_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init, state_init_lr=state_init_lr)
+                if self.use_init_lr_from_hr == True :
+                    _loss_lr, out_lr, state_lr, _metrics_lr = self.compute_loss_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init, state_init_lr=state_init_lr)
+                else:
+                    _loss_lr, out_lr, state_lr, _metrics_lr = self.compute_loss_lr(batch, phase=phase, out_hr=(None,), out_lr_init=out_lr_init, state_init_lr=state_init_lr)
  
                 # run high-resolution model
                 #print('..... high-resolution step',flush=True)
@@ -1971,6 +1978,10 @@ class LitModelUV(pl.LightningModule):
             init_ssh = init_ssh.detach()
             init_u = init_u.detach()
             init_v = init_v.detach()
+        elif out_lr[0] is not None:
+            init_ssh = out_lr[0]
+            init_u_  = out_lr[1]
+            init_v_  = out_lr[2]
         else:              
             init_u = torch.zeros_like(targets_GT)
             init_v = torch.zeros_like(targets_GT)
