@@ -475,6 +475,14 @@ def get_4dvarnet(hparams,shape_state):
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
+def get_4dvarnet_hr(hparams,shape_state,dT):
+    return NN_4DVar.Solver_Grad_4DVarNN(
+                Phi_r(shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
+                Model_H_hr(shape_state[0],dT=dT),
+                NN_4DVar.model_GradUpdateLSTM(shape_state, hparams.UsePriodicBoundary,
+                    hparams.dim_grad_solver, hparams.dropout),
+                hparams.norm_obs, hparams.norm_prior, shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
 def get_4dvarnet_sst(hparams,shape_state,dT):
     print('...... Set mdoel %d'%hparams.use_sst_obs,flush=True)
@@ -549,6 +557,12 @@ def get_4dvarnet_sst(hparams,shape_state,dT):
     else:
        return get_4dvarnet(hparams,shape_state)
 
+def get_4dvarnet_sst_hr(hparams,shape_state,dT):
+    if hparams.use_sst_obs : 
+        print('...... No model ye for hr womponent with SST')
+ 
+    else:
+       return get_4dvarnet_hr(hparams,shape_state,dT=dT)
 
 
 class ModelSamplingFromSST(torch.nn.Module):
@@ -753,6 +767,19 @@ class Div_uv_with_lat_lon_scaling(torch.nn.Module):
         return div
 
 ############################################ Lightning Module #######################################################################
+class Model_H_hr(torch.nn.Module):
+    def __init__(self, shape_data,dT=7):
+        super(Model_H_hr, self).__init__()
+        self.dim_obs = 1
+        self.dim_obs_channel = np.array([shape_data])
+        self.dT = dT
+    def forward(self, x, y, mask):
+        x1 = x[:,:self.dT,:,:] + x[:,self.dT:2*self.dT,:,:]
+        x_ = torch.cat( (x1,x[:,2*self.dT:,:,:]),dim=1)         
+        
+        dyout = (x_ - y) * mask
+        return dyout
+
 class Model_HwithSSTBN_nolin_tanh_withlatlon(torch.nn.Module):
     def __init__(self,shape_data, dT=5,dim=5,width_kernel=3,padding_mode='reflect',type_wgeo=3):
         super(Model_HwithSSTBN_nolin_tanh_withlatlon, self).__init__()
@@ -1115,8 +1142,8 @@ class LitModelUV(pl.LightningModule):
         
         print('...... Set fine-scale model',flush=True)
         print('.... shape state hr : %dx%dx%d - dT = %d/%d'%(self.hparams.shape_state_hr[0],self.hparams.shape_state_hr[1],self.hparams.shape_state_hr[2],self.hparams.dT,self.hparams.dT_hr_model) )        
-        self.model_4dvarnet_hr = get_4dvarnet_sst(self.hparams,self.hparams.shape_state_hr,dT=self.hparams.dT_hr_model)
-        
+        #self.model_4dvarnet_hr = get_4dvarnet_sst(self.hparams,self.hparams.shape_state_hr,dT=self.hparams.dT_hr_model)
+        self.model_4dvarnet_hr = get_4dvarnet_sst_hr(self.hparams,self.hparams.shape_state_hr,dT=self.hparams.dT_hr_model)        
 
     def run_loop_lr(self,batch, phase, out_hr, out_lr_init,state_init_lr):
         # first iteration with initialization from hr if provided
@@ -2334,17 +2361,20 @@ class LitModelUV(pl.LightningModule):
             w_sampling_uv = self.model_sampling_uv( sst_gt )
             w_sampling_uv = w_sampling_uv[1]
             
+            print('Not yet coded/tested')
+            
             #mask_sampling_uv = torch.bernoulli( w_sampling_uv )
             mask_sampling_uv = 1. - torch.nn.functional.threshold( 1.0 - w_sampling_uv , 0.9 , 0.)
-            obs = torch.cat( (init_ssh_from_lr , inputs_Mask * ( inputs_obs - init_ssh_from_lr ) , mask_sampling_uv * u_gt_wo_nan , mask_sampling_uv * v_gt_wo_nan ) ,dim=1)
+            #obs = torch.cat( (init_ssh_from_lr , inputs_Mask * ( inputs_obs - init_ssh_from_lr ) , mask_sampling_uv * u_gt_wo_nan , mask_sampling_uv * v_gt_wo_nan ) ,dim=1)
+            #obs = torch.cat( (inputs_Mask * ( inputs_obs - init_ssh_from_lr ) , mask_sampling_uv * u_gt_wo_nan , mask_sampling_uv * v_gt_wo_nan ) ,dim=1)
             
             #print('%f '%( float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean(w_sampling_uv)) )
         else:
             mask_sampling_uv = torch.zeros_like(u_gt_wo_nan)
             w_sampling_uv = None
-            obs = torch.cat( ( init_ssh_from_lr , inputs_Mask * ( inputs_obs - init_ssh_from_lr ) , torch.zeros_like(inputs_Mask) ,  torch.zeros_like(inputs_Mask) ) ,dim=1)
+            obs = torch.cat( ( inputs_Mask * inputs_obs , torch.zeros_like(inputs_Mask) ,  torch.zeros_like(inputs_Mask) ) ,dim=1)
             
-        new_masks = torch.cat( ( torch.ones_like(inputs_Mask) , inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
+        new_masks = torch.cat( ( inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
 
         if self.aug_state :
             obs = torch.cat( (obs, torch.zeros_like(inputs_Mask),) ,dim=1)

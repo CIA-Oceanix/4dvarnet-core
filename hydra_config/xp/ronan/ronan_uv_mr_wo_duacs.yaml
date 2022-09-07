@@ -14,7 +14,7 @@ params:
   flag_update_training_config: False # True # 
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
   n_fourdvar_iter_lr: 2
-  n_fourdvar_iter_hr: 0
+  n_fourdvar_iter_hr: 1
   n_fourdvar_iter: 1
   n_grad: 5
   dT: ??
