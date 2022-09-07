@@ -1121,7 +1121,7 @@ class LitModelUV(pl.LightningModule):
     def run_loop_lr(self,batch, phase, out_hr, out_lr_init,state_init_lr):
         # first iteration with initialization from hr if provided
         #loss_lr, out_lr, state_lr, _metrics_lr,sst_feat_lr 
-        out_comp = self.compute_loss_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init,state_init_lr=state_init_lr)
+        out_comp = self.compute_loss_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init,state_init_lr=state_init_lr,use_hr_for_init=True)
         
         loss_lr = out_comp[0]
         out_lr = out_comp[1]
@@ -1131,7 +1131,7 @@ class LitModelUV(pl.LightningModule):
             state_init_lr = [None if s is None else s.detach() for s in state_lr]
             out_lr_init = [None if s is None else s.detach() for s in out_lr]
             
-            _out_comp = self.compute_loss_lr(batch, phase=phase, out_hr=[None], out_lr_init=out_lr_init,state_init_lr=state_init_lr)
+            _out_comp = self.compute_loss_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init,state_init_lr=state_init_lr,use_hr_for_init=False)
             out_lr = _out_comp[1]
             state_lr = _out_comp[2]
                     
@@ -1143,7 +1143,7 @@ class LitModelUV(pl.LightningModule):
             return loss_lr,_out_comp[1],_out_comp[2],_out_comp[3]
 
     def run_loop_hr(self,batch, phase, out_lr,  state_init_hr):
-        out_comp = self.compute_loss_hr(batch, phase=phase, out_lr=out_lr,  state_init_hr=state_init_hr)
+        out_comp = self.compute_loss_hr(batch, phase=phase, out_lr=out_lr,  state_init_hr=state_init_hr,use_lr_for_init=True)
 
         loss_hr = out_comp[0]
         state_hr = out_comp[2]
@@ -1151,7 +1151,7 @@ class LitModelUV(pl.LightningModule):
         for __ in range(self.hparams.n_fourdvar_iter_hr-1):
             state_init_hr = [None if s is None else s.detach() for s in state_hr]
             
-            _out_comp = self.compute_loss_hr(batch, phase=phase, out_lr=[None],  state_init_hr=state_init_hr)
+            _out_comp = self.compute_loss_hr(batch, phase=phase, out_lr=out_lr,  state_init_hr=state_init_hr,use_lr_for_init=False)
             state_hr = _out_comp[2]                    
             loss_hr += _out_comp[0]
 
@@ -2546,7 +2546,7 @@ class LitModelUV(pl.LightningModule):
 
         return loss_All,loss_GAll,loss_uv,loss_uv_geo,loss_div,loss_strain 
 
-    def compute_loss_lr(self, batch, phase, out_hr=(None,),out_lr_init=(None,),state_init_lr=(None,)):
+    def compute_loss_lr(self, batch, phase, out_hr=(None,),out_lr_init=(None,),state_init_lr=(None,),use_hr_for_init=False):
 
         ##############################################
         # run lr model
@@ -2575,8 +2575,11 @@ class LitModelUV(pl.LightningModule):
                     )
          
         # intial state
-        state = self.get_init_state_lr_from_hr(_batch, out_hr=out_hr, out_lr=out_lr_init)
-
+        if use_hr_for_init == True :
+            state = self.get_init_state_lr_from_hr(_batch, out_hr=out_hr, out_lr=out_lr_init)
+        else:
+            state = self.get_init_state_lr_from_hr(_batch, out_hr=[None], out_lr=out_lr_init)
+            
         # obs and mask data
         obs,new_masks,w_sampling_uv,mask_sampling_uv = self.get_obs_and_mask_lr(inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan)
 
@@ -2714,7 +2717,7 @@ class LitModelUV(pl.LightningModule):
 
         return targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y
 
-    def compute_loss_hr(self, batch, phase, out_lr, state_init_hr=(None,)):
+    def compute_loss_hr(self, batch, phase, out_lr, state_init_hr=(None,),use_lr_for_init=False):
 
         ##############################################
         # run lr model
@@ -2751,7 +2754,10 @@ class LitModelUV(pl.LightningModule):
                     )
          
         # intial state
-        state = self.get_init_state_hr_from_lr(_batch, out_lr, state_init_hr )
+        if use_lr_for_init == True :
+            state = self.get_init_state_hr_from_lr(_batch, out_lr, state_init_hr )
+        else:
+            state = self.get_init_state_hr_from_lr(_batch, [None], state_init_hr )
 
         # obs and mask data
         obs,new_masks,w_sampling_uv,mask_sampling_uv = self.get_obs_and_mask_hr(out_lr[0].detach(),inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan)
