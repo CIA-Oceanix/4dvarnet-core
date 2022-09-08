@@ -484,6 +484,15 @@ def get_4dvarnet_hr(hparams,shape_state,dT):
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
+def get_4dvarnet_hr_2(hparams,shape_state,dT):
+    return NN_4DVar.Solver_Grad_4DVarNN(
+                Phi_r(shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
+                Model_H_hr(shape_state[0],dT=dT),
+                NN_4DVar.model_GradUpdateLSTM(shape_state, hparams.UsePriodicBoundary,
+                    hparams.dim_grad_solver, hparams.dropout),
+                hparams.norm_obs, hparams.norm_prior, shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+
 def get_4dvarnet_sst(hparams,shape_state,dT):
     print('...... Set mdoel %d'%hparams.use_sst_obs,flush=True)
     if hparams.use_sst_obs : 
@@ -1143,6 +1152,7 @@ class LitModelUV(pl.LightningModule):
         print('...... Set fine-scale model',flush=True)
         print('.... shape state hr : %dx%dx%d - dT = %d/%d'%(self.hparams.shape_state_hr[0],self.hparams.shape_state_hr[1],self.hparams.shape_state_hr[2],self.hparams.dT,self.hparams.dT_hr_model) )        
         #self.model_4dvarnet_hr = get_4dvarnet_sst(self.hparams,self.hparams.shape_state_hr,dT=self.hparams.dT_hr_model)
+        #self.model_4dvarnet_hr = get_4dvarnet_sst_hr(self.hparams,self.hparams.shape_state_hr,dT=self.hparams.dT_hr_model)        
         self.model_4dvarnet_hr = get_4dvarnet_sst_hr(self.hparams,self.hparams.shape_state_hr,dT=self.hparams.dT_hr_model)        
 
     def run_loop_lr(self,batch, phase, out_hr, out_lr_init,state_init_lr):
@@ -2120,7 +2130,7 @@ class LitModelUV(pl.LightningModule):
             init_u_from_lr = init_u_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
             init_v_from_lr = init_v_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
 
-            alpha = 1.#0.75
+            alpha = 0.75
             if ( state_hr[0] is not None) and ( alpha < 1. ):                        
                 init_ssh_from_lr = alpha * init_ssh_from_lr + (1.-alpha ) * state_hr[0][:,0:self.hparams.dT_hr_model,:,:]
                 
