@@ -13,9 +13,9 @@ entrypoint:
    ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-MRwoDUACS-hydra-exp/version_287/checkpoints/modelUVGF-MR_v2-unet1_050-augdata02-lr04-augstate-dT31-nowgeo-nodivstrain-grad_05_01_02_02_150-epoch=52-val_loss=8.0774.ckpt'
 lit_mod_cls: lit_model_uv_mr_wo_duacs_v2.LitModelUV
 params:
-  flag_update_training_config: False # True # 
+  flag_update_training_config: True # False # 
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
-  n_fourdvar_iter_lr: 2
+  n_fourdvar_iter_lr: 3
   n_fourdvar_iter_hr: ??
   n_fourdvar_iter: 1
   n_grad: 5
