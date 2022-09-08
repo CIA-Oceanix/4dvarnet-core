@@ -174,8 +174,7 @@ class FourDVarNetHydraRunner:
                     mod.hparams.n_fourdvar_iter_lr = self.cfg.n_fourdvar_iter_lr
                     mod.hparams.n_fourdvar_iter_hr = self.cfg.n_fourdvar_iter_hr
                     mod.hparams.n_fourdvar_iter    = self.cfg.n_fourdvar_iter
-                    
-                    #mod.hparams.thr_l1_sampling_uv =  self.cfg.thr_l1_sampling_uv
+                    print('.... iter 4dvarnet = %d -- %d -- %d'%(mod.hparams.n_fourdvar_iter,mod.hparams.n_fourdvar_iter_lr,mod.hparams.n_fourdvar_iter_hr))
 
         return mod
 
