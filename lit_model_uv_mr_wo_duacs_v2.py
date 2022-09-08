@@ -2063,9 +2063,10 @@ class LitModelUV(pl.LightningModule):
             #init_u_   = 0.5 * ( init_u_ + out_lr[1][:,_dt:_dt+self.hparams.dT_hr_model,:,:] )
             #init_v_   = 0.5 * ( init_v_ + out_lr[2][:,_dt:_dt+self.hparams.dT_hr_model,:,:] )
             #alpha = 0.5
-            init_ssh_ = self.patch_weight_lr * init_ssh_ + (1.-self.patch_weight_lr) * out_lr[0][:,_dt:_dt+self.hparams.dT_hr_model,:,:] 
-            init_u_   = self.patch_weight_lr *  init_u_  + (1.-self.patch_weight_lr) * out_lr[1][:,_dt:_dt+self.hparams.dT_hr_model,:,:]
-            init_v_   = self.patch_weight_lr *  init_v_  + (1.-self.patch_weight_lr) * out_lr[2][:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+            print( self.patch_weight_hr.size() )
+            init_ssh_ = self.patch_weight_lr * init_ssh_ + (1.-self.patch_weight_hr) * out_lr[0][:,_dt:_dt+self.hparams.dT_hr_model,:,:] 
+            init_u_   = self.patch_weight_lr *  init_u_  + (1.-self.patch_weight_hr) * out_lr[1][:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+            init_v_   = self.patch_weight_lr *  init_v_  + (1.-self.patch_weight_hr) * out_lr[2][:,_dt:_dt+self.hparams.dT_hr_model,:,:]
 
             init_ssh = torch.cat((out_lr[0][:,:_dt,:,:], init_ssh_ , out_lr[0][:,_dt+self.hparams.dT_hr_model:,:,:]),dim=1)
             init_u = torch.cat((out_lr[1][:,:_dt,:,:]  , init_u_   , out_lr[1][:,_dt+self.hparams.dT_hr_model:,:,:]),dim=1)
