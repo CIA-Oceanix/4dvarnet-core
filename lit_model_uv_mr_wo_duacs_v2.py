@@ -573,6 +573,12 @@ def get_4dvarnet_sst_hr(hparams,shape_state,dT):
     else:
        return get_4dvarnet_hr(hparams,shape_state,dT=dT)
 
+def get_4dvarnet_sst_hr_2(hparams,shape_state,dT):
+    if hparams.use_sst_obs : 
+        print('...... No model ye for hr womponent with SST')
+ 
+    else:
+       return get_4dvarnet_hr_2(hparams,shape_state,dT=dT)
 
 class ModelSamplingFromSST(torch.nn.Module):
     def __init__(self,dT,nb_feat=10,thr=0.1):
@@ -1153,7 +1159,7 @@ class LitModelUV(pl.LightningModule):
         print('.... shape state hr : %dx%dx%d - dT = %d/%d'%(self.hparams.shape_state_hr[0],self.hparams.shape_state_hr[1],self.hparams.shape_state_hr[2],self.hparams.dT,self.hparams.dT_hr_model) )        
         #self.model_4dvarnet_hr = get_4dvarnet_sst(self.hparams,self.hparams.shape_state_hr,dT=self.hparams.dT_hr_model)
         #self.model_4dvarnet_hr = get_4dvarnet_sst_hr(self.hparams,self.hparams.shape_state_hr,dT=self.hparams.dT_hr_model)        
-        self.model_4dvarnet_hr = get_4dvarnet_sst_hr(self.hparams,self.hparams.shape_state_hr,dT=self.hparams.dT_hr_model)        
+        self.model_4dvarnet_hr = get_4dvarnet_sst_hr_2(self.hparams,self.hparams.shape_state_hr,dT=self.hparams.dT_hr_model)        
 
     def run_loop_lr(self,batch, phase, out_hr, out_lr_init,state_init_lr):
         # first iteration with initialization from hr if provided
