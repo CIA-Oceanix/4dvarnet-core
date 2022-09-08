@@ -2120,7 +2120,7 @@ class LitModelUV(pl.LightningModule):
             init_u_from_lr = init_u_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
             init_v_from_lr = init_v_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
 
-            alpha = 0.75
+            alpha = 1.#0.75
             if ( state_hr[0] is not None) and ( alpha < 1. ):                        
                 init_ssh_from_lr = alpha * init_ssh_from_lr + (1.-alpha ) * state_hr[0][:,0:self.hparams.dT_hr_model,:,:]
                 
