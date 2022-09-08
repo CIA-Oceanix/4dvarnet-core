@@ -2051,16 +2051,22 @@ class LitModelUV(pl.LightningModule):
         targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon, gx, gy = batch
         
         if out_hr[0] is not None:            
+            print('... use of hr init')
+            
             # compute low-resolution lr state from hr state            
             init_ssh_ = torch.nn.functional.avg_pool2d(out_hr[0].detach(), (int(self.scale_lr),int(self.scale_lr)))
             init_u_ = torch.nn.functional.avg_pool2d(out_hr[1].detach(), (int(self.scale_lr),int(self.scale_lr)))
             init_v_ = torch.nn.functional.avg_pool2d(out_hr[2].detach(), (int(self.scale_lr),int(self.scale_lr)))
             
             _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
-            init_ssh_ = 0.5 * ( init_ssh_ + out_lr[0][:,_dt:_dt+self.hparams.dT_hr_model,:,:] )
-            init_u_   = 0.5 * ( init_u_ + out_lr[1][:,_dt:_dt+self.hparams.dT_hr_model,:,:] )
-            init_v_   = 0.5 * ( init_v_ + out_lr[2][:,_dt:_dt+self.hparams.dT_hr_model,:,:] )
-            
+            #init_ssh_ = 0.5 * ( init_ssh_ + out_lr[0][:,_dt:_dt+self.hparams.dT_hr_model,:,:] )
+            #init_u_   = 0.5 * ( init_u_ + out_lr[1][:,_dt:_dt+self.hparams.dT_hr_model,:,:] )
+            #init_v_   = 0.5 * ( init_v_ + out_lr[2][:,_dt:_dt+self.hparams.dT_hr_model,:,:] )
+            alpha = 1.
+            init_ssh_ = alpha * init_ssh_ + (1.-alpha) * out_lr[0][:,_dt:_dt+self.hparams.dT_hr_model,:,:] 
+            init_u_   = alpha *  init_u_  + (1.-alpha) * out_lr[1][:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+            init_v_   = alpha *  init_v_  + (1.-alpha) * out_lr[2][:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+
             init_ssh = torch.cat((out_lr[0][:,:_dt,:,:], init_ssh_ , out_lr[0][:,_dt+self.hparams.dT_hr_model:,:,:]),dim=1)
             init_u = torch.cat((out_lr[1][:,:_dt,:,:]  , init_u_   , out_lr[1][:,_dt+self.hparams.dT_hr_model:,:,:]),dim=1)
             init_v = torch.cat((out_lr[2][:,:_dt,:,:]  , init_v_   , out_lr[2][:,_dt+self.hparams.dT_hr_model:,:,:]),dim=1)
@@ -2099,6 +2105,7 @@ class LitModelUV(pl.LightningModule):
     def get_init_state_hr_from_lr(self, batch, out_lr=(None,),state_hr=(None,),mask_sampling = None):
             
         if out_lr[0] is not None :
+            print('... use of lr init')
             # re-interpolate lr state to hr grid 
             # for hr time window
             init_ssh_from_lr = torch.nn.functional.interpolate(out_lr[0].detach(), scale_factor=self.scale_lr, mode='bicubic')
@@ -2112,15 +2119,21 @@ class LitModelUV(pl.LightningModule):
             init_v_from_lr = init_v_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
 
             if state_hr[0] is not None:                        
-                init_ssh_from_lr = 0.5 * ( init_ssh_from_lr + state_hr[0][:,0:self.hparams.dT_hr_model,:,:] )
+                #init_ssh_from_lr = 0.5 * ( init_ssh_from_lr + state_hr[0][:,0:self.hparams.dT_hr_model,:,:] )
+                init_ssh_from_lr = init_ssh_from_lr
                 
                 if self.aug_state :
-                    init_u_from_lr   = 0.5* ( init_u_from_lr + state_hr[0][:,3*self.hparams.dT_hr_model:4*self.hparams.dT_hr_model,:,:] )
-                    init_v_from_lr   = 0.5* ( init_v_from_lr + state_hr[0][:,4*self.hparams.dT_hr_model:5*self.hparams.dT_hr_model,:,:] )
+                    init_u_from_lr   = init_u_from_lr 
+                    init_v_from_lr   = init_v_from_lr 
+                    #init_u_from_lr   = 0.5* ( init_u_from_lr + state_hr[0][:,3*self.hparams.dT_hr_model:4*self.hparams.dT_hr_model,:,:] )
+                    #init_v_from_lr   = 0.5* ( init_v_from_lr + state_hr[0][:,4*self.hparams.dT_hr_model:5*self.hparams.dT_hr_model,:,:] )
                 else:
-                    init_u_from_lr   = 0.5* ( init_u_from_lr + state_hr[0][:,2*self.hparams.dT_hr_model:3*self.hparams.dT_hr_model,:,:] )
-                    init_v_from_lr   = 0.5* ( init_v_from_lr + state_hr[0][:,3*self.hparams.dT_hr_model:4*self.hparams.dT_hr_model,:,:] )
+                    init_u_from_lr   = init_u_from_lr 
+                    init_v_from_lr   = init_v_from_lr
+                    #init_u_from_lr   = 0.5* ( init_u_from_lr + state_hr[0][:,2*self.hparams.dT_hr_model:3*self.hparams.dT_hr_model,:,:] )
+                    #init_v_from_lr   = 0.5* ( init_v_from_lr + state_hr[0][:,3*self.hparams.dT_hr_model:4*self.hparams.dT_hr_model,:,:] )
         else:
+            print('... no use of lr init')
             if state_hr[0] is not None:                        
                 init_ssh_from_lr = state_hr[0][:,0:self.hparams.dT_hr_model,:,:]
                 
