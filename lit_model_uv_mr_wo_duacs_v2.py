@@ -2063,9 +2063,9 @@ class LitModelUV(pl.LightningModule):
             #init_u_   = 0.5 * ( init_u_ + out_lr[1][:,_dt:_dt+self.hparams.dT_hr_model,:,:] )
             #init_v_   = 0.5 * ( init_v_ + out_lr[2][:,_dt:_dt+self.hparams.dT_hr_model,:,:] )
             #alpha = 0.5
-            print( self.patch_weight_hr.size() )
             
-            alpha = torch.nn.functional.avg_pool2d(self.patch_weight_hr.view(1,-1,self.patch_weight_hr.size(2),self.patch_weight_hr.size(3)), (int(self.scale_lr),int(self.scale_lr)))
+            alpha = torch.nn.functional.avg_pool2d(self.patch_weight_hr.view(1,-1,self.patch_weight_hr.size(1),self.patch_weight_hr.size(2)), (int(self.scale_lr),int(self.scale_lr)))
+            print( alpha.size() )
             init_ssh_ = alpha * init_ssh_ + (1.-alpha) * out_lr[0][:,_dt:_dt+self.hparams.dT_hr_model,:,:] 
             init_u_   = alpha *  init_u_  + (1.-alpha) * out_lr[1][:,_dt:_dt+self.hparams.dT_hr_model,:,:]
             init_v_   = alpha *  init_v_  + (1.-alpha) * out_lr[2][:,_dt:_dt+self.hparams.dT_hr_model,:,:]
