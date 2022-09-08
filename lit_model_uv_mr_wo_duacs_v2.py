@@ -1204,7 +1204,7 @@ class LitModelUV(pl.LightningModule):
         
         out = None
         
-        for _ in range(self.hparams.n_fourdvar_iter):
+        for _iter in range(self.hparams.n_fourdvar_iter):
             if ( phase == 'test' ) & ( self.use_sst ): 
                 # lr loop
                 _loss_lr, out_lr, state_lr, _metrics_lr,sst_feat_lr = self.run_loop_lr(batch, phase=phase, out_hr=out_hr, out_lr_init=out_lr_init,state_init_lr=state_init_lr)
@@ -1236,16 +1236,21 @@ class LitModelUV(pl.LightningModule):
                               torch.nn.functional.interpolate(out_lr[2][:,_dt:_dt+self.hparams.dT_hr_model,:,:].detach(), scale_factor=self.scale_lr, mode='bicubic') ] 
                     _metrics_hr = _metrics_lr
 
+            if ( phase == 'test' ) or ( phase == 'val' ):
+                if ( _iter == self.hparams.n_fourdvar_iter-1) :
+                    losses.append(_loss_hr)
+            else:
+                _loss = self.hparams.alpha_loss_lr * _loss_lr + self.hparams.alpha_loss_hr * _loss_hr
+                losses.append(_loss)
+
             
             if self.hparams.n_grad > 0 :
                 state_init_lr = [None if s is None else s.detach() for s in state_lr]
                 state_init_hr = [None if s is None else s.detach() for s in state_hr]
                 out_lr_init = [None if s is None else s.detach() for s in out_lr]
             
-            _loss = self.hparams.alpha_loss_lr * _loss_lr + self.hparams.alpha_loss_hr * _loss_hr
             _metrics = _metrics_hr
                         
-            losses.append(_loss)
             metrics.append(_metrics)
         
         out = out_hr
