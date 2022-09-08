@@ -1203,6 +1203,7 @@ class LitModelUV(pl.LightningModule):
         out_hr = [None]
         
         out = None
+        print('.... iter 4dvarnet = %d -- %d -- %d'%(self.hparams.n_fourdvar_iter,self.hparams.n_fourdvar_iter_lr,self.hparams.n_fourdvar_iter_hr))
         
         for _iter in range(self.hparams.n_fourdvar_iter):
             if ( phase == 'test' ) & ( self.use_sst ): 
