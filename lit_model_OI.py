@@ -5,6 +5,7 @@ from hydra.utils import instantiate
 import pandas as pd
 from functools import reduce
 from torch.nn.modules import loss
+from torch import nn
 import xarray as xr
 from pathlib import Path
 from hydra.utils import call
@@ -18,7 +19,7 @@ from scipy import stats
 import solver as NN_4DVar
 import metrics
 from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps_oi, animate_maps, get_psd_score
-from models import Model_H, Model_HwithSST, Phi_r_OI, Gradient_img
+from models import Model_H, Model_HwithSST, Phi_r_OI, Gradient_img, UNet, Phi_r_UNet
 
 from lit_model_augstate import LitModelAugstate
 
@@ -40,10 +41,51 @@ def get_4dvarnet_OI_sst(hparams):
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
+def get_4dvarnet_unet(hparams):
+    return NN_4DVar.Solver_Grad_4DVarNN(
+                Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic, shrink_factor=hparams.UNet_shrink_factor),
+                Model_H(hparams.shape_state[0]),
+                NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+                    hparams.dim_grad_solver, hparams.dropout),
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+
+#Direct UNet with no solver 
+def get_UNet_direct(hparams):
+    class PhiPassThrough(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.phi = Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic, shrink_factor=hparams.UNet_shrink_factor)
+            self.phi_r = torch.nn.Identity()
+            self.n_grad = 0
+
+        def forward(self, state, obs, masks, *internal_state):
+            return self.phi(state), None, None, None
+    return PhiPassThrough()
+
+#UNet and a fixed point solver
+def get_UNet_fixed_point(hparams):
+    return NN_4DVar.FP_Solver(
+        nn.Sequential(
+            nn.BatchNorm2d(hparams.shape_state[0]),
+            Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic, shrink_factor=hparams.UNet_shrink_factor)
+        ),
+    hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+
+#4dvarnet with the phi_r_OI and a fixed point solver
+def get_phi_r_fixed_point(hparams):
+    return NN_4DVar.FP_Solver(
+    Phi_r_OI(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                   hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+    hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+
 class LitModelOI(LitModelAugstate):
     MODELS = {
         '4dvarnet_OI': get_4dvarnet_OI,
         '4dvarnet_OI_sst': get_4dvarnet_OI_sst,
+        '4dvarnet_UNet': get_4dvarnet_unet,
+        'UNet_direct': get_UNet_direct,
+        'UNet_FP': get_UNet_fixed_point,
+        'phi_r_FP': get_phi_r_fixed_point
      }
 
     def __init__(self, *args, **kwargs):
@@ -53,12 +95,19 @@ class LitModelOI(LitModelAugstate):
         opt = torch.optim.Adam
         if hasattr(self.hparams, 'opt'):
             opt = lambda p: hydra.utils.call(self.hparams.opt, p)
-        if self.model_name in ('4dvarnet_OI', '4dvarnet_OI_sst'):
+        if self.model_name in ['4dvarnet_OI', '4dvarnet_OI_sst', '4dvarnet_UNet']:
             optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                 ])
+        elif self.model_name in ['4dvarnet_UNet_gradient']:
+            optimizer = opt([{'params': self.model.phi_r.parameters(), 'lr': self.hparams.lr_update[0]},
+                {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]}
+                ])
+        elif self.model_name in [ 'UNet_direct','UNet_FP', 'phi_r_FP']:
+            optimizer = opt([{'params': self.model.parameters(), 'lr': self.hparams.lr_update[0]}])
+
 
         return optimizer
 
