@@ -1189,10 +1189,7 @@ class LitModelUV(pl.LightningModule):
     def run_loop_hr(self,batch, phase, out_lr,  state_init_hr):
         out_comp = self.compute_loss_hr(batch, phase=phase, out_lr=out_lr,  state_init_hr=state_init_hr,use_lr_for_init=True)
 
-        if ( phase == 'test' ) :
-            loss_hr = 0.           
-        else:
-            loss_hr = out_comp[0]
+        loss_hr = out_comp[0]
         state_hr = out_comp[2]
 
         for _iter in range(self.hparams.n_fourdvar_iter_hr-1):
@@ -1202,7 +1199,7 @@ class LitModelUV(pl.LightningModule):
             state_hr = _out_comp[2]
             if ( phase == 'test' ) :
                 if ( _iter == self.hparams.n_fourdvar_iter_hr-2 ) :
-                    loss_hr += _out_comp[0]
+                    loss_hr = _out_comp[0]
             else:
                 loss_hr += _out_comp[0]
             
