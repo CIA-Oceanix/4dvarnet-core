@@ -74,8 +74,10 @@ def get_UNet_fixed_point(hparams):
 #4dvarnet with the phi_r_OI and a fixed point solver
 def get_phi_r_fixed_point(hparams):
     return NN_4DVar.FP_Solver(
-    Phi_r_OI(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
-                   hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+         nn.Sequential(
+            nn.BatchNorm2d(hparams.shape_state[0]),
+            Phi_r_OI(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                        hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic)),
     hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
 class LitModelOI(LitModelAugstate):
@@ -204,6 +206,14 @@ class LitModelOI(LitModelAugstate):
 
         init_state = inputs_Mask * inputs_obs
         return init_state
+
+    def loss_ae(self, state_out):
+        #Ignore autoencoder loss for fixed point solver
+        if self.model_name in ['FP_solver']:
+            return 0.
+        else: 
+            #same as in lit_model_augstate
+            return torch.mean((self.model.phi_r(state_out) - state_out) ** 2)
 
     def compute_loss(self, batch, phase, state_init=(None,)):
 
