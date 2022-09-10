@@ -2074,22 +2074,23 @@ class LitModelUV(pl.LightningModule):
                     
         _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
         init_ssh_from_lr = init_ssh_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+        d_init_init_ssh_from_lr = state_hr[0][:,:self.hparams.dT_hr_model,:,:] - init_ssh_from_lr
+        
         init_u_from_lr = init_u_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
         init_v_from_lr = init_v_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
 
-        
         targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon, gx, gy = batch
 
         if state_hr[0] is not None: 
             if self.aug_state :
                 init_state = torch.cat((init_ssh_from_lr,
-                                        state_hr[0][:,self.hparams.dT_hr_model:2*self.hparams.dT_hr_model,:,:],
-                                        state_hr[0][:,2*self.hparams.dT_hr_model:3*self.hparams.dT_hr_model,:,:],
+                                        d_init_init_ssh_from_lr + state_hr[0][:,self.hparams.dT_hr_model:2*self.hparams.dT_hr_model,:,:],
+                                        d_init_init_ssh_from_lr + state_hr[0][:,2*self.hparams.dT_hr_model:3*self.hparams.dT_hr_model,:,:],
                                         init_u_from_lr,init_v_from_lr),
                                        dim=1)
             else:      
                 init_state = torch.cat((init_ssh_from_lr,
-                                        state_hr[0][:,self.hparams.dT_hr_model:2*self.hparams.dT_hr_model,:,:],
+                                        d_init_init_ssh_from_lr + state_hr[0][:,self.hparams.dT_hr_model:2*self.hparams.dT_hr_model,:,:],
                                         init_u_from_lr,init_v_from_lr),
                                        dim=1)
             
