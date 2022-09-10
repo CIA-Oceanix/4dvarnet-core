@@ -2126,6 +2126,8 @@ class LitModelUV(pl.LightningModule):
 
     def get_init_state_hr_from_lr(self, batch, out_lr=(None,),state_hr=(None,),mask_sampling = None):
             
+        targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon, gx, gy = batch
+
         if out_lr[0] is not None :
             #print('... use of lr init')
             # re-interpolate lr state to hr grid 
@@ -2139,21 +2141,51 @@ class LitModelUV(pl.LightningModule):
             init_ssh_from_lr = init_ssh_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
             init_u_from_lr = init_u_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
             init_v_from_lr = init_v_from_lr[:,_dt:_dt+self.hparams.dT_hr_model,:,:]
+            
 
             alpha = 0.75
-            if ( state_hr[0] is not None) and ( alpha < 1. ):                        
-                init_ssh_from_lr = alpha * init_ssh_from_lr + (1.-alpha ) * state_hr[0][:,0:self.hparams.dT_hr_model,:,:]
-                
+            if ( state_hr[0] is not None) : 
+                curr_ssh   = state_hr[0][:,0*self.hparams.dT_hr_model:1*self.hparams.dT_hr_model,:,:]
+                curr_dssh1 = state_hr[0][:,1*self.hparams.dT_hr_model:2*self.hparams.dT_hr_model,:,:]
+                curr_dssh2 = state_hr[0][:,2*self.hparams.dT_hr_model:3*self.hparams.dT_hr_model,:,:]
                 if self.aug_state :
-                    init_u_from_lr   = alpha * init_u_from_lr + (1.-alpha ) * state_hr[0][:,3*self.hparams.dT_hr_model:4*self.hparams.dT_hr_model,:,:]
-                    init_v_from_lr   = alpha * init_v_from_lr + (1.-alpha ) * state_hr[0][:,4*self.hparams.dT_hr_model:5*self.hparams.dT_hr_model,:,:]
+                    curr_u = state_hr[0][:,3*self.hparams.dT_hr_model:4*self.hparams.dT_hr_model,:,:]
+                    curr_v = state_hr[0][:,4*self.hparams.dT_hr_model:5*self.hparams.dT_hr_model,:,:]
                 else:
-                    init_u_from_lr   = alpha * init_u_from_lr + (1.-alpha ) * state_hr[0][:,2*self.hparams.dT_hr_model:3*self.hparams.dT_hr_model,:,:]
-                    init_v_from_lr   = alpha * init_v_from_lr + (1.-alpha ) * state_hr[0][:,3*self.hparams.dT_hr_model:4*self.hparams.dT_hr_model,:,:]
+                    curr_u = state_hr[0][:,2*self.hparams.dT_hr_model:3*self.hparams.dT_hr_model,:,:]
+                    curr_v = state_hr[0][:,3*self.hparams.dT_hr_model:4*self.hparams.dT_hr_model,:,:]
+                    curr_dssh1 = state_hr[0][:,1*self.hparams.dT_hr_model:2*self.hparams.dT_hr_model,:,:]
+                    
+                curr_lr_u = torch.nn.functional.avg_pool2d(curr_u, (int(self.scale_lr),int(self.scale_lr)))
+                curr_lr_u = torch.nn.functional.interpolate(curr_lr_u, scale_factor=self.scale_lr, mode='bicubic')
+                
+                curr_lr_v = torch.nn.functional.avg_pool2d(curr_v, (int(self.scale_lr),int(self.scale_lr)))
+                curr_lr_v = torch.nn.functional.interpolate(curr_lr_v, scale_factor=self.scale_lr, mode='bicubic')
+                
+                curr_lr_ssh = torch.nn.functional.avg_pool2d(curr_v, (int(self.scale_lr),int(self.scale_lr)))
+                curr_lr_ssh = torch.nn.functional.interpolate(curr_lr_ssh, scale_factor=self.scale_lr, mode='bicubic')
+
+                curr_lr_dssh1 = torch.nn.functional.avg_pool2d(curr_dssh1, (int(self.scale_lr),int(self.scale_lr)))
+                curr_lr_dssh1 = torch.nn.functional.interpolate(curr_lr_dssh1, scale_factor=self.scale_lr, mode='bicubic')
+
+                curr_lr_dssh2 = torch.nn.functional.avg_pool2d(curr_dssh2, (int(self.scale_lr),int(self.scale_lr)))
+                curr_lr_dssh2 = torch.nn.functional.interpolate(curr_lr_dssh2, scale_factor=self.scale_lr, mode='bicubic')
+            
+                init_dssh1_from_lr =  curr_dssh1 - alpha * ( init_ssh_from_lr - curr_lr_dssh1 - init_ssh_from_lr )
+                init_dssh2_from_lr =  curr_dssh2 - alpha * ( init_ssh_from_lr - curr_lr_dssh2 - init_ssh_from_lr )
+                init_ssh_from_lr   =  alpha * init_ssh_from_lr + (1.-alpha ) * curr_ssh
+                init_u_from_lr     =  alpha * ( init_u_from_lr  + curr_u - curr_lr_u )  + (1.-alpha ) * curr_u
+                init_v_from_lr     =  alpha * ( init_v_from_lr  + curr_v - curr_lr_v )  + (1.-alpha ) * curr_v
+            else:
+                init_dssh1_from_lr = inputs_Mask * (inputs_obs - init_ssh_from_lr)
+                init_dssh2_from_lr = inputs_Mask * (inputs_obs - init_ssh_from_lr)
+                
         else:
             #print('... no use of lr init')
             if state_hr[0] is not None:                        
                 init_ssh_from_lr = state_hr[0][:,0:self.hparams.dT_hr_model,:,:]
+                init_dssh1_from_lr =  state_hr[0][:,1*self.hparams.dT_hr_model:2*self.hparams.dT_hr_model,:,:]
+                init_dssh2_from_lr =  state_hr[0][:,2*self.hparams.dT_hr_model:3*self.hparams.dT_hr_model,:,:]
                 
                 if self.aug_state :
                     init_u_from_lr   = state_hr[0][:,3*self.hparams.dT_hr_model:4*self.hparams.dT_hr_model,:,:]
@@ -2161,49 +2193,27 @@ class LitModelUV(pl.LightningModule):
                 else:
                     init_u_from_lr   = state_hr[0][:,2*self.hparams.dT_hr_model:3*self.hparams.dT_hr_model,:,:]
                     init_v_from_lr   = state_hr[0][:,3*self.hparams.dT_hr_model:4*self.hparams.dT_hr_model,:,:]
-                    
-            else:
+            else:                         
                 print('...  THIS IS UNEXPECTED init state from hr with no hr state and no lr state .....')
 
-        targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon, gx, gy = batch
-
-        if state_hr[0] is not None: 
-            if self.aug_state :
-                init_state = torch.cat((init_ssh_from_lr,
-                                        state_hr[0][:,self.hparams.dT_hr_model:2*self.hparams.dT_hr_model,:,:],
-                                        state_hr[0][:,2*self.hparams.dT_hr_model:3*self.hparams.dT_hr_model,:,:],
-                                        init_u_from_lr,init_v_from_lr),
-                                       dim=1)
-            else:      
-                init_state = torch.cat((init_ssh_from_lr,
-                                        state_hr[0][:,self.hparams.dT_hr_model:2*self.hparams.dT_hr_model,:,:],
-                                        init_u_from_lr,init_v_from_lr),
-                                       dim=1)
-            
-            if self.use_sst_state :
-                init_state = torch.cat((init_state,
-                                        sst_gt,),
-                                       dim=1)
-            return init_state
-            
         if self.aug_state :
             init_state = torch.cat((init_ssh_from_lr,
-                                    inputs_Mask * (inputs_obs - init_ssh_from_lr),
-                                    inputs_Mask * (inputs_obs - init_ssh_from_lr),
+                                    init_dssh1_from_lr,
+                                    init_dssh2_from_lr,
                                     init_u_from_lr,init_v_from_lr),
                                    dim=1)
-        else:
+        else:      
             init_state = torch.cat((init_ssh_from_lr,
-                                    inputs_Mask * (inputs_obs - targets_OI),
+                                    init_dssh1_from_lr,
                                     init_u_from_lr,init_v_from_lr),
                                    dim=1)
- 
+        
         if self.use_sst_state :
             init_state = torch.cat((init_state,
                                     sst_gt,),
                                    dim=1)
         return init_state
-
+ 
     def loss_ae_lr(self, state_out):
         return torch.mean((self.model_4dvarnet_lr.phi_r(state_out) - state_out) ** 2)
 
