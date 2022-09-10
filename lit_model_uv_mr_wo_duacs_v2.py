@@ -2148,13 +2148,13 @@ class LitModelUV(pl.LightningModule):
                 curr_ssh   = state_hr[0][:,0*self.hparams.dT_hr_model:1*self.hparams.dT_hr_model,:,:]
                 curr_dssh1 = state_hr[0][:,1*self.hparams.dT_hr_model:2*self.hparams.dT_hr_model,:,:]
                 curr_dssh2 = state_hr[0][:,2*self.hparams.dT_hr_model:3*self.hparams.dT_hr_model,:,:]
+                
                 if self.aug_state :
                     curr_u = state_hr[0][:,3*self.hparams.dT_hr_model:4*self.hparams.dT_hr_model,:,:]
                     curr_v = state_hr[0][:,4*self.hparams.dT_hr_model:5*self.hparams.dT_hr_model,:,:]
                 else:
                     curr_u = state_hr[0][:,2*self.hparams.dT_hr_model:3*self.hparams.dT_hr_model,:,:]
                     curr_v = state_hr[0][:,3*self.hparams.dT_hr_model:4*self.hparams.dT_hr_model,:,:]
-                    curr_dssh1 = state_hr[0][:,1*self.hparams.dT_hr_model:2*self.hparams.dT_hr_model,:,:]
                     
                 curr_lr_u = torch.nn.functional.avg_pool2d(curr_u, (int(self.scale_lr),int(self.scale_lr)))
                 curr_lr_u = torch.nn.functional.interpolate(curr_lr_u, scale_factor=self.scale_lr, mode='bicubic')
@@ -2162,7 +2162,7 @@ class LitModelUV(pl.LightningModule):
                 curr_lr_v = torch.nn.functional.avg_pool2d(curr_v, (int(self.scale_lr),int(self.scale_lr)))
                 curr_lr_v = torch.nn.functional.interpolate(curr_lr_v, scale_factor=self.scale_lr, mode='bicubic')
                 
-                curr_lr_ssh = torch.nn.functional.avg_pool2d(curr_v, (int(self.scale_lr),int(self.scale_lr)))
+                curr_lr_ssh = torch.nn.functional.avg_pool2d(curr_ssh, (int(self.scale_lr),int(self.scale_lr)))
                 curr_lr_ssh = torch.nn.functional.interpolate(curr_lr_ssh, scale_factor=self.scale_lr, mode='bicubic')
 
                 curr_lr_dssh1 = torch.nn.functional.avg_pool2d(curr_dssh1, (int(self.scale_lr),int(self.scale_lr)))
