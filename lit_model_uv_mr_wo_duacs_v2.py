@@ -2171,8 +2171,9 @@ class LitModelUV(pl.LightningModule):
                 curr_lr_dssh2 = torch.nn.functional.avg_pool2d(curr_dssh2, (int(self.scale_lr),int(self.scale_lr)))
                 curr_lr_dssh2 = torch.nn.functional.interpolate(curr_lr_dssh2, scale_factor=self.scale_lr, mode='bicubic')
             
-                init_dssh1_from_lr =  curr_dssh1 - alpha * ( init_ssh_from_lr - curr_lr_dssh1 - curr_lr_ssh )
-                init_dssh2_from_lr =  curr_dssh2 - alpha * ( init_ssh_from_lr - curr_lr_dssh2 - curr_lr_ssh )
+                init_dssh1_from_lr =   alpha * ( curr_dssh1 - ( init_ssh_from_lr - curr_lr_dssh1 - curr_lr_ssh ) ) + (1.-alpha) * curr_dssh1
+                init_dssh2_from_lr =   alpha * ( curr_dssh2 - ( init_ssh_from_lr - curr_lr_dssh2 - curr_lr_ssh ) ) + (1.-alpha) * curr_dssh2
+                #init_dssh2_from_lr =  curr_dssh2 - alpha * ( init_ssh_from_lr - curr_lr_dssh2 - curr_lr_ssh )
                 init_ssh_from_lr   =  alpha * init_ssh_from_lr + (1.-alpha ) * curr_ssh
                 init_u_from_lr     =  alpha * ( init_u_from_lr  + curr_u - curr_lr_u )  + (1.-alpha ) * curr_u
                 init_v_from_lr     =  alpha * ( init_v_from_lr  + curr_v - curr_lr_v )  + (1.-alpha ) * curr_v
