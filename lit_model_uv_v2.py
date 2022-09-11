@@ -1362,6 +1362,56 @@ class LitModelUV(pl.LightningModule):
             .pipe(lambda ds: ds.sel(time=~(np.isnan(ds.gt).all('lat').all('lon'))))
         ).transpose('time', 'lat', 'lon')
 
+    def build_test_xr_ds_v2(self, outputs, diag_ds):
+
+        outputs_keys = list(outputs[0][0].keys())
+        with diag_ds.get_coords():
+            self.test_patch_coords = [
+               diag_ds[i]
+               for i in range(len(diag_ds))
+            ]
+
+        def iter_item(outputs):
+            n_batch_chunk = len(outputs)
+            n_batch = len(outputs[0])
+            for b in range(n_batch):
+                bs = outputs[0][b]['gt'].shape[0]
+                for i in range(bs):
+                    for bc in range(n_batch_chunk):
+                        yield tuple(
+                                [outputs[bc][b][k][i] for k in outputs_keys]
+                        )
+
+        dses =[
+                xr.Dataset( {
+                    k: (('time', 'lat', 'lon'), x_k) for k, x_k in zip(outputs_keys, xs)
+                }, coords=coords)
+            for  xs, coords
+            in zip(iter_item(outputs), self.test_patch_coords)
+        ]
+
+        fin_ds = xr.merge([xr.zeros_like(ds[['time','lat', 'lon']]) for ds in dses])
+        fin_ds = fin_ds.assign(
+            {'weight': (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
+        )
+        for v in dses[0]:
+            fin_ds = fin_ds.assign(
+                {v: (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
+            )
+
+        for ds in dses:
+            ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
+            xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.gt.dims)
+            _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
+            fin_ds = fin_ds + _ds
+
+
+        return (
+            (fin_ds.drop('weight') / fin_ds.weight)
+            .sel(instantiate(self.test_domain))
+            .isel(time=slice(self.hparams.dT //2, -self.hparams.dT //2))
+            # .pipe(lambda ds: ds.sel(time=~(np.isnan(ds.gt).all('lat').all('lon'))))
+        ).transpose('time', 'lat', 'lon')
 
     def build_test_xr_ds_sst(self, outputs, diag_ds):
 
@@ -1408,7 +1458,7 @@ class LitModelUV(pl.LightningModule):
             print(".... Set weight matrix to binary mask for final outputs")
             w = np.zeros_like( self.patch_weight.detach().cpu().numpy() )
             w[int(self.hparams.dT/2),:,:] = 1.
-            #w = w * self.patch_weight.detach().cpu().numpy()
+            w = w * self.patch_weight.detach().cpu().numpy()
         else:
             w = self.patch_weight.detach().cpu().numpy()
             print('..... weight mask ')
@@ -1764,7 +1814,7 @@ class LitModelUV(pl.LightningModule):
             raise Exception('unknown phase')
 
         if not self.use_sst :
-            self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
+            self.test_xr_ds = self.build_test_xr_ds_v2(full_outputs, diag_ds=diag_ds)
         else:
             self.test_xr_ds = self.build_test_xr_ds_sst(full_outputs, diag_ds=diag_ds)
 
