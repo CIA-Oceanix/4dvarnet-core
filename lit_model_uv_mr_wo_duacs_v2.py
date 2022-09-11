@@ -1485,6 +1485,12 @@ class LitModelUV(pl.LightningModule):
 
         outputs_keys = list(outputs[0][0].keys())
 
+        with diag_ds.get_coords():
+            self.test_patch_coords = [
+               diag_ds[i]
+               for i in range(len(diag_ds))
+            ]
+
         _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
         _temp = [] 
         for _t in self.test_patch_coords:
@@ -1498,11 +1504,6 @@ class LitModelUV(pl.LightningModule):
         print(self.test_patch_coords[0]['time'].shape,flush=True)
 
 
-        with diag_ds.get_coords():
-            self.test_patch_coords = [
-               diag_ds[i]
-               for i in range(len(diag_ds))
-            ]
 
         def iter_item(outputs):
             n_batch_chunk = len(outputs)
