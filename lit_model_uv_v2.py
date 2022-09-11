@@ -1891,10 +1891,7 @@ class LitModelUV(pl.LightningModule):
             return seq
         
         self.x_sst_feat_ssh = extract_seq(outputs,'sst_feat',dw=20)
-        
-        print(self.x_sst_feat_ssh.shape)
-        print(self.u_gt.shape,flush=True)
-        
+        self.x_sst_feat_ssh = self.x_sst_feat_ssh[:42,:,:,:]        
         #print('..... Shape evaluated tensors: %dx%dx%d'%(self.x_gt.shape[0],self.x_gt.shape[1],self.x_gt.shape[2]))        
         self.test_coords = self.test_xr_ds.coords
         
