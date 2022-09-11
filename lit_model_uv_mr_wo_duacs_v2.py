@@ -1106,6 +1106,12 @@ class LitModelUV(pl.LightningModule):
         if self.model_sampling_uv is not None:
             suffix_chkpt = suffix_chkpt+'-sampling_sst_%d_%03d'%(self.hparams.nb_feat_sampling_operator,int(100*self.hparams.thr_l1_sampling_uv))
         
+        if self.hparams.alpha_loss_lr == 0. :
+            suffix_chkpt = suffix_chkpt+'-hr_only'
+        
+        if self.hparams.alpha_loss_hr == 0. :
+            suffix_chkpt = suffix_chkpt+'-lr_only'
+
         if self.hparams.n_grad > 0 :
             
             if self.hparams.aug_state :

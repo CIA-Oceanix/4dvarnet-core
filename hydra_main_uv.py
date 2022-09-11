@@ -170,6 +170,9 @@ class FourDVarNetHydraRunner:
                     #print('.... Update sst resolution: %d'%self.cfg.scale_dwscaling_sst)
                     #mod.hparams.scale_dwscaling_sst = self.cfg.scale_dwscaling_sst
                     
+                    mod.hparams.alpha_loss_hr = self.cfg.alpha_loss_hr
+                    mod.hparams.alpha_loss_lr = self.cfg.alpha_loss_lr
+                                       
                     print('.. Update solver iteration parameters')
                     mod.hparams.n_fourdvar_iter_lr = self.cfg.n_fourdvar_iter_lr
                     mod.hparams.n_fourdvar_iter_hr = self.cfg.n_fourdvar_iter_hr
