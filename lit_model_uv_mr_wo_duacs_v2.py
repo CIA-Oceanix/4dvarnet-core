@@ -1484,6 +1484,20 @@ class LitModelUV(pl.LightningModule):
     def build_test_xr_ds_sst_v2(self, outputs, diag_ds):
 
         outputs_keys = list(outputs[0][0].keys())
+
+        _dt = int( (self.hparams.dT-self.hparams.dT_hr_model)/2 )
+        _temp = [] 
+        for _t in self.test_patch_coords:
+            _t_ ={'time':_t['time'][_dt:self.hparams.dT_hr_model+_dt],
+                  'lat': _t['lat'],
+                  'lon': _t['lon']
+                  }
+            
+            _temp.append(_t_)        
+        self.test_patch_coords = _temp            
+        print(self.test_patch_coords[0]['time'].shape,flush=True)
+
+
         with diag_ds.get_coords():
             self.test_patch_coords = [
                diag_ds[i]
@@ -1520,7 +1534,7 @@ class LitModelUV(pl.LightningModule):
 
         for ds in dses:
             ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
-            xr_weight = xr.DataArray(self.patch_weight_hr.detach().cpu(), ds.coords, dims=ds.gt.dims)
+            xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.gt.dims)
             _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
             fin_ds = fin_ds + _ds
 
