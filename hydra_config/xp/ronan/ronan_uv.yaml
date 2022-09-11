@@ -40,15 +40,16 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_130/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-nowgeo-nostrain-grad_05_03_150-epoch=84-val_loss=0.9944.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_171/checkpoints/modelUVwSSTGF-unet1_050-augdata-DirectInv-wSST-dT07-epoch=28-val_loss=2.4926.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_179/checkpoints/modelUVwSSTGF-unet1_050-augdata-dws-sst05-augstate-dT07-sstobs-nolinear-tanh-bn_20-nowgeo-nostrain-grad_05_03_150-epoch=05-val_loss=1.6552.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_187/checkpoints/modelUVwSSTGF-v2-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo2-nodivstrain-grad_05_03_150-epoch=65-val_loss=0.8875.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_187/checkpoints/modelUVwSSTGF-v2-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-wgeo2-nodivstrain-grad_05_03_150-epoch=65-val_loss=0.8875.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_182/checkpoints/modelUVwSSTGF-v2-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=88-val_loss=0.9896.ckpt'
+   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_147/checkpoints/modelUVwSSTGF-unet1_050-augdata-dws02-augstate-dT07-nowgeo-nostrain-grad_05_03_150-epoch=05-val_loss=2.4105.ckpt'
 params:
   flag_update_training_config: True #  False # 
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
   k_n_grad: 3
   n_grad: 5
   dT: 7
-  scale_dwscaling : 2.
+  scale_dwscaling : 1.
   DimAE: 50
   dim_obs_sst_feat: 20
   dim_grad_solver: 150
