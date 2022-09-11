@@ -21,7 +21,7 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-MRwoDUACS-hydra-exp/version_303/checkpoints/modelUVGF-MR_v4-unet1_050-augdata02-lr04-augstate-dT31-nowgeo-nodivstrain-grad_05_04_03_01_150-epoch=27-val_loss=0.8058.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-MRwoDUACS-hydra-exp/version_304/checkpoints/modelUVGF-MR_v4-unet1_050-augdata04-lr04-augstate-dT31-nowgeo-nodivstrain-grad_05_02_02_01_150-epoch=44-val_loss=0.8275.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-MRwoDUACS-hydra-exp/version_305/checkpoints/modelUVGF-MR_v5-unet1_050-augdata04-lr04-augstate-dT31-nowgeo-nodivstrain-grad_05_02_02_01_150-epoch=21-val_loss=0.8310.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-MRwoDUACS-hydra-exp/version_305/checkpoints/modelUVGF-MR_v5-unet1_050-augdata02-lr04-augstate-dT31-nowgeo-nodivstrain-grad_05_02_03_01_150-epoch=48-val_loss=0.9332.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-MRwoDUACS-hydra-exp/version_305/checkpoints/modelUVGF-MR_v5-unet1_050-augdata02-lr04-augstate-dT31-nowgeo-nodivstrain-grad_05_02_03_01_150-epoch=48-val_loss=0.9332.ckpt'
 lit_mod_cls: lit_model_uv_mr_wo_duacs_v2.LitModelUV
 params:
   flag_update_training_config: True # False # 
@@ -38,7 +38,7 @@ params:
   dim_obs_sst_feat: 20
   dim_grad_solver: 150
   phi_param: 'unet1'#'unet-std'#
-  ckpt_name: 'modelUVGF-MR_v5-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
+  ckpt_name: 'modelUVGF-MR_v6-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
   use_sst_obs: False # True # 
   use_sst_state: False # True # 
   patch_weight:
@@ -57,7 +57,7 @@ params:
   alpha_mse_div: 0. # 1000. #5 0. # 00. # 100. 
   alpha_mse_strain: 0. #1000.
   alpha_loss_lr: 1.
-  alpha_loss_hr: 0.1  
+  alpha_loss_hr: 0.01 # 0.1  
   sig_filter_div: 1.
   norm_obs: l2
   norm_prior: l2
