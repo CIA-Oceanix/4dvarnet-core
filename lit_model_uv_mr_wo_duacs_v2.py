@@ -1545,7 +1545,7 @@ class LitModelUV(pl.LightningModule):
         return (
             (fin_ds.drop('weight') / fin_ds.weight)
             .sel(instantiate(self.test_domain))
-            .isel(time=slice(self.hparams.dT //2, -self.hparams.dT //2))
+            .isel(time=slice(self.hparams.dT_hr_model //2, -self.hparams.dT_hr_model //2))
             # .pipe(lambda ds: ds.sel(time=~(np.isnan(ds.gt).all('lat').all('lon'))))
         ).transpose('time', 'lat', 'lon')
     
