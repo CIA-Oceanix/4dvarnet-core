@@ -2059,7 +2059,7 @@ class LitModelUV(pl.LightningModule):
         self.test_lon = self.test_coords['lon'].data
         self.test_dates = self.test_coords['time'].data#[2:42]
     
-        print('... Length of the evaluation period = %d'%(self.u_rec.shape[0]) , flush=True )
+        print('\n\n ... Length of the evaluation period = %d'%(self.u_rec.shape[0]) , flush=True )
  
         md = self.sla_uv_diag(t_idx=3, log_pref=log_pref)
         
