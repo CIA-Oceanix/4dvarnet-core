@@ -29,11 +29,11 @@ lit_mod_cls: lit_model_uv_mr_wo_duacs_v2.LitModelUV
 params:
   flag_update_training_config: True # False # 
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
-  n_fourdvar_iter_lr: 2
-  n_fourdvar_iter_hr: 1
-  n_fourdvar_iter: 2
+  n_fourdvar_iter_lr: ??
+  n_fourdvar_iter_hr: ??
+  n_fourdvar_iter: ??
   n_grad: 5
-  dT: ??
+  dT: 31
   scale_lr: 4
   use_init_lr_from_hr: False
   dT_hr_model: 7 
@@ -69,7 +69,7 @@ params:
   alpha_sampling_uv: 10.
   thr_l1_sampling_uv: 0.10
   scale_dwscaling_sst: 1.
-  aug_train_data: 1
+  aug_train_data: ??
 datamodule:
   resize_factor: 1
   aug_train_data: ${params.aug_train_data}  
