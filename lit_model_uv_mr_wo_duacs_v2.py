@@ -1501,7 +1501,6 @@ class LitModelUV(pl.LightningModule):
             
             _temp.append(_t_)        
         self.test_patch_coords = _temp            
-        print(self.test_patch_coords[0]['time'].shape,flush=True)
 
         def iter_item(outputs):
             n_batch_chunk = len(outputs)
@@ -1524,6 +1523,7 @@ class LitModelUV(pl.LightningModule):
 
 
         print(dses)
+        print(len(dses))
 
         fin_ds = xr.merge([xr.zeros_like(ds[['time','lat', 'lon']]) for ds in dses])
         fin_ds = fin_ds.assign(
