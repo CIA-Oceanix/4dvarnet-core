@@ -1533,6 +1533,7 @@ class LitModelUV(pl.LightningModule):
                 {v: (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
             )
 
+        print(ds.gt)
         for ds in dses:
             ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
             xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.gt.dims)
@@ -2053,6 +2054,7 @@ class LitModelUV(pl.LightningModule):
             return seq
         
         self.x_sst_feat_ssh = extract_seq(outputs,'sst_feat',dw=20)
+        print( self.x_sst_feat_ssh.shape , flush=True )
         
         #print('..... Shape evaluated tensors: %dx%dx%d'%(self.x_gt.shape[0],self.x_gt.shape[1],self.x_gt.shape[2]))        
         self.test_coords = self.test_xr_ds.coords
@@ -2060,7 +2062,6 @@ class LitModelUV(pl.LightningModule):
         self.test_lat = self.test_coords['lat'].data
         self.test_lon = self.test_coords['lon'].data
         self.test_dates = self.test_coords['time'].data#[2:42]
-
     
         print( self.u_gt.shape , flush=True )
         print( self.u_rec.shape , flush=True )
