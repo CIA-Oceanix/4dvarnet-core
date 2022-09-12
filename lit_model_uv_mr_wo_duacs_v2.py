@@ -1522,10 +1522,6 @@ class LitModelUV(pl.LightningModule):
         ]
 
 
-        print(dses)
-        print(len(dses))
-        print(dses[0].gt.data.shape,flush=True)
-        
         fin_ds = xr.merge([xr.zeros_like(ds[['time','lat', 'lon']]) for ds in dses])
         fin_ds = fin_ds.assign(
             {'weight': (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
@@ -2054,9 +2050,8 @@ class LitModelUV(pl.LightningModule):
             
             return seq
         
-        self.x_sst_feat_ssh = extract_seq(outputs,'sst_feat',dw=20)
-        print( self.x_sst_feat_ssh.shape , flush=True )
-        
+        self.x_sst_feat_ssh = extract_seq(outputs,'sst_feat',dw=20)        
+        self.x_sst_feat_ssh = self.x_sst_feat_ssh[:self.x_rec_ssh.shape[0],:,:,:]        
         #print('..... Shape evaluated tensors: %dx%dx%d'%(self.x_gt.shape[0],self.x_gt.shape[1],self.x_gt.shape[2]))        
         self.test_coords = self.test_xr_ds.coords
         
@@ -2064,10 +2059,8 @@ class LitModelUV(pl.LightningModule):
         self.test_lon = self.test_coords['lon'].data
         self.test_dates = self.test_coords['time'].data#[2:42]
     
-        print( self.u_gt.shape , flush=True )
-        print( self.u_rec.shape , flush=True )
-        print( self.x_rec_ssh.shape , flush=True )
-
+        print('... Length of the evaluation period = %d'%(self.u_rec.shape[0]) , flush=True )
+ 
         md = self.sla_uv_diag(t_idx=3, log_pref=log_pref)
         
         #alpha_uv_geo = 9.81 
