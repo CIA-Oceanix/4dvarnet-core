@@ -1503,8 +1503,6 @@ class LitModelUV(pl.LightningModule):
         self.test_patch_coords = _temp            
         print(self.test_patch_coords[0]['time'].shape,flush=True)
 
-
-
         def iter_item(outputs):
             n_batch_chunk = len(outputs)
             n_batch = len(outputs[0])
@@ -1524,6 +1522,9 @@ class LitModelUV(pl.LightningModule):
             in zip(iter_item(outputs), self.test_patch_coords)
         ]
 
+
+        print(dses)
+
         fin_ds = xr.merge([xr.zeros_like(ds[['time','lat', 'lon']]) for ds in dses])
         fin_ds = fin_ds.assign(
             {'weight': (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
@@ -1533,7 +1534,6 @@ class LitModelUV(pl.LightningModule):
                 {v: (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
             )
 
-        print(ds.gt)
         for ds in dses:
             ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
             xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.gt.dims)
