@@ -71,7 +71,7 @@ params:
   scale_dwscaling_sst: 1.
   aug_train_data: 1
 datamodule:
-  resize_factor: 2
+  resize_factor: 1
   aug_train_data: ${params.aug_train_data}  
   use_auto_padding: False
 defaults:
