@@ -1899,6 +1899,11 @@ class LitModelUV(pl.LightningModule):
         self.test_lon = self.test_coords['lon'].data
         self.test_dates = self.test_coords['time'].data#[2:42]
 
+    
+        print( self.u_gt.shape , flush=True )
+        print( self.u_rec.shape , flush=True )
+        print( self.x_rec_ssh.shape , flush=True )
+
         md = self.sla_uv_diag(t_idx=3, log_pref=log_pref)
         
         #alpha_uv_geo = 9.81 
