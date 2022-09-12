@@ -1524,7 +1524,8 @@ class LitModelUV(pl.LightningModule):
 
         print(dses)
         print(len(dses))
-
+        print(dses[0].gt.data.shape,flush=True)
+        
         fin_ds = xr.merge([xr.zeros_like(ds[['time','lat', 'lon']]) for ds in dses])
         fin_ds = fin_ds.assign(
             {'weight': (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
