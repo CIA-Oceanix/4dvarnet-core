@@ -21,7 +21,7 @@ cs.store(name='4dvarnet_UNet_dropout', node={'model': '4dvarnet_UNet', 'UNet_shr
 cs.store(name='phi_r_FP', node={'model': 'phi_r_FP', 'n_grad':1}, group='model', package='params')
 cs.store(name='phi_r_direct', node={'model': 'phi_r_FP', 'n_grad':0}, group='model', package='params')
 model = {
-    #'4dvarnet_OI': '/model/4dvarnet_OI',
+    '4dvarnet_OI': '/model/4dvarnet_OI',
     '4dvarnet_UNet': '/model/4dvarnet_UNet', 
     '4dvarnet_UNet_dropout': '/model/4dvarnet_UNet_dropout',
     'UNet_direct_lowdropout': '/model/UNet_direct_lowdropout',
