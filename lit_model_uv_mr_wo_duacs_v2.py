@@ -1001,7 +1001,6 @@ class LitModelUV(pl.LightningModule):
         self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 1
         
         self.scale_lr = self.hparams.scale_lr if hasattr(self.hparams, 'scale_lr') else 1.0
-        self.use_init_lr_from_hr = self.hparams.scale_lr if hasattr(self.hparams, 'use_init_lr_from_hr') else False
 
         _w = torch.from_numpy(call(self.hparams.patch_weight))
         _w =  torch.nn.functional.avg_pool2d(_w.view(1,-1,_w.size(1),_w.size(2)), (int(self.scale_lr),int(self.scale_lr)))
