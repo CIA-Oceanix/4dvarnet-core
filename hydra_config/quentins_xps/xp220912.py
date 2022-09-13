@@ -6,10 +6,10 @@ from itertools import product
 cs = ConfigStore.instance()
 
 BASE_DEFAULTS = [
-    #'/xp/baseline/train_strat/dec_lr_ngrad5_15_nocas',
+    '/xp/baseline/train_strat/dec_lr_ngrad5_15_nocas.yaml',
   '/splits/dc_boost_swot@datamodule',
 ]
-XP=24
+XP=25
 cs.store(name='4dvarnet_OI', node={'model': '4dvarnet_OI'}, group='model', package='params')
 cs.store(name='UNet_direct', node={'model': 'UNet_direct', 'UNet_shrink_factor':2}, group='model', package='params')
 cs.store(name='UNet_direct_lowdropout', node={'model': 'UNet_direct', 'UNet_shrink_factor':2, 'dropout_phi_r': 0.1}, group='model', package='params')
@@ -21,11 +21,11 @@ cs.store(name='4dvarnet_UNet_dropout', node={'model': '4dvarnet_UNet', 'UNet_shr
 cs.store(name='phi_r_FP', node={'model': 'phi_r_FP', 'n_grad':1}, group='model', package='params')
 cs.store(name='phi_r_direct', node={'model': 'phi_r_FP', 'n_grad':0}, group='model', package='params')
 model = {
-    '4dvarnet_OI': '/model/4dvarnet_OI',
+   # '4dvarnet_OI': '/model/4dvarnet_OI',
     '4dvarnet_UNet': '/model/4dvarnet_UNet', 
     '4dvarnet_UNet_dropout': '/model/4dvarnet_UNet_dropout',
-    'UNet_direct_lowdropout': '/model/UNet_direct_lowdropout',
-    'UNet_direct_highdropout': '/model/UNet_direct_highdropout',
+   # 'UNet_direct_lowdropout': '/model/UNet_direct_lowdropout',
+   # 'UNet_direct_highdropout': '/model/UNet_direct_highdropout',
     'UNet_direct': '/model/UNet_direct',
     'phir_direct': '/model/phi_r_direct',
     'phir_FP': '/model/phi_r_FP',
@@ -38,8 +38,8 @@ cs.store(name='3', node={'aug_train_data': 3}, group='aug_data', package='datamo
 cs.store(name='8', node={'aug_train_data': 8}, group='aug_data', package='datamodule')
 aug = {
     # 'aug0': '/aug_data/0',
-    'aug1': '/aug_data/1',
-    'aug2': '/aug_data/2',
+   # 'aug1': '/aug_data/1',
+   # 'aug2': '/aug_data/2',
     # 'aug3': '/aug_data/3',
     'aug8': '/aug_data/8',
 }
