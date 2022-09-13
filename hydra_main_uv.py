@@ -169,7 +169,8 @@ class FourDVarNetHydraRunner:
                     mod.hparams.alpha_mse_strain = self.cfg.alpha_mse_strain
                     #print('.... Update sst resolution: %d'%self.cfg.scale_dwscaling_sst)
                     #mod.hparams.scale_dwscaling_sst = self.cfg.scale_dwscaling_sst
-                    mod.hparams.aug_train_data = self.cfg.aug_train_data
+                    if hasattr(self.cfg, 'aug_train_data') :
+                        mod.hparams.aug_train_data = self.cfg.aug_train_data
                     
                     if hasattr(self.cfg, 'alpha_loss_hr') :
                         mod.hparams.alpha_loss_hr = self.cfg.alpha_loss_hr
