@@ -30,7 +30,7 @@ entrypoint:
 #
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-MRwoDUACS-hydra-exp/version_324/checkpoints/modelUVGF-MR_v7-unet1_050-augdata04-lr04-augstate-dT31-nowgeo-nodivstrain-grad_05_02_02_01_150-epoch=05-val_loss=1.9323.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-MRwoDUACS-hydra-exp/version_325/checkpoints/modelUVGF-MR_v8-unet1_050-augdata04-lr04-augstate-dT31-nowgeo-nodivstrain-grad_05_02_02_01_150-epoch=31-val_loss=1.2194.ckpt'
-   ckpt_path:'/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-MRwoDUACS-hydra-exp/version_325/checkpoints/modelUVGF-MR_v8-unet1_050-augdata04-lr04-augstate-dT31-nowgeo-nodivstrain-grad_05_02_02_01_150-epoch=53-val_loss=1.1299.ckpt'
+   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-MRwoDUACS-hydra-exp/version_325/checkpoints/modelUVGF-MR_v8-unet1_050-augdata04-lr04-augstate-dT31-nowgeo-nodivstrain-grad_05_02_02_01_150-epoch=53-val_loss=1.1299.ckpt'
 lit_mod_cls: lit_model_uv_mr_wo_duacs_v2.LitModelUV
 params:
   flag_update_training_config: False # True # 
