@@ -209,7 +209,7 @@ class LitModelOI(LitModelAugstate):
 
     def loss_ae(self, state_out):
         #Ignore autoencoder loss for fixed point solver
-        if self.model_name in ['FP_solver']:
+        if self.model_name in ['UNet_FP']:
             return 0.
         else: 
             #same as in lit_model_augstate
