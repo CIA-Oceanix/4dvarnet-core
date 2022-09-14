@@ -13,4 +13,4 @@ val_slices:
 
 oi_var: "bbpm443"
 gt_var: "bbpm443"
-obs_mask_var: "mask"
+obs_mask_var: "bbpm443"
