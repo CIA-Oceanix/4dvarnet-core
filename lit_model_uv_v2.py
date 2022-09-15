@@ -950,7 +950,6 @@ class LitModelUV(pl.LightningModule):
             _w = torch.from_numpy(call(self.hparams.patch_weight))
             self.patch_weight_diag = torch.nn.Parameter(_w, requires_grad=False)
 
-        self.model.model_Grad.asymptotic_term = True
 
 
         self.residual_wrt_geo_velocities = self.hparams.residual_wrt_geo_velocities if hasattr(self.hparams, 'residual_wrt_geo_velocities') else 0
@@ -983,6 +982,9 @@ class LitModelUV(pl.LightningModule):
         if ( self.residual_wrt_geo_velocities == 3 ) or ( self.residual_wrt_geo_velocities == 4 ):
             self.model.model_H.aug_state = self.hparams.aug_state
             self.model.model_H.var_tr_uv = self.var_tr_uv        
+
+        self.model.model_Grad.asymptotic_term = True
+
         
         self.compute_derivativeswith_lon_lat = Torch_compute_derivatives_with_lon_lat(dT=self.hparams.dT)
         #if self.flag_compute_div_with_lat_scaling :
