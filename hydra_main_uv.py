@@ -159,9 +159,18 @@ class FourDVarNetHydraRunner:
                                )
 
         if ( ckpt_path is not None ) & ( hasattr(self.cfg, 'flag_update_training_config') == True  ) :
+            
+            
             if self.cfg.flag_update_training_config == True :
                 print('\n')
+                print('... update solver iterations : %d/%d -- %d/%d'%(mod.hparams.k_n_grad,mod.hparams.n_grad,self.cfg.k_n_grad,self.cfg.n_grad))
+                mod.hparams.k_n_grad = self.cfg.k_n_grad
+                mod.hparams.n_grad = self.cfg.n_grad
+                
                 print('.... Update parameters after loading chkpt model')
+                
+                
+                
                 if( hasattr(self.cfg, 'type_div_train_loss') ):
                     print('... Update div/strain loss type to %d'%self.cfg.type_div_train_loss)
                     mod.hparams.type_div_train_loss = self.cfg.type_div_train_loss

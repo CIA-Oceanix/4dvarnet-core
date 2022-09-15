@@ -323,7 +323,7 @@ class model_GradUpdateLSTM(torch.nn.Module):
             
             grad = w1 * grad + w2 * grad_
             
-            print('-- %d'%self.iter)
+            #print('-- %d'%self.iter)
 
         return grad,hidden,cell
 
