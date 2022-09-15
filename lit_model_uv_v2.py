@@ -1092,6 +1092,8 @@ class LitModelUV(pl.LightningModule):
         state_init = [None]
         out=None
         
+        print('.... ngrad = %d -- %d '%(self.model.n_grad,self.model.k_n_grad))
+        
         for _k in range(self.hparams.n_fourdvar_iter):
             
             if self.model.model_Grad.asymptotic_term == True :
