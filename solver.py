@@ -332,7 +332,8 @@ class model_GradUpdateLSTM(torch.nn.Module):
             w1 = K1 / (K1 + self.iter )
             
             K2 = self.K2min + torch.nn.functional.relu( self.K2 - self.K2min )
-            w2 = ( self.b ** 2 ) * torch.nn.functional.tanh( (self.a **2 ) * (self.iter - K2)  )
+            w2 = torch.nn.functional.log( K2 ) / torch.nn.functional.log( K2 + self.iter )
+            w2 = ( self.b ** 2 ) * w2 * torch.nn.functional.tanh( (self.a **2 ) * (self.iter - K2)  )
             self.iter += 1.
             
             grad = w1 * grad + w2 * grad_
