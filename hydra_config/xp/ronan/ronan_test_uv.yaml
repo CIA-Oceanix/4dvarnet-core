@@ -71,8 +71,9 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_63/checkpoints/modelUVwSSTGF-unet1_050-augdata-sampling_sst_10_010-augstate-dT07-grad_05_03_150-epoch=35-val_loss=1.6656.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_65/checkpoints/modelUVwSSTGF-unet1_050-augdata-augstate-dT07-grad_05_03_150-epoch=86-val_loss=3.0276.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_66/checkpoints/modelUVwSSTGF-unet1_050-augdata-sampling_sst_10_015-augstate-dT07-grad_05_03_150-epoch=42-val_loss=1.3742.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_313/checkpoints/modelUVwSSTGF-v2-unet1_050-augdata-augstate-dT07-nowgeo-nodivstrain-grad_05_03_150-epoch=75-val_loss=2.2945.ckpt'
-#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_313/checkpoints/modelUVwSSTGF-v2-unet1_050-augdata-augstate-dT07-wgeo3-nodivstrain-grad_05_03_150-epoch=57-val_loss=2.1093.ckpt'   
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_313/checkpoints/modelUVwSSTGF-v2-unet1_050-augdata-augstate-dT07-nowgeo-nodivstrain-grad_05_03_150-epoch=75-val_loss=2.2945.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_313/checkpoints/modelUVwSSTGF-v2-unet1_050-augdata-augstate-dT07-wgeo3-nodivstrain-grad_05_03_150-epoch=57-val_loss=2.1093.ckpt'
+   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_332/checkpoints/modelUVwSSTGF-v2-unet1_050-augdata-augstate-dT07-nowgeo-nodivstrain-grad_07_04_150+fsgd-epoch=01-val_loss=2.5511.ckpt'   
 params:
   flag_update_training_config: True #  False # 
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'  #'linear-bn'#''linear'# 
