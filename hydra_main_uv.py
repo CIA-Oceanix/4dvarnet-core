@@ -163,8 +163,8 @@ class FourDVarNetHydraRunner:
             
             if self.cfg.flag_update_training_config == True :
                 print('\n')
-                print('... update solver iterations : %d/%d -- %d/%d'%(mod.hparams.k_n_grad,mod.hparams.n_grad,self.cfg.k_n_grad,self.cfg.n_grad))
-                mod.hparams.k_n_grad = self.cfg.k_n_grad
+                print('... update solver iterations : %d/%d -- %d/%d'%(mod.hparams.n_fourdvar_iter,mod.hparams.n_grad,self.cfg.k_n_grad,self.cfg.n_grad))
+                mod.hparams.n_fourdvar_iter = self.cfg.k_n_grad
                 mod.hparams.n_grad = self.cfg.n_grad
                 
                 print('.... Update parameters after loading chkpt model')
