@@ -11,6 +11,6 @@ val_slices:
     _args_: ['2019-08-01', '2019-10-31']
 
 
-oi_var: "bbpm443"
-gt_var: "bbpm443"
-obs_mask_var: "bbpm443"
+oi_var: "bbp443"
+gt_var: "bbp443"
+obs_mask_var: "bbp443"
