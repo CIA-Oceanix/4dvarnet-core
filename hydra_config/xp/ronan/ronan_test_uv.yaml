@@ -90,7 +90,7 @@ params:
       time: 3
   k_n_grad: ??
   n_grad: ??
-  apha_gradd_sec_step-: ??
+  apha_grad_descent_step: ??
   dT: 7
   DimAE: 50
   dim_obs_sst_feat: 2#10

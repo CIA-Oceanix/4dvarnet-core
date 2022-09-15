@@ -984,6 +984,7 @@ class LitModelUV(pl.LightningModule):
             self.model.model_H.var_tr_uv = self.var_tr_uv        
 
         self.model.model_Grad.asymptotic_term = True
+        self.model.model_Grad.b = self.hparams.sig_filter_div_diag if hasattr(self.hparams, 'apha_grad_descent_step') else 0.
 
         
         self.compute_derivativeswith_lon_lat = Torch_compute_derivatives_with_lon_lat(dT=self.hparams.dT)
