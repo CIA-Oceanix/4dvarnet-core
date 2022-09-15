@@ -88,8 +88,8 @@ params:
     patch_size: ${datamodule.slice_win}
     crop:
       time: 3
-  k_n_grad: ??
-  n_grad: 5
+  k_n_grad: 1
+  n_grad: 2
   dT: 7
   DimAE: 50
   dim_obs_sst_feat: 2#10
