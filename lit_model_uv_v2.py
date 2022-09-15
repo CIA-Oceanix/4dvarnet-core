@@ -987,6 +987,10 @@ class LitModelUV(pl.LightningModule):
         b = self.hparams.apha_grad_descent_step if hasattr(self.hparams, 'apha_grad_descent_step') else 0.
         self.model.model_Grad.b = torch.nn.Parameter(torch.Tensor([b]),requires_grad=False)
         
+        self.hparams.learn_fsgd_param = self.hparams.learn_fsgd_param if hasattr(self.hparams, 'learn_fsgd_param') else False
+        
+        if self.hparams.learn_fsgd_param == True :
+            self.model.model_Grad.set_fsgd_param_trainable()
         self.compute_derivativeswith_lon_lat = Torch_compute_derivatives_with_lon_lat(dT=self.hparams.dT)
         #if self.flag_compute_div_with_lat_scaling :
         #    self.div_field = Div_uv_with_lat_lon_scaling()
@@ -1067,7 +1071,10 @@ class LitModelUV(pl.LightningModule):
                                             
             suffix_chkpt = suffix_chkpt+'-grad_%02d_%02d_%03d'%(self.hparams.n_grad,self.hparams.k_n_grad,self.hparams.dim_grad_solver)
             if self.model.model_Grad.asymptotic_term == True :
-                suffix_chkpt = suffix_chkpt+'+fsgd'    
+                suffix_chkpt = suffix_chkpt+'+fsgd'
+            if self.hparams.learn_fsgd_param == True :
+                suffix_chkpt = suffix_chkpt+'train'
+                
         else:
             if ( self.use_sst ) & ( self.use_sst_state ) :
                 suffix_chkpt = suffix_chkpt+'-DirectInv-wSST'

@@ -51,6 +51,7 @@ params:
   k_n_grad: ??
   n_grad: ??
   apha_grad_descent_step: ??
+  learn_fsgd_param: true
   dT: 7
   scale_dwscaling : 1.
   DimAE: 50

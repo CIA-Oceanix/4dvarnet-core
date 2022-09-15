@@ -264,12 +264,23 @@ class model_GradUpdateLSTM(torch.nn.Module):
             self.lstm = ConvLSTM2d(self.shape[0],self.dim_state,3,stochastic=self.stochastic)
             
         self.asymptotic_term = asymptotic_term
-        self.iter = 0
-        self.K1 = torch.nn.Parameter(torch.Tensor([15.]),requires_grad=False)
-        self.K2 = torch.nn.Parameter(torch.Tensor([15.]),requires_grad=False)
-        self.a = torch.nn.Parameter(torch.Tensor([0.5]),requires_grad=False)
-        self.b = torch.nn.Parameter(torch.Tensor([1e-3]),requires_grad=False)
-
+        self.trainable_fsgd_term = False
+        self.K1min = torch.nn.Parameter(torch.Tensor([10.]),requires_grad=False)
+        self.K2min = torch.nn.Parameter(torch.Tensor([10.]),requires_grad=False)
+        
+        if self.trainable_fsgd_term == False :
+            self.iter = 0
+            self.K1 = torch.nn.Parameter(torch.Tensor([15.]),requires_grad=False)
+            self.K2 = torch.nn.Parameter(torch.Tensor([15.]),requires_grad=False)
+            self.a = torch.nn.Parameter(torch.Tensor([np.sqrt(0.5)]),requires_grad=False)
+            self.b = torch.nn.Parameter(torch.Tensor([np.sqrt(1e-3)]),requires_grad=False)
+    
+    def set_fsgd_param_trainable(self):
+        self.K1.requires_grad = True
+        self.K2.requires_grad = True
+        self.a.requires_grad = True
+        self.b.requires_grad = True
+    
     def _make_ConvGrad(self):
         layers = []
 
@@ -317,8 +328,11 @@ class model_GradUpdateLSTM(torch.nn.Module):
         grad = self.convLayer( grad )
         
         if self.asymptotic_term == True:
-            w1 = self.K1 / (self.K1 + self.iter )
-            w2 = self.b * torch.nn.functional.tanh( self.a * (self.iter - self.K2)  )
+            K1 = self.K1min + torch.nn.functional.relu( self.K1 - self.K1min )
+            w1 = K1 / (K1 + self.iter )
+            
+            K2 = self.K2min + torch.nn.functional.relu( self.K2 - self.K2min )
+            w2 = ( self.b ** 2 ) * torch.nn.functional.tanh( (self.a **2 ) * (self.iter - K2)  )
             self.iter += 1.
             
             grad = w1 * grad + w2 * grad_
