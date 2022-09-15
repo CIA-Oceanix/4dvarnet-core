@@ -1088,7 +1088,12 @@ class LitModelUV(pl.LightningModule):
         state_init = [None]
         out=None
         
-        for _ in range(self.hparams.n_fourdvar_iter):
+        for _k in range(self.hparams.n_fourdvar_iter):
+            
+            if self.model.model_Grad.asymptotic_term == True :
+                self.model.model_Grad.asymptotic_term.iter = 0
+                self.model.model_Grad.iter = _k *  self.model.n_grad
+                        
             if ( phase == 'test' ) & ( self.use_sst ):
                 _loss, out, state, _metrics,sst_feat = self.compute_loss(batch, phase=phase, state_init=state_init)
             else:
