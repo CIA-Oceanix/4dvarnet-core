@@ -48,8 +48,9 @@ entrypoint:
 params:
   flag_update_training_config: True #  False # 
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
-  k_n_grad: 3
-  n_grad: 5
+  k_n_grad: ??
+  n_grad: ??
+  apha_grad_descent_step: ??
   dT: 7
   scale_dwscaling : 1.
   DimAE: 50
@@ -72,7 +73,7 @@ params:
   alpha_mse_gssh: 0. #1000.
   alpha_mse_uv: 50.
   alpha_mse_uv_geo: 10.
-  alpha_mse_div: ?? #1000. #0. # 5 0. # 00. # 100. 
+  alpha_mse_div: 0. #?? #1000. #0. # 5 0. # 00. # 100. 
   alpha_mse_strain: 0. # 1000. # 0. #
   sig_filter_div: 1.
   norm_obs: l2
