@@ -1092,7 +1092,7 @@ class LitModelUV(pl.LightningModule):
         state_init = [None]
         out=None
         
-        print('.... ngrad = %d -- %d '%(self.model.n_grad,self.hparams.n_fourdvar_iter))
+        #print('.... ngrad = %d -- %d '%(self.model.n_grad,self.hparams.n_fourdvar_iter))
         
         for _k in range(self.hparams.n_fourdvar_iter):
             
