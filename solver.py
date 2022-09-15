@@ -265,10 +265,10 @@ class model_GradUpdateLSTM(torch.nn.Module):
             
         self.asymptotic_term = asymptotic_term
         self.iter = 0
-        self.K1 = torch.nn.Parameter(torch.Tensor([15.]),require_grad=False)
-        self.K2 = torch.nn.Parameter(torch.Tensor([15.]),require_grad=False)
-        self.a = torch.nn.Parameter(torch.Tensor([0.5]),require_grad=False)
-        self.b = torch.nn.Parameter(torch.Tensor([1e-3]),require_grad=False)
+        self.K1 = torch.nn.Parameter(torch.Tensor([15.]),requires_grad=False)
+        self.K2 = torch.nn.Parameter(torch.Tensor([15.]),requires_grad=False)
+        self.a = torch.nn.Parameter(torch.Tensor([0.5]),requires_grad=False)
+        self.b = torch.nn.Parameter(torch.Tensor([1e-3]),requires_grad=False)
 
     def _make_ConvGrad(self):
         layers = []
