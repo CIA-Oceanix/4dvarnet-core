@@ -11,11 +11,14 @@ oi_swot_4nadir: /raid/localscratch/qfebvre/sla-data-registry/NATL60/NATL/oi/ssh_
 pseudo_obs: /raid/localscratch/qfebvre/sla-data-registry/NATL60/NATL/data_new/dataset_nadir_0d_swot.nc
 obs_4nadirs: /raid/localscratch/qfebvre/sla-data-registry/NATL60/NATL/data_new/dataset_nadir_0d.nc
 
-# ose_oi_path: /raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/training/ssh_alg_h2g_j2g_j2n_j3_s3a_duacs.nc
-# ose_obs_mask_path: /raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/training/dataset_nadir_0d.nc
-# ose_gt_path: /raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/validation/dataset_nadir_0d.nc
-# ose_sst_path: /raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/training/sst_CMEMS.nc
-# ose_test_along_track: /raid/localscratch/qfebvre/sla-data-registry/data_OSE/along_track/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc
+ref_natl_degraded: /raid/localscratch/qfebvre/sla-data-registry/natl60_degraded/ref220914.nc
+obs_natl_degraded: /raid/localscratch/qfebvre/sla-data-registry/natl60_degraded/obs220914.nc
+
+ose_oi_path: /raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/training/ssh_alg_h2g_j2g_j2n_j3_s3a_duacs.nc
+ose_obs_mask_path: /raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/training/dataset_nadir_0d.nc
+ose_gt_path: /raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/validation/dataset_nadir_0d.nc
+ose_sst_path: /raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/training/sst_CMEMS.nc
+ose_test_along_track: /raid/localscratch/qfebvre/sla-data-registry/data_OSE/along_track/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc
 
 oi_ose_osse_nadswot_path: /raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/training/oi_OSE_OSSE_nadswot.nc
 oi_ose_osse_nad_path: /raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/training/oi_OSE_OSSE_nad.nc

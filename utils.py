@@ -1,8 +1,9 @@
 import xarray as xr
+from omegaconf import OmegaConf
 import hydra
 from hydra.utils import instantiate, get_class, call
 from pathlib import Path
-import hydra_main
+import runner
 
 def coords_to_dim(ds, dims=('time',), drop=('x',)):
     df = ds.to_dataframe()
@@ -45,11 +46,13 @@ def get_model(xp_cfg, ckpt, dm=None, add_overrides=None, hydra_root='.'):
     if add_overrides is not None:
         overrides =  overrides + add_overrides
     cfg = get_cfg(xp_cfg, overrides, hydra_root=hydra_root)
+    print( OmegaConf.to_yaml(cfg))
+    OmegaConf.resolve(cfg)
     lit_mod_cls = get_class(cfg.lit_mod_cls)
     if dm is None:
         dm = instantiate(cfg.datamodule)
-    runner = hydra_main.FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls)
-    mod = runner._get_model(ckpt)
+    runr = runner.FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls)
+    mod = runr._get_model(ckpt)
     return mod
 
 def get_dm(xp_cfg, setup=True, add_overrides=None, hydra_root='.'):

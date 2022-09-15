@@ -52,8 +52,10 @@ from datetime import datetime
 import numpy as np
 from pathlib import Path
 
-dirs = glob.glob("/raid/localscratch/qfebvre/4dvarnet-core/dashboard/ose_gf_wsst/lightning_logs/version_1")
+dirs = glob.glob("/raid/localscratch/qfebvre/4dvarnet-core/dashboard/ose_gf_wsst/lightning_logs/version_*")
 file = max(dirs, key=os.path.getctime) + "/test.nc"
+
+# file = str(Path('/raid/localscratch/qfebvre/4dvarnet-core/lightning_logs/version_173') / "test.nc")
 # print(file)
 
 # import 4dvarNet reconstruction
@@ -235,7 +237,6 @@ Leaderboard = pd.DataFrame(data,
                                     "σ(RMSE)",
                                     'λx (km)'])
 print("Summary of the leaderboard metrics:")
-Leaderboard
 print(Leaderboard.to_markdown())
 
 # %% [markdown]
