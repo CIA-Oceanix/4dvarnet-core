@@ -1066,6 +1066,8 @@ class LitModelUV(pl.LightningModule):
                     suffix_chkpt = suffix_chkpt+'-nodiv'
                                             
             suffix_chkpt = suffix_chkpt+'-grad_%02d_%02d_%03d'%(self.hparams.n_grad,self.hparams.k_n_grad,self.hparams.dim_grad_solver)
+            if self.model.model_Grad.asymptotic_term == True :
+                suffix_chkpt = suffix_chkpt+'+fsgd'    
         else:
             if ( self.use_sst ) & ( self.use_sst_state ) :
                 suffix_chkpt = suffix_chkpt+'-DirectInv-wSST'
