@@ -399,3 +399,48 @@ class Phi_r_UNet(torch.nn.Module):
             return self.unet(x+z)
         else:
             return self.unet(x)
+
+
+#Classes for linear Phi_r
+#These classes replace the bilinear units of the normal Phi_rOI with linear layers
+class Phi_r_OI_linear(torch.nn.Module):
+    def __init__(self, shape_data, DimAE, nb_blocks, stochastic=False):
+        super().__init__()
+        self.stochastic = stochastic
+        self.encoder = Encoder_OI_linear(shape_data, shape_data, DimAE,nb_blocks)
+        self.decoder = Decoder()
+        self.correlate_noise = CorrelateNoise(shape_data, 10)
+        self.regularize_variance = RegularizeVariance(shape_data, 10)
+
+    def forward(self, x):
+        white = True
+        if self.stochastic == True:
+            # pure white noise
+            z = torch.randn([x.shape[0],x.shape[1],x.shape[2],x.shape[3]]).to(device)
+            z = z/torch.std(x)
+            x = self.encoder(x+z)
+        else:
+            x = self.encoder(x)
+        x = self.decoder(x)
+        return x
+
+class Encoder_OI_linear(torch.nn.Module):
+    def __init__(self, dim_inp, dim_out, dim_ae, nb_blocks):
+        super().__init__()
+        self.nb_blocks = nb_blocks
+        self.dim_ae = dim_ae
+        self.nn = __make_linear_blocks(dim_inp, dim_out, dim_ae, nb_blocks)
+        self.dropout = torch.nn.Dropout(rateDropout)
+    
+    def __make_linear_blocks(self, dim_inp, dim_out, dim_ae,  nb_blocks=2):
+        layers = []
+        layers.append(torch.nn.linear(dim_inp,dim_ae))
+        for kk in range(0, nb_blocks-1):
+            layers.append(torch.nn.linear(dim_ae, dim_ae)
+        layers.append(torch.nn.linear(dim_ae, dim_out))
+        return torch.nn.Sequential(*layers)
+
+    def forward(self, xinp):
+        x = self.nn(xinp)
+        return x
+    

@@ -19,7 +19,7 @@ cs.store(name='4dvarnet_UNet', node={'model': '4dvarnet_UNet', 'UNet_shrink_fact
 cs.store(name='UNet_FP', node={'model': 'UNet_FP', 'n_grad':5, 'UNet_shrink_factor':2}, group='model', package='params')
 cs.store(name='4dvarnet_UNet_dropout', node={'model': '4dvarnet_UNet', 'UNet_shrink_factor':4,'dropout_phi_r': 0.5}, group='model', package='params')
 #cs.store(name='UNet_FP', node={'model': '4dvarnet_UNet', 'shrink_factor':2}, group='model', package='params')
-cs.store(name='phi_r_FP', node={'model': 'phi_r_FP', 'n_grad':0}, group='model', package='params')
+cs.store(name='phi_r_FP', node={'model': 'phi_r_FP', 'n_grad':5}, group='model', package='params')
 cs.store(name='phi_r_direct', node={'model': 'phi_r_FP', 'n_grad':0}, group='model', package='params')
 model = {
    # '4dvarnet_OI': '/model/4dvarnet_OI',
@@ -39,7 +39,7 @@ cs.store(name='2', node={'aug_train_data': 2}, group='aug_data', package='datamo
 cs.store(name='3', node={'aug_train_data': 3}, group='aug_data', package='datamodule')
 cs.store(name='8', node={'aug_train_data': 8}, group='aug_data', package='datamodule')
 aug = {
-    # 'aug0': '/aug_data/0',
+    'aug0': '/aug_data/0',
    # 'aug1': '/aug_data/1',
    'aug2': '/aug_data/2',
     #'aug3': '/aug_data/3',
