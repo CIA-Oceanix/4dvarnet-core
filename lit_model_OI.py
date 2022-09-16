@@ -45,7 +45,7 @@ def get_4dvarnet_OI_sst(hparams):
 #4dvarnet with linear phi_r instead of bilinear units
 def get_4dvarnet_OI_linear(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r_OI_linear(hparams.shape_state[0], hparams.DimAE, hparams.nbBlocks,  hparams.stochastic),
+                Phi_r_OI_linear(hparams.shape_state, hparams.DimAE, hparams.nbBlocks,  hparams.stochastic),
                 Model_H(hparams.shape_state[0]),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
@@ -94,7 +94,7 @@ class LitModelOI(LitModelAugstate):
     MODELS = {
         '4dvarnet_OI': get_4dvarnet_OI,
         '4dvarnet_OI_sst': get_4dvarnet_OI_sst,
-        '4dvarnet_linear': get_4dvarnet_OI_linear,
+        '4dvarnet_OI_linear': get_4dvarnet_OI_linear,
         '4dvarnet_UNet': get_4dvarnet_unet,
         'UNet_direct': get_UNet_direct,
         'UNet_FP': get_UNet_fixed_point,
@@ -108,7 +108,7 @@ class LitModelOI(LitModelAugstate):
         opt = torch.optim.Adam
         if hasattr(self.hparams, 'opt'):
             opt = lambda p: hydra.utils.call(self.hparams.opt, p)
-        if self.model_name in ['4dvarnet_OI', '4dvarnet_OI_sst', '4dvarnet_UNet']:
+        if self.model_name in ['4dvarnet_OI','4dvarnet_OI_linear', '4dvarnet_OI_sst', '4dvarnet_UNet']:
             optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
