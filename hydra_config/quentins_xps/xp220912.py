@@ -21,11 +21,11 @@ cs.store(name='4dvarnet_UNet_dropout', node={'model': '4dvarnet_UNet', 'UNet_shr
 #cs.store(name='UNet_FP', node={'model': '4dvarnet_UNet', 'shrink_factor':2}, group='model', package='params')
 cs.store(name='phi_r_FP', node={'model': 'phi_r_FP', 'n_grad':5}, group='model', package='params')
 cs.store(name='phi_r_direct', node={'model': 'phi_r_FP', 'n_grad':0}, group='model', package='params')
-cs.store(name='4dvarnet_OI_linear', node={'model': '4dvarnet_OI_linear'}, group='model', package='params')
+cs.store(name='4dvarnet_OI_linear', node={'model': '4dvarnet_OI_linear', 'nbBlocks':1}, group='model', package='params')
 model = {
    # '4dvarnet_OI': '/model/4dvarnet_OI',
     '4dvarnet_UNet': '/model/4dvarnet_UNet', 
-    '4dvarnet_UNet_linear': '/model/4dvarnet_OI_linear', 
+    '4dvarnet_linear': '/model/4dvarnet_OI_linear', 
     '4dvarnet_UNet_dropout': '/model/4dvarnet_UNet_dropout',
    # 'UNet_direct_lowdropout': '/model/UNet_direct_lowdropout',
    # 'UNet_direct_highdropout': '/model/UNet_direct_highdropout',
@@ -45,7 +45,7 @@ aug = {
    # 'aug1': '/aug_data/1',
    #'aug2': '/aug_data/2',
     #'aug3': '/aug_data/3',
-    #'aug8': '/aug_data/8',
+    'aug8': '/aug_data/8',
 }
 
 cs.store(name='2', node={'resize_factor': 2}, group='down_samp', package='datamodule')

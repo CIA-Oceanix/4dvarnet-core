@@ -45,7 +45,8 @@ def get_4dvarnet_OI_sst(hparams):
 #4dvarnet with linear phi_r instead of bilinear units
 def get_4dvarnet_OI_linear(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r_OI_linear(hparams.shape_state, hparams.DimAE, hparams.nbBlocks,  hparams.stochastic),
+                Phi_r_OI_linear(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
                 Model_H(hparams.shape_state[0]),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),

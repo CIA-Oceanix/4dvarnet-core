@@ -502,9 +502,8 @@ class LitModelAugstate(pl.LightningModule):
         # display map
         md = self.sla_diag(t_idx=3, log_pref=log_pref)
         self.latest_metrics.update(md)
-        print('I am here')
         self.logger.log_metrics(md, step=self.current_epoch)
-        print('I am here')
+
 
     def teardown(self, stage='test'):
         if self.logger is not None:

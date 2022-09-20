@@ -404,13 +404,13 @@ class Phi_r_UNet(torch.nn.Module):
 #Classes for linear Phi_r
 #These classes replace the bilinear units of the normal Phi_rOI with linear layers
 class Phi_r_OI_linear(torch.nn.Module):
-    def __init__(self, shape_data, DimAE,  nb_blocks, stochastic=False):
+    def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic=False):
         super().__init__()
         self.stochastic = stochastic
-        self.encoder = Encoder_OI_linear(shape_data, shape_data, DimAE, nb_blocks)
+        self.encoder = Encoder_OI_linear(shape_data, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
         self.decoder = Decoder()
-        self.correlate_noise = CorrelateNoise(shape_data[0], 10)
-        self.regularize_variance = RegularizeVariance(shape_data[0], 10)
+        self.correlate_noise = CorrelateNoise(shape_data, 10)
+        self.regularize_variance = RegularizeVariance(shape_data, 10)
 
     def forward(self, x):
         white = True
@@ -424,29 +424,69 @@ class Phi_r_OI_linear(torch.nn.Module):
         x = self.decoder(x)
         return x
 
+
+class LinUnit(torch.nn.Module):
+    def __init__(self, dim_in, dim_out, dim, dw, dw2, dropout=0.):
+        super(LinUnit, self).__init__()
+        self.conv1 = torch.nn.Conv2d(dim_in, 2 * dim, (2 * dw + 1, 2 * dw + 1), padding=dw, bias=False)
+        self.conv2 = torch.nn.Conv2d(2 * dim, dim, (2 * dw2 + 1, 2 * dw2 + 1), padding=dw2, bias=False)
+        self.conv3 = torch.nn.Conv2d(dim, dim_out, (2 * dw2 + 1, 2 * dw2 + 1), padding=dw2, bias=False)
+        # self.bilin0 = torch.nn.Conv2d(dim, dim, (2 * dw2 + 1, 2 * dw2 + 1), padding=dw2, bias=False)
+        # self.bilin1 = torch.nn.Conv2d(dim, dim, (2 * dw2 + 1, 2 * dw2 + 1), padding=dw2, bias=False)
+        # self.bilin2 = torch.nn.Conv2d(dim, dim, (2 * dw2 + 1, 2 * dw2 + 1), padding=dw2, bias=False)
+        self.dropout = torch.nn.Dropout(dropout)
+
+    def forward(self, xin):
+        x = self.conv1(xin)
+        x = self.dropout(x)
+        x = self.conv2(x)
+        x = self.dropout(x)
+        #x = torch.cat((self.bilin0(x), self.bilin1(x) * self.bilin2(x)), dim=1)
+        #x = self.dropout(x)
+        x = self.conv3(x)
+        return x
+
 class Encoder_OI_linear(torch.nn.Module):
-    def __init__(self, dim_inp, dim_out, dim_ae, nb_blocks):
+    def __init__(self, dim_inp, dim_out, dim_ae, dw, dw2, ss, nb_blocks, rateDropout=0.):
         super().__init__()
         self.nb_blocks = nb_blocks
         self.dim_ae = dim_ae
-        self.dim_out = dim_out
-        self.nn = self.__make_linear_blocks(dim_inp, dim_out, dim_ae, nb_blocks)
- 
+        self.nn = self.__make_linNN(dim_inp, dim_out, self.dim_ae, dw, dw2, self.nb_blocks, rateDropout)
+        self.dropout = torch.nn.Dropout(rateDropout)
 
-
-    def __make_linear_blocks(self, dim_inp, dim_out, dim_ae,  nb_blocks=2):
-        total_size = dim_inp[0]*dim_inp[1]*dim_inp[2]
+    def __make_linNN(self, dim_inp, dim_out, dim_ae, dw, dw2, nb_blocks=2, dropout=0.):
         layers = []
-        layers.append(torch.nn.Linear(total_size,dim_ae))
-        for kk in range(0, nb_blocks-1):
-            layers.append(torch.nn.Linear(dim_ae, dim_ae))
-        layers.append(torch.nn.Linear(dim_ae, total_size))
+        layers.append(LinUnit(dim_inp, dim_out, dim_ae, dw, dw2, dropout))
+        for kk in range(0, nb_blocks - 1):
+            layers.append(LinUnit(dim_ae, dim_out, dim_ae, dw, dw2, dropout))
         return torch.nn.Sequential(*layers)
 
     def forward(self, xinp):
-        batch_size = xinp.shape[0]
-        x = torch.flatten(xinp, 1,-1)
-        x = self.nn(x)
-        x = torch.reshape(x,(batch_size, self.dim_out[0], self.dim_out[1], self.dim_out[2]))
+        # HR component
+        x = self.nn(xinp)
         return x
+    # def __init__(self, dim_inp, dim_out, dim_ae, nb_blocks):
+    #     super().__init__()
+    #     self.nb_blocks = nb_blocks
+    #     self.dim_ae = dim_ae
+    #     self.dim_out = dim_out
+    #     self.nn = self.__make_linear_blocks(dim_inp, dim_out, dim_ae, nb_blocks)
+ 
+
+
+    # def __make_linear_blocks(self, dim_inp, dim_out, dim_ae,  nb_blocks=2):
+    #     total_size = dim_inp[0]*dim_inp[1]*dim_inp[2]
+    #     layers = []
+    #     layers.append(torch.nn.Linear(total_size,dim_ae))
+    #     for kk in range(0, nb_blocks-1):
+    #         layers.append(torch.nn.Linear(dim_ae, dim_ae))
+    #     layers.append(torch.nn.Linear(dim_ae, total_size))
+    #     return torch.nn.Sequential(*layers)
+
+    # def forward(self, xinp):
+    #     batch_size = xinp.shape[0]
+    #     x = torch.flatten(xinp, 1,-1)
+    #     x = self.nn(x)
+    #     x = torch.reshape(x,(batch_size, self.dim_out[0], self.dim_out[1], self.dim_out[2]))
+    #     return x
     
