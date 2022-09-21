@@ -176,12 +176,17 @@ class LitModelOI(LitModelAugstate):
             _, _, mu, sig = metrics.rmse_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
         except:
             print('fail to compute psd scores')
-
+        mse_metrics_pred = metrics.compute_metrics(self.test_xr_ds.gt, self.test_xr_ds.pred)
+        mse_metrics_oi = metrics.compute_metrics(self.test_xr_ds.gt, self.test_xr_ds.oi)
+        var_mse_pred_vs_oi = 100. * ( 1. - mse_metrics_pred['mse'] / mse_metrics_oi['mse'] )
+        var_mse_grad_pred_vs_oi = 100. * ( 1. - mse_metrics_pred['mseGrad'] / mse_metrics_oi['mseGrad'] )
         md = {
             f'{log_pref}_lambda_x': lamb_x,
             f'{log_pref}_lambda_t': lamb_t,
             f'{log_pref}_mu': mu,
             f'{log_pref}_sigma': sig,
+            f'{log_pref}_var_mse_vs_oi': float(var_mse_pred_vs_oi),
+            f'{log_pref}_var_mse_grad_vs_oi': float(var_mse_grad_pred_vs_oi),
         }
         print(pd.DataFrame([md]).T.to_markdown())
         return md
