@@ -1,0 +1,23 @@
+# @package _global_
+xp_name: oi_gp_spde_wolp_mse_loss_pow_2_iso
+
+params:
+  files_cfg:
+    obs_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_2_iso.nc
+    gt_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_2_iso.nc
+    spde_params_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_2_iso.nc
+  loss_type: mse_loss
+  n_grad: 20
+  pow: 2
+datamodule:
+  resize_factor: 1
+
+lit_mod_cls: oi.lit_model_spde_wolp.LitModel
+
+defaults:
+  - /params: fourdvarnet_oi_gp
+  - /domain@datamodule.dim_range: gp
+  - /domain@params.test_domain: gp
+  - /training: oi_gp_spde
+  - _self_
+

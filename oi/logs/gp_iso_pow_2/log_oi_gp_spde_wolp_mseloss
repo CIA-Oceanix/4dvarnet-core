@@ -1,0 +1,306 @@
+file_paths:
+  obs_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
+  gt_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
+  spde_params_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
+entrypoint:
+  _target_: hydra_main.FourDVarNetHydraRunner.run
+  max_epochs: 1
+  progress_bar_refresh_rate: 5
+params:
+  files_cfg:
+    obs_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_2_iso.nc
+    obs_var: 'y'
+    gt_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_2_iso.nc
+    gt_var: x
+    spde_params_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_2_iso.nc
+  iter_update:
+  - 0
+  - 20
+  - 40
+  - 60
+  - 100
+  - 150
+  - 800
+  nb_grad_update:
+  - 20
+  - 20
+  - 20
+  - 20
+  - 20
+  - 20
+  - 50
+  - 50
+  - 50
+  lr_update:
+  - 0.001
+  - 0.0001
+  - 0.001
+  - 0.0001
+  - 0.0001
+  - 1.0e-05
+  - 1.0e-05
+  - 1.0e-06
+  - 1.0e-07
+  k_batch: 1
+  n_grad: 20
+  dT: 5
+  dx: 1
+  W: 100
+  resize_factor: 1
+  shapeData:
+  - 5
+  - 100
+  - 100
+  dW: 3
+  dW2: 1
+  sS: 4
+  nbBlocks: 1
+  Nbpatches: 1
+  stochastic: false
+  size_ensemble: 1
+  animate: true
+  supervised: true
+  estim_parameters: false
+  DimAE: 25
+  dim_grad_solver: 70
+  dropout: 0.25
+  dropout_phi_r: 0.0
+  alpha_proj: 0.5
+  alpha_sr: 0.5
+  alpha_lr: 0.5
+  alpha_mse_ssh: 10.0
+  alpha_mse_gssh: 1.0
+  sigNoise: 0.0
+  flagSWOTData: true
+  rnd1: 0
+  rnd2: 100
+  dwscale: 1
+  UsePriodicBoundary: false
+  InterpFlag: false
+  automatic_optimization: true
+  ckpt_name: modelGP_{epoch:02d}-{val_loss:.2f}
+  norm_obs: l2
+  norm_prior: l2
+  diff_only: true
+  pow: 2
+  test_domain:
+    lat:
+      _target_: builtins.slice
+      _args_:
+      - 0
+      - 100
+    lon:
+      _target_: builtins.slice
+      _args_:
+      - 0
+      - 100
+  loss_type: mse_loss
+datamodule:
+  dim_range:
+    lat:
+      _target_: builtins.slice
+      _args_:
+      - 0
+      - 100
+    lon:
+      _target_: builtins.slice
+      _args_:
+      - 0
+      - 100
+  _target_: oi.dataloading_gp.FourDVarNetDataModule
+  slice_win:
+    lat: 100
+    lon: 100
+    time: 5
+  strides:
+    lat: 100
+    lon: 100
+    time: 1
+  train_slices:
+  - _target_: builtins.slice
+    _args_:
+    - '2012-10-01'
+    - '2012-11-20'
+  - _target_: builtins.slice
+    _args_:
+    - '2013-02-07'
+    - '2013-09-10'
+  test_slices:
+  - _target_: builtins.slice
+    _args_:
+    - '2013-01-03'
+    - '2013-01-27'
+  val_slices:
+  - _target_: builtins.slice
+    _args_:
+    - '2012-11-30'
+    - '2012-12-24'
+  obs_path: ${params.files_cfg.obs_path}
+  obs_var: ${params.files_cfg.obs_var}
+  gt_path: ${params.files_cfg.gt_path}
+  gt_var: ${params.files_cfg.gt_var}
+  dl_kwargs:
+    batch_size: 2
+    num_workers: 2
+  resize_factor: 1
+lit_mod_cls: oi.lit_model_spde_wolp.LitModel
+xp_name: oi_gp_spde_wolp_mse_loss_pow_2_iso
+seed: 0
+
+file_paths:
+  obs_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
+  gt_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
+  spde_params_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
+entrypoint:
+  _target_: hydra_main.FourDVarNetHydraRunner.run
+  max_epochs: 1
+  progress_bar_refresh_rate: 5
+params:
+  files_cfg:
+    obs_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_2_iso.nc
+    obs_var: 'y'
+    gt_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_2_iso.nc
+    gt_var: x
+    spde_params_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_2_iso.nc
+  iter_update:
+  - 0
+  - 20
+  - 40
+  - 60
+  - 100
+  - 150
+  - 800
+  nb_grad_update:
+  - 20
+  - 20
+  - 20
+  - 20
+  - 20
+  - 20
+  - 50
+  - 50
+  - 50
+  lr_update:
+  - 0.001
+  - 0.0001
+  - 0.001
+  - 0.0001
+  - 0.0001
+  - 1.0e-05
+  - 1.0e-05
+  - 1.0e-06
+  - 1.0e-07
+  k_batch: 1
+  n_grad: 20
+  dT: 5
+  dx: 1
+  W: 100
+  resize_factor: 1
+  shapeData:
+  - 5
+  - 100
+  - 100
+  dW: 3
+  dW2: 1
+  sS: 4
+  nbBlocks: 1
+  Nbpatches: 1
+  stochastic: false
+  size_ensemble: 1
+  animate: true
+  supervised: true
+  estim_parameters: false
+  DimAE: 25
+  dim_grad_solver: 70
+  dropout: 0.25
+  dropout_phi_r: 0.0
+  alpha_proj: 0.5
+  alpha_sr: 0.5
+  alpha_lr: 0.5
+  alpha_mse_ssh: 10.0
+  alpha_mse_gssh: 1.0
+  sigNoise: 0.0
+  flagSWOTData: true
+  rnd1: 0
+  rnd2: 100
+  dwscale: 1
+  UsePriodicBoundary: false
+  InterpFlag: false
+  automatic_optimization: true
+  ckpt_name: modelGP_{epoch:02d}-{val_loss:.2f}
+  norm_obs: l2
+  norm_prior: l2
+  diff_only: true
+  pow: 2
+  test_domain:
+    lat:
+      _target_: builtins.slice
+      _args_:
+      - 0
+      - 100
+    lon:
+      _target_: builtins.slice
+      _args_:
+      - 0
+      - 100
+  loss_type: mse_loss
+datamodule:
+  dim_range:
+    lat:
+      _target_: builtins.slice
+      _args_:
+      - 0
+      - 100
+    lon:
+      _target_: builtins.slice
+      _args_:
+      - 0
+      - 100
+  _target_: oi.dataloading_gp.FourDVarNetDataModule
+  slice_win:
+    lat: 100
+    lon: 100
+    time: 5
+  strides:
+    lat: 100
+    lon: 100
+    time: 1
+  train_slices:
+  - _target_: builtins.slice
+    _args_:
+    - '2012-10-01'
+    - '2012-11-20'
+  - _target_: builtins.slice
+    _args_:
+    - '2013-02-07'
+    - '2013-09-10'
+  test_slices:
+  - _target_: builtins.slice
+    _args_:
+    - '2013-01-03'
+    - '2013-01-27'
+  val_slices:
+  - _target_: builtins.slice
+    _args_:
+    - '2012-11-30'
+    - '2012-12-24'
+  obs_path: ${params.files_cfg.obs_path}
+  obs_var: ${params.files_cfg.obs_var}
+  gt_path: ${params.files_cfg.gt_path}
+  gt_var: ${params.files_cfg.gt_var}
+  dl_kwargs:
+    batch_size: 2
+    num_workers: 2
+  resize_factor: 1
+lit_mod_cls: oi.lit_model_spde_wolp.LitModel
+xp_name: oi_gp_spde_wolp_mse_loss_pow_2_iso
+seed: 0
+
+Warning: ecCodes 2.21.0 or higher is recommended. You are running version 2.16.0
+Using current oi.metrics
+[2022-09-21 23:42:36,007][cartopy_userconfig][INFO] - Setting cartopy.config["pre_existing_data_dir"] to /users/local/m19beauc/miniconda3/envs/4dvarnet/share/cartopy. Don't worry, this is probably intended behaviour to avoid failing downloads of geological data behind a firewall.
+{'lat': 100, 'lon': 100, 'time': 5}
+get_model:  None
+{'max_epochs': 1, 'progress_bar_refresh_rate': 5}
+{'num_nodes': 1, 'gpus': 1, 'logger': True, 'auto_select_gpus': True, 'callbacks': [<pytorch_lightning.callbacks.model_checkpoint.ModelCheckpoint object at 0x7f913b5a0970>, <pytorch_lightning.callbacks.lr_monitor.LearningRateMonitor object at 0x7f913b5a5100>], 'max_epochs': 1, 'progress_bar_refresh_rate': 5}
+Validation sanity check: 0it [00:00, ?it/s]Validation sanity check:   0%|          | 0/2 [00:00<?, ?it/s]                                                              Training: -1it [00:00, ?it/s]Training:   0%|          | 0/141 [00:00<00:00, 13357.66it/s]Epoch 0:   0%|          | 0/141 [00:00<00:00, 3246.37it/s]  Epoch 0:   4%|▎         | 5/141 [00:31<11:49,  5.21s/it]  Epoch 0:   4%|▎         | 5/141 [00:31<11:49,  5.21s/it, loss=9.04, v_num=1, loss_step=9.340]Epoch 0:   7%|▋         | 10/141 [01:03<12:34,  5.76s/it, loss=9.04, v_num=1, loss_step=9.340]Epoch 0:   7%|▋         | 10/141 [01:03<12:34,  5.76s/it, loss=9.16, v_num=1, loss_step=8.180]Epoch 0:  11%|█         | 15/141 [01:35<12:28,  5.94s/it, loss=9.16, v_num=1, loss_step=8.180]Epoch 0:  11%|█         | 15/141 [01:35<12:28,  5.94s/it, loss=8.76, v_num=1, loss_step=7.090]Epoch 0:  14%|█▍        | 20/141 [02:07<12:14,  6.07s/it, loss=8.76, v_num=1, loss_step=7.090]Epoch 0:  14%|█▍        | 20/141 [02:07<12:14,  6.07s/it, loss=8.57, v_num=1, loss_step=8.850]Epoch 0:  18%|█▊        | 25/141 [02:39<11:53,  6.15s/it, loss=8.57, v_num=1, loss_step=8.850]Epoch 0:  18%|█▊        | 25/141 [02:39<11:53,  6.15s/it, loss=8.22, v_num=1, loss_step=7.840]Epoch 0:  21%|██▏       | 30/141 [03:12<11:28,  6.20s/it, loss=8.22, v_num=1, loss_step=7.840]Epoch 0:  21%|██▏       | 30/141 [03:12<11:28,  6.20s/it, loss=7.61, v_num=1, loss_step=5.800]Epoch 0:  25%|██▍       | 35/141 [03:44<11:01,  6.24s/it, loss=7.61, v_num=1, loss_step=5.800]Epoch 0:  25%|██▍       | 35/141 [03:44<11:01,  6.24s/it, loss=7.21, v_num=1, loss_step=6.170]Epoch 0:  28%|██▊       | 40/141 [04:17<10:33,  6.27s/it, loss=7.21, v_num=1, loss_step=6.170]Epoch 0:  28%|██▊       | 40/141 [04:17<10:33,  6.27s/it, loss=6.69, v_num=1, loss_step=5.830]Epoch 0:  32%|███▏      | 45/141 [04:49<10:04,  6.29s/it, loss=6.69, v_num=1, loss_step=5.830]Epoch 0:  32%|███▏      | 45/141 [04:49<10:04,  6.29s/it, loss=6.24, v_num=1, loss_step=5.710]Epoch 0:  35%|███▌      | 50/141 [05:20<09:32,  6.29s/it, loss=6.24, v_num=1, loss_step=5.710]Epoch 0:  35%|███▌      | 50/141 [05:20<09:32,  6.29s/it, loss=5.85, v_num=1, loss_step=5.010]Epoch 0:  39%|███▉      | 55/141 [05:52<09:01,  6.30s/it, loss=5.85, v_num=1, loss_step=5.010]Epoch 0:  39%|███▉      | 55/141 [05:52<09:01,  6.30s/it, loss=5.67, v_num=1, loss_step=5.760]Epoch 0:  43%|████▎     | 60/141 [06:21<08:26,  6.26s/it, loss=5.67, v_num=1, loss_step=5.760]Epoch 0:  43%|████▎     | 60/141 [06:21<08:26,  6.26s/it, loss=5.54, v_num=1, loss_step=5.100]Epoch 0:  46%|████▌     | 65/141 [06:41<07:42,  6.08s/it, loss=5.54, v_num=1, loss_step=5.100]Epoch 0:  46%|████▌     | 65/141 [06:41<07:42,  6.08s/it, loss=5.46, v_num=1, loss_step=5.770]Epoch 0:  50%|████▉     | 70/141 [07:09<07:09,  6.04s/it, loss=5.46, v_num=1, loss_step=5.770]Epoch 0:  50%|████▉     | 70/141 [07:09<07:09,  6.04s/it, loss=5.47, v_num=1, loss_step=5.200]Epoch 0:  53%|█████▎    | 75/141 [07:41<06:40,  6.07s/it, loss=5.47, v_num=1, loss_step=5.200]Epoch 0:  53%|█████▎    | 75/141 [07:41<06:40,  6.07s/it, loss=5.33, v_num=1, loss_step=5.190]Epoch 0:  57%|█████▋    | 80/141 [08:13<06:11,  6.10s/it, loss=5.33, v_num=1, loss_step=5.190]Epoch 0:  57%|█████▋    | 80/141 [08:13<06:11,  6.10s/it, loss=5.32, v_num=1, loss_step=5.850]Epoch 0:  60%|██████    | 85/141 [08:44<05:41,  6.10s/it, loss=5.32, v_num=1, loss_step=5.850]Epoch 0:  60%|██████    | 85/141 [08:44<05:41,  6.10s/it, loss=5.15, v_num=1, loss_step=5.360]

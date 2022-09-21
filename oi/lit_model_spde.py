@@ -46,7 +46,7 @@ class LitModel(pl.LightningModule):
         self.estim_parameters = self.hparams.estim_parameters
         self.spde_params_path = hparam.files_cfg.spde_params_path
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r(self.shapeData,diff_only=self.diff_only,
+                Phi_r(self.shapeData,pow=hparam.pow,diff_only=self.diff_only,
                       given_parameters=not self.estim_parameters,
                       nc=hparam.files_cfg.spde_params_path),
                 Model_H(self.shapeData[0]),
@@ -57,7 +57,7 @@ class LitModel(pl.LightningModule):
         self.model_LR = ModelLR()
         self.gradient_img = Gradient_img()
         # loss weghing wrt time
-
+        self.loss_type = self.hparams.loss_type
         self.w_loss = torch.nn.Parameter(kwargs['w_loss'], requires_grad=False)  # duplicate for automatic upload to gpu
         self.x_gt = None  # variable to store Ground Truth
         self.x_rec = None  # variable to store output of test method
@@ -164,7 +164,7 @@ class LitModel(pl.LightningModule):
     def test_step(self, test_batch, batch_idx):
 
         inputs_obs, inputs_mask, targets_gt = test_batch
-        loss, out, param, metrics, simu = self.compute_loss(test_batch, phase='test')
+        loss, out, param, metrics, simu, cmp_loss = self.compute_loss(test_batch, phase='test')
         if loss is not None:
             self.log('test_loss', loss)
             self.log("test_mse", metrics['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
@@ -174,7 +174,8 @@ class LitModel(pl.LightningModule):
                 'obs'   : (inputs_obs.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'preds' : (out.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'simulations' : (simu.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'params': param}
+                'params': param,
+                'cmp_loss': cmp_loss}
 
     def test_epoch_end(self, outputs):
 
@@ -212,6 +213,11 @@ class LitModel(pl.LightningModule):
         obs = np.moveaxis(reshape(obs),1,3)
         pred = np.moveaxis(reshape(pred),1,3)
         simu = np.moveaxis(reshape(simu),1,3)
+
+        cmp_loss = torch.cat([(chunk['cmp_loss']).detach().cpu() for chunk in outputs]).numpy()
+        # save lossOI and lossMSE as netcdf
+        path_save = self.logger.log_dir + '/loss.nc'
+        save_loss(path_save,cmp_loss)
 
         # keep only points of the original domain
         iX = np.where( (self.lon_ext>=self.xmin) & (self.lon_ext<=self.xmax) )[0]
@@ -356,7 +362,8 @@ class LitModel(pl.LightningModule):
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
             inputs_init = torch.autograd.Variable(inputs_init, requires_grad=True)
-            outputs, hidden_new, cell_new, normgrad, params = self.model(inputs_init,
+            outputs, cmp_loss, hidden_new, cell_new, normgrad, params = self.model(targets_gt,
+                                                                         inputs_init,
                                                                          inputs_missing,
                                                                          inputs_mask,
                                                                          estim_parameters=True)
@@ -376,10 +383,13 @@ class LitModel(pl.LightningModule):
                 H = torch.reshape(params[2],(len(outputs),2,2,n_x*n_y))
                 m = None
                 kappa = 1./3
+                tau = 1.
             else:
                 kappa = torch.reshape(params[0],(len(outputs),1,n_x*n_y,n_t))
                 m = torch.reshape(params[1],(len(outputs),2,n_x*n_y,n_t))
                 H = torch.reshape(params[2],(len(outputs),2,2,n_x*n_y,n_t))
+                tau = torch.reshape(params[3],(len(outputs),1,n_x*n_y,n_t))
+
             # run n_batches*simulation
             I = sparse_eye(n_x*n_y)
 
@@ -410,94 +420,113 @@ class LitModel(pl.LightningModule):
                 inputs_init_simu = x_simu.clone()
                 inputs_init_simu[idx] = 0.
                 inputs_missing_simu = inputs_init_simu
-                x_itrp_simu,_ ,_ ,_ ,_ = self.model(inputs_init_simu,
-                                                    inputs_missing_simu, inputs_mask,
-                                                    estim_parameters=False)
+                x_itrp_simu,_ , _ ,_ ,_ ,_ = self.model(targets_gt,
+                                                        inputs_init_simu,
+                                                        inputs_missing_simu, inputs_mask,
+                                                        estim_parameters=False)
                 # conditional simulation
                 x_simu_cond = outputs+(x_simu-x_itrp_simu)
 
-            # reconstruction losses
             g_outputs = self.gradient_img(outputs)
-            loss_All = NN_4DVar.compute_WeightedLoss((outputs - targets_gt), self.w_loss)
-            loss_GAll = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_gt, self.w_loss)
-            
-            # log-likelihood loss
-            # loss ML
-            Q = self.model.phi_r.operator_spde(kappa, m, H, square_root=False)
+            # Mahanalobis distance
+            Q = self.model.phi_r.operator_spde(kappa, m, H, tau, square_root=False)
             Q.requires_grad=True
             xtQx = list()
             for i in range(n_b):
                 xtQ = torch.sparse.mm(Q[i],
-                                     torch.reshape(torch.permute(targets_gt[i],(0,2,1)),(n_t*n_x*n_y,1))
+                                     torch.reshape(torch.permute(outputs[i],(0,2,1)),(n_t*n_x*n_y,1))
                                     )
-                xtQx_ = torch.matmul(torch.reshape(torch.permute(targets_gt[i],(0,2,1)),(1,n_t*n_x*n_y)),
+                xtQx_ = torch.matmul(torch.reshape(torch.permute(outputs[i],(0,2,1)),(1,n_t*n_x*n_y)),
                                   xtQ
                                  )
-                xtQx.append(torch.log(xtQx_[0,0]))
+                xtQx.append(xtQx_[0,0])
+            # reconstruction losses
+            loss_All = NN_4DVar.compute_WeightedLoss((outputs - targets_gt), self.w_loss)
+            loss_GAll = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_gt, self.w_loss)
 
-            det_Q = list()
-            for i in range(n_b):
-                index = Q[i].coalesce().indices()
-                value = Q[i].coalesce().values()
-                m = Q[i].size()[0]
-                k = Q[i].size()[1]
-                coalesced =True
-                #print(Q[i].to_dense()[:20,:20])
-                Qi = SparseTensor(row=index[0], col=index[1], value=value,
-                     sparse_sizes=(m, k), is_sorted=not coalesced)
-                # extract the T_i from Q 
-                idx = torch.tensor(np.arange(0,nb_nodes)).to(device)
-                jdx = torch.tensor(np.arange(0,nb_nodes)).to(device)
-                iP0 = torch_sparse.index_select(torch_sparse.index_select(Qi,0,idx),1,jdx)
-                row, col, value = iP0.coo()
-                index = torch.stack([row, col], dim=0)
-                value = value
-                iP0 = torch.sparse.FloatTensor(index.long(), value, torch.Size([nb_nodes,nb_nodes])).to(device)
-                log_det = torch.log(torch.prod(torch.diagonal(cholesky_sparse.apply(iP0.cpu()).to_dense(),0))**2)
-                print(log_det)
-                for i in range(n_t-1):
-                    idx = torch.tensor(np.arange((nb_nodes*(i)),(nb_nodes*(i+1)))).to(device)
-                    jdx = torch.tensor(np.arange((nb_nodes*(i+1)),(nb_nodes*(i+2)))).to(device)
-                    Si = torch_sparse.index_select(torch_sparse.index_select(Qi,0,idx),1,jdx)
-                    row, col, value = Si.coo()
+            # mse loss
+            if self.loss_type=="mse_loss":
+                loss = self.hparams.alpha_mse_ssh * loss_All #+ self.hparams.alpha_mse_gssh * loss_GAll
+
+            # log-likelihood loss
+            if self.loss_type=="ml_loss":
+                det_Q = list()
+                for i in range(n_b):
+                    index = Q[i].coalesce().indices()
+                    value = Q[i].coalesce().values()
+                    m = Q[i].size()[0]
+                    k = Q[i].size()[1]
+                    coalesced =True
+                    Qi = SparseTensor(row=index[0], col=index[1], value=value,
+                                      sparse_sizes=(m, k), is_sorted=not coalesced)
+                    # extract the T_i from Q 
+                    idx = torch.tensor(np.arange(0,nb_nodes)).to(device)
+                    jdx = torch.tensor(np.arange(0,nb_nodes)).to(device)
+                    iP0 = torch_sparse.index_select(torch_sparse.index_select(Qi,0,idx),1,jdx)
+                    row, col, value = iP0.coo()
                     index = torch.stack([row, col], dim=0)
-                    value = -1.*value
-                    Si = torch.sparse.FloatTensor(index.long(), value, torch.Size([nb_nodes,nb_nodes])).to(device)
-                    log_det = log_det + torch.log(torch.prod(torch.diagonal(cholesky_sparse.apply(Si.cpu()).to_dense(),0))**2)
-                det_Q.append(log_det)
+                    value = value
+                    iP0 = torch.sparse.FloatTensor(index.long(), value,
+                                       torch.Size([nb_nodes,nb_nodes])).to(device)-sparse_eye(nb_nodes)
+                    log_det = torch.log(torch.prod(torch.diagonal(cholesky_sparse.apply(iP0.cpu()).to_dense(),0))**2)
+                    print(torch.diagonal(cholesky_sparse.apply(iP0.cpu()).to_dense(),0))
+                    print(log_det)
+                    for i in range(n_t-1):
+                        idx = torch.tensor(np.arange((nb_nodes*(i)),(nb_nodes*(i+1)))).to(device)
+                        jdx = torch.tensor(np.arange((nb_nodes*(i+1)),(nb_nodes*(i+2)))).to(device)
+                        Si = torch_sparse.index_select(torch_sparse.index_select(Qi,0,idx),1,jdx)
+                        row, col, value = Si.coo()
+                        index = torch.stack([row, col], dim=0)
+                        value = -1.*value
+                        Si = torch.sparse.FloatTensor(index.long(), value, torch.Size([nb_nodes,nb_nodes])).to(device)
+                        log_det = log_det + torch.log(torch.prod(torch.diagonal(cholesky_sparse.apply(Si.cpu()).to_dense(),0))**2)
+                    det_Q.append(log_det)
+                loss = torch.mean( torch.stack(det_Q) + torch.stack(xtQx) )
 
-            loss_NLL = torch.mean( torch.stack(det_Q) + torch.stack(xtQx) )
-            '''
-            # add loss parameters
-            nc = xr.open_dataset(self.spde_params_path)
-            #nb_nodes = np.prod(shape_data[1:])
-            H11_gt = torch.transpose(torch.Tensor(nc.H11.values),0,1).to(device)
-            H12_gt = torch.transpose(torch.Tensor(nc.H12.values),0,1).to(device)
-            H22_gt = torch.transpose(torch.Tensor(nc.H22.values),0,1).to(device)
-            H11_gt = (torch.unsqueeze(H11_gt,dim=0)).expand(2,100,100)
-            H12_gt = (torch.unsqueeze(H12_gt,dim=0)).expand(2,100,100)
-            H22_gt = (torch.unsqueeze(H22_gt,dim=0)).expand(2,100,100)
-            H11_predict = params[2][:,0,0,:,:]
-            H12_predict = params[2][:,0,1,:,:]
-            H22_predict = params[2][:,1,1,:,:]
-            loss_H11 = torch.mean((H11_gt-H11_predict)**2)
-            loss_H12 = torch.mean((H12_gt-H12_predict)**2)
-            loss_H22 = torch.mean((H22_gt-H22_predict)**2)
-            '''
+            if self.loss_type=="oi_loss":
+                # OI loss
+                Q = self.model.phi_r.operator_spde(kappa, m, H, tau, square_root=False)
+                Q.requires_grad=True
+                dy = self.model.model_H(outputs,inputs_missing,inputs_mask)
+                dy_new=list()
+                for i in range(n_b):
+                    # observation term
+                    id_obs = torch.where(torch.flatten(inputs_mask[i])!=0.)[0]
+                    dyi = torch.index_select(torch.flatten(dy[i]), 0, id_obs).type(torch.FloatTensor).to(device)
+                    nb_obs = len(dyi)
+                    inv_R = 1e3*sparse_eye(nb_obs).type(torch.FloatTensor).to(device)
+                    iRdy = torch.sparse.mm(inv_R,torch.reshape(dyi,(nb_obs,1)))
+                    dyTiRdy = torch.matmul(torch.reshape(dyi,(1,nb_obs)),iRdy)
+                    dy_new.append(dyTiRdy[0,0])
+                dy = torch.stack(dy_new)
+                dx = torch.stack(xtQx)
+                loss = torch.mean(dy+dx)
 
-            # supervised loss
-            loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
-            print(loss)
-            print(loss_NLL)
-            #loss += loss_NLL
-            #loss += loss_H11+loss_H12+loss_H22
+            if self.loss_type=="diffusion_loss":
+                # add loss parameters
+                nc = xr.open_dataset(self.spde_params_path)
+                #nb_nodes = np.prod(shape_data[1:])
+                H11_gt = torch.transpose(torch.Tensor(nc.H11.values),0,1).to(device)
+                H12_gt = torch.transpose(torch.Tensor(nc.H12.values),0,1).to(device)
+                H22_gt = torch.transpose(torch.Tensor(nc.H22.values),0,1).to(device)
+                H11_gt = (torch.unsqueeze(H11_gt,dim=0)).expand(2,100,100)
+                H12_gt = (torch.unsqueeze(H12_gt,dim=0)).expand(2,100,100)
+                H22_gt = (torch.unsqueeze(H22_gt,dim=0)).expand(2,100,100)
+                H11_predict = params[2][:,0,0,:,:]
+                H12_predict = params[2][:,0,1,:,:]
+                H22_predict = params[2][:,1,1,:,:]
+                loss_H11 = torch.mean((H11_gt-H11_predict)**2)
+                loss_H12 = torch.mean((H12_gt-H12_predict)**2)
+                loss_H22 = torch.mean((H22_gt-H22_predict)**2)
+                loss = loss_H11#+loss_H12+loss_H22
 
             # metrics
             mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_gt, self.w_loss)
             mse = loss_All.detach()
-            mseGrad = loss_GAll.detach()
-            metrics = dict([('mse', mse), ('mseGrad', mseGrad), ('meanGrad', mean_GAll)])
+            mse_grad = loss_GAll.detach()
+            metrics = dict([('mse', mse), ('mseGrad', mse_grad), ('meanGrad', mean_GAll)])
+
         if phase!="test":
             return loss, outputs, params, metrics
         else:
-            return loss, outputs, params, metrics, x_simu_cond
+            return loss, outputs, params, metrics, x_simu_cond, cmp_loss

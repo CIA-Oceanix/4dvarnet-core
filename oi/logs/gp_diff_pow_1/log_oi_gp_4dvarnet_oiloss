@@ -1,0 +1,310 @@
+file_paths:
+  obs_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
+  gt_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
+  spde_params_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
+entrypoint:
+  _target_: hydra_main.FourDVarNetHydraRunner.run
+  max_epochs: 10
+  progress_bar_refresh_rate: 5
+params:
+  files_cfg:
+    obs_path: ${file_paths.obs_path}
+    obs_var: 'y'
+    gt_path: ${file_paths.gt_path}
+    gt_var: x
+    spde_params_path: ${file_paths.spde_params_path}
+  iter_update:
+  - 0
+  - 20
+  - 40
+  - 60
+  - 100
+  - 150
+  - 800
+  nb_grad_update:
+  - 20
+  - 20
+  - 20
+  - 20
+  - 20
+  - 20
+  - 50
+  - 50
+  - 50
+  lr_update:
+  - 0.001
+  - 0.0001
+  - 0.001
+  - 0.0001
+  - 0.0001
+  - 1.0e-05
+  - 1.0e-05
+  - 1.0e-06
+  - 1.0e-07
+  k_batch: 1
+  n_grad: 100
+  dT: 5
+  dx: 1
+  W: 100
+  resize_factor: 1
+  shapeData:
+  - 5
+  - 100
+  - 100
+  dW: 3
+  dW2: 1
+  sS: 4
+  nbBlocks: 1
+  Nbpatches: 1
+  stochastic: false
+  size_ensemble: 1
+  animate: true
+  supervised: true
+  estim_parameters: false
+  DimAE: 25
+  dim_grad_solver: 70
+  dropout: 0.25
+  dropout_phi_r: 0.0
+  alpha_proj: 0.5
+  alpha_sr: 0.5
+  alpha_lr: 0.5
+  alpha_mse_ssh: 10.0
+  alpha_mse_gssh: 1.0
+  sigNoise: 0.0
+  flagSWOTData: true
+  rnd1: 0
+  rnd2: 100
+  dwscale: 1
+  UsePriodicBoundary: false
+  InterpFlag: false
+  automatic_optimization: true
+  ckpt_name: modelGP_{epoch:02d}-{val_loss:.2f}
+  norm_obs: l2
+  norm_prior: l2
+  diff_only: true
+  test_domain:
+    lat:
+      _target_: builtins.slice
+      _args_:
+      - 0
+      - 100
+    lon:
+      _target_: builtins.slice
+      _args_:
+      - 0
+      - 100
+  loss_type: oi_loss
+datamodule:
+  dim_range:
+    lat:
+      _target_: builtins.slice
+      _args_:
+      - 0
+      - 100
+    lon:
+      _target_: builtins.slice
+      _args_:
+      - 0
+      - 100
+  _target_: oi.dataloading_gp.FourDVarNetDataModule
+  slice_win:
+    lat: 100
+    lon: 100
+    time: 5
+  strides:
+    lat: 100
+    lon: 100
+    time: 1
+  train_slices:
+  - _target_: builtins.slice
+    _args_:
+    - '2012-10-01'
+    - '2012-11-20'
+  - _target_: builtins.slice
+    _args_:
+    - '2013-02-07'
+    - '2013-09-10'
+  test_slices:
+  - _target_: builtins.slice
+    _args_:
+    - '2013-01-03'
+    - '2013-01-27'
+  val_slices:
+  - _target_: builtins.slice
+    _args_:
+    - '2012-11-30'
+    - '2012-12-24'
+  obs_path: ${params.files_cfg.obs_path}
+  obs_var: ${params.files_cfg.obs_var}
+  gt_path: ${params.files_cfg.gt_path}
+  gt_var: ${params.files_cfg.gt_var}
+  dl_kwargs:
+    batch_size: 2
+    num_workers: 2
+  resize_factor: 1
+lit_mod_cls: oi.lit_model_wphi_linear.LitModel
+xp_name: oi_gp_4dvarnet_wphi_linear_oi_loss
+seed: 0
+
+file_paths:
+  obs_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
+  gt_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
+  spde_params_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
+entrypoint:
+  _target_: hydra_main.FourDVarNetHydraRunner.run
+  max_epochs: 10
+  progress_bar_refresh_rate: 5
+params:
+  files_cfg:
+    obs_path: ${file_paths.obs_path}
+    obs_var: 'y'
+    gt_path: ${file_paths.gt_path}
+    gt_var: x
+    spde_params_path: ${file_paths.spde_params_path}
+  iter_update:
+  - 0
+  - 20
+  - 40
+  - 60
+  - 100
+  - 150
+  - 800
+  nb_grad_update:
+  - 20
+  - 20
+  - 20
+  - 20
+  - 20
+  - 20
+  - 50
+  - 50
+  - 50
+  lr_update:
+  - 0.001
+  - 0.0001
+  - 0.001
+  - 0.0001
+  - 0.0001
+  - 1.0e-05
+  - 1.0e-05
+  - 1.0e-06
+  - 1.0e-07
+  k_batch: 1
+  n_grad: 100
+  dT: 5
+  dx: 1
+  W: 100
+  resize_factor: 1
+  shapeData:
+  - 5
+  - 100
+  - 100
+  dW: 3
+  dW2: 1
+  sS: 4
+  nbBlocks: 1
+  Nbpatches: 1
+  stochastic: false
+  size_ensemble: 1
+  animate: true
+  supervised: true
+  estim_parameters: false
+  DimAE: 25
+  dim_grad_solver: 70
+  dropout: 0.25
+  dropout_phi_r: 0.0
+  alpha_proj: 0.5
+  alpha_sr: 0.5
+  alpha_lr: 0.5
+  alpha_mse_ssh: 10.0
+  alpha_mse_gssh: 1.0
+  sigNoise: 0.0
+  flagSWOTData: true
+  rnd1: 0
+  rnd2: 100
+  dwscale: 1
+  UsePriodicBoundary: false
+  InterpFlag: false
+  automatic_optimization: true
+  ckpt_name: modelGP_{epoch:02d}-{val_loss:.2f}
+  norm_obs: l2
+  norm_prior: l2
+  diff_only: true
+  test_domain:
+    lat:
+      _target_: builtins.slice
+      _args_:
+      - 0
+      - 100
+    lon:
+      _target_: builtins.slice
+      _args_:
+      - 0
+      - 100
+  loss_type: oi_loss
+datamodule:
+  dim_range:
+    lat:
+      _target_: builtins.slice
+      _args_:
+      - 0
+      - 100
+    lon:
+      _target_: builtins.slice
+      _args_:
+      - 0
+      - 100
+  _target_: oi.dataloading_gp.FourDVarNetDataModule
+  slice_win:
+    lat: 100
+    lon: 100
+    time: 5
+  strides:
+    lat: 100
+    lon: 100
+    time: 1
+  train_slices:
+  - _target_: builtins.slice
+    _args_:
+    - '2012-10-01'
+    - '2012-11-20'
+  - _target_: builtins.slice
+    _args_:
+    - '2013-02-07'
+    - '2013-09-10'
+  test_slices:
+  - _target_: builtins.slice
+    _args_:
+    - '2013-01-03'
+    - '2013-01-27'
+  val_slices:
+  - _target_: builtins.slice
+    _args_:
+    - '2012-11-30'
+    - '2012-12-24'
+  obs_path: ${params.files_cfg.obs_path}
+  obs_var: ${params.files_cfg.obs_var}
+  gt_path: ${params.files_cfg.gt_path}
+  gt_var: ${params.files_cfg.gt_var}
+  dl_kwargs:
+    batch_size: 2
+    num_workers: 2
+  resize_factor: 1
+lit_mod_cls: oi.lit_model_wphi_linear.LitModel
+xp_name: oi_gp_4dvarnet_wphi_linear_oi_loss
+seed: 0
+
+Warning: ecCodes 2.21.0 or higher is recommended. You are running version 2.16.0
+Using current oi.metrics
+[2022-09-18 23:41:25,500][cartopy_userconfig][INFO] - Setting cartopy.config["pre_existing_data_dir"] to /users/local/m19beauc/miniconda3/envs/4dvarnet/share/cartopy. Don't worry, this is probably intended behaviour to avoid failing downloads of geological data behind a firewall.
+{'lat': 100, 'lon': 100, 'time': 5}
+get_model:  None
+{'max_epochs': 10, 'progress_bar_refresh_rate': 5}
+{'num_nodes': 1, 'gpus': 1, 'logger': True, 'auto_select_gpus': True, 'callbacks': [<pytorch_lightning.callbacks.model_checkpoint.ModelCheckpoint object at 0x7f2b3acee850>, <pytorch_lightning.callbacks.lr_monitor.LearningRateMonitor object at 0x7f2b3acee070>], 'max_epochs': 10, 'progress_bar_refresh_rate': 5}
+Validation sanity check: 0it [00:00, ?it/s]Validation sanity check:   0%|          | 0/2 [00:00<?, ?it/s]                                                              Training: -1it [00:00, ?it/s]Training:   0%|          | 0/141 [00:00<00:00, 10280.16it/s]Epoch 0:   0%|          | 0/141 [00:00<00:00, 3037.15it/s]  Epoch 0:   4%|▎         | 5/141 [00:25<09:28,  4.18s/it]  Epoch 0:   4%|▎         | 5/141 [00:25<09:29,  4.18s/it, loss=1.92e+05, v_num=0, loss_step=1.89e+5]Epoch 0:   7%|▋         | 10/141 [00:51<10:08,  4.64s/it, loss=1.92e+05, v_num=0, loss_step=1.89e+5]Epoch 0:   7%|▋         | 10/141 [00:51<10:08,  4.64s/it, loss=1.98e+05, v_num=0, loss_step=1.86e+5]Epoch 0:  11%|█         | 15/141 [01:16<10:05,  4.81s/it, loss=1.98e+05, v_num=0, loss_step=1.86e+5]Epoch 0:  11%|█         | 15/141 [01:16<10:05,  4.81s/it, loss=1.94e+05, v_num=0, loss_step=1.8e+5] Epoch 0:  14%|█▍        | 20/141 [01:42<09:48,  4.86s/it, loss=1.94e+05, v_num=0, loss_step=1.8e+5]Epoch 0:  14%|█▍        | 20/141 [01:42<09:48,  4.86s/it, loss=1.9e+05, v_num=0, loss_step=1.87e+5]Epoch 0:  18%|█▊        | 25/141 [02:07<09:29,  4.91s/it, loss=1.9e+05, v_num=0, loss_step=1.87e+5]Epoch 0:  18%|█▊        | 25/141 [02:07<09:29,  4.91s/it, loss=1.9e+05, v_num=0, loss_step=1.76e+5]Epoch 0:  21%|██▏       | 30/141 [02:34<09:13,  4.99s/it, loss=1.9e+05, v_num=0, loss_step=1.76e+5]Epoch 0:  21%|██▏       | 30/141 [02:34<09:13,  4.99s/it, loss=1.86e+05, v_num=0, loss_step=1.61e+5]Epoch 0:  25%|██▍       | 35/141 [02:59<08:49,  5.00s/it, loss=1.86e+05, v_num=0, loss_step=1.61e+5]Epoch 0:  25%|██▍       | 35/141 [02:59<08:49,  5.00s/it, loss=1.85e+05, v_num=0, loss_step=1.75e+5]Epoch 0:  28%|██▊       | 40/141 [03:25<08:26,  5.02s/it, loss=1.85e+05, v_num=0, loss_step=1.75e+5]Epoch 0:  28%|██▊       | 40/141 [03:25<08:26,  5.02s/it, loss=1.89e+05, v_num=0, loss_step=1.81e+5]Epoch 0:  32%|███▏      | 45/141 [03:50<08:01,  5.02s/it, loss=1.89e+05, v_num=0, loss_step=1.81e+5]Epoch 0:  32%|███▏      | 45/141 [03:50<08:01,  5.02s/it, loss=1.89e+05, v_num=0, loss_step=1.83e+5]Epoch 0:  35%|███▌      | 50/141 [04:16<07:37,  5.03s/it, loss=1.89e+05, v_num=0, loss_step=1.83e+5]Epoch 0:  35%|███▌      | 50/141 [04:16<07:37,  5.03s/it, loss=1.89e+05, v_num=0, loss_step=2.29e+5]Epoch 0:  39%|███▉      | 55/141 [04:42<07:13,  5.05s/it, loss=1.89e+05, v_num=0, loss_step=2.29e+5]Epoch 0:  39%|███▉      | 55/141 [04:42<07:13,  5.05s/it, loss=1.92e+05, v_num=0, loss_step=2.2e+5] Epoch 0:  43%|████▎     | 60/141 [05:07<06:48,  5.04s/it, loss=1.92e+05, v_num=0, loss_step=2.2e+5]Epoch 0:  43%|████▎     | 60/141 [05:07<06:48,  5.04s/it, loss=1.92e+05, v_num=0, loss_step=2.33e+5]Epoch 0:  46%|████▌     | 65/141 [05:33<06:23,  5.05s/it, loss=1.92e+05, v_num=0, loss_step=2.33e+5]Epoch 0:  46%|████▌     | 65/141 [05:33<06:23,  5.05s/it, loss=1.91e+05, v_num=0, loss_step=1.59e+5]Epoch 0:  50%|████▉     | 70/141 [05:58<05:58,  5.05s/it, loss=1.91e+05, v_num=0, loss_step=1.59e+5]Epoch 0:  50%|████▉     | 70/141 [05:58<05:58,  5.05s/it, loss=1.92e+05, v_num=0, loss_step=2.06e+5]Epoch 0:  53%|█████▎    | 75/141 [06:23<05:32,  5.04s/it, loss=1.92e+05, v_num=0, loss_step=2.06e+5]Epoch 0:  53%|█████▎    | 75/141 [06:23<05:32,  5.04s/it, loss=1.94e+05, v_num=0, loss_step=1.87e+5]Epoch 0:  57%|█████▋    | 80/141 [06:48<05:07,  5.04s/it, loss=1.94e+05, v_num=0, loss_step=1.87e+5]Epoch 0:  57%|█████▋    | 80/141 [06:48<05:07,  5.04s/it, loss=1.91e+05, v_num=0, loss_step=1.6e+5] Epoch 0:  60%|██████    | 85/141 [07:12<04:41,  5.03s/it, loss=1.91e+05, v_num=0, loss_step=1.6e+5]Epoch 0:  60%|██████    | 85/141 [07:12<04:41,  5.03s/it, loss=1.88e+05, v_num=0, loss_step=1.67e+5]Epoch 0:  64%|██████▍   | 90/141 [07:38<04:17,  5.04s/it, loss=1.88e+05, v_num=0, loss_step=1.67e+5]Epoch 0:  64%|██████▍   | 90/141 [07:38<04:17,  5.04s/it, loss=1.85e+05, v_num=0, loss_step=1.7e+5] Epoch 0:  67%|██████▋   | 95/141 [08:05<03:52,  5.06s/it, loss=1.85e+05, v_num=0, loss_step=1.7e+5]Epoch 0:  67%|██████▋   | 95/141 [08:05<03:52,  5.06s/it, loss=1.78e+05, v_num=0, loss_step=1.75e+5]Epoch 0:  71%|███████   | 100/141 [08:31<03:27,  5.06s/it, loss=1.78e+05, v_num=0, loss_step=1.75e+5]Epoch 0:  71%|███████   | 100/141 [08:31<03:27,  5.06s/it, loss=1.79e+05, v_num=0, loss_step=1.71e+5]Epoch 0:  74%|███████▍  | 105/141 [08:58<03:02,  5.08s/it, loss=1.79e+05, v_num=0, loss_step=1.71e+5]Epoch 0:  74%|███████▍  | 105/141 [08:58<03:02,  5.08s/it, loss=1.82e+05, v_num=0, loss_step=1.74e+5]Epoch 0:  78%|███████▊  | 110/141 [09:24<02:37,  5.09s/it, loss=1.82e+05, v_num=0, loss_step=1.74e+5]Epoch 0:  78%|███████▊  | 110/141 [09:24<02:37,  5.09s/it, loss=1.82e+05, v_num=0, loss_step=1.85e+5]Epoch 0:  82%|████████▏ | 115/141 [09:50<02:12,  5.09s/it, loss=1.82e+05, v_num=0, loss_step=1.85e+5]Epoch 0:  82%|████████▏ | 115/141 [09:50<02:12,  5.09s/it, loss=1.84e+05, v_num=0, loss_step=1.79e+5]Epoch 0:  85%|████████▌ | 120/141 [10:16<01:47,  5.10s/it, loss=1.84e+05, v_num=0, loss_step=1.79e+5]Epoch 0:  85%|████████▌ | 120/141 [10:16<01:47,  5.10s/it, loss=1.81e+05, v_num=0, loss_step=1.85e+5]Epoch 0:  89%|████████▊ | 125/141 [10:43<01:21,  5.10s/it, loss=1.81e+05, v_num=0, loss_step=1.85e+5]Epoch 0:  89%|████████▊ | 125/141 [10:43<01:21,  5.10s/it, loss=1.77e+05, v_num=0, loss_step=1.81e+5]Epoch 0:  92%|█████████▏| 130/141 [11:06<00:55,  5.09s/it, loss=1.77e+05, v_num=0, loss_step=1.81e+5]Epoch 0:  92%|█████████▏| 130/141 [11:06<00:55,  5.09s/it, loss=1.76e+05, v_num=0, loss_step=1.65e+5]
+Validating: 0it [00:00, ?it/s][A
+Validating:   0%|          | 0/11 [00:00<?, ?it/s][A
+Validating:  45%|████▌     | 5/11 [00:23<00:28,  4.70s/it][AEpoch 0:  99%|█████████▉| 140/141 [11:29<00:04,  4.89s/it, loss=1.76e+05, v_num=0, loss_step=1.65e+5]
+Validating:  91%|█████████ | 10/11 [00:46<00:04,  4.68s/it][AEpoch 0: 100%|██████████| 141/141 [11:53<00:00,  5.02s/it, loss=1.76e+05, v_num=0, loss_step=1.65e+5]
+Validating: 100%|██████████| 11/11 [00:49<00:00,  4.36s/it][AEpoch 0: 100%|██████████| 141/141 [11:55<00:00,  5.04s/it, loss=1.76e+05, v_num=0, loss_step=1.65e+5, val_mse=9.750, val_mseG=0.878]
+                                                           [AEpoch 0:   0%|          | 0/141 [00:00<00:00, 13617.87it/s, loss=1.76e+05, v_num=0, loss_step=1.65e+5, val_mse=9.750, val_mseG=0.878]Epoch 1:   0%|          | 0/141 [00:00<00:00, 3539.50it/s, loss=1.76e+05, v_num=0, loss_step=1.65e+5, val_mse=9.750, val_mseG=0.878] Epoch 1:   4%|▎         | 5/141 [00:25<09:35,  4.23s/it, loss=1.76e+05, v_num=0, loss_step=1.65e+5, val_mse=9.750, val_mseG=0.878]  Epoch 1:   4%|▎         | 5/141 [00:25<09:35,  4.23s/it, loss=1.9e+05, v_num=0, loss_step=1.98e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:   7%|▋         | 10/141 [00:50<10:00,  4.58s/it, loss=1.9e+05, v_num=0, loss_step=1.98e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:   7%|▋         | 10/141 [00:50<10:00,  4.58s/it, loss=2.01e+05, v_num=0, loss_step=2.71e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  11%|█         | 15/141 [01:14<09:44,  4.64s/it, loss=2.01e+05, v_num=0, loss_step=2.71e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  11%|█         | 15/141 [01:14<09:44,  4.64s/it, loss=2.14e+05, v_num=0, loss_step=3.19e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  14%|█▍        | 20/141 [01:38<09:27,  4.69s/it, loss=2.14e+05, v_num=0, loss_step=3.19e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  14%|█▍        | 20/141 [01:38<09:27,  4.69s/it, loss=2.24e+05, v_num=0, loss_step=2.23e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  18%|█▊        | 25/141 [02:02<09:05,  4.71s/it, loss=2.24e+05, v_num=0, loss_step=2.23e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  18%|█▊        | 25/141 [02:02<09:05,  4.71s/it, loss=2.2e+05, v_num=0, loss_step=2.77e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871] Epoch 1:  21%|██▏       | 30/141 [02:26<08:42,  4.71s/it, loss=2.2e+05, v_num=0, loss_step=2.77e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  21%|██▏       | 30/141 [02:26<08:42,  4.71s/it, loss=2.21e+05, v_num=0, loss_step=2.57e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  25%|██▍       | 35/141 [02:49<08:19,  4.71s/it, loss=2.21e+05, v_num=0, loss_step=2.57e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  25%|██▍       | 35/141 [02:49<08:19,  4.71s/it, loss=2.18e+05, v_num=0, loss_step=2.5e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871] Epoch 1:  28%|██▊       | 40/141 [03:13<07:57,  4.73s/it, loss=2.18e+05, v_num=0, loss_step=2.5e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  28%|██▊       | 40/141 [03:13<07:57,  4.73s/it, loss=2.2e+05, v_num=0, loss_step=2.21e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  32%|███▏      | 45/141 [03:37<07:34,  4.74s/it, loss=2.2e+05, v_num=0, loss_step=2.21e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  32%|███▏      | 45/141 [03:37<07:34,  4.74s/it, loss=2.19e+05, v_num=0, loss_step=2.32e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  35%|███▌      | 50/141 [04:01<07:11,  4.74s/it, loss=2.19e+05, v_num=0, loss_step=2.32e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  35%|███▌      | 50/141 [04:01<07:11,  4.74s/it, loss=2.14e+05, v_num=0, loss_step=1.72e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  39%|███▉      | 55/141 [04:26<06:48,  4.75s/it, loss=2.14e+05, v_num=0, loss_step=1.72e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  39%|███▉      | 55/141 [04:26<06:48,  4.75s/it, loss=2.12e+05, v_num=0, loss_step=1.95e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  43%|████▎     | 60/141 [04:50<06:25,  4.76s/it, loss=2.12e+05, v_num=0, loss_step=1.95e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  43%|████▎     | 60/141 [04:50<06:25,  4.76s/it, loss=2.03e+05, v_num=0, loss_step=1.81e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  46%|████▌     | 65/141 [05:14<06:01,  4.76s/it, loss=2.03e+05, v_num=0, loss_step=1.81e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  46%|████▌     | 65/141 [05:14<06:01,  4.76s/it, loss=2.07e+05, v_num=0, loss_step=2.59e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  50%|████▉     | 70/141 [05:38<05:38,  4.76s/it, loss=2.07e+05, v_num=0, loss_step=2.59e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  50%|████▉     | 70/141 [05:38<05:38,  4.76s/it, loss=2.1e+05, v_num=0, loss_step=2.17e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871] Epoch 1:  53%|█████▎    | 75/141 [06:02<05:14,  4.77s/it, loss=2.1e+05, v_num=0, loss_step=2.17e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  53%|█████▎    | 75/141 [06:02<05:14,  4.77s/it, loss=2.1e+05, v_num=0, loss_step=2.05e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  57%|█████▋    | 80/141 [06:26<04:51,  4.77s/it, loss=2.1e+05, v_num=0, loss_step=2.05e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  57%|█████▋    | 80/141 [06:26<04:51,  4.77s/it, loss=2.16e+05, v_num=0, loss_step=1.9e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  60%|██████    | 85/141 [06:50<04:27,  4.77s/it, loss=2.16e+05, v_num=0, loss_step=1.9e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]Epoch 1:  60%|██████    | 85/141 [06:50<04:27,  4.77s/it, loss=2.18e+05, v_num=0, loss_step=2.43e+5, val_mse=9.750, val_mseG=0.878, loss_epoch=1.86e+5, tr_mse=9.430, tr_mseG=0.871]

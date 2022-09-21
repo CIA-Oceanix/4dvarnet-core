@@ -10,6 +10,9 @@ import numpy as np
 import torch
 from torch import nn
 import torch.nn.functional as F
+from oi.models_spde import sparse_eye
+import xarray as xr
+from oi.models_spde import Phi_r as Phi_r_spde
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class CorrelateNoise(torch.nn.Module):
@@ -333,7 +336,7 @@ class Model_Var_Cost(nn.Module):
     def forward(self, dx, dy):
 
         loss = self.alphaReg**2 * self.normPrior(dx,self.WReg**2,self.epsReg)
-                
+
         if self.dim_obs == 1 :
             loss +=  self.alphaObs[0]**2 * self.normObs(dy,self.WObs[0,:]**2,self.epsObs[0])
         else:
@@ -359,10 +362,14 @@ class Solver_Grad_4DVarNN(nn.Module):
             'l1': Model_WeightedL1Norm,
             'l2': Model_WeightedL2Norm,
     }
-    def __init__(self ,phi_r,mod_H, m_Grad, m_NormObs, m_NormPhi, shape_data,n_iter_grad, stochastic=False):
+    def __init__(self ,phi_r,mod_H, m_Grad, m_NormObs, m_NormPhi, shape_data,n_iter_grad, 
+                 stochastic=False,
+                 spde_dataset_path="/users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc"):
         super(Solver_Grad_4DVarNN, self).__init__()
-        self.phi_r         = phi_r
-        
+        self.phi_r  = phi_r
+        spde = xr.open_dataset(spde_dataset_path)
+        self.phi_r_spde = Phi_r_spde(shape_data, diff_only=True, square_root=False, 
+                                     given_parameters=True, nc=spde)
         if m_NormObs == None:
             m_NormObs =  Model_WeightedL2Norm()
         else:
@@ -381,27 +388,30 @@ class Solver_Grad_4DVarNN(nn.Module):
         with torch.no_grad():
             self.n_grad = int(n_iter_grad)
         
-    def forward(self, x, yobs, mask):
+    def forward(self, gt, x, yobs, mask):
         return self.solve(
+            gt=gt,
             x_0=x,
             obs=yobs,
             mask = mask)
 
-    def solve(self, x_0, obs, mask):
+    def solve(self, gt, x_0, obs, mask):
         x_k = torch.mul(x_0,1.) 
         hidden = None
         cell = None 
         normgrad_ = 0.
-        x_k_plus_1 = None 
-        for _ in range(self.n_grad):
-            x_k_plus_1, hidden, cell, normgrad_ = self.solver_step(x_k, obs, mask,hidden, cell, normgrad_)
-
+        x_k_plus_1 = None
+        cmp_loss = torch.ones(x_k.shape[0],self.n_grad,2)
+        for k in range(self.n_grad):
+            x_k_plus_1, cmp_loss_, hidden, cell, normgrad_ = self.solver_step(gt, x_k, obs, mask,hidden, cell, normgrad_)
             x_k = torch.mul(x_k_plus_1,1.)
+            for batch in range(len(cmp_loss)):
+                cmp_loss[batch,k,:] = cmp_loss_[batch,:]
 
-        return x_k_plus_1, hidden, cell, normgrad_
+        return x_k_plus_1, cmp_loss, hidden, cell, normgrad_
 
-    def solver_step(self, x_k, obs, mask, hidden, cell,normgrad = 0.):
-        _, var_cost_grad= self.var_cost(x_k, obs, mask)
+    def solver_step(self, gt, x_k, obs, mask, hidden, cell,normgrad = 0.):
+        _, cmp_loss, var_cost_grad = self.var_cost(gt, x_k, obs, mask)
         if normgrad == 0. :
             normgrad_= torch.sqrt( torch.mean( var_cost_grad**2 + 0.))
         else:
@@ -409,13 +419,45 @@ class Solver_Grad_4DVarNN(nn.Module):
         grad, hidden, cell = self.model_Grad(hidden, cell, var_cost_grad, normgrad_)
         grad *= 1./ self.n_grad
         x_k_plus_1 = x_k - grad
-        return x_k_plus_1, hidden, cell, normgrad_
+        return x_k_plus_1, cmp_loss, hidden, cell, normgrad_
 
-    def var_cost(self , x, yobs, mask):
+    def var_cost(self , gt, x, yobs, mask):
         dy = self.model_H(x,yobs,mask)
+        # Jb
         dx = x - self.phi_r(x)
-
-        loss = self.model_VarCost( dx , dy )
-        
+        # varcost
+        loss = self.model_VarCost( dx , dy)
+        n_b, n_t, n_x, n_y = dy.shape
+        # Jo
+        dy_new=list()
+        for i in range(n_b):
+            id_obs = torch.where(torch.flatten(mask[i])!=0.)[0]
+            dyi = torch.index_select(torch.flatten(dy[i]), 0, id_obs).type(torch.FloatTensor).to(device)
+            nb_obs = len(dyi)
+            inv_R = 1e3*sparse_eye(nb_obs).type(torch.FloatTensor).to(device)
+            iRdy = torch.sparse.mm(inv_R,torch.reshape(dyi,(nb_obs,1)))
+            dyTiRdy = torch.matmul(torch.reshape(dyi,(1,nb_obs)),iRdy)
+            dy_new.append(dyTiRdy[0,0])
+        dy = torch.stack(dy_new)
+        # Jb_OI (xtQx)
+        Q = self.phi_r_spde.Q
+        xtQx = list()
+        for i in range(n_b):
+            # prior regularization
+            xtQ = torch.sparse.mm(Q,
+                                  torch.reshape(torch.permute(x[i],(0,2,1)),(n_t*n_x*n_y,1))
+                                )
+            xtQx_ = torch.matmul(torch.reshape(torch.permute(x[i],(0,2,1)),(1,n_t*n_x*n_y)),
+                                 xtQ
+                                )
+            xtQx.append(xtQx_[0,0])
+        dx = torch.stack(xtQx)
+        # loss_OI
+        loss_OI = dy + dx
         var_cost_grad = torch.autograd.grad(loss, x, create_graph=True)[0]
-        return loss, var_cost_grad
+
+        # return loss OI (loss) and MSE
+        loss_mse = torch.tensor([compute_WeightedLoss((gt[i] - x[i]),torch.Tensor(np.ones(5)).to(device)) for i in range(len(gt))])
+        loss_mse = loss_mse.to(device)
+
+        return loss, torch.hstack([torch.reshape(loss_mse,(n_b,1)), torch.reshape(loss_OI,(n_b,1))]), var_cost_grad

@@ -1,11 +1,17 @@
 # @package _global_
-xp_name: oi_gp_spde
+xp_name: oi_gp_4dvarnet_mse_loss_test_grad_lstm_pow_1_diff
+
+params:
+  loss_type: mse_loss
+
+lit_mod_cls: oi.lit_model_grad_lstm.LitModel
+
 datamodule:
   resize_factor: 1
 defaults:
   - /params: fourdvarnet_oi_gp
   - /domain@datamodule.dim_range: gp
   - /domain@params.test_domain: gp
-  - /training: oi_gp_spde
+  - /training: oi_gp_4dvarnet
   - _self_
 

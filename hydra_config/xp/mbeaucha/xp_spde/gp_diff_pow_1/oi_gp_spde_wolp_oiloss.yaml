@@ -1,0 +1,18 @@
+# @package _global_
+xp_name: oi_gp_spde_wolp_oi_loss_pow_1_diff
+
+params:
+  loss_type: oi_loss
+  n_grad: 100
+datamodule:
+  resize_factor: 1
+
+lit_mod_cls: oi.lit_model_spde_wolp.LitModel
+
+defaults:
+  - /params: fourdvarnet_oi_gp
+  - /domain@datamodule.dim_range: gp
+  - /domain@params.test_domain: gp
+  - /training: oi_gp_spde
+  - _self_
+

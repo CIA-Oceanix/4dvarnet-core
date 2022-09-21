@@ -306,6 +306,34 @@ def save_NetCDF2(gt,obs,oi,pred,var_f,var_a,param,lon,lat,
     xrdata.time.attrs['units']='days since 2012-10-01 00:00:00'
     xrdata.to_netcdf(path=figName, mode='w')
 
+def save_loss(saved_path, loss):
+    '''
+    saved_path: string 
+    loss: 3d numpy array (patch*ngrad*2)
+    '''
+
+    xrdata = xr.Dataset( \
+            data_vars={'loss_mse': (('patch','iter'), loss[:,:,0]),
+                       'loss_oi': (('patch','iter'), loss[:,:,1])},
+            coords={'patch': np.arange(loss.shape[0]), 
+                    'iter': np.arange(loss.shape[1])})
+    xrdata.to_netcdf(path=saved_path, mode='w')
+
+def save_grads(saved_path, grads):
+    '''
+    saved_path: string 
+    loss: 6d numpy array (patch*2*nt*nx*ny*ngrad)
+    '''
+
+    xrdata = xr.Dataset( \
+            data_vars={'grad': (('patch','iter','t','y','x'), grads[:,0,:,:,:,:]),
+                'lstm_grad': (('patch','iter','t','y','x'), grads[:,1,:,:,:,:])},
+            coords={'patch': np.arange(grads.shape[0]),
+                    't': np.arange(grads.shape[2]),
+                    'y': np.arange(grads.shape[3]),
+                    'x': np.arange(grads.shape[4]),
+                    'iter': np.arange(grads.shape[5])})
+    xrdata.to_netcdf(path=saved_path, mode='w')
 
 def nrmse(ref, pred):
     '''

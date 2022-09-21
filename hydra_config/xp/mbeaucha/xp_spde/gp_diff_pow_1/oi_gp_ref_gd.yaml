@@ -1,0 +1,18 @@
+# @package _global_
+xp_name: oi_gp_ref_gd_pow_1_diff
+
+params:
+  n_grad: 25000
+
+datamodule:
+  resize_factor: 1
+
+lit_mod_cls: oi.lit_model_oi_ref_gd.LitModel
+
+defaults:
+  - /params: fourdvarnet_oi_gp
+  - /domain@datamodule.dim_range: gp
+  - /domain@params.test_domain: gp
+  - /training: oi_gp_spde
+  - _self_
+

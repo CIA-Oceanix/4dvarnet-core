@@ -10,7 +10,7 @@ from hydra.utils import get_class, instantiate, call
 from omegaconf import OmegaConf
 import hydra_config
 import numpy as np
-
+import timeit
 
 def get_profiler():
     from pytorch_lightning.profiler import PyTorchProfiler
@@ -91,8 +91,13 @@ class FourDVarNetHydraRunner:
         :param dataloader: Dataloader on which to run the test Checkpoint from which to resume
         :param trainer_kwargs: (Optional)
         """
+        start = timeit.default_timer()
         mod, trainer = self.train(ckpt_path, **trainer_kwargs)
+        stop1 = timeit.default_timer()
         self.test(dataloader=dataloader, _mod=mod, _trainer=trainer)
+        stop2 = timeit.default_timer()
+        print('# TRAINING TIME\t: ',np.round((stop1-start)/60.,2),' mins\t',
+              '# TEST TIME\t: ',np.round((stop2-stop1)/60.,2),' mins')
 
     def _get_model(self, ckpt_path=None):
         """

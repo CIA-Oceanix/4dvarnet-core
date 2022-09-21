@@ -1,11 +1,19 @@
 # @package _global_
-xp_name: oi_gp_ref
+xp_name: oi_gp_4dvarnet_fp_mse_loss_pow_1_diff
+
+params:
+  loss_type: mse_loss
+  n_fp: 5
+
 datamodule:
   resize_factor: 1
+
+lit_mod_cls: oi.lit_model_fp.LitModel
+
 defaults:
   - /params: fourdvarnet_oi_gp
   - /domain@datamodule.dim_range: gp
   - /domain@params.test_domain: gp
-  - /training: oi_gp_ref
+  - /training: oi_gp_4dvarnet
   - _self_
 

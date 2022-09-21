@@ -1,0 +1,23 @@
+# @package _global_
+xp_name: oi_gp_unet_oi_loss_pow_1_iso
+
+params:
+  files_cfg:
+    obs_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_1_iso.nc
+    gt_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_1_iso.nc
+    spde_params_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_1_iso.nc
+  loss_type: oi_loss
+  n_grad: 100
+
+datamodule:
+  resize_factor: 1
+
+lit_mod_cls: oi.lit_model_phi.LitModel
+
+defaults:
+  - /params: fourdvarnet_oi_gp
+  - /domain@datamodule.dim_range: gp
+  - /domain@params.test_domain: gp
+  - /training: oi_gp_4dvarnet
+  - _self_
+

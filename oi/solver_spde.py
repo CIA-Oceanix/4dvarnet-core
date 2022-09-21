@@ -12,6 +12,18 @@ from torch import nn
 import torch.nn.functional as F
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+def sparse_eye(size, val = torch.tensor(1.0)):
+    """
+    Returns the identity matrix as a sparse matrix
+    """
+    indices = torch.arange(0, size).long().unsqueeze(0).expand(2, size).to(device)
+    if len(val.size())==0:
+        values = (val.expand(size)).to(device)
+    else:
+        values = val.to(device)
+    cls = getattr(torch.sparse, values.type().split(".")[-1])
+    return cls(indices, values, torch.Size([size, size])).to(device)
+
 class CorrelateNoise(torch.nn.Module):
     def __init__(self, shape_data, dim_cn):
         super(CorrelateNoise, self).__init__()
@@ -331,12 +343,11 @@ class Model_Var_Cost(nn.Module):
         self.normPrior = m_NormPhi
         
     def forward(self, dx, dy, square_root=False):
-
         if square_root==True:
             loss = self.alphaReg**2 * self.normPrior(dx,self.WReg**2,self.epsReg)
         else:
             loss = self.alphaReg**2 * dx
-
+        '''
         if self.dim_obs == 1 :
             loss +=  self.alphaObs[0]**2 * self.normObs(dy,self.WObs[0,:]**2,self.epsObs[0])
         else:
@@ -349,7 +360,10 @@ class Model_Var_Cost(nn.Module):
                         self.epsObs[kk]
                     )
                 )
-
+        '''
+        loss2 = torch.mean(torch.sum(dy**2))
+        print(loss2)
+        loss += loss2
         return loss
 
 # 4DVarNN Solver class using automatic differentiation for the computation of gradient of the variational cost
@@ -385,29 +399,33 @@ class Solver_Grad_4DVarNN(nn.Module):
         with torch.no_grad():
             self.n_grad = int(n_iter_grad)
         
-    def forward(self, x, yobs, mask, estim_parameters=True):
+    def forward(self, gt, x, yobs, mask, estim_parameters=True):
         return self.solve(
+            gt=gt,
             x_0=x,
             obs=yobs,
             mask = mask,
             estim_parameters = estim_parameters)
 
-    def solve(self, x_0, obs, mask, estim_parameters):
+    def solve(self, gt, x_0, obs, mask, estim_parameters):
         x_k = torch.mul(x_0,1.) 
         hidden = None
         cell = None 
         normgrad_ = 0.
-        x_k_plus_1 = None 
-        for _ in range(self.n_grad):
-            x_k_plus_1, hidden, cell, normgrad_, params = self.solver_step(x_k, obs, mask,
+        x_k_plus_1 = None
+        cmp_loss = torch.ones(x_k.shape[0],self.n_grad,2)
+        for k in range(self.n_grad):
+            x_k_plus_1, cmp_loss_, hidden, cell, normgrad_, params = self.solver_step(gt, x_k, obs, mask,
                                                                            hidden, cell, normgrad_,
                                                                            estim_parameters)
             x_k = torch.mul(x_k_plus_1,1.)
+            for batch in range(len(cmp_loss)):
+                cmp_loss[batch,k,:] = cmp_loss_[batch,:]
 
-        return x_k_plus_1, hidden, cell, normgrad_, params
+        return x_k_plus_1, cmp_loss, hidden, cell, normgrad_, params
 
-    def solver_step(self, x_k, obs, mask, hidden, cell,normgrad = 0.,estim_parameters=True):
-        _, var_cost_grad, params = self.var_cost(x_k, obs, mask,estim_parameters)
+    def solver_step(self, gt,  x_k, obs, mask, hidden, cell,normgrad = 0.,estim_parameters=True):
+        _, cmp_loss, var_cost_grad, params = self.var_cost(gt, x_k, obs, mask,estim_parameters)
         if normgrad == 0. :
             normgrad_= torch.sqrt( torch.mean( var_cost_grad**2 + 0.))
         else:
@@ -415,10 +433,21 @@ class Solver_Grad_4DVarNN(nn.Module):
         grad, hidden, cell = self.model_Grad(hidden, cell, var_cost_grad, normgrad_)
         grad *= 1./ self.n_grad
         x_k_plus_1 = x_k - grad
-        return x_k_plus_1, hidden, cell, normgrad_, params
+        return x_k_plus_1, cmp_loss,  hidden, cell, normgrad_, params
 
-    def var_cost(self, x, yobs, mask,estim_params):
+    def var_cost(self, gt, x, yobs, mask, estim_params):
         dy = self.model_H(x,yobs,mask)
+        n_b, n_t, n_x, n_y = dy.shape
+        dy_new=list()
+        for i in range(n_b):
+            id_obs = torch.where(torch.flatten(mask[i])!=0.)[0]
+            dyi = torch.index_select(torch.flatten(dy[i]), 0, id_obs).type(torch.FloatTensor).to(device)
+            nb_obs = len(dyi)
+            inv_R = 1e3*sparse_eye(nb_obs).type(torch.FloatTensor).to(device)
+            iRdy = torch.sparse.mm(inv_R,torch.reshape(dyi,(nb_obs,1)))
+            dyTiRdy = torch.matmul(torch.reshape(dyi,(1,nb_obs)),iRdy)
+            dy_new.append(dyTiRdy[0,0])
+        dy = torch.stack(dy_new)
         if self.square_root==True:
             phi = self.phi_r(x,estim_params=estim_params)
             dx = x - phi[0]
@@ -428,7 +457,14 @@ class Solver_Grad_4DVarNN(nn.Module):
             phi = self.phi_r(x,estim_params=estim_params)
             dx = phi[0]
             params = phi[1]
-            loss = torch.mean(self.model_VarCost(dx,dy,square_root=self.square_root))
-        
+            #loss = torch.mean(self.model_VarCost(dx,dy,square_root=self.square_root))
+            #print(dx)
+            #print(dy)
+            loss_OI = dy + dx
+            loss = torch.mean(loss_OI)
         var_cost_grad = torch.autograd.grad(loss, x, create_graph=True)[0]
-        return loss, var_cost_grad, params
+        # return loss OI (loss) and MSE
+        loss_mse = torch.tensor([compute_WeightedLoss((gt[i] - x[i]),torch.Tensor(np.ones(5)).to(device)) for i in range(len(gt))])
+        loss_mse = loss_mse.to(device)
+
+        return loss, torch.hstack([torch.reshape(loss_mse,(n_b,1)), torch.reshape(loss_OI,(n_b,1))]), var_cost_grad, params
