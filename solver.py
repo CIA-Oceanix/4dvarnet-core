@@ -421,3 +421,35 @@ class Solver_Grad_4DVarNN(nn.Module):
 
         var_cost_grad = torch.autograd.grad(loss, x, create_graph=True)[0]
         return loss, var_cost_grad
+
+#Fixed Point solver for 4dVarnet
+class FP_Solver(nn.Module):
+
+    def __init__(self ,phi_r, n_iter_fp, stochastic=False):
+        super(FP_Solver, self).__init__()
+        self.phi_r = phi_r
+        with torch.no_grad():
+            self.n_fp = int(n_iter_fp)
+
+    def forward(self, x, yobs, mask, *internal_state):
+        return self.solve(x, yobs, mask, *internal_state)
+
+    def solve(self, x_0, obs, mask):
+        x_k = x_0
+        # more than 1 iteration of n_grad doesn't do anything
+        for _ in range(self.n_fp):
+            x_k = self.solver_step(x_k, obs, mask)
+        x_k = self.phi_r(x_k)
+        return x_k
+
+    def solver_step(self, x_k, obs, mask):
+        #Get the observed values in the measured area
+        y_obs = obs * mask
+        #Get the interpolation for the empty area
+        unmeasured_mask = torch.logical_not(mask)
+        x_proj = self.phi_r(x_k) * unmeasured_mask
+        #combine measured and interpolated data
+        x_k_plus_1 = x_proj + y_obs
+
+        return x_k_plus_1.type(torch.FloatTensor).to(device)
+
