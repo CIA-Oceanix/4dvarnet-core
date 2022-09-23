@@ -6,6 +6,7 @@ natl_sst: /gpfsdsstore/projects/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NA
 
 oi_swot_4nadir: /gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc
 pseudo_obs: /gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d_swot.nc
+pseudo_obs_4nadir: /gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d.nc
 
 new_noisy_swot: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/CalData/cal_data_new_errs.nc
 new_noisy_swot_with_1d_decomp: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/CalData/cal_data_new_syst_errs_20220218.nc

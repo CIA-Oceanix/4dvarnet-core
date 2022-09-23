@@ -41,10 +41,10 @@ cs.store(name='3', node={'aug_train_data': 3}, group='aug_data', package='datamo
 cs.store(name='8', node={'aug_train_data': 8}, group='aug_data', package='datamodule')
 aug = {
     # 'aug0': '/aug_data/0',
-    'aug1': '/aug_data/1',
+    #'aug1': '/aug_data/1',
     #'aug2': '/aug_data/2',
     # 'aug3': '/aug_data/3',
-    #'aug8': '/aug_data/8',
+    'aug8': '/aug_data/8',
 }
 
 cs.store(name='2', node={'resize_factor': 2}, group='down_samp', package='datamodule')
