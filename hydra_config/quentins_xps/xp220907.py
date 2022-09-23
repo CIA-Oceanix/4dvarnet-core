@@ -6,7 +6,7 @@ from itertools import product
 cs = ConfigStore.instance()
 
 BASE_DEFAULTS = [
-    '/xp/baseline/train_strat/const_lr_ngrad5_15_nocas',
+    '/xp/baseline/train_strat/const_lr_ngrad_5_3cas',
   '/splits/dc_boost_swot@datamodule',
 ]
 XP=24
