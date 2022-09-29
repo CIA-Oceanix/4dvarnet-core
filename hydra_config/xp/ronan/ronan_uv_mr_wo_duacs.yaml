@@ -38,7 +38,7 @@ params:
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
   n_fourdvar_iter_lr: 2
   n_fourdvar_iter_hr: 1
-  n_fourdvar_iter: 2
+  n_fourdvar_iter: ??
   n_grad: 5
   dT: 31
   scale_lr: 4
