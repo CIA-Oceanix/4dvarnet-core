@@ -568,14 +568,15 @@ def get_4dvarnet_sst(hparams,shape_state,dT):
 
 def get_4dvarnet_sst_hr(hparams,shape_state,dT):
     if hparams.use_sst_obs : 
-        print('...... No model ye for hr womponent with SST')
+        print('...... No model yet for hr womponent with SST')
  
     else:
        return get_4dvarnet_hr(hparams,shape_state,dT=dT)
 
 def get_4dvarnet_sst_hr_2(hparams,shape_state,dT):
     if hparams.use_sst_obs : 
-        print('...... No model ye for hr womponent with SST')
+        #print('...... No model yet for hr womponent with SST')
+        return get_4dvarnet_sst(hparams,shape_state=shape_state,dT=dT)
  
     else:
        return get_4dvarnet_hr_2(hparams,shape_state,dT=dT)
