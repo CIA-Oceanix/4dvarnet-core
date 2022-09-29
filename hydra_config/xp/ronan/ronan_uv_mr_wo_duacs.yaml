@@ -48,7 +48,7 @@ params:
   dim_grad_solver: 150
   phi_param: 'unet1'#'unet-std'#
   ckpt_name: 'modelUVGF-MR_v8-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
-  use_sst_obs: False # True # 
+  use_sst_obs: True # False # 
   use_sst_state: False # True # 
   patch_weight:
     _target_: lit_model_uv_mr_wo_duacs_v2.get_cropped_hanning_mask_ronan
