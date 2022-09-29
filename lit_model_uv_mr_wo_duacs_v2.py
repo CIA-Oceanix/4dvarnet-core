@@ -1115,7 +1115,7 @@ class LitModelUV(pl.LightningModule):
         if self.hparams.n_grad > 0 :
             
             if self.hparams.aug_state :
-                suffix_chkpt = suffix_chkpt+'-augstate-dT%02d'%(self.hparams.dT)
+                suffix_chkpt = suffix_chkpt+'-augstate-dT%02d_%02d'%(self.hparams.dT,self.hparams.dT_hr_model)
             if self.use_sst_state :
                 suffix_chkpt = suffix_chkpt+'-mmstate-augstate-dT%02d'%(self.hparams.dT)
             
