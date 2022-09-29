@@ -1132,7 +1132,7 @@ class LitModelUV(pl.LightningModule):
                 suffix_chkpt = suffix_chkpt+'-mmstate-augstate-dT%02d'%(self.hparams.dT)
             
             if self.use_sst_obs :
-                suffix_chkpt = suffix_chkpt+'-sstobs-'+self.hparams.sst_model+'_%02d'%(self.hparams.dim_obs_sst_feat)
+                suffix_chkpt = suffix_chkpt+'-sstobs-'+self.hparams.sst_model+'_%02d_%02d'%(self.hparams.dim_obs_sst_feat,self.hparams.dt_sst_obs)
             
             if self.residual_wrt_geo_velocities > 0  :
                 suffix_chkpt = suffix_chkpt+'-wgeo%d'%self.residual_wrt_geo_velocities
