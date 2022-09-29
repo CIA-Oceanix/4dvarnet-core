@@ -63,7 +63,7 @@ params:
   alpha_mse_gssh: 1000.
   alpha_mse_uv: 10. #50.
   alpha_mse_uv_geo: 0.
-  alpha_mse_div: ?? # 1000. # 0. # 5 0. # 00. # 100. 
+  alpha_mse_div: 0. # 1000. # 0. # 5 0. # 00. # 100. 
   alpha_mse_strain: 0. #1000.
   alpha_loss_lr: 1. #?? # 0. #1.
   alpha_loss_hr: 0.1 # ?? # 0.1 # 0.1  
@@ -75,7 +75,7 @@ params:
   alpha_sampling_uv: 10.
   thr_l1_sampling_uv: 0.10
   scale_dwscaling_sst: 1.
-  aug_train_data: 1
+  aug_train_data: ??
 datamodule:
   resize_factor: 1
   aug_train_data: ${params.aug_train_data}  
