@@ -54,7 +54,10 @@ def get_4dvarnet_OI_linear(hparams):
 
 def get_4dvarnet_unet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic, shrink_factor=hparams.UNet_shrink_factor),
+                nn.Sequential(
+            nn.BatchNorm2d(hparams.shape_state[0]),
+            Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic, shrink_factor=hparams.UNet_shrink_factor)
+        ),
                 Model_H(hparams.shape_state[0]),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
@@ -204,7 +207,8 @@ class LitModelOI(LitModelAugstate):
             raise Exception('unknown phase')
         self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
 
-        Path(self.logger.log_dir).mkdir(exist_ok=True)
+        log_path = Path(self.logger.log_dir).mkdir(exist_ok=True)
+        print('########', f'{log_path=}')
         path_save1 = self.logger.log_dir + f'/test.nc'
         self.test_xr_ds.to_netcdf(path_save1)
 
