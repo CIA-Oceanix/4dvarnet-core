@@ -45,7 +45,7 @@ params:
   n_grad: 5
   dT: 31
   scale_lr: 4
-  dT_hr_model: ?? 
+  dT_hr_model: 7
   DimAE: 50
   dim_obs_sst_feat: 20
   dim_grad_solver: 150
