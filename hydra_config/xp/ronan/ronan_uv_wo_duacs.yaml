@@ -27,7 +27,7 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_348/checkpoints/modelUV-woDUACS-phiOI-unet1_050-augdata04-augstate-dT31-sstobs-nolinear-tanh-bn_20_31-nowgeo-nodivstrain-grad_05_03_150-epoch=134-val_loss=0.9073.ckpt'
    ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GF_noDUACS40x240_ChckPt-wSST-hydra-exp/version_348/checkpoints/modelUV-woDUACS-phiOI-unet1_050-augdata01-augstate-dT31-sstobs-nolinear-tanh-bn_20_31-nowgeo-nodivstrain-grad_05_03_150-epoch=162-val_loss=0.7915.ckpt'
 params:
-  flag_update_training_config: False # True # 
+  flag_update_training_config: True # False # 
   files_cfg:
     oi_path: ${file_paths.oi_swot_4nadir} #  ${file_paths.oi_4nadir}  # 
     oi_var: ssh_mod
