@@ -34,14 +34,14 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-MRwoDUACS-hydra-exp/version_328/checkpoints/modelUVGF-MR_v8-unet1_050-augdata04-lr04-augstate-dT31-nowgeo-nostrain-grad_05_02_02_01_150-epoch=40-val_loss=1.1340.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-MRwoDUACS-hydra-exp/version_343/checkpoints/modelUVGF-MR_v8-unet1_050-augdata01-lr04-augstate-dT31_07-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_02_02_01_150-epoch=187-val_loss=0.8824.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-MRwoDUACS-hydra-exp/version_344/checkpoints/modelUVGF-MR_v8-unet1_050-augdata02-lr04-augstate-dT31_07-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_02_02_01_150-epoch=90-val_loss=0.9252.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-MRwoDUACS-hydra-exp/version_347/checkpoints/modelUVGF-MR_v8-unet1_050-augdata04-lr04-augstate-dT31_31-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_02_02_01_150-epoch=58-val_loss=1.0274.ckpt'   
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-MRwoDUACS-hydra-exp/version_347/checkpoints/modelUVGF-MR_v8-unet1_050-augdata04-lr04-augstate-dT31_31-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_02_02_01_150-epoch=58-val_loss=1.0274.ckpt'   
 lit_mod_cls: lit_model_uv_mr_wo_duacs_v2.LitModelUV
 params:
   flag_update_training_config: False # True # 
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
-  n_fourdvar_iter_lr: 2
-  n_fourdvar_iter_hr: 1
-  n_fourdvar_iter: 2
+  n_fourdvar_iter_lr: 3
+  n_fourdvar_iter_hr: 2
+  n_fourdvar_iter: 1
   n_grad: 5
   dT: 31
   scale_lr: 4
@@ -64,8 +64,8 @@ params:
   type_div_train_loss: 1
   alpha_mse_ssh: 50. # loss
   alpha_mse_gssh: 0. #1000.
-  alpha_mse_uv: 25. #50.
-  alpha_mse_uv_geo: 10.
+  alpha_mse_uv: 50. #50.
+  alpha_mse_uv_geo: 25.
   alpha_mse_div: 0. # 1000. # 0. # 5 0. # 00. # 100. 
   alpha_mse_strain: 0. #1000.
   alpha_loss_lr: 1. #?? # 0. #1.
@@ -78,7 +78,7 @@ params:
   alpha_sampling_uv: 10.
   thr_l1_sampling_uv: 0.10
   scale_dwscaling_sst: 1.
-  aug_train_data: 1
+  aug_train_data: ??
 datamodule:
   resize_factor: 1
   aug_train_data: ${params.aug_train_data}  
