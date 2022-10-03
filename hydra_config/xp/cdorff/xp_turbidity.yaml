@@ -6,8 +6,12 @@ params:
   model: 4dvarnet_OI_phir
   dT: 29
   patch_weight:
-    crop:
-      time: 10 #3
+    _target_: lit_model_augstate.get_constant_crop
+    patch_size: ${datamodule.slice_win}
+    crop: 
+      lat: ${div:10,${datamodule.resize_factor}}
+      lon: ${div:10,${datamodule.resize_factor}}
+      time: 2
   k_n_grad: 3
   n_grad: 5
   val_diag_freq: 2 #5
@@ -16,7 +20,13 @@ params:
   alpha_mse_gssh: 1000.
   norm_obs: l2
   norm_prior: l2
-  
+  test_domain:
+    lat:
+      _target_: builtins.slice
+      _args_: [41.17, 43.6]
+    lon:
+      _target_: builtins.slice
+      _args_: [3., 6.09]
   shape_state:
     - ${datamodule.slice_win.time}
     - ${datamodule.slice_win.lon}
@@ -29,15 +39,53 @@ params:
   
 lit_mod_cls: lit_model_noOI_turbidity.LitModelOI
 
+
 datamodule:
-  _target_: dataloading.FourDVarNetDataModule #dataloading_logNorm.FourDVarNetDataModule
+  _target_: dataloading.FourDVarNetDataModule
   resize_factor: 4
+    
+  dim_range:
+    lat:
+      _target_: builtins.slice
+      _args_: [41.17, 43.6]
+    lon:
+      _target_: builtins.slice
+      _args_: [3., 6.09]
+      
+  train_slices: 
+    - _target_: builtins.slice
+      _args_: ['2019-01-01', '2019-07-31']
+    - _target_: builtins.slice
+      _args_: ['2019-12-01', '2019-12-31']
+      
+  test_slices: 
+    - _target_: builtins.slice
+      _args_: ${adjust_testslices:['2019-08-01', '2019-09-30'],${params.dT}}
+      
+  val_slices: 
+    - _target_: builtins.slice
+      _args_: ['2019-08-01', '2019-09-30']
+      
+  oi_var: "bbp443"
+  gt_var: "bbp443"
+  obs_mask_var: "bbp443"
+  
+  slice_win:
+    lat: ${div:240,${datamodule.resize_factor}}
+    lon: ${div:240,${datamodule.resize_factor}}
+    time: ${params.dT}
+    
+  strides: 
+    lat: ${div:20,${datamodule.resize_factor}}
+    lon: ${div:20,${datamodule.resize_factor}}
+    time: 1
+  
   
 defaults:
   - /xp/base_xp
-  - /splits/turbidity@datamodule
+  - /splits/dc_boost_swot@datamodule
   - /xp/baseline/aug/without_aug_state
-  - /xp/baseline/dl/dl_turbidity
+  - /xp/baseline/dl/d240_p240x5_s240x1
   - /xp/baseline/sst/without_sst
   - /xp/baseline/loss/map
   - /xp/baseline/train_strat/const_lr_ngrad_5_3cas

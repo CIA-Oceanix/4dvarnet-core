@@ -1,4 +1,4 @@
-natl_ssh_daily: /home/administrateur/DATA/CMEMS/OCEANCOLOUR_MED_BGC_L3_MY_009_143/cmems_obs-oc_med_bgc-optics_my_l3-multi-1km_P1D/GT_2019_FrMedCoast.nc
-natl_sst_daily: /home/administrateur/DATA/CMEMS/OCEANCOLOUR_MED_BGC_L3_MY_009_143/cmems_obs-oc_med_bgc-optics_my_l3-multi-1km_P1D/GT_2019_FrMedCoast.nc
-oi_swot_4nadir: /home/administrateur/DATA/CMEMS/OCEANCOLOUR_MED_BGC_L3_MY_009_143/cmems_obs-oc_med_bgc-optics_my_l3-multi-1km_P1D/GT_2019_FrMedCoast.nc
-pseudo_obs: /home/administrateur/DATA/CMEMS/OCEANCOLOUR_MED_BGC_L3_MY_009_143/cmems_obs-oc_med_bgc-optics_my_l3-multi-1km_P1D/Obs_s3_2019_FrMedCoast.nc
+natl_ssh_daily: /home/administrateur/DATA/CMEMS/OCEANCOLOUR_MED_BGC_L3_MY_009_143/cmems_obs-oc_med_bgc-optics_my_l3-multi-1km_P1D/GT_2019_FrMedCoast_log.nc
+natl_sst_daily: /home/administrateur/DATA/CMEMS/OCEANCOLOUR_MED_BGC_L3_MY_009_143/cmems_obs-oc_med_bgc-optics_my_l3-multi-1km_P1D/GT_2019_FrMedCoast_log.nc
+oi_swot_4nadir: /home/administrateur/DATA/CMEMS/OCEANCOLOUR_MED_BGC_L3_MY_009_143/cmems_obs-oc_med_bgc-optics_my_l3-multi-1km_P1D/GT_2019_FrMedCoast_log.nc
+pseudo_obs: /home/administrateur/DATA/CMEMS/OCEANCOLOUR_MED_BGC_L3_MY_009_143/cmems_obs-oc_med_bgc-optics_my_l3-multi-1km_P1D/Obs_s3_2019_FrMedCoast_log.nc
