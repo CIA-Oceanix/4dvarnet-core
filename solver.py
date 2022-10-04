@@ -441,6 +441,7 @@ class FP_Solver(nn.Module):
         self.phi_r = phi_r
         with torch.no_grad():
             self.n_grad = int(n_iter_grad)
+           
 
     def forward(self, x, yobs, mask, *internal_state):
         

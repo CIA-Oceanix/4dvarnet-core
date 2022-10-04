@@ -19,7 +19,7 @@ from scipy import stats
 import solver as NN_4DVar
 import metrics
 from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps_oi, animate_maps, get_psd_score
-from models import Model_H, Model_HwithSST, Phi_r_OI,Phi_r_OI_linear, Gradient_img, UNet, Phi_r_UNet
+from models import Model_H, Model_HwithSST, Phi_r_OI,Phi_r_OI_linear, Gradient_img, UNet, Phi_r_UNet, Multi_Prior
 
 from lit_model_augstate import LitModelAugstate
 
@@ -83,6 +83,18 @@ def get_UNet_direct(hparams):
             return self.phi(state), None, None, None
     return PhiPassThrough()
 
+def get_multi_prior(hparams):
+    return NN_4DVar.Solver_Grad_4DVarNN(
+                Multi_Prior(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.nb_phi, hparams.stochastic),
+                Model_H(hparams.shape_state[0]),
+                NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+                    hparams.dim_grad_solver, hparams.dropout),
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+
+
+
+
 #UNet and a fixed point solver
 def get_UNet_fixed_point(hparams):
     return NN_4DVar.FP_Solver(
@@ -110,8 +122,14 @@ class LitModelOI(LitModelAugstate):
         '4dvarnet_UNet': get_4dvarnet_unet,
         'UNet_direct': get_UNet_direct,
         'UNet_FP': get_UNet_fixed_point,
-        'phi_r_FP': get_phi_r_fixed_point
+        'phi_r_FP': get_phi_r_fixed_point,
+        'multi_prior': get_multi_prior
      }
+
+    # def add_model_specific_args(self, parent_parser):
+    #     parser = parent_parser.add_argument_group("LitModel_OI")
+    #     parser.add_argument("--FP_iterations", type=int, default=self.hparams.n_grad * self.hparams.n_fourdvar_iter)
+
 
     def __init__(self, *args, **kwargs):
          super().__init__(*args, **kwargs)
@@ -130,7 +148,7 @@ class LitModelOI(LitModelAugstate):
             optimizer = opt([{'params': self.model.phi_r.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]}
                 ])
-        elif self.model_name in [ 'UNet_direct','UNet_FP', 'phi_r_FP']:
+        elif self.model_name in [ 'UNet_direct','UNet_FP', 'phi_r_FP', 'multi_prior']:
             optimizer = opt([{'params': self.model.parameters(), 'lr': self.hparams.lr_update[0]}])
 
 

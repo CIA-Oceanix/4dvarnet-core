@@ -15,6 +15,7 @@ params:
   n_fourdvar_iter: ???
   weight_decay: ???
   model: ??? # sst
+  nb_phi: ??? #Number of priors to use for multi-prior
   sst: ??? 
   val_diag_freq: 5 
   n_grad: 5

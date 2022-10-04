@@ -447,11 +447,11 @@ class LinUnit(torch.nn.Module):
         return x
 
 class Encoder_OI_linear(torch.nn.Module):
-    def __init__(self, dim_inp, dim_out, dim_ae, dw, dw2, ss, nb_blocks, rateDropout=0.):
+    def __init__(self, dim_in, dim_out, dim_ae, dw, dw2, ss, nb_blocks, rateDropout=0.):
         super().__init__()
         self.nb_blocks = nb_blocks
         self.dim_ae = dim_ae
-        self.nn = self.__make_linNN(dim_inp, dim_out, self.dim_ae, dw, dw2, self.nb_blocks, rateDropout)
+        self.nn = self.__make_linNN(dim_in, dim_out, self.dim_ae, dw, dw2, self.nb_blocks, rateDropout)
         self.dropout = torch.nn.Dropout(rateDropout)
 
     def __make_linNN(self, dim_inp, dim_out, dim_ae, dw, dw2, nb_blocks=2, dropout=0.):
@@ -462,31 +462,25 @@ class Encoder_OI_linear(torch.nn.Module):
         return torch.nn.Sequential(*layers)
 
     def forward(self, xinp):
-        # HR component
         x = self.nn(xinp)
         return x
-    # def __init__(self, dim_inp, dim_out, dim_ae, nb_blocks):
-    #     super().__init__()
-    #     self.nb_blocks = nb_blocks
-    #     self.dim_ae = dim_ae
-    #     self.dim_out = dim_out
-    #     self.nn = self.__make_linear_blocks(dim_inp, dim_out, dim_ae, nb_blocks)
- 
-
-
-    # def __make_linear_blocks(self, dim_inp, dim_out, dim_ae,  nb_blocks=2):
-    #     total_size = dim_inp[0]*dim_inp[1]*dim_inp[2]
-    #     layers = []
-    #     layers.append(torch.nn.Linear(total_size,dim_ae))
-    #     for kk in range(0, nb_blocks-1):
-    #         layers.append(torch.nn.Linear(dim_ae, dim_ae))
-    #     layers.append(torch.nn.Linear(dim_ae, total_size))
-    #     return torch.nn.Sequential(*layers)
-
-    # def forward(self, xinp):
-    #     batch_size = xinp.shape[0]
-    #     x = torch.flatten(xinp, 1,-1)
-    #     x = self.nn(x)
-    #     x = torch.reshape(x,(batch_size, self.dim_out[0], self.dim_out[1], self.dim_out[2]))
-    #     return x
     
+
+#MULTI PRIOR SECTION
+
+class Multi_Prior(torch.nn.Module):
+    def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi=2, stochastic=False):
+        super().__init__()
+        self.phi_list = self.get_phi_list(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi, stochastic)
+        self.weights = torch.nn.Conv2d(shape_data* nb_phi, shape_data, (2 * dw + 1, 2 * dw + 1), padding=dw, bias=False).to(device)
+
+    def get_phi_list(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi, stochastic=False):
+        phi_list = []
+        for i in range(nb_phi):
+            phi_list.append(Phi_r_OI(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic).to(device))
+        return phi_list
+
+    def forward(self, x_in):
+        x_out = torch.cat([phi_r(x_in) for phi_r in self.phi_list], dim=1)
+        x_out = self.weights(x_out)
+        return x_out
