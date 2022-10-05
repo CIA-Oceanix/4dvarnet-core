@@ -52,7 +52,7 @@ def get_4dvarnet_OI_linear(hparams):
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
-def get_4dvarnet_unet(hparams):
+def get_4dvarnet_unet_bn(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 nn.Sequential(
             nn.BatchNorm2d(hparams.shape_state[0]),
@@ -62,6 +62,17 @@ def get_4dvarnet_unet(hparams):
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+
+def get_4dvarnet_unet(hparams):
+    return NN_4DVar.Solver_Grad_4DVarNN(
+            Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic, shrink_factor=hparams.UNet_shrink_factor),
+                Model_H(hparams.shape_state[0]),
+                NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+                    hparams.dim_grad_solver, hparams.dropout),
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+
+
+
 def get_4dvarnet_unet_sst(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic, shrink_factor=hparams.UNet_shrink_factor),
