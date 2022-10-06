@@ -44,7 +44,8 @@ splits:
       _args_: ['2016-12-30', '2018-01-02']
   test_slices:
     - _target_: builtins.slice
-      _args_: ['2016-12-29', '2018-01-03']
+      _args_: ${adjust_testslices:['2017-01-01', '2017-12-31'],${params.dT}}
+      # _args_: ['2017-01-01', '2017-12-31']
   val_slices:
     - _target_: builtins.slice
       _args_: ['2017-03-01', '2017-04-01']

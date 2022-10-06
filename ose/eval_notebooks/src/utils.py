@@ -246,6 +246,7 @@ def plot_temporal_statistics(filenames, methods, colors):
     plot2 = ds1[0]['count'].dropna(dim='time').hvplot.step(ylabel='#Obs.', shared_axes=True, color='grey')
     figure = (plot1+plot2).cols(1) 
     hvplot.show(figure)
+    return figure
     
 def find_wavelength_05_crossing(filename):
     
@@ -266,7 +267,7 @@ def plot_psd_score_intercomparison(filenames, methods, colors):
     ds = [dds.isel(wavenumber=(1. - dds.psd_diff/dds.psd_ref)>0) for dds in ds]
     resolved_scales = [find_wavelength_05_crossing(file) for file in filenames]
         
-    plt.figure(figsize=(10, 5))
+    fig = plt.figure(figsize=(10, 5))
     ax = plt.subplot(121)
     ax.invert_xaxis()
     plt.plot((1./ds[0].wavenumber), ds[0].psd_ref, label='reference', color='k')
@@ -310,6 +311,6 @@ def plot_psd_score_intercomparison(filenames, methods, colors):
     
     plt.show()
     
-    return resolved_scales
+    return fig, resolved_scales
     
 

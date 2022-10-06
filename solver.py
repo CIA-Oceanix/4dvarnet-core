@@ -400,12 +400,14 @@ class Solver_Grad_4DVarNN(nn.Module):
         return self.solve(x, yobs, mask, *internal_state)
 
     def solve(self, x_0, obs, mask, hidden=None, cell=None, normgrad_=0.):
-        x_k = torch.mul(x_0,1.)
+        # x_k = torch.mul(x_0,1.)
+        x_k = x_0 
         x_k_plus_1 = None
         for _ in range(self.n_grad):
             x_k_plus_1, hidden, cell, normgrad_ = self.solver_step(x_k, obs, mask,hidden, cell, normgrad_)
 
-            x_k = torch.mul(x_k_plus_1,1.)
+            # x_k = torch.mul(x_k_plus_1,1.)
+            x_k = x_k_plus_1
 
         return x_k_plus_1, hidden, cell, normgrad_
 
@@ -425,6 +427,5 @@ class Solver_Grad_4DVarNN(nn.Module):
         dx = x - self.phi_r(x)
 
         loss = self.model_VarCost( dx , dy )
-
         var_cost_grad = torch.autograd.grad(loss, x, create_graph=True)[0]
         return loss, var_cost_grad

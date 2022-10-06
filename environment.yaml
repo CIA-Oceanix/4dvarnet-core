@@ -5,24 +5,32 @@ channels:
   - anaconda
   - pyviz
 dependencies:
-  - jupyterlab
-  - python=3.9
-  - pip=21.1
-  - scikit-learn=0.24.2
-  - cartopy=0.19.0
+  - jupyterlab=3.4.7
+  - python=3.10
+  - pyinterp=0.11.0
+  - pytorch=1.11.0
+  - dvc-s3=2.20.1
+  - pydap=3.3.0
+  - hvplot
+  # - xrft=1.0.0
+  - pip
+  - scikit-learn=1.1.2
+  # - scikit-learn=0.24.2
+  - cartopy=0.21.0
   - cartopy_offlinedata=0.2.4
-  - tabulate=0.8.9
-  - xrft=0.4.1
-  - numpy_groupies=0.9.13
-  - pytorch-lightning=1.6.2
+  - tabulate=0.8.10
+  - numpy_groupies=0.9.19
+  - pytorch-lightning=1.6.*
   - pip:
     - xarray[complete]==0.21
+    - xrft==1.0.0
+    - jupyter-console
     - holoviews[recommended]
     - sparse
     - GitPython
     - einops
     - hydra-submitit-launcher
-    - opencv-python==4.5.2.52
+    - opencv-python>=4.5
     - hydra-core
     - kornia
     - pyepsg

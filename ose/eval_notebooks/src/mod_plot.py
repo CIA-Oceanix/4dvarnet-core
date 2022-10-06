@@ -27,7 +27,7 @@ def plot_psd_score(filename):
     
     resolved_scale = find_wavelength_05_crossing(filename)
     
-    plt.figure(figsize=(10, 5))
+    fig = plt.figure(figsize=(10, 5))
     ax = plt.subplot(121)
     ax.invert_xaxis()
     plt.plot((1./ds.wavenumber), ds.psd_ref, label='reference', color='k')
@@ -66,7 +66,7 @@ def plot_psd_score(filename):
     
     plt.show()
     
-    return resolved_scale
+    return fig, resolved_scale
     
     
 def plot_spatial_statistics(filename):

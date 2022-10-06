@@ -193,9 +193,13 @@ class LitModelOI(LitModelAugstate):
 
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
-            state = torch.autograd.Variable(state, requires_grad=True)
-            outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
-
+            # state = torch.autograd.Variable(state, requires_grad=True)
+            state.requires_grad_(True)
+            # print(state.requires_grad)
+            # print([s.requires_grad for s in state_init[1:]])
+            outputs, hidden_new, cell_new, normgrad = self.model(
+                state, obs, new_masks, *state_init[1:],
+            )
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
 
