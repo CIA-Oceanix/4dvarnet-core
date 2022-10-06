@@ -15,9 +15,10 @@ cs.store(name='UNet_direct', node={'model': 'UNet_direct', 'UNet_shrink_factor':
 cs.store(name='UNet_direct_lowdropout', node={'model': 'UNet_direct', 'UNet_shrink_factor':2, 'dropout_phi_r': 0.1}, group='model', package='params')
 cs.store(name='UNet_direct_highdropout', node={'model': 'UNet_direct', 'UNet_shrink_factor':2, 'dropout_phi_r': 0.5}, group='model', package='params')
 
-cs.store(name='4dvarnet_UNet', node={'model': '4dvarnet_UNet', 'UNet_shrink_factor':4}, group='model', package='params')
+cs.store(name='4dvarnet_UNet', node={'model': '4dvarnet_UNet', 'UNet_shrink_factor':8}, group='model', package='params')
 cs.store(name='UNet_FP', node={'model': 'UNet_FP', 'n_grad':5, 'UNet_shrink_factor':2}, group='model', package='params')
-cs.store(name='4dvarnet_UNet_dropout', node={'model': '4dvarnet_UNet', 'UNet_shrink_factor':4,'dropout_phi_r': 0.3}, group='model', package='params')
+cs.store(name='4dvarnet_UNet_dropout', node={'model': '4dvarnet_UNet', 'UNet_shrink_factor':8,'dropout_phi_r': 0.3}, group='model', package='params')
+cs.store(name='4dvarnet_UNet_high_dropout', node={'model': '4dvarnet_UNet', 'UNet_shrink_factor':8,'dropout_phi_r': 0.8}, group='model', package='params')
 #cs.store(name='UNet_FP', node={'model': '4dvarnet_UNet', 'shrink_factor':2}, group='model', package='params')
 cs.store(name='phi_r_FP', node={'model': 'phi_r_FP', 'n_grad':5}, group='model', package='params')
 cs.store(name='phi_r_direct', node={'model': 'phi_r_FP', 'n_grad':0}, group='model', package='params')
@@ -29,6 +30,7 @@ model = {
     '4dvarnet_UNet': '/model/4dvarnet_UNet', 
     '4dvarnet_linear': '/model/4dvarnet_OI_linear', 
     '4dvarnet_UNet_dropout': '/model/4dvarnet_UNet_dropout',
+    '4dvarnet_UNet_high_dropout': '/model/4dvarnet_UNet_dropout',
    # 'UNet_direct_lowdropout': '/model/UNet_direct_lowdropout',
    # 'UNet_direct_highdropout': '/model/UNet_direct_highdropout',
     'UNet_FP': '/model/UNet_FP',
