@@ -18,7 +18,7 @@ from omegaconf import OmegaConf
 from scipy import stats
 import solver as NN_4DVar
 import metrics
-from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps_oi, animate_maps, get_psd_score
+from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps_oi, animate_maps, get_psd_score, plot_multi_prior_maps
 from models import Model_H, Model_HwithSST, Phi_r_OI,Phi_r_OI_linear, Gradient_img, UNet, Phi_r_UNet, Multi_Prior
 
 from lit_model_augstate import LitModelAugstate
@@ -51,12 +51,12 @@ def get_4dvarnet_OI_linear(hparams):
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
-
+#Unet with batch normalization
 def get_4dvarnet_unet_bn(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 nn.Sequential(
             nn.BatchNorm2d(hparams.shape_state[0]),
-            Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic, shrink_factor=hparams.UNet_shrink_factor)
+            Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic,False, shrink_factor=hparams.UNet_shrink_factor)
         ),
                 Model_H(hparams.shape_state[0]),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
@@ -65,7 +65,7 @@ def get_4dvarnet_unet_bn(hparams):
 
 def get_4dvarnet_unet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
-            Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic, shrink_factor=hparams.UNet_shrink_factor),
+            Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic,False, shrink_factor=hparams.UNet_shrink_factor),
                 Model_H(hparams.shape_state[0]),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
@@ -75,7 +75,7 @@ def get_4dvarnet_unet(hparams):
 
 def get_4dvarnet_unet_sst(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic, shrink_factor=hparams.UNet_shrink_factor),
+                Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic,False, shrink_factor=hparams.UNet_shrink_factor),
                 Model_HwithSST(hparams.shape_state[0], dT=hparams.dT),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
@@ -86,7 +86,10 @@ def get_UNet_direct(hparams):
     class PhiPassThrough(torch.nn.Module):
         def __init__(self):
             super().__init__()
-            self.phi = Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic, shrink_factor=hparams.UNet_shrink_factor)
+            self.phi =  nn.Sequential(
+            nn.BatchNorm2d(hparams.shape_state[0]),
+            Phi_r_UNet(hparams.shape_state[0], hparams.dropout_phi_r, hparams.stochastic,False, shrink_factor=hparams.UNet_shrink_factor)
+        )
             self.phi_r = torch.nn.Identity()
             self.n_grad = 0
 
@@ -180,9 +183,7 @@ class LitModelOI(LitModelAugstate):
                 'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def sla_diag(self, t_idx=3, log_pref='test'):
-
         path_save0 = self.logger.log_dir + '/maps.png'
-        t_idx = 3
         fig_maps = plot_maps_oi(
                   self.x_gt[t_idx],
                 self.obs_inp[t_idx],
@@ -198,6 +199,14 @@ class LitModelOI(LitModelAugstate):
         self.test_figs['maps_grad'] = fig_maps_grad
         self.logger.experiment.add_figure(f'{log_pref} Maps', fig_maps, global_step=self.current_epoch)
         self.logger.experiment.add_figure(f'{log_pref} Maps Grad', fig_maps_grad, global_step=self.current_epoch)
+        #Make maps for multi phi modles
+        if self.model_name == 'multi_prior':
+            path_save03 = self.logger.log_dir + '/prior_maps.png'
+            mp_maps = plot_multi_prior_maps(self.x_gt[t_idx],self.obs_inp[t_idx],
+             self.model.phi_r.phi_list,self.test_lon, self.test_lat, path_save03)
+            path_save04= self.logger.log_dir + '/prior_maps_Grad.png'
+            mp_maps_grad = plot_multi_prior_maps(self.x_gt[t_idx],self.obs_inp[t_idx],
+             self.model.phi_r.phi_list,self.test_lon, self.test_lat, path_save03, grad=True)
 
         lamb_x, lamb_t, mu, sig = np.nan, np.nan, np.nan, np.nan
         try:

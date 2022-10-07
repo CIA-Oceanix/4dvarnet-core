@@ -462,7 +462,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
     def mean_stds(self, ds):
         sum = 0
         count = 0
+        #print(ds.datasets[0].gt_ds.ds.ssh)
         for gt in [_it for _ds in ds.datasets for _it in _ds.gt_ds]:
+            #print("****GT***",gt)
             sum += np.nansum(gt)
             count += np.sum(~np.isnan(gt))
         mean = sum / count

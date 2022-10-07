@@ -383,10 +383,10 @@ class UNet(torch.nn.Module):
 
 class Phi_r_UNet(torch.nn.Module):
     '''This is a UNet phi_r replacement'''
-    def __init__(self, shape_data, dropout_rate =0., stochastic=False, shrink_factor=2):
+    def __init__(self, shape_data, dropout_rate =0., stochastic=False, bilinear=False, shrink_factor=2):
         super().__init__()
         self.stochastic = stochastic
-        self.unet = UNet(shape_data, shape_data, dropout_rate, False, shrink_factor)
+        self.unet = UNet(shape_data, shape_data, dropout_rate, bilinear, shrink_factor)
         self.correlate_noise = CorrelateNoise(shape_data, 10)
         self.regularize_variance = RegularizeVariance(shape_data, 10)
 
@@ -482,5 +482,5 @@ class Multi_Prior(torch.nn.Module):
 
     def forward(self, x_in):
         x_out = torch.cat([phi_r(x_in) for phi_r in self.phi_list], dim=1)
-        x_out = self.weights(x_out)
+        x_out = torch.nn.Sigmoid(self.weights(x_out))
         return x_out
