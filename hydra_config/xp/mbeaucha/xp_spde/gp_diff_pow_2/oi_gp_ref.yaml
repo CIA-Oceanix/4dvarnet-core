@@ -1,14 +1,15 @@
 # @package _global_
 xp_name: oi_gp_ref_pow_2_diff
 params:
-  files_cfg:
-    obs_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_2_diff.nc
-    gt_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_2_diff.nc
-    spde_params_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_2_diff.nc
-  pow: 2
+  oi: True
 datamodule:
   resize_factor: 1
+#  test_slices:
+#    - _target_: builtins.slice
+#      _args_: ['2013-01-03', '2013-01-08']
+
 defaults:
+  - /params_gp@params: gp_diff_pow_2
   - /params: fourdvarnet_oi_gp
   - /domain@datamodule.dim_range: gp
   - /domain@params.test_domain: gp

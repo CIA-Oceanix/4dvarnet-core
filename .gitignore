@@ -36,5 +36,7 @@ trained_cfgs
 trials
 oi/eval_notebooks/.ipynb_checkpoints
 oi/eval_notebooks/__pycache__
+oi/logs
 postpro
 out.file
+log*

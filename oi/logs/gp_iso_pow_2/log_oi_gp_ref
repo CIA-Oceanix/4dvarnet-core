@@ -1,18 +1,34 @@
 file_paths:
-  obs_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
-  gt_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
-  spde_params_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
+  obs_path_iso_1: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_005_pow_1_iso.nc
+  gt_path_iso_1: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_005_pow_1_iso.nc
+  oi_path_iso_1: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_005_pow_1_iso.nc
+  spde_params_path_iso_1: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_005_pow_1_iso.nc
+  obs_path_diff_1: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_033_pow_1_diff.nc
+  gt_path_diff_1: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_033_pow_1_diff.nc
+  oi_path_diff_1: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_033_pow_1_diff.nc
+  spde_params_path_diff_1: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_033_pow_1_diff.nc
+  obs_path_iso_2: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_005_pow_2_iso.nc
+  gt_path_iso_2: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_005_pow_2_iso.nc
+  oi_path_iso_2: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_005_pow_2_iso.nc
+  spde_params_path_iso_2: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_005_pow_2_iso.nc
+  obs_path_diff_2: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_033_pow_2_diff.nc
+  gt_path_diff_2: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_033_pow_2_diff.nc
+  oi_path_diff_2: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_033_pow_2_diff.nc
+  spde_params_path_diff_2: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_033_pow_2_diff.nc
 entrypoint:
   _target_: hydra_main.FourDVarNetHydraRunner.run
   max_epochs: 1
   progress_bar_refresh_rate: 5
 params:
   files_cfg:
-    obs_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_2_iso.nc
+    obs_path: ${file_paths.obs_path_iso_2}
     obs_var: 'y'
-    gt_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_2_iso.nc
+    gt_path: ${file_paths.gt_path_iso_2}
     gt_var: x
-    spde_params_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_2_iso.nc
+    oi_path: ${file_paths.oi_path_iso_2}
+    oi_var: OI
+    spde_params_path: ${file_paths.spde_params_path_iso_2}
+  pow: 1
   iter_update:
   - 0
   - 20
@@ -82,7 +98,6 @@ params:
   norm_obs: l2
   norm_prior: l2
   diff_only: true
-  pow: 2
   test_domain:
     lat:
       _target_: builtins.slice
@@ -94,6 +109,7 @@ params:
       _args_:
       - 0
       - 100
+  oi: true
 datamodule:
   dim_range:
     lat:
@@ -138,6 +154,8 @@ datamodule:
   obs_var: ${params.files_cfg.obs_var}
   gt_path: ${params.files_cfg.gt_path}
   gt_var: ${params.files_cfg.gt_var}
+  oi_path: ${params.files_cfg.oi_path}
+  oi_var: ${params.files_cfg.oi_var}
   dl_kwargs:
     batch_size: 2
     num_workers: 2
@@ -147,20 +165,36 @@ xp_name: oi_gp_ref_pow_2_iso
 seed: 0
 
 file_paths:
-  obs_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
-  gt_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
-  spde_params_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset.nc
+  obs_path_iso_1: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_005_pow_1_iso.nc
+  gt_path_iso_1: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_005_pow_1_iso.nc
+  oi_path_iso_1: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_005_pow_1_iso.nc
+  spde_params_path_iso_1: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_005_pow_1_iso.nc
+  obs_path_diff_1: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_033_pow_1_diff.nc
+  gt_path_diff_1: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_033_pow_1_diff.nc
+  oi_path_diff_1: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_033_pow_1_diff.nc
+  spde_params_path_diff_1: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_033_pow_1_diff.nc
+  obs_path_iso_2: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_005_pow_2_iso.nc
+  gt_path_iso_2: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_005_pow_2_iso.nc
+  oi_path_iso_2: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_005_pow_2_iso.nc
+  spde_params_path_iso_2: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_005_pow_2_iso.nc
+  obs_path_diff_2: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_033_pow_2_diff.nc
+  gt_path_diff_2: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_033_pow_2_diff.nc
+  oi_path_diff_2: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_033_pow_2_diff.nc
+  spde_params_path_diff_2: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/data/SPDE_diffusion_dataset_kappa_033_pow_2_diff.nc
 entrypoint:
   _target_: hydra_main.FourDVarNetHydraRunner.run
   max_epochs: 1
   progress_bar_refresh_rate: 5
 params:
   files_cfg:
-    obs_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_2_iso.nc
+    obs_path: ${file_paths.obs_path_iso_2}
     obs_var: 'y'
-    gt_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_2_iso.nc
+    gt_path: ${file_paths.gt_path_iso_2}
     gt_var: x
-    spde_params_path: /users/local/m19beauc/SPDE_dc/python/SPDE_diffusion_dataset_kappa_033_pow_2_iso.nc
+    oi_path: ${file_paths.oi_path_iso_2}
+    oi_var: OI
+    spde_params_path: ${file_paths.spde_params_path_iso_2}
+  pow: 1
   iter_update:
   - 0
   - 20
@@ -230,7 +264,6 @@ params:
   norm_obs: l2
   norm_prior: l2
   diff_only: true
-  pow: 2
   test_domain:
     lat:
       _target_: builtins.slice
@@ -242,6 +275,7 @@ params:
       _args_:
       - 0
       - 100
+  oi: true
 datamodule:
   dim_range:
     lat:
@@ -286,6 +320,8 @@ datamodule:
   obs_var: ${params.files_cfg.obs_var}
   gt_path: ${params.files_cfg.gt_path}
   gt_var: ${params.files_cfg.gt_var}
+  oi_path: ${params.files_cfg.oi_path}
+  oi_var: ${params.files_cfg.oi_var}
   dl_kwargs:
     batch_size: 2
     num_workers: 2
@@ -294,26 +330,25 @@ lit_mod_cls: oi.lit_model_oi_ref.LitModel
 xp_name: oi_gp_ref_pow_2_iso
 seed: 0
 
-Warning: ecCodes 2.21.0 or higher is recommended. You are running version 2.16.0
 Using current oi.metrics
-[2022-09-20 21:59:47,598][cartopy_userconfig][INFO] - Setting cartopy.config["pre_existing_data_dir"] to /users/local/m19beauc/miniconda3/envs/4dvarnet/share/cartopy. Don't worry, this is probably intended behaviour to avoid failing downloads of geological data behind a firewall.
+[2022-10-08 00:27:51,621][cartopy_userconfig][INFO] - Setting cartopy.config["pre_existing_data_dir"] to /linkhome/rech/genimt01/uba22to/.conda/envs/4dvarnet/share/cartopy. Don't worry, this is probably intended behaviour to avoid failing downloads of geological data behind a firewall.
 {'lat': 100, 'lon': 100, 'time': 5}
 get_model:  None
 {'max_epochs': 1, 'progress_bar_refresh_rate': 5}
-{'num_nodes': 1, 'gpus': 1, 'logger': True, 'auto_select_gpus': True, 'callbacks': [<pytorch_lightning.callbacks.model_checkpoint.ModelCheckpoint object at 0x7f559afb38e0>, <pytorch_lightning.callbacks.lr_monitor.LearningRateMonitor object at 0x7f559b029af0>], 'max_epochs': 1, 'progress_bar_refresh_rate': 5}
-Validation sanity check: 0it [00:00, ?it/s]Validation sanity check:   0%|          | 0/2 [00:00<?, ?it/s]                                                              Training: -1it [00:00, ?it/s]Training:   0%|          | 0/141 [00:00<00:00, 13025.79it/s]Epoch 0:   0%|          | 0/141 [00:00<00:00, 2646.25it/s]  Epoch 0:   4%|▎         | 5/141 [00:00<00:03, 39.31it/s]  Epoch 0:   4%|▎         | 5/141 [00:00<00:03, 39.21it/s, loss=nan, v_num=4]Epoch 0:   7%|▋         | 10/141 [00:00<00:02, 62.57it/s, loss=nan, v_num=4]Epoch 0:  11%|█         | 15/141 [00:00<00:01, 80.46it/s, loss=nan, v_num=4]Epoch 0:  14%|█▍        | 20/141 [00:00<00:01, 94.60it/s, loss=nan, v_num=4]Epoch 0:  18%|█▊        | 25/141 [00:00<00:01, 106.00it/s, loss=nan, v_num=4]Epoch 0:  21%|██▏       | 30/141 [00:00<00:00, 115.53it/s, loss=nan, v_num=4]Epoch 0:  21%|██▏       | 30/141 [00:00<00:00, 115.43it/s, loss=nan, v_num=4]Epoch 0:  25%|██▍       | 35/141 [00:00<00:00, 123.50it/s, loss=nan, v_num=4]Epoch 0:  28%|██▊       | 40/141 [00:00<00:00, 130.34it/s, loss=nan, v_num=4]Epoch 0:  32%|███▏      | 45/141 [00:00<00:00, 136.21it/s, loss=nan, v_num=4]Epoch 0:  35%|███▌      | 50/141 [00:00<00:00, 141.33it/s, loss=nan, v_num=4]Epoch 0:  39%|███▉      | 55/141 [00:00<00:00, 145.85it/s, loss=nan, v_num=4]Epoch 0:  39%|███▉      | 55/141 [00:00<00:00, 145.77it/s, loss=nan, v_num=4]Epoch 0:  43%|████▎     | 60/141 [00:00<00:00, 149.82it/s, loss=nan, v_num=4]Epoch 0:  46%|████▌     | 65/141 [00:00<00:00, 153.38it/s, loss=nan, v_num=4]Epoch 0:  50%|████▉     | 70/141 [00:00<00:00, 156.58it/s, loss=nan, v_num=4]Epoch 0:  53%|█████▎    | 75/141 [00:00<00:00, 159.46it/s, loss=nan, v_num=4]Epoch 0:  57%|█████▋    | 80/141 [00:00<00:00, 162.09it/s, loss=nan, v_num=4]Epoch 0:  57%|█████▋    | 80/141 [00:00<00:00, 162.04it/s, loss=nan, v_num=4]Epoch 0:  60%|██████    | 85/141 [00:00<00:00, 164.47it/s, loss=nan, v_num=4]Epoch 0:  64%|██████▍   | 90/141 [00:00<00:00, 166.66it/s, loss=nan, v_num=4]Epoch 0:  67%|██████▋   | 95/141 [00:00<00:00, 168.66it/s, loss=nan, v_num=4]Epoch 0:  71%|███████   | 100/141 [00:00<00:00, 170.51it/s, loss=nan, v_num=4]Epoch 0:  74%|███████▍  | 105/141 [00:00<00:00, 172.23it/s, loss=nan, v_num=4]Epoch 0:  74%|███████▍  | 105/141 [00:00<00:00, 172.18it/s, loss=nan, v_num=4]Epoch 0:  78%|███████▊  | 110/141 [00:00<00:00, 173.81it/s, loss=nan, v_num=4]Epoch 0:  82%|████████▏ | 115/141 [00:00<00:00, 175.17it/s, loss=nan, v_num=4]Epoch 0:  85%|████████▌ | 120/141 [00:00<00:00, 176.66it/s, loss=nan, v_num=4]Epoch 0:  89%|████████▊ | 125/141 [00:00<00:00, 177.91it/s, loss=nan, v_num=4]Epoch 0:  92%|█████████▏| 130/141 [00:00<00:00, 166.68it/s, loss=nan, v_num=4]Epoch 0:  92%|█████████▏| 130/141 [00:00<00:00, 166.62it/s, loss=nan, v_num=4]
+{'num_nodes': 1, 'gpus': 1, 'logger': True, 'auto_select_gpus': True, 'callbacks': [<pytorch_lightning.callbacks.model_checkpoint.ModelCheckpoint object at 0x151704ec5850>, <pytorch_lightning.callbacks.lr_monitor.LearningRateMonitor object at 0x151704ec5a00>], 'max_epochs': 1, 'progress_bar_refresh_rate': 5}
+Validation sanity check: 0it [00:00, ?it/s]Validation sanity check:   0%|          | 0/2 [00:00<?, ?it/s]                                                              Training: -1it [00:00, ?it/s]Training:   0%|          | 0/141 [00:00<00:00, 25575.02it/s]Epoch 0:   0%|          | 0/141 [00:00<00:00, 5203.85it/s]  Epoch 0:   4%|▎         | 5/141 [00:00<00:03, 40.80it/s]  Epoch 0:   4%|▎         | 5/141 [00:00<00:03, 40.69it/s, loss=nan, v_num=2128363]Epoch 0:   7%|▋         | 10/141 [00:00<00:02, 65.25it/s, loss=nan, v_num=2128363]Epoch 0:  11%|█         | 15/141 [00:00<00:01, 84.54it/s, loss=nan, v_num=2128363]Epoch 0:  14%|█▍        | 20/141 [00:00<00:01, 99.81it/s, loss=nan, v_num=2128363]Epoch 0:  18%|█▊        | 25/141 [00:00<00:01, 112.49it/s, loss=nan, v_num=2128363]Epoch 0:  21%|██▏       | 30/141 [00:00<00:00, 122.82it/s, loss=nan, v_num=2128363]Epoch 0:  21%|██▏       | 30/141 [00:00<00:00, 122.68it/s, loss=nan, v_num=2128363]Epoch 0:  25%|██▍       | 35/141 [00:00<00:00, 132.00it/s, loss=nan, v_num=2128363]Epoch 0:  28%|██▊       | 40/141 [00:00<00:00, 139.37it/s, loss=nan, v_num=2128363]Epoch 0:  32%|███▏      | 45/141 [00:00<00:00, 146.22it/s, loss=nan, v_num=2128363]Epoch 0:  35%|███▌      | 50/141 [00:00<00:00, 151.59it/s, loss=nan, v_num=2128363]Epoch 0:  39%|███▉      | 55/141 [00:00<00:00, 157.05it/s, loss=nan, v_num=2128363]Epoch 0:  39%|███▉      | 55/141 [00:00<00:00, 156.94it/s, loss=nan, v_num=2128363]Epoch 0:  43%|████▎     | 60/141 [00:00<00:00, 161.26it/s, loss=nan, v_num=2128363]Epoch 0:  46%|████▌     | 65/141 [00:00<00:00, 165.83it/s, loss=nan, v_num=2128363]Epoch 0:  50%|████▉     | 70/141 [00:00<00:00, 169.26it/s, loss=nan, v_num=2128363]Epoch 0:  53%|█████▎    | 75/141 [00:00<00:00, 172.94it/s, loss=nan, v_num=2128363]Epoch 0:  57%|█████▋    | 80/141 [00:00<00:00, 175.43it/s, loss=nan, v_num=2128363]Epoch 0:  57%|█████▋    | 80/141 [00:00<00:00, 175.35it/s, loss=nan, v_num=2128363]Epoch 0:  60%|██████    | 85/141 [00:00<00:00, 178.62it/s, loss=nan, v_num=2128363]Epoch 0:  64%|██████▍   | 90/141 [00:00<00:00, 180.64it/s, loss=nan, v_num=2128363]Epoch 0:  67%|██████▋   | 95/141 [00:00<00:00, 183.19it/s, loss=nan, v_num=2128363]Epoch 0:  71%|███████   | 100/141 [00:00<00:00, 185.20it/s, loss=nan, v_num=2128363]Epoch 0:  74%|███████▍  | 105/141 [00:00<00:00, 187.46it/s, loss=nan, v_num=2128363]Epoch 0:  74%|███████▍  | 105/141 [00:00<00:00, 187.38it/s, loss=nan, v_num=2128363]Epoch 0:  78%|███████▊  | 110/141 [00:00<00:00, 188.96it/s, loss=nan, v_num=2128363]Epoch 0:  82%|████████▏ | 115/141 [00:00<00:00, 190.97it/s, loss=nan, v_num=2128363]Epoch 0:  85%|████████▌ | 120/141 [00:00<00:00, 192.12it/s, loss=nan, v_num=2128363]Epoch 0:  89%|████████▊ | 125/141 [00:00<00:00, 193.43it/s, loss=nan, v_num=2128363]Epoch 0:  92%|█████████▏| 130/141 [00:00<00:00, 180.22it/s, loss=nan, v_num=2128363]Epoch 0:  92%|█████████▏| 130/141 [00:00<00:00, 180.16it/s, loss=nan, v_num=2128363]
 Validating: 0it [00:00, ?it/s][A
 Validating:   0%|          | 0/11 [00:00<?, ?it/s][A
-Validating:  45%|████▌     | 5/11 [00:00<00:00, 35.78it/s][AEpoch 0: 100%|██████████| 141/141 [00:01<00:00, 139.92it/s, loss=nan, v_num=4]
-                                                          [AEpoch 0: 100%|██████████| 141/141 [00:01<00:00, 139.70it/s, loss=nan, v_num=4]
-Testing: 0it [00:00, ?it/s]Testing:  45%|████▌     | 5/11 [33:17<39:56, 399.47s/it]Testing:  91%|█████████ | 10/11 [59:30<05:49, 349.61s/it]Testing: 100%|██████████| 11/11 [1:00:45<00:00, 310.01s/it]mse_pred =  30794.732
-grad_mse_pred =  1827.1810439629353
+Validating:  45%|████▌     | 5/11 [00:00<00:00, 39.91it/s][AEpoch 0: 100%|██████████| 141/141 [00:00<00:00, 151.78it/s, loss=nan, v_num=2128363]
+                                                          [AEpoch 0: 100%|██████████| 141/141 [00:00<00:00, 151.59it/s, loss=nan, v_num=2128363]
+Testing: 0it [00:00, ?it/s]Testing:  45%|████▌     | 5/11 [01:01<01:13, 12.26s/it]Testing:  91%|█████████ | 10/11 [02:01<00:12, 12.14s/it]Testing: 100%|██████████| 11/11 [02:07<00:00, 11.26s/it]mse_pred =  0.38433388
+grad_mse_pred =  0.02211320033446094
 --------------------------------------------------------------------------------
 DATALOADER:0 TEST RESULTS
-{'test_loss': 1091608.875,
- 'test_mse': 377892.28125,
- 'test_mseG': 37462.4921875,
- 'test_oi_score': 23427664.0}
+{'test_loss': 2.8213093280792236,
+ 'test_mse': 0.25039586424827576,
+ 'test_mseG': 0.3749609589576721,
+ 'test_oi_score': 8788.35546875}
 --------------------------------------------------------------------------------
-Testing: 100%|██████████| 11/11 [1:00:48<00:00, 331.65s/it]
-# TRAINING TIME	:  0.15  mins	 # TEST TIME	:  60.8  mins
+Testing: 100%|██████████| 11/11 [02:10<00:00, 11.86s/it]
+# TRAINING TIME	:  0.09  mins	 # TEST TIME	:  2.18  mins

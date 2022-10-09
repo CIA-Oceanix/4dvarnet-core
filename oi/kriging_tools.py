@@ -35,9 +35,20 @@ def SPDE_spatiotemporal_kriging(Qxx, Lxx, Qxy, obs, mask, sparse=False, torch_sp
 
     RM  = torch.matmul(-1.*Qxy,zD)
     if sparse==False:
-        RM  = torch.unsqueeze(RM,1)
-        z = torch.triangular_solve(RM,Lxx,upper=False)[0]
-        z = torch.triangular_solve(z,torch.transpose(Lxx,0,1),upper=True)[0]
+        if not isinstance(Lxx, tuple):
+            RM = torch.unsqueeze(RM,1)
+            z = torch.triangular_solve(RM,Lxx,upper=False)[0]
+            z = torch.triangular_solve(z,torch.transpose(Lxx,0,1),upper=True)[0]
+        else:
+            Pxx_, Lxx, inv_Dxx = Lxx
+            Lxx = Lxx.to_dense()
+            RM = RM[Pxx_.long()]
+            RM = torch.unsqueeze(RM,1)
+            z = torch.triangular_solve(RM,Lxx,upper=False)[0]
+            z = torch.mul(inv_Dxx,z[:,0])
+            z = torch.unsqueeze(z,1)
+            z = torch.triangular_solve(z,torch.transpose(Lxx,0,1),upper=True)[0]
+            z = z[torch.argsort(Pxx_).long()]
     else:
         if torch_sparse_solve==False:
             #z = solve_sparse.apply(Lxx,RM)

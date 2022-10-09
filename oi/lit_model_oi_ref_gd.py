@@ -48,6 +48,9 @@ class LitModel(pl.LightningModule):
         self.estim_parameters = self.hparams.estim_parameters
         self.spde_params_path = hparam.files_cfg.spde_params_path
 
+        # use OI or for metrics or not
+        self.use_oi = self.hparams.oi if hasattr(self.hparams, 'oi') else False
+
         # main model
         self.model = solver_gd.Gradient_Solver(
                 Phi_r(self.shapeData,pow=hparam.pow,diff_only=self.diff_only,
@@ -114,7 +117,11 @@ class LitModel(pl.LightningModule):
 
     def test_step(self, test_batch, batch_idx):
 
-        inputs_obs, inputs_mask, targets_gt = test_batch
+        if not self.use_oi:
+            inputs_obs, inputs_mask, targets_gt = test_batch[:3]
+            targets_oi = None
+        else:
+            inputs_obs, inputs_mask, targets_gt, targets_oi = test_batch
         #loss, out, param, metrics, simu = self.compute_loss(test_batch, phase='test')
         loss, out, param, metrics, cmp_loss = self.compute_loss(test_batch, phase='test')
         if loss is not None:
@@ -299,7 +306,12 @@ class LitModel(pl.LightningModule):
 
     def compute_loss(self, batch, phase):
 
-        inputs_obs, inputs_mask, targets_gt = batch
+        if not self.use_oi:
+            inputs_obs, inputs_mask, targets_gt = batch[:3]
+            targets_oi = None
+        else:
+            inputs_obs, inputs_mask, targets_gt, targets_oi = batch
+
         # handle patch with no observation
         if inputs_mask.sum().item() == 0:
             return (
@@ -319,6 +331,7 @@ class LitModel(pl.LightningModule):
         with torch.set_grad_enabled(True):
             inputs_init = torch.autograd.Variable(inputs_init, requires_grad=True)
             outputs, cmp_loss, params = self.model(targets_gt,inputs_init, inputs_missing, inputs_mask,
+                                         targets_oi,
                                          estim_parameters=False)
 
             if (phase == 'val') or (phase == 'test'):
@@ -375,6 +388,7 @@ class LitModel(pl.LightningModule):
                 inputs_missing_simu = inputs_init_simu
                 x_itrp_simu, _, _ = self.model(targets_gt,inputs_init_simu,
                                                     inputs_missing_simu, inputs_mask,
+                                                    targets_oi,
                                                     estim_parameters=False)
                 # conditional simulation
                 x_simu_cond = outputs+(x_simu-x_itrp_simu)
@@ -386,6 +400,12 @@ class LitModel(pl.LightningModule):
             
             # supervised loss
             loss = self.hparams.alpha_mse_ssh * loss_All #+ self.hparams.alpha_mse_gssh * loss_GAll
+
+            # supervised loss (vs OI)
+            if self.use_oi:
+                loss_mse_vs_oi = NN_4DVar.compute_WeightedLoss((outputs - targets_oi), self.w_loss)
+                loss_mseoi = self.hparams.alpha_mse_ssh * loss_mse_vs_oi
+
             # OI loss
             Q = self.model.phi_r.operator_spde(kappa, m, H, tau, square_root=False)
             Q.requires_grad=True
@@ -411,16 +431,21 @@ class LitModel(pl.LightningModule):
                 dy_new.append(dyTiRdy[0,0])
             dy = torch.stack(dy_new)
             dx = torch.stack(xtQx)
-            loss_OI = torch.mean(dy+dx)
+            loss_OI = torch.nanmean(dy+dx)
             #dy = self.model.model_H(outputs,inputs_missing,inputs_mask)
-            #loss_OI = torch.mean(self.model_spde.model_VarCost(dx,dy,square_root=False))
+            #loss_OI = torch.nanmean(self.model_spde.model_VarCost(dx,dy,square_root=False))
 
             # metrics
             mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_gt, self.w_loss)
             mse = loss_All.detach()
             mse_grad = loss_GAll.detach()
             oi_score = loss_OI.detach()
-            metrics = dict([('mse', mse), ('mseGrad', mse_grad), ('meanGrad', mean_GAll), ('oiScore',oi_score)])
+            metrics = dict([('mse', mse), ('mseGrad', mse_grad),
+                            ('meanGrad', mean_GAll),
+                            ('oiScore',oi_score)])
+            if self.use_oi:
+                mse_oi = loss_mseoi.detach()
+                metrics['mseoi'] = mse_oi
 
         if phase!="test":
             return loss, outputs, params, metrics

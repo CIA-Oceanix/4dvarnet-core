@@ -384,31 +384,35 @@ class Solver_Grad_4DVarNN(nn.Module):
         with torch.no_grad():
             self.n_fp = int(n_iter_fp)
         
-    def forward(self, gt, x, yobs, mask, estim_parameters=True):
+    def forward(self, gt, x, yobs, mask, oi,estim_parameters=True):
         return self.solve(
             gt=gt,
             x_0=x,
             obs=yobs,
             mask = mask,
+            oi = oi,
             estim_parameters = estim_parameters)
 
-    def solve(self, gt, x_0, obs, mask, estim_parameters):
+    def solve(self, gt, x_0, obs, mask, oi, estim_parameters):
         x_k = x_0
-        cmp_loss = torch.ones(x_k.shape[0],self.n_fp+1,2)
+        if oi is None:
+            cmp_loss = torch.ones(x_k.shape[0],self.n_fp+1,2)
+        else:
+            cmp_loss = torch.ones(x_k.shape[0],self.n_fp+1,3)
         # more than 1 iteration of n_grad doesn't do anything
         for _ in range(self.n_fp):
-            x_k, cmp_loss_, params = self.solver_step(gt, x_k, obs, mask, estim_parameters)
+            x_k, cmp_loss_, params = self.solver_step(gt, x_k, obs, mask, oi, estim_parameters)
             for batch in range(len(cmp_loss)):
                 cmp_loss[batch,k,:] = cmp_loss_[batch,:]
         # last iteration
         x_k, params = self.phi_r(x_k,estim_params=estim_parameters)
-        cmp_loss_ = self.var_cost(gt, x_k, yobs, mask)
+        cmp_loss_ = self.var_cost(gt, x_k, yobs, oi, mask)
         for batch in range(len(cmp_loss)):
             cmp_loss[batch,self.n_fp,:] = cmp_loss_[batch,:]
         return x_k, cmp_loss, params
 
-    def solver_step(self, gt, x_k, obs, mask, estim_parameters):
-        cmp_loss = self.var_cost(gt, x_k, obs, mask, estim_parameters)
+    def solver_step(self, gt, x_k, obs, mask, oi, estim_parameters):
+        cmp_loss = self.var_cost(gt, x_k, obs, mask, oi, estim_parameters)
         #Get the observed values in the measured area
         y_obs = obs * mask
         #Get the interpolation for the empty area
@@ -420,7 +424,7 @@ class Solver_Grad_4DVarNN(nn.Module):
 
         return x_k_plus_1.type(torch.FloatTensor).to(device), cmp_loss, params
 
-    def var_cost(self, gt, x, yobs, mask, estim_params):
+    def var_cost(self, gt, x, yobs, mask, oi, estim_params):
         dy = self.model_H(x,yobs,mask)
         n_b, n_t, n_x, n_y = dy.shape
         # Jo
@@ -454,5 +458,11 @@ class Solver_Grad_4DVarNN(nn.Module):
         loss_mse = torch.tensor([compute_WeightedLoss((gt[i] - x[i]),torch.Tensor(np.ones(5)).to(device)) for i in range(len(gt))])
         loss_mse = loss_mse.to(device)
 
-        return torch.hstack([torch.reshape(loss_mse,(n_b,1)), torch.reshape(loss_OI,(n_b,1))])
+        # if using OI
+        if oi is not None:
+            loss_mseoi = torch.tensor([compute_WeightedLoss((oi[i] - x[i]),torch.Tensor(np.ones(5)).to(device)) for i in range(len(oi))])
+            loss_mseoi = loss_mseoi.to(device)
+            return torch.hstack([torch.reshape(loss_mse,(n_b,1)), torch.reshape(loss_OI,(n_b,1)), torch.reshape(loss_mseoi,(n_b,1))])
+        else:
+            return torch.hstack([torch.reshape(loss_mse,(n_b,1)), torch.reshape(loss_OI,(n_b,1)), ])
 

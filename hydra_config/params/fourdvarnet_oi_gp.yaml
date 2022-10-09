@@ -1,9 +1,3 @@
-files_cfg:
-  obs_path: ${file_paths.obs_path}
-  obs_var: y
-  gt_path: ${file_paths.gt_path}
-  gt_var: x
-  spde_params_path: ${file_paths.spde_params_path}
 iter_update:
   - 0
   - 20
@@ -69,7 +63,7 @@ dwscale: 1
 UsePriodicBoundary: false
 InterpFlag: false
 automatic_optimization: true 
-ckpt_name: modelGPInterpGF-Exp3-{epoch:02d}-{val_loss:.2f}
+ckpt_name: model_gp-{epoch:02d}-{val_loss:.2f}
 norm_obs: l2
 norm_prior: l2
 diff_only: true

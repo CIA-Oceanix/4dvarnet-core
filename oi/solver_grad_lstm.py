@@ -306,6 +306,113 @@ class model_GradUpdateLSTM(torch.nn.Module):
 
         return grad,hidden,cell
 
+# Gradient-based minimization using a LSTM using a (sub)gradient as inputs
+class model_asymptotic_GradUpdateLSTM(torch.nn.Module):
+    def __init__(self,ShapeData,periodicBnd=False,DimLSTM=0,rateDropout=0.,stochastic=False,asymptotic_term=False):
+        super(model_asymptotic_GradUpdateLSTM, self).__init__()
+
+        with torch.no_grad():
+            self.shape     = ShapeData
+            if DimLSTM == 0 :
+                self.dim_state  = 5*self.shape[0]
+            else :
+                self.dim_state  = DimLSTM
+            self.PeriodicBnd = periodicBnd
+            if( (self.PeriodicBnd == True) & (len(self.shape) == 2) ):
+                print('No periodic boundary available for FxTime (eg, L63) tensors. Forced to False')
+                self.PeriodicBnd = False
+
+        self.convLayer     = self._make_ConvGrad()
+        K = torch.Tensor([0.1]).view(1,1,1,1)
+        self.convLayer.weight = torch.nn.Parameter(K)
+
+        self.dropout = torch.nn.Dropout(rateDropout)
+        self.stochastic=stochastic
+
+        if len(self.shape) == 2: ## 1D Data
+            self.lstm = ConvLSTM1d(self.shape[0],self.dim_state,3)
+        elif len(self.shape) == 3: ## 2D Data
+            self.lstm = ConvLSTM2d(self.shape[0],self.dim_state,3,stochastic=self.stochastic)
+            
+        self.asymptotic_term = asymptotic_term
+        self.trainable_fsgd_term = False
+        self.K1min = torch.nn.Parameter(torch.Tensor([10.]),requires_grad=False)
+        self.K2min = torch.nn.Parameter(torch.Tensor([10.]),requires_grad=False)
+        
+        if self.trainable_fsgd_term == False :
+            self.iter = 0
+            self.K1 = torch.nn.Parameter(torch.Tensor([15.]),requires_grad=False)
+            self.K2 = torch.nn.Parameter(torch.Tensor([15.]),requires_grad=False)
+            self.a = torch.nn.Parameter(torch.Tensor([np.sqrt(0.5)]),requires_grad=False)
+            self.b = torch.nn.Parameter(torch.Tensor([np.sqrt(1e-3)]),requires_grad=False)
+    
+    def set_fsgd_param_trainable(self):
+        self.K1.requires_grad = True
+        self.K2.requires_grad = True
+        self.a.requires_grad = True
+        self.b.requires_grad = True
+    
+    def _make_ConvGrad(self):
+        layers = []
+
+        if len(self.shape) == 2: ## 1D Data
+            layers.append(torch.nn.Conv1d(self.dim_state, self.shape[0], 1, padding=0,bias=False))
+        elif len(self.shape) == 3: ## 2D Data
+            layers.append(torch.nn.Conv2d(self.dim_state, self.shape[0], (1,1), padding=0,bias=False))
+
+        return torch.nn.Sequential(*layers)
+    def _make_LSTMGrad(self):
+        layers = []
+
+        if len(self.shape) == 2: ## 1D Data
+            layers.append(ConvLSTM1d(self.shape[0],self.dim_state,3))
+        elif len(self.shape) == 3: ## 2D Data
+            layers.append(ConvLSTM2d(self.shape[0],self.dim_state,3,stochastic=self.stochastic))
+
+        return torch.nn.Sequential(*layers)
+
+
+    def forward(self,hidden,cell,grad_,gradnorm=1.0):
+        # compute gradient
+        grad_  = grad_ / gradnorm
+        grad_  = self.dropout( grad_ )
+
+        if self.PeriodicBnd == True :
+            dB     = 7
+            #
+            grad_  = torch.cat((grad_[:,:,grad_.size(2)-dB:,:],grad_,grad_[:,:,0:dB,:]),dim=2)
+            if hidden is None:
+                hidden_,cell_ = self.lstm(grad_,None)
+            else:
+                hidden_  = torch.cat((hidden[:,:,grad_.size(2)-dB:,:],hidden,hidden[:,:,0:dB,:]),dim=2)
+                cell_    = torch.cat((cell[:,:,grad_.size(2)-dB:,:],cell,cell[:,:,0:dB,:]),dim=2)
+                hidden_,cell_ = self.lstm(grad_,[hidden_,cell_])
+
+            hidden = hidden_[:,:,dB:grad_.size(2)+dB,:]
+            cell   = cell_[:,:,dB:grad_.size(2)+dB,:]
+        else:
+            if hidden is None:
+                hidden,cell = self.lstm(grad_,None)
+            else:
+                hidden,cell = self.lstm(grad_,[hidden,cell])
+
+        grad = self.dropout( hidden )
+        grad = self.convLayer( grad )
+
+        if self.asymptotic_term == True:
+            K1 = self.K1min + torch.nn.functional.relu( self.K1 - self.K1min )
+            w1 = K1 / (K1 + self.iter )
+
+            K2 = self.K2min + torch.nn.functional.relu( self.K2 - self.K2min )
+            w2 = torch.log( K2 ) / torch.log( K2 + self.iter )
+            w2 = ( self.b ** 2 ) * w2 * torch.tanh( (self.a **2 ) * (self.iter - K2)  )
+            self.iter += 1.
+
+            grad_new = w1 * grad + w2 * grad_
+
+            #print('-- %d'%self.iter)
+
+        return grad_new, grad, grad_, hidden, cell
 
 # New module for the definition/computation of the variational cost
 class Model_Var_Cost(nn.Module):
@@ -319,10 +426,10 @@ class Model_Var_Cost(nn.Module):
             self.dim_state      = ShapeData[0]
             
         # parameters for variational cost
-        self.alphaObs    = torch.nn.Parameter(torch.Tensor(1. * np.ones((self.dim_obs,1))))
-        self.alphaReg    = torch.nn.Parameter(torch.Tensor([1.]))
+        self.alphaObs = torch.nn.Parameter(torch.Tensor(1. * np.ones((self.dim_obs,1))))
+        self.alphaReg = torch.nn.Parameter(torch.Tensor([1.]))
         if self.dim_obs_channel[0] == 0 :
-            self.WObs           = torch.nn.Parameter(torch.Tensor(np.ones((self.dim_obs,ShapeData[0]))))
+            self.WObs = torch.nn.Parameter(torch.Tensor(np.ones((self.dim_obs,ShapeData[0]))))
             self.dim_obs_channel  = ShapeData[0] * np.ones((self.dim_obs,))
         else:
             self.WObs            = torch.nn.Parameter(torch.Tensor(np.ones((self.dim_obs,np.max(self.dim_obs_channel)))))
@@ -390,23 +497,28 @@ class Solver_Grad_4DVarNN(nn.Module):
         with torch.no_grad():
             self.n_grad = int(n_iter_grad)
         
-    def forward(self, gt, x, yobs, mask):
+    def forward(self, gt, x, yobs, mask, oi):
         return self.solve(
             gt=gt,
             x_0=x,
             obs=yobs,
-            mask = mask)
+            mask = mask,
+            oi=oi)
 
-    def solve(self, gt, x_0, obs, mask):
+    def solve(self, gt, x_0, obs, mask, oi):
         x_k = torch.mul(x_0,1.) 
         hidden = None
         cell = None 
         normgrad_ = 0.
         x_k_plus_1 = None
-        cmp_loss = torch.ones(x_k.shape[0],self.n_grad,2)
+        if oi is None:
+            cmp_loss = torch.ones(x_k.shape[0],self.n_grad,2)
+        else:
+            cmp_loss = torch.ones(x_k.shape[0],self.n_grad,3)
         grads = torch.ones(x_k.shape[0],2,x_k.shape[1],x_k.shape[2],x_k.shape[3],self.n_grad)
+
         for k in range(self.n_grad):
-            x_k_plus_1, cmp_loss_, hidden, cell, normgrad_, grads_ = self.solver_step(gt, x_k, obs, mask,hidden, cell, normgrad_)
+            x_k_plus_1, cmp_loss_, hidden, cell, normgrad_, grads_ = self.solver_step(gt, x_k, obs, mask, oi, hidden, cell, normgrad_)
             x_k = torch.mul(x_k_plus_1,1.)
             for batch in range(len(cmp_loss)):
                 cmp_loss[batch,k,:] = cmp_loss_[batch,:]
@@ -415,21 +527,26 @@ class Solver_Grad_4DVarNN(nn.Module):
 
         return x_k_plus_1, cmp_loss, hidden, cell, normgrad_, grads
 
-    def solver_step(self, gt, x_k, obs, mask, hidden, cell,normgrad = 0.):
-        _, cmp_loss, var_cost_grad = self.var_cost(gt, x_k, obs, mask)
+    def solver_step(self, gt, x_k, obs, mask, oi, hidden, cell,normgrad = 0.):
+        _, cmp_loss, var_cost_grad = self.var_cost(gt, x_k, obs, mask, oi)
         if normgrad == 0. :
             normgrad_= torch.sqrt( torch.mean( var_cost_grad**2 + 0.))
         else:
             normgrad_= normgrad
-        lstm_grad, hidden, cell = self.model_Grad(hidden, cell, var_cost_grad, normgrad_)
-        lstm_grad *= 1./ self.n_grad
-        # classic 4DVarNet-LSTM solver
-        #x_k_plus_1 = x_k - grad
-        # modified hybrid Grad + LSTM solver
-        x_k_plus_1 = x_k - 0.0005*var_cost_grad - lstm_grad
+        list_grad = self.model_Grad(hidden, cell, var_cost_grad, normgrad_)
+        if len(list_grad)==3:
+            lstm_grad, hidden, cell = list_grad
+            lstm_grad *= 1./ self.n_grad
+            # classic 4DVarNet-LSTM solver
+            # modified hybrid Grad + LSTM solver
+            x_k_plus_1 = x_k - 0.0005*var_cost_grad - lstm_grad
+        else:
+            hybrid_grad, lstm_grad, var_cost_grad, hidden, cell = list_grad
+            hybrid_grad *= 1./ self.n_grad
+            x_k_plus_1 = x_k - hybrid_grad
         return x_k_plus_1, cmp_loss, hidden, cell, normgrad_, torch.permute(torch.stack([var_cost_grad,lstm_grad]),(1,0,2,3,4))
 
-    def var_cost(self , gt, x, yobs, mask):
+    def var_cost(self , gt, x, yobs, mask, oi):
         dy = self.model_H(x,yobs,mask)
         # Jb
         dx = x - self.phi_r(x)
@@ -468,4 +585,11 @@ class Solver_Grad_4DVarNN(nn.Module):
         loss_mse = torch.tensor([compute_WeightedLoss((gt[i] - x[i]),torch.Tensor(np.ones(5)).to(device)) for i in range(len(gt))])
         loss_mse = loss_mse.to(device)
 
-        return loss, torch.hstack([torch.reshape(loss_mse,(n_b,1)), torch.reshape(loss_OI,(n_b,1))]), var_cost_grad
+        # if using OI
+        if oi is not None:
+            loss_mseoi = torch.tensor([compute_WeightedLoss((oi[i] - x[i]),torch.Tensor(np.ones(5)).to(device)) for i in range(len(oi))])
+            loss_mseoi = loss_mseoi.to(device)
+            return loss, torch.hstack([torch.reshape(loss_mse,(n_b,1)), torch.reshape(loss_OI,(n_b,1)), torch.reshape(loss_mseoi,(n_b,1))]), var_cost_grad
+        else:
+            return loss, torch.hstack([torch.reshape(loss_mse,(n_b,1)), torch.reshape(loss_OI,(n_b,1)), ]), var_cost_grad
+

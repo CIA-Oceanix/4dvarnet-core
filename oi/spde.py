@@ -7,7 +7,7 @@ def pow_diff_operator(A,pow,sparse=False):
             B = torch.matmul(B,A)
         else:
             B = spspmm(B,A)
-    B=(1./2)*(B+B.t())
+    B=(1./2)*(B.t()+B)
     return B
 
 def get_boundary_index(Nx,Ny):

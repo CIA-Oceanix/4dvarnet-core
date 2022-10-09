@@ -1,5 +1,4 @@
 # @package _global_
-_pow_1_diff
 xp_name: oi_gp_spde_wlp_diff_loss
 
 datamodule:
@@ -8,9 +7,10 @@ datamodule:
 params:
   estim_parameters: true
   loss_type: diffusion_loss
-  n_grad: 10
+  n_grad: 20
 
 defaults:
+  - /params_gp@params: gp_diff_pow_1
   - /params: fourdvarnet_oi_gp
   - /domain@datamodule.dim_range: gp
   - /domain@params.test_domain: gp

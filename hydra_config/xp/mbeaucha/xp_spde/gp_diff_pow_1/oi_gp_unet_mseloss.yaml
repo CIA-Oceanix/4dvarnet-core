@@ -10,6 +10,7 @@ datamodule:
 lit_mod_cls: oi.lit_model_phi.LitModel
 
 defaults:
+  - /params_gp@params: gp_diff_pow_1
   - /params: fourdvarnet_oi_gp
   - /domain@datamodule.dim_range: gp
   - /domain@params.test_domain: gp

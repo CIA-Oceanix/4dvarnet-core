@@ -47,6 +47,9 @@ class LitModel(pl.LightningModule):
         self.original_coords = kwargs['original_coords']
         self.padded_coords = kwargs['padded_coords']
 
+        # use OI or for metrics or not
+        self.use_oi = self.hparams.oi if hasattr(self.hparams, 'oi') else False
+
         # main model
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
             Phi_r(self.shapeData[0], self.hparams.DimAE, self.hparams.dW, self.hparams.dW2, self.hparams.sS,
@@ -54,8 +57,10 @@ class LitModel(pl.LightningModule):
             #Phi_r_UNet(self.shapeData[0], self.hparams.dropout_phi_r, self.hparams.stochastic,shrink_factor=1),
             Model_H(self.shapeData[0]),
             NN_4DVar.model_GradUpdateLSTM(self.shapeData, self.hparams.UsePriodicBoundary,
-                                          self.hparams.dim_grad_solver, self.hparams.dropout, self.hparams.stochastic),
-            None, None, self.shapeData, self.hparams.n_grad, self.hparams.stochastic)
+                                          self.hparams.dim_grad_solver, self.hparams.dropout,
+                                          self.hparams.stochastic),
+            None, None, self.shapeData, self.hparams.n_grad, self.hparams.stochastic,
+            spde_dataset_path=hparam.files_cfg.spde_params_path)
 
         # SPDE-based model
         self.model_spde = NN_4DVar_spde.Solver_Grad_4DVarNN(
@@ -150,7 +155,12 @@ class LitModel(pl.LightningModule):
 
     def test_step(self, test_batch, batch_idx):
 
-        inputs_obs, inputs_mask, targets_gt = test_batch
+        if not self.use_oi:
+            inputs_obs, inputs_mask, targets_gt = test_batch[:3]
+            targets_oi = None
+        else:
+            inputs_obs, inputs_mask, targets_gt, targets_oi = test_batch
+
         loss, out, metrics, cmp_loss = self.compute_loss(test_batch, phase='test')
         if loss is not None:
             self.log('test_loss', loss)
@@ -277,7 +287,12 @@ class LitModel(pl.LightningModule):
 
     def compute_loss(self, batch, phase):
 
-        inputs_obs, inputs_mask, targets_gt = batch
+        if not self.use_oi:
+            inputs_obs, inputs_mask, targets_gt = batch[:3]
+            targets_oi = None
+        else:
+            inputs_obs, inputs_mask, targets_gt, targets_oi = batch
+
         # handle patch with no observation
         if inputs_mask.sum().item() == 0:
             return (
@@ -295,9 +310,9 @@ class LitModel(pl.LightningModule):
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
             inputs_init = torch.autograd.Variable(inputs_init, requires_grad=True)
-            outputs, cmp_loss, hidden_new, cell_new, normgrad = self.model(targets_gt,inputs_init, inputs_missing, inputs_mask)
+            outputs, cmp_loss, hidden_new, cell_new, normgrad = self.model(targets_gt,inputs_init, inputs_missing, inputs_mask, targets_oi)
             # spde model to retrieve SPDE parameters and Q
-            _, _, _, _, _, params = self.model_spde(targets_gt,inputs_init,inputs_missing,inputs_mask,estim_parameters=False)
+            _, _, _, _, _, params = self.model_spde(targets_gt,inputs_init,inputs_missing,inputs_mask,targets_oi,estim_parameters=False)
             n_b = outputs.shape[0]
             n_x = outputs.shape[3]
             n_y = outputs.shape[2]
@@ -315,23 +330,29 @@ class LitModel(pl.LightningModule):
             g_outputs = self.gradient_img(outputs)
             loss_All = NN_4DVar.compute_WeightedLoss((outputs - targets_gt), self.w_loss)
             #loss_All = torch.tensor([NN_4DVar.compute_WeightedLoss(outputs[i] - targets_gt[i],self.w_loss) for i in range(len(targets_gt))])
-            #loss_All = torch.mean(loss_All)
+            #loss_All = torch.nanmean(loss_All)
 
             loss_GAll = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_gt, self.w_loss)
             # projection losses
-            loss_AE = torch.mean((self.model.phi_r(outputs) - outputs) ** 2)
+            loss_AE = torch.nanmean((self.model.phi_r(outputs) - outputs) ** 2)
             #loss_AE = 0
 
-            # supervised loss
+            # supervised loss (vs GT)
             loss = self.hparams.alpha_mse_ssh * loss_All #+ self.hparams.alpha_mse_gssh * loss_GAll
-            #loss += 0.5 * self.hparams.alpha_proj * loss_AE 
+            loss += 0.5 * self.hparams.alpha_proj * loss_AE 
+
+            # supervised loss (vs OI)
+            if self.use_oi:
+                loss_mse_vs_oi = NN_4DVar.compute_WeightedLoss((outputs - targets_oi), self.w_loss)
+                loss_mseoi = self.hparams.alpha_mse_ssh * loss_mse_vs_oi
 
             # OI loss
             Q = self.model_spde.phi_r.operator_spde(kappa, m, H, tau, square_root=False)
             Q.requires_grad=True
             dy = self.model_spde.model_H(outputs,inputs_missing,inputs_mask)
             xtQx = list()
-            dy_new=list()
+            dy_new = list()
+            #std = list()
             for i in range(n_b):
                 # prior regularization
                 xtQ = torch.sparse.mm(Q[i],
@@ -342,21 +363,47 @@ class LitModel(pl.LightningModule):
                                  )
                 xtQx.append(xtQx_[0,0])
                 # observation term
+                # get observations
                 id_obs = torch.where(torch.flatten(inputs_mask[i])!=0.)[0]
                 dyi = torch.index_select(torch.flatten(dy[i]), 0, id_obs).type(torch.FloatTensor).to(device)
                 nb_obs = len(dyi)
+                # define sparse observation operator
+                '''
+                row = []
+                col = []
+                idx = 0
+                for k in range(n_t):
+                    idD = torch.where(torch.flatten(torch.transpose(inputs_mask[i,k,:,:],0,1))!=0.)[0]
+                    if len(idD)>0:
+                        row.extend( (idx + np.arange(0,len(idD))).tolist() )
+                        col.extend( ((k*n_x*n_y)+idD).tolist() )
+                        idx = idx + len(idD)
+                val = np.ones(len(row))
+                opH = torch.sparse.FloatTensor(torch.LongTensor([row,col]),
+                                         torch.FloatTensor(val),
+                                         torch.Size([nb_obs,n_t*n_x*n_y])).to(device)
+                '''
                 inv_R = 1e3*sparse_eye(nb_obs).type(torch.FloatTensor).to(device)
                 iRdy = torch.sparse.mm(inv_R,torch.reshape(dyi,(nb_obs,1)))
                 dyTiRdy = torch.matmul(torch.reshape(dyi,(1,nb_obs)),iRdy)
                 dy_new.append(dyTiRdy[0,0])
+                '''
+                Q_post = Q[i] + spspmm(spspmm(torch.transpose(opH,0,1),inv_R),opH).detach()
+                std.append(torch.std(torch.diagonal(torch.linalg.inv(torch.unsqueeze(Q_post.to_dense(),dim=0))))[0])
+                '''
             dy = torch.stack(dy_new)
             dx = torch.stack(xtQx)
-            loss_OI = torch.mean(dy+dx)
+            # standardized MSE
+            #std = torch.stack(std)
+            #cmp_loss[:,:,0] = cmp_loss[:,:,0]/std
+            loss_OI = torch.nanmean(dy+dx)
             #dy = self.model.model_H(outputs,inputs_missing,inputs_mask)
-            #loss_OI = torch.mean(self.model_spde.model_VarCost(dx,dy,square_root=False))
+            #loss_OI = torch.nanmean(self.model_spde.model_VarCost(dx,dy,square_root=False))
 
             if self.loss_type=="mse_loss":
                 loss = loss
+            if self.loss_type=="mseoi_loss":
+                loss = loss_mseoi
             if self.loss_type=="oi_loss":
                 loss = loss_OI
 
@@ -365,7 +412,12 @@ class LitModel(pl.LightningModule):
             mse = loss_All.detach()
             mse_grad = loss_GAll.detach()
             oi_score = loss_OI.detach()
-            metrics = dict([('mse', mse), ('mseGrad', mse_grad), ('meanGrad', mean_GAll), ('oiScore',oi_score)])
+            metrics = dict([('mse', mse), ('mseGrad', mse_grad), 
+                            ('meanGrad', mean_GAll), 
+                            ('oiScore',oi_score)])
+            if self.use_oi:
+                mse_oi = loss_mseoi.detach()
+                metrics['mseoi'] = mse_oi
 
         if phase!="test":
             return loss, outputs, metrics

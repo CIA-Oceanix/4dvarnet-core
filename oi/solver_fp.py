@@ -50,26 +50,29 @@ class FP_Solver(nn.Module):
         with torch.no_grad():
             self.n_fp = int(n_iter_fp)
 
-    def forward(self, gt, x, yobs, mask, *internal_state):
-        return self.solve(gt, x, yobs, mask, *internal_state)
+    def forward(self, gt, x, yobs, mask, oi, *internal_state):
+        return self.solve(gt, x, yobs, mask, oi, *internal_state)
         
-    def solve(self, gt, x_0, obs, mask):
+    def solve(self, gt, x_0, obs, mask, oi):
         x_k = x_0
-        cmp_loss = torch.ones(x_k.shape[0],self.n_fp+1,2)
+        if oi is None:
+            cmp_loss = torch.ones(x_k.shape[0],self.n_fp+1,2)
+        else:
+            cmp_loss = torch.ones(x_k.shape[0],self.n_fp+1,3)
         # more than 1 iteration of n_grad doesn't do anything
         for k in range(self.n_fp):
-            x_k, cmp_loss_ = self.solver_step(gt, x_k, obs, mask)
+            x_k, cmp_loss_ = self.solver_step(gt, x_k, obs, mask, oi)
             for batch in range(len(cmp_loss)):
                 cmp_loss[batch,k,:] = cmp_loss_[batch,:]
         x_k = self.phi_r(x_k)
         # last iteration
-        _, cmp_loss_ = self.var_cost(gt, x_k, obs, mask)
+        _, cmp_loss_ = self.var_cost(gt, x_k, obs, mask, oi)
         for batch in range(len(cmp_loss)):
             cmp_loss[batch,self.n_fp,:] = cmp_loss_[batch,:]
         return x_k, cmp_loss
 
-    def solver_step(self, gt, x_k, obs, mask):
-        _, cmp_loss = self.var_cost(gt, x_k, obs, mask)
+    def solver_step(self, gt, x_k, obs, mask, oi):
+        _, cmp_loss = self.var_cost(gt, x_k, obs, mask, oi)
         #Get the observed values in the measured area
         y_obs = obs * mask
         #Get the interpolation for the empty area
@@ -80,7 +83,7 @@ class FP_Solver(nn.Module):
 
         return x_k_plus_1.type(torch.FloatTensor).to(device), cmp_loss
 
-    def var_cost(self, gt, x, yobs, mask):
+    def var_cost(self, gt, x, yobs, mask, oi):
         dy = self.model_H(x,yobs,mask)
         # Jb
         dx = x - self.phi_r(x)
@@ -121,6 +124,11 @@ class FP_Solver(nn.Module):
 
         loss = torch.mean(loss_OI)
 
-        return loss, torch.hstack([torch.reshape(loss_mse,(n_b,1)), torch.reshape(loss_OI,(n_b,1))])
-
+        # if using OI
+        if oi is not None:
+            loss_mseoi = torch.tensor([compute_WeightedLoss((oi[i] - x[i]),torch.Tensor(np.ones(5)).to(device)) for i in range(len(oi))])
+            loss_mseoi = loss_mseoi.to(device)
+            return loss, torch.hstack([torch.reshape(loss_mse,(n_b,1)), torch.reshape(loss_OI,(n_b,1)), torch.reshape(loss_mseoi,(n_b,1))])
+        else:
+            return loss, torch.hstack([torch.reshape(loss_mse,(n_b,1)), torch.reshape(loss_OI,(n_b,1)), ])
 

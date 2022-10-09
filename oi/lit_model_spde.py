@@ -43,12 +43,15 @@ class LitModel(pl.LightningModule):
 
         self.diff_only = self.hparams.diff_only
 
+        # use OI or for metrics or not
+        self.use_oi = self.hparams.oi if hasattr(self.hparams, 'oi') else False
+
         self.estim_parameters = self.hparams.estim_parameters
         self.spde_params_path = hparam.files_cfg.spde_params_path
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(self.shapeData,pow=hparam.pow,diff_only=self.diff_only,
                       given_parameters=not self.estim_parameters,
-                      nc=hparam.files_cfg.spde_params_path),
+                      nc=xr.open_dataset(hparam.files_cfg.spde_params_path)),
                 Model_H(self.shapeData[0]),
                 NN_4DVar.model_GradUpdateLSTM(self.shapeData, self.hparams.UsePriodicBoundary,
                                           self.hparams.dim_grad_solver, self.hparams.dropout, self.hparams.stochastic),
@@ -163,7 +166,12 @@ class LitModel(pl.LightningModule):
 
     def test_step(self, test_batch, batch_idx):
 
-        inputs_obs, inputs_mask, targets_gt = test_batch
+        if not self.use_oi:
+            inputs_obs, inputs_mask, targets_gt = test_batch[:3]
+            targets_oi = None
+        else:
+            inputs_obs, inputs_mask, targets_gt, targets_oi = test_batch
+
         loss, out, param, metrics, simu, cmp_loss = self.compute_loss(test_batch, phase='test')
         if loss is not None:
             self.log('test_loss', loss)
@@ -343,7 +351,12 @@ class LitModel(pl.LightningModule):
 
     def compute_loss(self, batch, phase):
 
-        inputs_obs, inputs_mask, targets_gt = batch
+        if not self.use_oi:
+            inputs_obs, inputs_mask, targets_gt = batch[:3]
+            targets_oi = None
+        else:
+            inputs_obs, inputs_mask, targets_gt, targets_oi = batch
+
         # handle patch with no observation
         if inputs_mask.sum().item() == 0:
             return (
@@ -366,6 +379,7 @@ class LitModel(pl.LightningModule):
                                                                          inputs_init,
                                                                          inputs_missing,
                                                                          inputs_mask,
+                                                                         targets_oi,
                                                                          estim_parameters=True)
             #outputs, params = self.model(inputs_init, inputs_missing, inputs_mask,.33,None,None)
             if (phase == 'val') or (phase == 'test'):
@@ -423,6 +437,7 @@ class LitModel(pl.LightningModule):
                 x_itrp_simu,_ , _ ,_ ,_ ,_ = self.model(targets_gt,
                                                         inputs_init_simu,
                                                         inputs_missing_simu, inputs_mask,
+                                                        targets_oi,
                                                         estim_parameters=False)
                 # conditional simulation
                 x_simu_cond = outputs+(x_simu-x_itrp_simu)
@@ -443,6 +458,11 @@ class LitModel(pl.LightningModule):
             # reconstruction losses
             loss_All = NN_4DVar.compute_WeightedLoss((outputs - targets_gt), self.w_loss)
             loss_GAll = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_gt, self.w_loss)
+
+            # supervised loss (vs OI)
+            if self.use_oi:
+                loss_mse_vs_oi = NN_4DVar.compute_WeightedLoss((outputs - targets_oi), self.w_loss)
+                loss_mseoi = self.hparams.alpha_mse_ssh * loss_mse_vs_oi
 
             # mse loss
             if self.loss_type=="mse_loss":
@@ -481,7 +501,7 @@ class LitModel(pl.LightningModule):
                         Si = torch.sparse.FloatTensor(index.long(), value, torch.Size([nb_nodes,nb_nodes])).to(device)
                         log_det = log_det + torch.log(torch.prod(torch.diagonal(cholesky_sparse.apply(Si.cpu()).to_dense(),0))**2)
                     det_Q.append(log_det)
-                loss = torch.mean( torch.stack(det_Q) + torch.stack(xtQx) )
+                loss = torch.nanmean( torch.stack(det_Q) + torch.stack(xtQx) )
 
             if self.loss_type=="oi_loss":
                 # OI loss
@@ -500,7 +520,7 @@ class LitModel(pl.LightningModule):
                     dy_new.append(dyTiRdy[0,0])
                 dy = torch.stack(dy_new)
                 dx = torch.stack(xtQx)
-                loss = torch.mean(dy+dx)
+                loss = torch.nanmean(dy+dx)
 
             if self.loss_type=="diffusion_loss":
                 # add loss parameters
@@ -515,16 +535,26 @@ class LitModel(pl.LightningModule):
                 H11_predict = params[2][:,0,0,:,:]
                 H12_predict = params[2][:,0,1,:,:]
                 H22_predict = params[2][:,1,1,:,:]
-                loss_H11 = torch.mean((H11_gt-H11_predict)**2)
-                loss_H12 = torch.mean((H12_gt-H12_predict)**2)
-                loss_H22 = torch.mean((H22_gt-H22_predict)**2)
+                loss_H11 = torch.nanmean((H11_gt-H11_predict)**2)
+                loss_H12 = torch.nanmean((H12_gt-H12_predict)**2)
+                loss_H22 = torch.nanmean((H22_gt-H22_predict)**2)
                 loss = loss_H11#+loss_H12+loss_H22
+
+
+            if self.loss_type=="mseoi_loss":
+                loss = loss_mseoi
 
             # metrics
             mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_gt, self.w_loss)
             mse = loss_All.detach()
             mse_grad = loss_GAll.detach()
-            metrics = dict([('mse', mse), ('mseGrad', mse_grad), ('meanGrad', mean_GAll)])
+            oi_score = loss_OI.detach()
+            metrics = dict([('mse', mse), ('mseGrad', mse_grad),
+                            ('meanGrad', mean_GAll),
+                            ('oiScore',oi_score)])
+            if self.use_oi:
+                mse_oi = loss_mseoi.detach()
+                metrics['mseoi'] = mse_oi
 
         if phase!="test":
             return loss, outputs, params, metrics

@@ -1,0 +1,11 @@
+files_cfg:
+  obs_path: ${file_paths.obs_path_diff_2}
+  obs_var: y
+  gt_path: ${file_paths.gt_path_diff_2}
+  gt_var: x
+  oi_path: ${file_paths.oi_path_diff_2}
+  oi_var: OI
+  spde_params_path: ${file_paths.spde_params_path_diff_2}
+pow: 2
+
+

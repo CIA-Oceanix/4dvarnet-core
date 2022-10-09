@@ -78,19 +78,24 @@ class FourDVarNetDataset(Dataset):
             obs_var='y',
             gt_path='/users/local/m19beauc/deep_OI/toy_data/diffusion_dataset.nc',
             gt_var='x',
+            oi_path=None,
+            oi_var=None,
             resize_factor=None,
     ):
         super().__init__()
 
         self.gt_ds = XrDataset(gt_path, gt_var, slice_win=slice_win, dim_range=dim_range, strides=strides, resize_factor=resize_factor)
         self.obs_ds = XrDataset(obs_path, obs_var, slice_win=slice_win, dim_range=dim_range,strides=strides,resize_factor=resize_factor)
+        if oi_var is not None:
+            self.oi_ds = XrDataset(oi_path, oi_var, slice_win=slice_win, dim_range=dim_range, strides=strides, resize_factor=resize_factor)
+        else:
+            self.oi_ds = None
         self.norm_stats = None
 
     def set_norm_stats(self, stats):
         self.norm_stats = stats
 
     def coordXY(self):
-
         return self.gt_ds.lon, self.gt_ds.lat
 
     def __len__(self):
@@ -99,12 +104,17 @@ class FourDVarNetDataset(Dataset):
     def __getitem__(self, item):
         mean, std = self.norm_stats
         _gt_item = (self.gt_ds[item] - mean) / std
+        _oi_item = (self.oi_ds[item] - mean) / std
         _obs_item = self.obs_ds[item] - mean / std
         obs_mask_item = np.where(~np.isnan(_obs_item), 1., 0.)
         gt_item = np.where(~np.isnan(_gt_item), _gt_item, 0.)
         obs_item = np.where(obs_mask_item==1., _gt_item, 0.)
-
-        return obs_item, obs_mask_item, gt_item
+        if self.oi_ds is not None:
+            _oi_item = (self.oi_ds[item] - mean) / std
+            oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
+            return obs_item, obs_mask_item, gt_item, oi_item
+        else:
+            return obs_item, obs_mask_item, gt_item
 
 class FourDVarNetDataModule(pl.LightningDataModule):
     def __init__(
@@ -119,6 +129,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             obs_var='y',
             gt_path='/users/local/m19beauc/deep_OI/toy_data/diffusion_dataset.nc',
             gt_var='x',
+            oi_path=None,
+            oi_var=None,
             resize_factor=None,
             dl_kwargs=None):
 
@@ -128,6 +140,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.obs_var = obs_var
         self.gt_path = gt_path
         self.gt_var = gt_var
+        self.oi_path = oi_path
+        self.oi_var = oi_var
         self.resize_factor = resize_factor
         self.dim_range = dim_range
         self.slice_win = slice_win
@@ -193,6 +207,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     obs_var=self.obs_var,
                     gt_path=self.gt_path,
                     gt_var=self.gt_var,
+                    oi_path=self.oi_path,
+                    oi_var=self.oi_var,
                     resize_factor=self.resize_factor
                 ) for sl in slices]
             )

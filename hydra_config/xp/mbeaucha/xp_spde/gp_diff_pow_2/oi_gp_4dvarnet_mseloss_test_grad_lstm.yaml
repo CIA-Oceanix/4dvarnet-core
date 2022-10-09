@@ -1,0 +1,19 @@
+# @package _global_
+xp_name: oi_gp_4dvarnet_mse_loss_test_grad_lstm_pow_2_diff
+
+params:
+  loss_type: mse_loss
+  n_grad: 100
+
+lit_mod_cls: oi.lit_model_grad_lstm.LitModel
+
+datamodule:
+  resize_factor: 1
+defaults:
+  - /params_gp@params: gp_diff_pow_2
+  - /params: fourdvarnet_oi_gp
+  - /domain@datamodule.dim_range: gp
+  - /domain@params.test_domain: gp
+  - /training: oi_gp_4dvarnet
+  - _self_
+

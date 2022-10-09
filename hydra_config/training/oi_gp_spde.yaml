@@ -31,6 +31,8 @@ datamodule:
   obs_var: ${params.files_cfg.obs_var}
   gt_path: ${params.files_cfg.gt_path}
   gt_var: ${params.files_cfg.gt_var}
+  oi_path: ${params.files_cfg.oi_path}
+  oi_var: ${params.files_cfg.oi_var}
   dl_kwargs:
     batch_size: 2
     num_workers: 2

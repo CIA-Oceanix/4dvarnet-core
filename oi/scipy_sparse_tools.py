@@ -97,23 +97,41 @@ class cupy_solve_sparse(Function):
 
 # provide Cholesky decomposition of sparse matrix
 class cholesky_sparse(Function):
-    @staticmethod
-    def forward(ctx, A):
 
+    @staticmethod
+    def forward(ctx, A, perm=False):
         # cast torch_sparsematrix to scipy sparse csc matrix
         index, value = from_torch_sparse(A.coalesce())
         A_np = to_scipy(index, value, A.size()[0], A.size()[1])
 
         # Cholesky decomposition without permutation A=L'L
-        L = sksparse.cholmod.cholesky(A_np,ordering_method="natural").L()
-        Lcoo = L.tocoo()
-        # save input requires for backward (A here from Ax=b) and
-        L = torch.sparse.FloatTensor(torch.LongTensor([Lcoo.row.tolist(),
+        if perm==True:
+            chol = sksparse.cholmod.cholesky(A_np)
+            P, LD = chol.P(), chol.L_D()
+            L, D = LD
+
+            P = torch.Tensor(P)
+            Lcoo = L.tocoo()
+            L = torch.sparse.FloatTensor(torch.LongTensor([Lcoo.row.tolist(),
                                                        Lcoo.col.tolist()]),
                                      torch.FloatTensor(Lcoo.data))
-        L = torch.as_tensor(L, dtype=L.dtype).to(device)
-        ctx.save_for_backward(A,L)
-        return L
+            Dcoo = D.tocoo()
+            inv_D = torch.FloatTensor(1./Dcoo.data)
+
+            P = torch.as_tensor(P, dtype=P.dtype).to(device)
+            L = torch.as_tensor(L, dtype=L.dtype).to(device)
+            inv_D = torch.as_tensor(inv_D, dtype=inv_D.dtype).to(device)
+            return P, L, inv_D
+        else:
+            L = sksparse.cholmod.cholesky(A_np,ordering_method="natural").L()
+            Lcoo = L.tocoo()
+            # save input requires for backward (A here from Ax=b) and
+            L = torch.sparse.FloatTensor(torch.LongTensor([Lcoo.row.tolist(),
+                                                       Lcoo.col.tolist()]),
+                                     torch.FloatTensor(Lcoo.data))
+            L = torch.as_tensor(L, dtype=L.dtype).to(device)
+            ctx.save_for_backward(A,L)
+            return L
 
     @staticmethod
     def backward(ctx, grad):

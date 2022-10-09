@@ -388,30 +388,34 @@ class Solver_Grad_4DVarNN(nn.Module):
         with torch.no_grad():
             self.n_grad = int(n_iter_grad)
         
-    def forward(self, gt, x, yobs, mask):
+    def forward(self, gt, x, yobs, mask, oi):
         return self.solve(
             gt=gt,
             x_0=x,
             obs=yobs,
-            mask = mask)
+            mask = mask,
+            oi = oi)
 
-    def solve(self, gt, x_0, obs, mask):
+    def solve(self, gt, x_0, obs, mask, oi):
         x_k = torch.mul(x_0,1.) 
         hidden = None
         cell = None 
         normgrad_ = 0.
         x_k_plus_1 = None
-        cmp_loss = torch.ones(x_k.shape[0],self.n_grad,2)
+        if oi is None:
+            cmp_loss = torch.ones(x_k.shape[0],self.n_grad,2)
+        else:
+            cmp_loss = torch.ones(x_k.shape[0],self.n_grad,3)
         for k in range(self.n_grad):
-            x_k_plus_1, cmp_loss_, hidden, cell, normgrad_ = self.solver_step(gt, x_k, obs, mask,hidden, cell, normgrad_)
+            x_k_plus_1, cmp_loss_, hidden, cell, normgrad_ = self.solver_step(gt, x_k, obs, mask, oi, hidden, cell, normgrad_)
             x_k = torch.mul(x_k_plus_1,1.)
             for batch in range(len(cmp_loss)):
                 cmp_loss[batch,k,:] = cmp_loss_[batch,:]
 
         return x_k_plus_1, cmp_loss, hidden, cell, normgrad_
 
-    def solver_step(self, gt, x_k, obs, mask, hidden, cell,normgrad = 0.):
-        _, cmp_loss, var_cost_grad = self.var_cost(gt, x_k, obs, mask)
+    def solver_step(self, gt, x_k, obs, mask, oi, hidden, cell,normgrad = 0.):
+        _, cmp_loss, var_cost_grad = self.var_cost(gt, x_k, obs, mask, oi)
         if normgrad == 0. :
             normgrad_= torch.sqrt( torch.mean( var_cost_grad**2 + 0.))
         else:
@@ -421,7 +425,7 @@ class Solver_Grad_4DVarNN(nn.Module):
         x_k_plus_1 = x_k - grad
         return x_k_plus_1, cmp_loss, hidden, cell, normgrad_
 
-    def var_cost(self , gt, x, yobs, mask):
+    def var_cost(self , gt, x, yobs, mask, oi):
         dy = self.model_H(x,yobs,mask)
         # Jb
         dx = x - self.phi_r(x)
@@ -454,10 +458,17 @@ class Solver_Grad_4DVarNN(nn.Module):
         dx = torch.stack(xtQx)
         # loss_OI
         loss_OI = dy + dx
+        #loss = torch.mean(loss_OI)
         var_cost_grad = torch.autograd.grad(loss, x, create_graph=True)[0]
 
         # return loss OI (loss) and MSE
         loss_mse = torch.tensor([compute_WeightedLoss((gt[i] - x[i]),torch.Tensor(np.ones(5)).to(device)) for i in range(len(gt))])
         loss_mse = loss_mse.to(device)
 
-        return loss, torch.hstack([torch.reshape(loss_mse,(n_b,1)), torch.reshape(loss_OI,(n_b,1))]), var_cost_grad
+        # if using OI
+        if oi is not None:
+            loss_mseoi = torch.tensor([compute_WeightedLoss((oi[i] - x[i]),torch.Tensor(np.ones(5)).to(device)) for i in range(len(oi))])
+            loss_mseoi = loss_mseoi.to(device)
+            return loss, torch.hstack([torch.reshape(loss_mse,(n_b,1)), torch.reshape(loss_OI,(n_b,1)), torch.reshape(loss_mseoi,(n_b,1))]), var_cost_grad
+        else:
+            return loss, torch.hstack([torch.reshape(loss_mse,(n_b,1)), torch.reshape(loss_OI,(n_b,1)), ]), var_cost_grad

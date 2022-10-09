@@ -312,10 +312,19 @@ def save_loss(saved_path, loss):
     loss: 3d numpy array (patch*ngrad*2)
     '''
 
-    xrdata = xr.Dataset( \
+    # mse oi or not ?
+    if loss.shape[2]==2:
+        xrdata = xr.Dataset( \
             data_vars={'loss_mse': (('patch','iter'), loss[:,:,0]),
                        'loss_oi': (('patch','iter'), loss[:,:,1])},
             coords={'patch': np.arange(loss.shape[0]), 
+                    'iter': np.arange(loss.shape[1])})
+    else:
+        xrdata = xr.Dataset( \
+            data_vars={'loss_mse': (('patch','iter'), loss[:,:,0]),
+                       'loss_oi': (('patch','iter'), loss[:,:,1]),
+                       'loss_mseoi': (('patch','iter'), loss[:,:,2])},
+            coords={'patch': np.arange(loss.shape[0]),
                     'iter': np.arange(loss.shape[1])})
     xrdata.to_netcdf(path=saved_path, mode='w')
 
@@ -326,8 +335,8 @@ def save_grads(saved_path, grads):
     '''
 
     xrdata = xr.Dataset( \
-            data_vars={'grad': (('patch','iter','t','y','x'), grads[:,0,:,:,:,:]),
-                'lstm_grad': (('patch','iter','t','y','x'), grads[:,1,:,:,:,:])},
+            data_vars={'grad': (('patch','t','y','x','iter'), grads[:,0,:,:,:,:]),
+                'lstm_grad': (('patch','t','y','x','iter'), grads[:,1,:,:,:,:])},
             coords={'patch': np.arange(grads.shape[0]),
                     't': np.arange(grads.shape[2]),
                     'y': np.arange(grads.shape[3]),

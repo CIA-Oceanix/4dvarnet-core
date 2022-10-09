@@ -70,8 +70,12 @@ class LitModel(pl.LightningModule):
 
         self.diff_only = self.hparams.diff_only
 
+        # use OI or for metrics or not
+        self.use_oi = self.hparams.oi if hasattr(self.hparams, 'oi') else False
+
         # main model: Prior SPDE (known) + Solver OI
-        self.model = Phi_r3(self.shapeData,pow=hparam.pow,diff_only=True)
+        self.model = Phi_r3(self.shapeData,pow=hparam.pow,diff_only=True,
+                            nc=xr.open_dataset(hparam.files_cfg.spde_params_path))
         self.model_H = Model_H(self.shapeData[0])
         self.model_VarCost = Model_Var_Cost(Model_WeightedL2Norm(),Model_WeightedL2Norm(),
                                             self.shapeData, self.model_H.dim_obs, self.model_H.dim_obs_channel)
@@ -126,7 +130,12 @@ class LitModel(pl.LightningModule):
 
     def test_step(self, test_batch, batch_idx):
 
-        inputs_obs, inputs_mask, targets_gt = test_batch
+        if not self.use_oi:
+            inputs_obs, inputs_mask, targets_gt = test_batch[:3]
+            targets_oi = None
+        else:
+            inputs_obs, inputs_mask, targets_gt, targets_oi = test_batch
+
         loss, out, param, metrics, cmp_loss = self.compute_loss(test_batch, phase='test')
         if loss is not None:
             self.log('test_loss', loss)
@@ -289,7 +298,12 @@ class LitModel(pl.LightningModule):
 
     def compute_loss(self, batch, phase):
 
-        inputs_obs, inputs_mask, targets_gt = batch
+        if not self.use_oi:
+            inputs_obs, inputs_mask, targets_gt = batch[:3]
+            targets_oi = None
+        else:
+            inputs_obs, inputs_mask, targets_gt, targets_oi = batch
+
         # handle patch with no observation
         if inputs_mask.sum().item() == 0:
             return (
@@ -327,12 +341,13 @@ class LitModel(pl.LightningModule):
             loss_All = NN_4DVar.compute_WeightedLoss((outputs - targets_gt), self.w_loss)
             loss_GAll = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_gt, self.w_loss)
             # projection losses
-            #loss_AE = torch.mean((self.model.phi_r(outputs) - outputs) ** 2)
+            #loss_AE = torch.nanmean((self.model.phi_r(outputs) - outputs) ** 2)
             loss_AE = 0
 
             # supervised loss
             loss = self.hparams.alpha_mse_ssh * loss_All #+ self.hparams.alpha_mse_gssh * loss_GAll
             #loss += 0.5 * self.hparams.alpha_proj * loss_AE 
+
             # OI loss
             Q = self.model.operator_spde(kappa, m, H, tau, square_root=False)
             Q.requires_grad=True
@@ -360,22 +375,44 @@ class LitModel(pl.LightningModule):
             dx = torch.stack(xtQx)
             loss_OI = dy+dx
             #dy = self.model.model_H(outputs,inputs_missing,inputs_mask)
-            #loss_OI = torch.mean(self.model_spde.model_VarCost(dx,dy,square_root=False))
+            #loss_OI = torch.nanmean(self.model_spde.model_VarCost(dx,dy,square_root=False))
+
+
+            if self.use_oi:
+                outputs = targets_oi
 
             # return loss OI (loss) and MSE
             loss_mse = torch.tensor([compute_WeightedLoss((targets_gt[i] - outputs[i]),
                                      torch.Tensor(np.ones(5)).to(device)) for i in range(len(targets_gt))])
             loss_mse = loss_mse.to(device)
-            # cmp_loss
-            cmp_loss = torch.hstack([torch.reshape(loss_mse,(n_b,1)),
+
+            if self.use_oi:
+                # return loss OI (loss) and MSE
+                loss_mseoi = torch.tensor([compute_WeightedLoss((targets_oi[i] - outputs[i]),
+                                     torch.Tensor(np.ones(5)).to(device)) for i in range(len(targets_oi))])
+                loss_mseoi = loss_mseoi.to(device)
+                # cmp_loss
+                cmp_loss = torch.hstack([torch.reshape(loss_mse,(n_b,1)),
+                                         torch.reshape(loss_OI,(n_b,1)),
+                                         torch.reshape(loss_mseoi,(n_b,1))])
+            else:
+                cmp_loss = torch.hstack([torch.reshape(loss_mse,(n_b,1)),
                           torch.reshape(loss_OI,(n_b,1))])
+
+            loss_OI = torch.nanmean(loss_OI)
 
             # metrics
             mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_gt, self.w_loss)
             mse = loss_All.detach()
             mse_grad = loss_GAll.detach()
-            oi_score = torch.mean(loss_OI).detach()
-            metrics = dict([('mse', mse), ('mseGrad', mse_grad), ('meanGrad', mean_GAll), ('oiScore',oi_score)])
+            oi_score = loss_OI.detach()
+            metrics = dict([('mse', mse), ('mseGrad', mse_grad),
+                            ('meanGrad', mean_GAll),
+                            ('oiScore',oi_score)])
+            if self.use_oi:
+                mse_oi = torch.nanmean(loss_mseoi).detach()
+                metrics['mseoi'] = mse_oi
+
 
         if phase!="test":
             return loss, outputs, params, metrics

@@ -1,0 +1,19 @@
+# @package _global_
+xp_name: oi_gp_spde_fp_wolp_pow_1_iso
+
+datamodule:
+  resize_factor: 1
+  dl_kwargs:
+    batch_size: 1
+    num_workers: 1
+
+lit_mod_cls: oi.lit_model_spde_fp_wolp.LitModel
+
+defaults:
+  - /params_gp@params: gp_iso_pow_1
+  - /params: fourdvarnet_oi_gp
+  - /domain@datamodule.dim_range: gp
+  - /domain@params.test_domain: gp
+  - /training: oi_gp_spde
+  - _self_
+
