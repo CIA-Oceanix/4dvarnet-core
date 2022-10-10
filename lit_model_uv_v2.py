@@ -1900,17 +1900,6 @@ class LitModelUV(pl.LightningModule):
 
         #print(self.test_xr_ds.gt.data.shape,flush=True)
 
-        print('................................')
-        print('................................')
-        print(full_outputs[0][0]['gt'])
-        print('................................')
-        print('................................\n')
-        print(full_outputs[0][0]['pred'])
-        print('................................')
-        print('................................\n')
-        print(self.test_xr_ds.gt.data,flush=True)
-        print('................................\n\n\n')
-
         self.x_gt = self.test_xr_ds.gt.data#[2:42,:,:]
         self.obs_inp = self.test_xr_ds.obs_inp.data#[2:42,:,:]
         self.x_oi = self.test_xr_ds.oi.data#[2:42,:,:]
