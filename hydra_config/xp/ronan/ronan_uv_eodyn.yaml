@@ -5,7 +5,7 @@
 entrypoint:
    weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_Eodyn_ChckPt-wSST-hydra-exp/'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_313/checkpoints/modelUVwSSTGF-v2-unet1_050-augdata-augstate-dT07-nowgeo-nodivstrain-grad_05_03_150-epoch=75-val_loss=2.2945.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_Eodyn_ChckPt-wSST-hydra-exp/version_14/checkpoints/modelUVwSSTGF-eodyn-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=01-val_loss=2.4721.ckpt'
+   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_Eodyn_ChckPt-wSST-hydra-exp/version_14/checkpoints/modelUVwSSTGF-eodyn-unet1_050-augdata-augstate-dT07-sstobs-nolinear-tanh-bn_20-nowgeo-nodivstrain-grad_05_03_150-epoch=02-val_loss=2.3594.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_Eodyn_ChckPt-wSST-hydra-exp/version_12/checkpoints/modelUVwSSTGF-eodyn-unet1_050-augdata-augstate-dT07-nowgeo-nodivstrain-grad_05_03_150-epoch=12-val_loss=3.7678.ckpt'
 params:
   flag_update_training_config: False # True #  
