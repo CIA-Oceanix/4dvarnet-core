@@ -1902,6 +1902,17 @@ class LitModelUV(pl.LightningModule):
 
         #print(self.test_xr_ds.gt.data.shape,flush=True)
 
+        print('................................')
+        print('................................')
+        print(full_outputs[0][0]['gt'])
+        print('................................')
+        print('................................\n')
+        print(full_outputs[0][0]['pred'])
+        print('................................')
+        print('................................\n')
+        print(self.test_xr_ds.gt.data,flush=True)
+        print('................................\n\n\n')
+
         self.x_gt = self.test_xr_ds.gt.data#[2:42,:,:]
         self.obs_inp = self.test_xr_ds.obs_inp.data#[2:42,:,:]
         self.x_oi = self.test_xr_ds.oi.data#[2:42,:,:]
@@ -2497,9 +2508,6 @@ class LitModelUV(pl.LightningModule):
                 ('mseGOI', loss_GOI.detach()),
                 ('l0_samp', l0_samp),
                 ('l1_samp', l1_samp)])
-
-        print(targets_GT_wo_nan)
-        print(outputs)
 
         if ( (phase == 'val') or (phase == 'test') ) & ( self.use_sst == True ) :
             out_feat = sst_gt[:,int(self.hparams.dT/2),:,:].view(-1,1,sst_gt.size(2),sst_gt.size(3))
