@@ -47,7 +47,7 @@ params:
   scale_dwscaling_sst: 1.
 datamodule:
   dl_kwargs:
-    batch_size: 8
+    batch_size: 2
   aug_train_data: True 
   resize_factor: 1
 defaults:
