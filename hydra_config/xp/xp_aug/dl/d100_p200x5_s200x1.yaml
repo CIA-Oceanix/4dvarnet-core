@@ -3,7 +3,7 @@
 datamodule:
   slice_win: 
     lat: ${div:100,${datamodule.resize_factor}}
-    lon: ${div:200,${datamodule.resize_factor}}
+    lon: ${div:100,${datamodule.resize_factor}}
     time: ${params.dT}
   strides: 
     lat: 5
