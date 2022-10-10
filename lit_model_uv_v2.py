@@ -1584,26 +1584,25 @@ class LitModelUV(pl.LightningModule):
     def sla_uv_diag(self, t_idx=3, log_pref='test'):
         
         # bug likely due to conda config for cartopy to be chekced
-        if 1*0 :
-            path_save0 = self.logger.log_dir + '/maps.png'
-            t_idx = 3
-            fig_maps = plot_maps(
-                      self.x_gt[t_idx],
-                      self.obs_inp[t_idx],
-                      self.x_oi[t_idx],
-                      self.x_rec[t_idx],
-                      self.test_lon, self.test_lat, path_save0)
-            path_save01 = self.logger.log_dir + '/maps_Grad.png'
-            fig_maps_grad = plot_maps(
-                      self.x_gt[t_idx],
-                    self.obs_inp[t_idx],
-                      self.x_oi[t_idx],
-                      self.x_rec[t_idx],
-                      self.test_lon, self.test_lat, path_save01, grad=True)
-            self.test_figs['maps'] = fig_maps
-            self.test_figs['maps_grad'] = fig_maps_grad
-            self.logger.experiment.add_figure(f'{log_pref} Maps', fig_maps, global_step=self.current_epoch)
-            self.logger.experiment.add_figure(f'{log_pref} Maps Grad', fig_maps_grad, global_step=self.current_epoch)
+        path_save0 = self.logger.log_dir + '/maps.png'
+        t_idx = 3
+        fig_maps = plot_maps(
+                  self.x_gt[t_idx],
+                  self.obs_inp[t_idx],
+                  self.x_oi[t_idx],
+                  self.x_rec[t_idx],
+                  self.test_lon, self.test_lat, path_save0)
+        path_save01 = self.logger.log_dir + '/maps_Grad.png'
+        fig_maps_grad = plot_maps(
+                  self.x_gt[t_idx],
+                self.obs_inp[t_idx],
+                  self.x_oi[t_idx],
+                  self.x_rec[t_idx],
+                  self.test_lon, self.test_lat, path_save01, grad=True)
+        self.test_figs['maps'] = fig_maps
+        self.test_figs['maps_grad'] = fig_maps_grad
+        self.logger.experiment.add_figure(f'{log_pref} Maps', fig_maps, global_step=self.current_epoch)
+        self.logger.experiment.add_figure(f'{log_pref} Maps Grad', fig_maps_grad, global_step=self.current_epoch)
 
         # animate maps
         if self.hparams.animate == True:
@@ -1636,8 +1635,6 @@ class LitModelUV(pl.LightningModule):
 
         self.logger.experiment.add_figure(f'{log_pref} SNR', snr_fig, global_step=self.current_epoch)
         
-        print(self.test_xr_ds.gt.shape)
-        print(self.test_xr_ds.pred.shape,flush=True)
         psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
         fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt, self.test_xr_ds.pred, self.test_xr_ds.oi, with_fig=True)
         #else:

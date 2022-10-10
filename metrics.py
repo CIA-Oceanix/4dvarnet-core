@@ -875,16 +875,7 @@ def psd_based_scores(da_rec, da_ref):
 
     level = [0.5]
     cs = plt.contour(1./psd_based_score.freq_lon.values,1./psd_based_score.freq_time.values, psd_based_score, level)
-    
-    print(".... nan %d %d %d"%( np.sum( np.isnan(signal) ),np.sum( np.isnan(err)) , np.sum( np.isnan(mean_psd_signal) )))
-    print( da_ref )
-    print(np.min( psd_based_score))
-    print(np.max( psd_based_score))
-    print(psd_based_score.freq_time.values)
-    print(psd_based_score.shape)
-    print(cs,flush=True)
-    print(cs.collections[0],flush=True)
-    
+        
     x05, y05 = cs.collections[0].get_paths()[0].vertices.T
     plt.close()
 
