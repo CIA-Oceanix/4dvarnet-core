@@ -27,7 +27,7 @@ params:
     patch_size: ${datamodule.slice_win}
     crop:
       time: 1
-  val_diag_freq: 5 
+  val_diag_freq: 2 
   padding_mode: reflect
   residual_wrt_geo_velocities: 0 #False #
   type_div_train_loss: 1
@@ -46,6 +46,8 @@ params:
   thr_l1_sampling_uv: 0.10
   scale_dwscaling_sst: 1.
 datamodule:
+  dl_kwargs:
+    batch_size: 8
   aug_train_data: True 
   resize_factor: 1
 defaults:
