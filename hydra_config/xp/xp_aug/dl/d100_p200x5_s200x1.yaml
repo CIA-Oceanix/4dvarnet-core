@@ -3,7 +3,7 @@
 datamodule:
   slice_win: 
     lat: ${div:100,${datamodule.resize_factor}}
-    lon: ${div:100,${datamodule.resize_factor}}
+    lon: ${div:200,${datamodule.resize_factor}}
     time: ${params.dT}
   strides: 
     lat: 5
@@ -14,10 +14,10 @@ params:
     _target_: lit_model_augstate.get_constant_crop
     patch_size: ${datamodule.slice_win}
     crop: 
-      lat: ${div:15,${datamodule.resize_factor}}
-      lon: ${div:15,${datamodule.resize_factor}}
+      lat: ${div:10,${datamodule.resize_factor}}
+      lon: ${div:20,${datamodule.resize_factor}}
       time: 2
 
 defaults:
-  - /domain@datamodule.dim_range: gf_eodyn
+  - /domain@datamodule.dim_range: gf_eodyn_x
   - /domain@params.test_domain: gf_eodyn
