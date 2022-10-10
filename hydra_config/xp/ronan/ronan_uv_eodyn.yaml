@@ -27,7 +27,7 @@ params:
     patch_size: ${datamodule.slice_win}
     crop:
       time: 1
-  val_diag_freq: 2 
+  val_diag_freq: 5 
   padding_mode: reflect
   residual_wrt_geo_velocities: 0 #False #
   type_div_train_loss: 1
