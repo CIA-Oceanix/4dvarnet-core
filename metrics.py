@@ -873,12 +873,11 @@ def psd_based_scores(da_rec, da_ref):
 
     # Find the key metrics: shortest temporal & spatial scales resolved based on the 0.5 contour criterion of the PSD_score
 
-
-
     level = [0.5]
     cs = plt.contour(1./psd_based_score.freq_lon.values,1./psd_based_score.freq_time.values, psd_based_score, level)
     
     print(np.min( psd_based_score))
+    print(np.max( psd_based_score))
     print(psd_based_score.freq_time.values)
     print(psd_based_score.shape)
     print(cs,flush=True)
