@@ -968,8 +968,7 @@ class LitModelUV(pl.LightningModule):
                 print('..... something is not expected with the sampling model')
         else:
             self.model_sampling_uv = None
-        
-            
+                    
         if self.hparams.k_n_grad == 0 :
             self.hparams.n_fourdvar_iter = 1
 
@@ -1076,8 +1075,8 @@ class LitModelUV(pl.LightningModule):
             suffix_chkpt = suffix_chkpt+'-grad_%02d_%02d_%03d'%(self.hparams.n_grad,self.hparams.k_n_grad,self.hparams.dim_grad_solver)
             if self.model.model_Grad.asymptotic_term == True :
                 suffix_chkpt = suffix_chkpt+'+fsgd'
-            if self.hparams.learn_fsgd_param == True :
-                suffix_chkpt = suffix_chkpt+'train'
+                if self.hparams.learn_fsgd_param == True :
+                    suffix_chkpt = suffix_chkpt+'train'
                 
         else:
             if ( self.use_sst ) & ( self.use_sst_state ) :
