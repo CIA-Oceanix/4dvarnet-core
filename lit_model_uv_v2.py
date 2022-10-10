@@ -1582,25 +1582,28 @@ class LitModelUV(pl.LightningModule):
         )
 
     def sla_uv_diag(self, t_idx=3, log_pref='test'):
-        path_save0 = self.logger.log_dir + '/maps.png'
-        t_idx = 3
-        fig_maps = plot_maps(
-                  self.x_gt[t_idx],
-                self.obs_inp[t_idx],
-                  self.x_oi[t_idx],
-                  self.x_rec[t_idx],
-                  self.test_lon, self.test_lat, path_save0)
-        path_save01 = self.logger.log_dir + '/maps_Grad.png'
-        fig_maps_grad = plot_maps(
-                  self.x_gt[t_idx],
-                self.obs_inp[t_idx],
-                  self.x_oi[t_idx],
-                  self.x_rec[t_idx],
-                  self.test_lon, self.test_lat, path_save01, grad=True)
-        self.test_figs['maps'] = fig_maps
-        self.test_figs['maps_grad'] = fig_maps_grad
-        self.logger.experiment.add_figure(f'{log_pref} Maps', fig_maps, global_step=self.current_epoch)
-        self.logger.experiment.add_figure(f'{log_pref} Maps Grad', fig_maps_grad, global_step=self.current_epoch)
+        
+        # bug likely due to conda config for cartopy to be chekced
+        if 1*0 :
+            path_save0 = self.logger.log_dir + '/maps.png'
+            t_idx = 3
+            fig_maps = plot_maps(
+                      self.x_gt[t_idx],
+                      self.obs_inp[t_idx],
+                      self.x_oi[t_idx],
+                      self.x_rec[t_idx],
+                      self.test_lon, self.test_lat, path_save0)
+            path_save01 = self.logger.log_dir + '/maps_Grad.png'
+            fig_maps_grad = plot_maps(
+                      self.x_gt[t_idx],
+                    self.obs_inp[t_idx],
+                      self.x_oi[t_idx],
+                      self.x_rec[t_idx],
+                      self.test_lon, self.test_lat, path_save01, grad=True)
+            self.test_figs['maps'] = fig_maps
+            self.test_figs['maps_grad'] = fig_maps_grad
+            self.logger.experiment.add_figure(f'{log_pref} Maps', fig_maps, global_step=self.current_epoch)
+            self.logger.experiment.add_figure(f'{log_pref} Maps Grad', fig_maps_grad, global_step=self.current_epoch)
 
         # animate maps
         if self.hparams.animate == True:
