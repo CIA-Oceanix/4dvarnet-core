@@ -1,0 +1,23 @@
+# @package _global_
+
+datamodule:
+  slice_win: 
+    lat: ${div:120,${datamodule.resize_factor}}
+    lon: ${div:240,${datamodule.resize_factor}}
+    time: ${params.dT}
+  strides: 
+    lat: 5
+    lon: 10
+    time: 1
+params:
+  patch_weight:
+    _target_: lit_model_augstate.get_constant_crop
+    patch_size: ${datamodule.slice_win}
+    crop: 
+      lat: ${div:10,${datamodule.resize_factor}}
+      lon: ${div:20,${datamodule.resize_factor}}
+      time: 2
+
+defaults:
+  - /domain@datamodule.dim_range: gf_eodyn_x
+  - /domain@params.test_domain: gf_eodyn
