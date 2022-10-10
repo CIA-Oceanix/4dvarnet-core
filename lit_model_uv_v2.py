@@ -1635,6 +1635,9 @@ class LitModelUV(pl.LightningModule):
         self.test_figs['snr'] = snr_fig
 
         self.logger.experiment.add_figure(f'{log_pref} SNR', snr_fig, global_step=self.current_epoch)
+        
+        print(self.test_xr_ds.gt.shape)
+        print(self.test_xr_ds.pred.shape,flush=True)
         psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
         fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt, self.test_xr_ds.pred, self.test_xr_ds.oi, with_fig=True)
         #else:
