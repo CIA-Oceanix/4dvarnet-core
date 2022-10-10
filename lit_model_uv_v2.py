@@ -2376,7 +2376,6 @@ class LitModelUV(pl.LightningModule):
         _batch = self.pre_process_batch(batch)
         targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y = _batch
         
-        print(v_gt_wo_nan)
         
         #targets_OI, inputs_Mask, targets_GT = batch
         # handle patch with no observation
@@ -2498,6 +2497,9 @@ class LitModelUV(pl.LightningModule):
                 ('mseGOI', loss_GOI.detach()),
                 ('l0_samp', l0_samp),
                 ('l1_samp', l1_samp)])
+
+        print(targets_GT_wo_nan)
+        print(outputs)
 
         if ( (phase == 'val') or (phase == 'test') ) & ( self.use_sst == True ) :
             out_feat = sst_gt[:,int(self.hparams.dT/2),:,:].view(-1,1,sst_gt.size(2),sst_gt.size(3))
