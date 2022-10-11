@@ -984,6 +984,7 @@ class LitModelUV(pl.LightningModule):
 
         b = self.hparams.apha_grad_descent_step if hasattr(self.hparams, 'apha_grad_descent_step') else 0.
         self.hparams.learn_fsgd_param = self.hparams.learn_fsgd_param if hasattr(self.hparams, 'learn_fsgd_param') else False
+        
         if b > 0. :
             self.model.model_Grad.b = torch.nn.Parameter(torch.Tensor([b]),requires_grad=False)
             self.model.model_Grad.asymptotic_term = True
@@ -1584,7 +1585,7 @@ class LitModelUV(pl.LightningModule):
     def sla_uv_diag(self, t_idx=3, log_pref='test'):
         
         # bug likely due to conda config for cartopy to be chekced
-        if 1*1 :
+        if 1*0 :
             path_save0 = self.logger.log_dir + '/maps.png'
             t_idx = 3
             fig_maps = plot_maps(
