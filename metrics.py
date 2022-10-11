@@ -236,7 +236,7 @@ def plot_maps(gt,obs,oi,pred,lon,lat,resfile,grad=False,
             plot(ax3, lon, lat, gradient(oi, 2), r"$\nabla_{OI}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
             plot(ax4, lon, lat, gradient(pred, 2), r"$\nabla_{4DVarNet}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
         else:
-            #plot(ax1, lon, lat, gt, 'GT', extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax1, lon, lat, gt, 'GT', extent=extent, cmap=cm, norm=norm, colorbar=False)
             plot(ax2, lon, lat, obs, 'OBS', extent=extent, cmap=cm, norm=norm, colorbar=False)
             plot(ax3, lon, lat, oi, 'OI', extent=extent, cmap=cm, norm=norm, colorbar=False)
             plot(ax4, lon, lat, pred, '4DVarNet', extent=extent, cmap=cm, norm=norm, colorbar=False)

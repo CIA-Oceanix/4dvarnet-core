@@ -1584,7 +1584,7 @@ class LitModelUV(pl.LightningModule):
     def sla_uv_diag(self, t_idx=3, log_pref='test'):
         
         # bug likely due to conda config for cartopy to be chekced
-        if 1*1 :
+        if 1*0 :
             path_save0 = self.logger.log_dir + '/maps.png'
             t_idx = 3
             fig_maps = plot_maps(
