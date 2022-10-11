@@ -1895,9 +1895,11 @@ class LitModelUV(pl.LightningModule):
             raise Exception('unknown phase')
 
         if not self.use_sst :
-            self.test_xr_ds = self.build_test_xr_ds_v2(full_outputs, diag_ds=diag_ds)
+            self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
+            #self.test_xr_ds = self.build_test_xr_ds_v2(full_outputs, diag_ds=diag_ds)
         else:
-            self.test_xr_ds = self.build_test_xr_ds_sst_v2(full_outputs, diag_ds=diag_ds)
+            self.test_xr_ds = self.build_test_xr_ds_sst(full_outputs, diag_ds=diag_ds)
+            #self.test_xr_ds = self.build_test_xr_ds_v2(full_outputs, diag_ds=diag_ds)
 
         #print(self.test_xr_ds.gt.data.shape,flush=True)
 
