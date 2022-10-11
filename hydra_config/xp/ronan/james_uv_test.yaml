@@ -90,9 +90,9 @@ params:
     patch_size: ${datamodule.slice_win}
     crop:
       time: 3
-  k_n_grad: ??
-  n_grad: ??
-  apha_grad_descent_step: ??
+  k_n_grad: 3
+  n_grad: 5
+  apha_grad_descent_step: 0.
   dT: 7
   DimAE: 50
   dim_obs_sst_feat: 2#10
