@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from torch import nn
 import torch.nn.functional as F
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class CorrelateNoise(torch.nn.Module):

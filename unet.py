@@ -14,8 +14,6 @@ import torch.nn.functional as F
 rateDropout = 0.2
 padding_mode = 'reflect'
 
-
-
 class DoubleConv(nn.Module):
     """(convolution => [BN] => ReLU) * 2"""
 

@@ -12,6 +12,7 @@ import unet
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 class BiLinUnit(torch.nn.Module):
     def __init__(self, dim_in, dim_out, dim, dw, dw2, dropout=0.):
         super(BiLinUnit, self).__init__()

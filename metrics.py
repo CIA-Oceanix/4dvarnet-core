@@ -17,8 +17,7 @@ from shapely import wkt
 #import geopandas as gpd
 import cartopy
 from os.path import expanduser
-#cartopy.config['pre_existing_data_dir'] = expanduser('/gpfswork/rech/yrf/uba22to/4dvarnet-core/shapefiles/natural_earth/physical')
-#cartopy.config['data_dir'] = '/gpfswork/rech/yrf/uba22to/4dvarnet-core/shapefiles/natural_earth/physical'
+
 from cartopy import crs as ccrs
 import cartopy.feature as cfeature
 from cartopy.io.shapereader import Reader
