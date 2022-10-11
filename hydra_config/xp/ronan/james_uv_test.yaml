@@ -76,7 +76,7 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_332/checkpoints/modelUVwSSTGF-v2-unet1_050-augdata-augstate-dT07-nowgeo-nodivstrain-grad_07_04_150+fsgd-epoch=31-val_loss=2.3011.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/UVNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_331/checkpoints/modelUVwSSTGF-v2-unet1_050-augdata-augstate-dT07-nowgeo-nodivstrain-grad_05_03_150+fsgd-epoch=02-val_loss=2.3037.ckpt'   
 params:
-  flag_update_training_config: True #  False # 
+  flag_update_training_config: False # True #  
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'  #'linear-bn'#''linear'# 
   files_cfg:
     oi_path: ${file_paths.oi_swot_4nadir} #  ${file_paths.oi_4nadir}  # 
