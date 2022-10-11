@@ -1,20 +1,20 @@
 # @package _global_
 
-xp_name: xp_turbidity
+xp_name: xp_turbidity_rf1_dt7
 
 params:
-  model: 4dvarnet_OI_phir
-  dT: 29
+  model: 4dvarnet_OI
+  dT: 7
   patch_weight:
     _target_: lit_model_augstate.get_constant_crop
     patch_size: ${datamodule.slice_win}
     crop: 
-      lat: ${div:10,${datamodule.resize_factor}}
-      lon: ${div:10,${datamodule.resize_factor}}
+      lat: ${div:0,${datamodule.resize_factor}}
+      lon: ${div:0,${datamodule.resize_factor}}
       time: 2
   k_n_grad: 3
   n_grad: 5
-  val_diag_freq: 2 #5
+  val_diag_freq: 5
   padding_mode: reflect
   alpha_mse_ssh: 50. # loss
   alpha_mse_gssh: 1000.
@@ -42,7 +42,7 @@ lit_mod_cls: lit_model_noOI_turbidity.LitModelOI
 
 datamodule:
   _target_: dataloading.FourDVarNetDataModule
-  resize_factor: 4
+  resize_factor: 1
     
   dim_range:
     lat:
