@@ -1,5 +1,5 @@
 # 4dvarnet-core
-Core implementation of the 4DVarNet architecture 
+Core implementation of the 4DVarNet architecture for preprint entitled "Inversion of sea surface currents from satellite-derived SST-SSH synergies with 4DVarNets"
 
 ## Principles and on-going developments
 Discussed in this [HackMd file](https://hackmd.io/@maxbeauchamp/ryVfI3rdu)
@@ -37,6 +37,8 @@ https://s3.eu-central-1.wasabisys.com/melody/NATL/oi/ssh_NATL60_swot.nc
 #ref
 https://s3.eu-central-1.wasabisys.com/melody/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc
 https://s3.eu-central-1.wasabisys.com/melody/NATL/ref/NATL60-CJM165_NATL_sst_y2013.1y.nc
+https://s3.eu-central-1.wasabisys.com/melody/NATL/ref/NATL60-CJM165_NATL_u_y2013.1y.nc
+https://s3.eu-central-1.wasabisys.com/melody/NATL/ref/NATL60-CJM165_NATL_v_y2013.1y.nc
 ```
 
 
