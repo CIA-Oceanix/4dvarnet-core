@@ -6,6 +6,7 @@ from torch.utils.data import Dataset, ConcatDataset, DataLoader
 import pandas as pd
 import contextlib
 
+
 def parse_resolution_to_float(frac):
     """ Matches a string consting of an integer followed by either a divisor
     ("/" and an integer) or some spaces and a simple fraction (two integers
