@@ -58,8 +58,8 @@ aug = {
 cs.store(name='2', node={'resize_factor': 2}, group='down_samp', package='datamodule')
 cs.store(name='1', node={'resize_factor': 1}, group='down_samp', package='datamodule')
 resize = {
-    'ds2': '/down_samp/2',
-    #'ds1': '/down_samp/1',
+    #'ds2': '/down_samp/2',
+    'ds1': '/down_samp/1',
 }
 
 cs.store(name='29_8', node={
@@ -84,6 +84,10 @@ for  defaults in product(
           #  ('sst', '/xp/qfebvre/xp_oi_sst'),
             ('no_sst', '/xp/qfebvre/xp_oi_cnatl'),
         ],
+        #training and test areas format trainArea_testArea
+        [ ('cnatl2_cnatl2', '/xp/baseline/dl/dl_cnatl'),
+            ('cnatl2_gf2', '/xp/baseline/dl/dl_cnatl_gf2'),
+            ('cnatl2_osmosis','/xp/baseline/dl/dl_cnatl_osmosis')],
         [
             # ('swot', '/xp/qfebvre/ds/clean_swot_oi_no_swot.yaml'),
             ('swot_4nad', '/xp/qfebvre/ds/swot_four_nadirs_dc.yaml'),
