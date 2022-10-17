@@ -18,7 +18,9 @@ from omegaconf import OmegaConf
 from scipy import stats
 import solver as NN_4DVar
 import metrics
-from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps_oi, animate_maps, get_psd_score, plot_multi_prior_maps
+from metrics import (save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, 
+plot_mse, plot_snr, plot_maps_oi, animate_maps, get_psd_score, plot_multi_prior_maps, 
+plot_weight_maps)
 from models import Model_H, Model_HwithSST, Phi_r_OI,Phi_r_OI_linear, Gradient_img, UNet, Phi_r_UNet, Multi_Prior
 
 from lit_model_augstate import LitModelAugstate
@@ -176,11 +178,48 @@ class LitModelOI(LitModelAugstate):
             self.log(f'{log_pref}_loss', loss)
             self.log(f'{log_pref}_mse', metrics[-1]["mse"] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
-
+        inp_masker = (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr
         return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'oi'    : (oi.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
+
+    def get_prior_outputs(self, batch):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        with torch.no_grad():
+            if not self.use_sst:
+                _, inputs_Mask, inputs_obs, targets_GT = batch
+            else:
+                _, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
+        
+ 
+            main_out = self.model.phi_r(x_in)
+            pred_list = [main_out]
+            for prior in self.model.phi_r.phi_list:
+                prior.eval()
+                x_out = prior(x_in).cpu()
+                #print('***XOUT SHAPE', x_out.shape)
+                #print('***XOUT', x_out)
+                pred_list.append(x_out)
+
+        return pred_list
+
+
+    def get_multi_prior_stats(self, t_idx):
+        '''Makes maps and stats for multi prior models'''
+
+        path_save_weights = self.logger.log_dir + '/model_weights.png'
+        weight_map = plot_weight_maps(
+                  self.x_gt[t_idx],
+                self.obs_inp[t_idx],
+                  self.model.phi_r.weights,
+                  self.test_lon, self.test_lat, path_save_weights)
+        prior_outs = self.get_prior_outputs(self.batch_obs)
+        path_save03 = self.logger.log_dir + '/prior_maps.png'
+        mp_maps = plot_multi_prior_maps(self.x_gt[t_idx],self.obs_inp[t_idx], prior_outs ,self.test_lon, self.test_lat, path_save03)
+        path_save04= self.logger.log_dir + '/prior_maps_Grad.png'
+        mp_maps_grad = plot_multi_prior_maps(self.x_gt[t_idx],self.obs_inp[t_idx],
+        prior_outs,self.test_lon, self.test_lat, path_save03, grad=True)
 
     def sla_diag(self, t_idx=3, log_pref='test'):
         path_save0 = self.logger.log_dir + '/maps.png'
@@ -201,12 +240,8 @@ class LitModelOI(LitModelAugstate):
         self.logger.experiment.add_figure(f'{log_pref} Maps Grad', fig_maps_grad, global_step=self.current_epoch)
         #Make maps for multi phi modles
         if self.model_name == 'multi_prior':
-            path_save03 = self.logger.log_dir + '/prior_maps.png'
-            mp_maps = plot_multi_prior_maps(self.x_gt[t_idx],self.obs_inp[t_idx],
-             self.model.phi_r.phi_list,self.test_lon, self.test_lat, path_save03)
-            path_save04= self.logger.log_dir + '/prior_maps_Grad.png'
-            mp_maps_grad = plot_multi_prior_maps(self.x_gt[t_idx],self.obs_inp[t_idx],
-             self.model.phi_r.phi_list,self.test_lon, self.test_lat, path_save03, grad=True)
+            print('*#*##****x_gt dims', self.x_gt)
+            multi_stats = self.get_multi_prior_stats(t_idx)
 
         lamb_x, lamb_t, mu, sig = np.nan, np.nan, np.nan, np.nan
         try:
@@ -252,6 +287,7 @@ class LitModelOI(LitModelAugstate):
 
         self.x_gt = self.test_xr_ds.gt.data
         self.obs_inp = self.test_xr_ds.obs_inp.data
+        self.batch_obs = full_outputs[0][1]['obs_inp']
         self.x_rec = self.test_xr_ds.pred.data
         self.x_rec_ssh = self.x_rec
 
@@ -261,7 +297,7 @@ class LitModelOI(LitModelAugstate):
         self.test_dates = self.test_coords['time'].data
 
         # display map
-        md = self.sla_diag(t_idx=3, log_pref=log_pref)
+        md = self.sla_diag(t_idx=2, log_pref=log_pref)
         self.latest_metrics.update(md)
         self.logger.log_metrics(md, step=self.current_epoch)
 
@@ -289,6 +325,8 @@ class LitModelOI(LitModelAugstate):
             _, inputs_Mask, inputs_obs, targets_GT = batch
         else:
             _, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
+        
+ 
 
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:

@@ -468,11 +468,32 @@ class Encoder_OI_linear(torch.nn.Module):
 
 #MULTI PRIOR SECTION
 
+# class Multi_Prior(torch.nn.Module):
+#     def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi=2, stochastic=False):
+#         super().__init__()
+#         self.phi_list = self.get_phi_list(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi, stochastic)
+#         self.weights = torch.nn.Conv2d(shape_data* nb_phi, shape_data, (2 * dw + 1, 2 * dw + 1), padding=dw, bias=False).to(device)
+#         self.sigm = torch.nn.Sigmoid()
+#     def get_phi_list(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi, stochastic=False):
+#         phi_list = []
+#         for i in range(nb_phi):
+#             phi_list.append(Phi_r_OI(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic).to(device))
+#         return phi_list
+
+#     def forward(self, x_in):
+#         x_out = torch.cat([phi_r(x_in) for phi_r in self.phi_list], dim=1)
+#         x_out = self.sigm(self.weights(x_out))
+#         return x_out
+
+
 class Multi_Prior(torch.nn.Module):
     def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi=2, stochastic=False):
         super().__init__()
         self.phi_list = self.get_phi_list(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi, stochastic)
-        self.weights = torch.nn.Conv2d(shape_data* nb_phi, shape_data, (2 * dw + 1, 2 * dw + 1), padding=dw, bias=False).to(device)
+        self.weights = torch.nn.Conv2d(shape_data, shape_data * nb_phi, (2 * dw + 1, 2 * dw + 1),device=device, padding=dw, bias=False)
+        self.sigm = torch.nn.Sigmoid()
+        self.nb_phi = nb_phi
+        self.shape_data = shape_data
 
     def get_phi_list(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi, stochastic=False):
         phi_list = []
@@ -481,6 +502,12 @@ class Multi_Prior(torch.nn.Module):
         return phi_list
 
     def forward(self, x_in):
-        x_out = torch.cat([phi_r(x_in) for phi_r in self.phi_list], dim=1)
-        x_out = torch.nn.Sigmoid(self.weights(x_out))
+        x_out = torch.zeros_like(x_in, device=device)
+        x_weights = self.sigm(self.weights(x_in))
+        for idx, phi_r in enumerate(self.phi_list):
+            #Get the indices corresponding to the weights for a given phi
+            start = idx * self.shape_data
+            stop = (idx + 1) * self.shape_data
+            #Multiply the phi by its weights, add to final sum
+            x_out = torch.add(x_out, torch.matmul(phi_r(x_in), x_weights[:,start:stop, :,:]))
         return x_out

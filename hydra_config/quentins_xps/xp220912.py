@@ -12,8 +12,8 @@ BASE_DEFAULTS = [
 XP=25
 cs.store(name='4dvarnet_OI', node={'model': '4dvarnet_OI'}, group='model', package='params')
 cs.store(name='UNet_direct', node={'model': 'UNet_direct', 'UNet_shrink_factor':2}, group='model', package='params')
-cs.store(name='UNet_direct_lowdropout', node={'model': 'UNet_direct', 'UNet_shrink_factor':2, 'dropout_phi_r': 0.1}, group='model', package='params')
-cs.store(name='UNet_direct_highdropout', node={'model': 'UNet_direct', 'UNet_shrink_factor':2, 'dropout_phi_r': 0.5}, group='model', package='params')
+cs.store(name='UNet_direct_lowdropout', node={'model': 'UNet_direct', 'UNet_shrink_factor':1, 'dropout_phi_r': 0.1}, group='model', package='params')
+cs.store(name='UNet_direct_highdropout', node={'model': 'UNet_direct', 'UNet_shrink_factor':1, 'dropout_phi_r': 0.5}, group='model', package='params')
 
 cs.store(name='4dvarnet_UNet', node={'model': '4dvarnet_UNet', 'UNet_shrink_factor':8}, group='model', package='params')
 cs.store(name='UNet_FP', node={'model': 'UNet_FP', 'n_grad':5, 'UNet_shrink_factor':2}, group='model', package='params')
@@ -52,9 +52,9 @@ aug = {
    # 'aug1': '/aug_data/1',
    #'aug2': '/aug_data/2',
     #'aug3': '/aug_data/3',
-    'aug8': '/aug_data/8',
-    'aug10': '/aug_data/10',
-    'aug16': '/aug_data/16'
+   'aug8': '/aug_data/8',
+   # 'aug10': '/aug_data/10',
+   # 'aug16': '/aug_data/16'
 
 }
 
@@ -62,7 +62,7 @@ cs.store(name='2', node={'resize_factor': 2}, group='down_samp', package='datamo
 cs.store(name='1', node={'resize_factor': 1}, group='down_samp', package='datamodule')
 resize = {
     'ds2': '/down_samp/2',
-    'ds1': '/down_samp/1',
+   # 'ds1': '/down_samp/1',
 }
 
 cs.store(name='29_8', node={
@@ -84,7 +84,7 @@ dT = {
 
 for  defaults in product(
         [
-            ('sst', '/xp/qfebvre/xp_oi_sst'),
+        #    ('sst', '/xp/qfebvre/xp_oi_sst'),
             ('no_sst', '/xp/qfebvre/xp_oi'),
         ],
         [

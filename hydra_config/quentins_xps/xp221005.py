@@ -59,7 +59,7 @@ cs.store(name='2', node={'resize_factor': 2}, group='down_samp', package='datamo
 cs.store(name='1', node={'resize_factor': 1}, group='down_samp', package='datamodule')
 resize = {
     'ds2': '/down_samp/2',
-    'ds1': '/down_samp/1',
+    #'ds1': '/down_samp/1',
 }
 
 cs.store(name='29_8', node={
@@ -81,7 +81,7 @@ dT = {
 
 for  defaults in product(
         [
-            ('sst', '/xp/qfebvre/xp_oi_sst'),
+          #  ('sst', '/xp/qfebvre/xp_oi_sst'),
             ('no_sst', '/xp/qfebvre/xp_oi_cnatl'),
         ],
         [
