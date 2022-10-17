@@ -61,7 +61,34 @@ class LitModelOI(LitModelAugstate):
                 ])
 
         return optimizer
+        
+    def training_step(self, train_batch, batch_idx, optimizer_idx=0):
 
+        # compute loss and metrics
+
+        losses, _, metrics = self(train_batch, phase='train')
+        if losses[-1] is None:
+            print("None loss")
+            return None
+        # loss = torch.stack(losses).sum()
+        loss = 2*torch.stack(losses).sum() - losses[0]
+
+        if not self.automatic_optimization:
+            opt = self.optimizers()
+            opt.zero_grad()
+            self.manual_backward(loss)
+            opt.step()
+        # log step metric
+        # self.log('train_mse', mse)
+        # self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True)
+        # self.log("tr_min_nobs", train_batch[1].sum(dim=[1,2,3]).min().item(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        # self.log("tr_n_nobs", train_batch[1].sum().item(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log("tr_loss", loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log("tr_mse", metrics[-1]['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_mseG", metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_msePhir", metrics[-1]['msePhir'], on_step=False, on_epoch=True, prog_bar=True)
+        return loss
+        
     def diag_step(self, batch, batch_idx, log_pref='test'):
         oi, inputs_Mask, inputs_obs, targets_GT = batch
         losses, out, metrics = self(batch, phase='test')
@@ -70,6 +97,7 @@ class LitModelOI(LitModelAugstate):
             self.log(f'{log_pref}_loss', loss)
             self.log(f'{log_pref}_mse', metrics[-1]["mse"] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{log_pref}_msePhir', metrics[-1]['msePhir'], on_step=False, on_epoch=True, prog_bar=True)
         return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'oi' : (oi.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
@@ -171,6 +199,7 @@ class LitModelOI(LitModelAugstate):
                     dict([('mse', 0.),
                         ('mseGrad', 0.),
                         ('meanGrad', 1.),
+                        ('msePhir', 0.),
                         ])
                     )
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
@@ -208,10 +237,12 @@ class LitModelOI(LitModelAugstate):
                     torch.hypot(g_targets_GT_x, g_targets_GT_y) , self.grad_crop(self.patch_weight))
             mse = loss_All.detach()
             mseGrad = loss_GAll.detach()
+            msePhir = loss_AE.detach()
             metrics = dict([
                 ('mse', mse),
                 ('mseGrad', mseGrad),
                 ('meanGrad', mean_GAll),
+                ('msePhir', msePhir),
                 ])
         return loss, outputs, [outputs, hidden_new, cell_new, normgrad], metrics
 
