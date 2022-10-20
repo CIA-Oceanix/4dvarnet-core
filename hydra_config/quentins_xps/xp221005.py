@@ -25,7 +25,7 @@ cs.store(name='multi_prior', node={'model': 'multi_prior', 'nb_phi':2}, group='m
 
 model = {
     '4dvarnet_OI': '/model/4dvarnet_OI',
-    '4dvarnet_OI_sst': '/model/4dvarnet_OI_sst',
+    #'4dvarnet_OI_sst': '/model/4dvarnet_OI_sst',
     #'4dvarnet_UNet': '/model/4dvarnet_UNet', 
     #'4dvarnet_UNet_sst': '/model/4dvarnet_UNet_sst', 
     #'4dvarnet_UNet_dropout': '/model/4dvarnet_UNet_dropout',
@@ -33,7 +33,7 @@ model = {
     #'UNet_direct_highdropout': '/model/UNet_direct_highdropout',
     'UNet_direct': '/model/UNet_direct',
     #'phir_direct': '/model/phi_r_direct',
-    'phir_FP': '/model/phi_r_FP',
+    #'phir_FP': '/model/phi_r_FP',
     'multi_prior': '/model/multi_prior'
 
 }
@@ -58,8 +58,8 @@ aug = {
 cs.store(name='2', node={'resize_factor': 2}, group='down_samp', package='datamodule')
 cs.store(name='1', node={'resize_factor': 1}, group='down_samp', package='datamodule')
 resize = {
-    #'ds2': '/down_samp/2',
-    'ds1': '/down_samp/1',
+    'ds2': '/down_samp/2',
+    #'ds1': '/down_samp/1',
 }
 
 cs.store(name='29_8', node={
@@ -87,7 +87,9 @@ for  defaults in product(
         #training and test areas format trainArea_testArea
         [ ('cnatl2_cnatl2', '/xp/baseline/dl/dl_cnatl'),
             ('cnatl2_gf2', '/xp/baseline/dl/dl_cnatl_gf2'),
-            ('cnatl2_osmosis','/xp/baseline/dl/dl_cnatl_osmosis')],
+            ('cnatl2_osmosis','/xp/baseline/dl/dl_cnatl_osmosis'),
+            ('gfx_gf','/xp/baseline/dl/d240_p240x5_s240x1')],
+            
         [
             # ('swot', '/xp/qfebvre/ds/clean_swot_oi_no_swot.yaml'),
             ('swot_4nad', '/xp/qfebvre/ds/swot_four_nadirs_dc.yaml'),

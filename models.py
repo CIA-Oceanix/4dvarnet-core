@@ -7,6 +7,7 @@ import torch.optim as optim
 from omegaconf import OmegaConf
 from scipy import stats
 import solver as NN_4DVar
+import xarray as xr
 from metrics import save_netcdf, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, plot_ensemble, maps_score
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -500,6 +501,54 @@ class Multi_Prior(torch.nn.Module):
         for i in range(nb_phi):
             phi_list.append(Phi_r_OI(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic).to(device))
         return phi_list
+
+    #gives a list of outputs for the phis for validation step
+    def get_intermediate_results(self, x_in):
+        with torch.no_grad():
+            x_in = x_in.to(device)
+            #Each element of these lists correspond to a phi
+            results_list = []
+            weights_list = []
+            x_weights = self.sigm(self.weights(x_in)).detach().to('cpu')
+            for idx, phi_r in enumerate(self.phi_list):
+                start = idx * self.shape_data
+                stop = (idx + 1) * self.shape_data
+                weights_list.append(x_weights[:,start:stop, :,:])
+                results_list.append(phi_r(x_in).detach().to('cpu'))
+        return results_list, weights_list
+
+    # def make_snapshot(self, save_path, x_in,  gt, oi, pred, lon, lat, time,
+    #             time_units='days since 2012-10-01 00:00:00'):
+    #     phi_r_res = self.get_intermediate_results(x_in)
+    #     self.save_outputs(save_path, phi_r_res,  gt, oi, pred, lon, lat, time,
+    #             time_units)
+
+
+    # def save_outputs(self, save_path, phi_r_res,  gt, oi, pred, lon, lat, time,
+    #             time_units='days since 2012-10-01 00:00:00'):
+    #         '''
+    #         saved_path1: string
+    #         pred: 3d numpy array (4DVarNet-based predictions)
+    #         lon: 1d numpy array
+    #         lat: 1d numpy array
+    #         time: 1d array-like of time corresponding to the experiment
+    #         '''
+
+    #         mesh_lat, mesh_lon = np.meshgrid(lat, lon)
+    #         mesh_lat = mesh_lat.T
+    #         mesh_lon = mesh_lon.T
+
+    #         dt = pred.shape[1]
+    #         xrdata = xr.Dataset( \
+    #             data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
+    #                     'latitude': (('lat', 'lon'), mesh_lat), \
+    #                     'Time': (('time'), time), \
+    #                     'GT': (('time', 'lat', 'lon'), gt),
+    #                     'OI': (('time', 'lat', 'lon'), oi),
+    #                     '4DVarNet': (('time', 'lat', 'lon'), pred)}, \
+    #             coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred))})
+    #         xrdata.time.attrs['units'] = time_units
+    #         xrdata.to_netcdf(path=save_path, mode='w')
 
     def forward(self, x_in):
         x_out = torch.zeros_like(x_in, device=device)

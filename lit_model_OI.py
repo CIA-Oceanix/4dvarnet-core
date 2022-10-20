@@ -184,42 +184,27 @@ class LitModelOI(LitModelAugstate):
                 'oi'    : (oi.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
-    def get_prior_outputs(self, batch):
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        with torch.no_grad():
-            if not self.use_sst:
-                _, inputs_Mask, inputs_obs, targets_GT = batch
-            else:
-                _, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
+  
+
+
+    def save_multi_prior_stats(self, full_outputs, diag_ds):
+        batch_pred = full_outputs[0][0]['pred'].detach()
+        mp_save_path = self.logger.log_dir + '/multi_prior.nc'
+        weight_save_path = self.logger.log_dir + '/multi_prior_weights.pt'
+        results, weights = self.model.phi_r.get_intermediate_results(batch_pred)
+        ## Going back into full outputs to make an xr_ds that includes the predictions from the phis and their weights
+        #There probably is a better way
+        for i in range(self.hparams.nb_phi):
+            for j in range(len(full_outputs[0])): #Doing this to avoid out of range error in build_test_xr_ds
+                full_outputs[0][j][f'phi{i}_weights'] = weights[i]
+                full_outputs[0][j][f'phi{i}_pred'] = (results[i] * np.sqrt(self.var_Tr))+ self.mean_Tr
         
- 
-            main_out = self.model.phi_r(x_in)
-            pred_list = [main_out]
-            for prior in self.model.phi_r.phi_list:
-                prior.eval()
-                x_out = prior(x_in).cpu()
-                #print('***XOUT SHAPE', x_out.shape)
-                #print('***XOUT', x_out)
-                pred_list.append(x_out)
-
-        return pred_list
+        phi_xr_ds  = self.build_test_xr_ds(full_outputs, diag_ds)
+        print(phi_xr_ds)
+        phi_xr_ds.to_netcdf(path=mp_save_path, mode='w')
 
 
-    def get_multi_prior_stats(self, t_idx):
-        '''Makes maps and stats for multi prior models'''
-
-        path_save_weights = self.logger.log_dir + '/model_weights.png'
-        weight_map = plot_weight_maps(
-                  self.x_gt[t_idx],
-                self.obs_inp[t_idx],
-                  self.model.phi_r.weights,
-                  self.test_lon, self.test_lat, path_save_weights)
-        prior_outs = self.get_prior_outputs(self.batch_obs)
-        path_save03 = self.logger.log_dir + '/prior_maps.png'
-        mp_maps = plot_multi_prior_maps(self.x_gt[t_idx],self.obs_inp[t_idx], prior_outs ,self.test_lon, self.test_lat, path_save03)
-        path_save04= self.logger.log_dir + '/prior_maps_Grad.png'
-        mp_maps_grad = plot_multi_prior_maps(self.x_gt[t_idx],self.obs_inp[t_idx],
-        prior_outs,self.test_lon, self.test_lat, path_save03, grad=True)
+   
 
     def sla_diag(self, t_idx=3, log_pref='test'):
         path_save0 = self.logger.log_dir + '/maps.png'
@@ -238,11 +223,7 @@ class LitModelOI(LitModelAugstate):
         self.test_figs['maps_grad'] = fig_maps_grad
         self.logger.experiment.add_figure(f'{log_pref} Maps', fig_maps, global_step=self.current_epoch)
         self.logger.experiment.add_figure(f'{log_pref} Maps Grad', fig_maps_grad, global_step=self.current_epoch)
-        #Make maps for multi phi modles
-        if self.model_name == 'multi_prior':
-            print('*#*##****x_gt dims', self.x_gt)
-            multi_stats = self.get_multi_prior_stats(t_idx)
-
+       
         lamb_x, lamb_t, mu, sig = np.nan, np.nan, np.nan, np.nan
         try:
             psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
@@ -278,6 +259,7 @@ class LitModelOI(LitModelAugstate):
             diag_ds = self.trainer.val_dataloaders[0].dataset.datasets[0]
         else:
             raise Exception('unknown phase')
+        print('###full_outputs', )
         self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
 
         log_path = Path(self.logger.log_dir).mkdir(exist_ok=True)
@@ -286,8 +268,9 @@ class LitModelOI(LitModelAugstate):
         self.test_xr_ds.to_netcdf(path_save1)
 
         self.x_gt = self.test_xr_ds.gt.data
+        self.oi = self.test_xr_ds.oi.data
         self.obs_inp = self.test_xr_ds.obs_inp.data
-        self.batch_obs = full_outputs[0][1]['obs_inp']
+        
         self.x_rec = self.test_xr_ds.pred.data
         self.x_rec_ssh = self.x_rec
 
@@ -298,6 +281,10 @@ class LitModelOI(LitModelAugstate):
 
         # display map
         md = self.sla_diag(t_idx=2, log_pref=log_pref)
+        #Saves data for intermediate multi prior results
+        if self.model_name == 'multi_prior':
+   
+            self.save_multi_prior_stats(full_outputs, diag_ds)
         self.latest_metrics.update(md)
         self.logger.log_metrics(md, step=self.current_epoch)
 
