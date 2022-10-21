@@ -184,10 +184,9 @@ class LitModelOI(LitModelAugstate):
                 'oi'    : (oi.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
-  
-
 
     def save_multi_prior_stats(self, full_outputs, diag_ds):
+        '''This function saves the intermediate outputs of the multi prior model'''
         batch_pred = full_outputs[0][0]['pred'].detach()
         mp_save_path = self.logger.log_dir + '/multi_prior.nc'
         weight_save_path = self.logger.log_dir + '/multi_prior_weights.pt'
@@ -198,13 +197,9 @@ class LitModelOI(LitModelAugstate):
             for j in range(len(full_outputs[0])): #Doing this to avoid out of range error in build_test_xr_ds
                 full_outputs[0][j][f'phi{i}_weights'] = weights[i]
                 full_outputs[0][j][f'phi{i}_pred'] = (results[i] * np.sqrt(self.var_Tr))+ self.mean_Tr
-        
         phi_xr_ds  = self.build_test_xr_ds(full_outputs, diag_ds)
-        print(phi_xr_ds)
         phi_xr_ds.to_netcdf(path=mp_save_path, mode='w')
 
-
-   
 
     def sla_diag(self, t_idx=3, log_pref='test'):
         path_save0 = self.logger.log_dir + '/maps.png'

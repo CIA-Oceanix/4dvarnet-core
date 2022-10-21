@@ -517,6 +517,81 @@ class Multi_Prior(torch.nn.Module):
                 results_list.append(phi_r(x_in).detach().to('cpu'))
         return results_list, weights_list
 
+    def plot_multi_maps(gt,obs, oi, pred_list,lon,lat,resfile,grad=False, crop=None, orthographic=False,supervised=True,  ncols = 3):
+    '''This function plots a list of xr datasets that have the same dimensions'''
+        if crop is not None:
+            ilon = np.where((lon>=crop[0]) & (lon<=crop[1]))[0]
+            ilat = np.where((lat>=crop[2]) & (lat<=crop[3]))[0]
+            gt = (gt[:,ilat,:])[:,:,ilon]
+            obs = (obs[:,ilat,:])[:,:,ilon]
+            for pred in pred_list:
+                pred['data'] = (pred[:,ilat,:])[:,:,ilon]
+            oi = (oi[:,ilat,:])[:,:,ilon]
+            lon = lon[ilon]
+            lat = lat[ilat]
+        extent = [np.min(lon)-1,np.max(lon)+1,np.min(lat)-1,np.max(lat)+1]
+        central_lon = np.mean(extent[:2])
+        central_lat = np.mean(extent[2:])
+
+        if orthographic:
+            #crs = ccrs.Orthographic(central_lon,central_lat)
+            crs = ccrs.Orthographic(-30,45)
+        else:
+            crs = ccrs.PlateCarree(central_longitude=0.0)
+
+        if grad:
+            vmax = np.nanmax(np.abs(gradient(gt.to_numpy(), 2)))
+            vmin = 0
+            cm = plt.cm.viridis
+            norm = colors.PowerNorm(gamma=0.7, vmin=vmin, vmax=vmax)
+        else:
+            vmax = np.nanmax(np.abs(gt))
+            vmin = -1.*vmax
+            cm = plt.cm.coolwarm
+            norm = colors.Normalize(vmin=vmin, vmax=vmax)
+
+        extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
+        
+        extra_entries=3
+    
+        nrows = (len(pred_list) + extra_entries) // ncols + ((len(pred_list) +extra_entries) % ncols > 0)
+
+        fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(16, 10), subplot_kw={'projection': ccrs.Mercator()})
+        axs_ravel = axs.ravel()
+        
+        if supervised:
+            #plot oi, gt, and obs
+            ax1 = axs_ravel[0]
+            ax2 = axs_ravel[1]
+            ax3 = axs_ravel[2]
+            if grad:
+                plot(ax1, lon, lat, gradient(gt.to_numpy(), 2), r"$\nabla_{GT}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax2, lon, lat, np.where(np.isnan(obs), np.nan, 0.), "OBS (mask)", extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax3, lon, lat, gradient(oi.to_numpy(), 2), r"$\nabla_{OI}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+            else:
+                plot(ax1, lon, lat, gt, 'GT', extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax2, lon, lat, obs, 'OBS', extent=extent, cmap=cm, norm=norm, colorbar=False)
+                plot(ax3, lon, lat, oi, 'OI', extent=extent, cmap=cm, norm=norm, colorbar=False)
+
+            # loop through predicted values and axes
+            for result, ax in zip(pred_list, axs_ravel[extra_entries:]):
+                # filter df for ticker and plot on specified axes
+                if grad:
+                    plot(ax, lon, lat, gradient(result['data'], 2), result['name'], extent=extent, cmap=cm, norm=norm, colorbar=False)
+                else:
+                    plot(ax, lon, lat, result['data'], result['name'], extent=extent, cmap=cm, norm=norm, colorbar=False)
+                    
+        # Colorbar
+        cbar_ax = fig.add_axes([0.1, 0.05, 0.8, 0.01])
+        plt.subplots_adjust(wspace=0.1,hspace=0.1)
+        sm = plt.cm.ScalarMappable(cmap=cm, norm=norm)
+        sm._A = []
+        cbar = fig.colorbar(sm, cax=cbar_ax, orientation='horizontal', pad=1.0)
+        plt.savefig(resfile)    # save the figure
+        fig = plt.gcf()
+        plt.close()             # close the figure
+        return fig
+
     # def make_snapshot(self, save_path, x_in,  gt, oi, pred, lon, lat, time,
     #             time_units='days since 2012-10-01 00:00:00'):
     #     phi_r_res = self.get_intermediate_results(x_in)
