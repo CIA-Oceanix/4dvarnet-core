@@ -11,7 +11,7 @@ params:
     crop: 
       lat: ${div:0,${datamodule.resize_factor}}
       lon: ${div:0,${datamodule.resize_factor}}
-      time: 2
+      time: 0  #2
   k_n_grad: 3
   n_grad: 0
   val_diag_freq: 5
@@ -54,17 +54,19 @@ datamodule:
       
   train_slices: 
     - _target_: builtins.slice
-      _args_: ['2019-01-01', '2019-07-31']
+      _args_: ['2019-01-01', '2019-10-10']
     - _target_: builtins.slice
-      _args_: ['2019-12-01', '2019-12-31']
-      
-  test_slices: 
-    - _target_: builtins.slice
-      _args_: ${adjust_testslices:['2019-08-01', '2019-09-30'],${params.dT}}
+      _args_: ['2019-11-23', '2019-12-31']
       
   val_slices: 
     - _target_: builtins.slice
-      _args_: ['2019-08-01', '2019-09-30']
+      _args_: ['2020-01-01', '2020-01-17']
+    - _target_: builtins.slice
+      _args_: ['2020-02-04', '2020-12-07']
+      
+  test_slices: 
+    - _target_: builtins.slice
+      _args_: ${adjust_testslices:['2021-02-09', '2021-12-31'],${params.dT}}
       
   oi_var: "bbp443"
   gt_var: "bbp443"
