@@ -516,9 +516,10 @@ class Multi_Prior(torch.nn.Module):
                 weights_list.append(x_weights[:,start:stop, :,:])
                 results_list.append(phi_r(x_in).detach().to('cpu'))
         return results_list, weights_list
-
+        
+        #This function plots a list of xr datasets that have the same dimensions
     def plot_multi_maps(gt,obs, oi, pred_list,lon,lat,resfile,grad=False, crop=None, orthographic=False,supervised=True,  ncols = 3):
-    '''This function plots a list of xr datasets that have the same dimensions'''
+
         if crop is not None:
             ilon = np.where((lon>=crop[0]) & (lon<=crop[1]))[0]
             ilat = np.where((lat>=crop[2]) & (lat<=crop[3]))[0]
