@@ -54,11 +54,12 @@ aug = {
     'aug10': '/aug_data/10',
 
 }
-
+cs.store(name='4', node={'resize_factor': 4}, group='down_samp', package='datamodule')
 cs.store(name='2', node={'resize_factor': 2}, group='down_samp', package='datamodule')
 cs.store(name='1', node={'resize_factor': 1}, group='down_samp', package='datamodule')
 resize = {
-    'ds2': '/down_samp/2',
+    'ds4': '/down_samp/4',
+    #'ds2': '/down_samp/2',
     #'ds1': '/down_samp/1',
 }
 
@@ -88,6 +89,8 @@ for  defaults in product(
         [ ('cnatl2_cnatl2', '/xp/baseline/dl/dl_cnatl'),
             ('cnatl2_gf2', '/xp/baseline/dl/dl_cnatl_gf2'),
             ('cnatl2_osmosis','/xp/baseline/dl/dl_cnatl_osmosis'),
+            ('gf2_osmosis', '/xp/baseline/dl/dl_gf2_osmosis'),
+            ('osmosis_osmosis', '/xp/baseline/dl/dl_osmosis'),
             ('gfx_gf','/xp/baseline/dl/d240_p240x5_s240x1')],
             
         [

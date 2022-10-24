@@ -61,3 +61,17 @@ def get_dm(xp_cfg, setup=True, add_overrides=None, hydra_root='.'):
     if setup:
         dm.setup()
     return dm
+
+def find_xr_data_names_containing(xr_ds, search_string):
+    """
+    This function returns a list of data variable names that contain the given string for an xr_dataset. 
+    Used for plotting model weights and phi outputs for the multi-phi
+    """
+    names_list = []
+    for key in xr_ds.data_vars:
+        if search_string in key:
+            names_list.append(key)
+    if not names_list:
+        print('No matches for the names list')
+
+    return names_list

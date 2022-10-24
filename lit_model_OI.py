@@ -186,6 +186,7 @@ class LitModelOI(LitModelAugstate):
 
     def save_multi_prior_stats(self, full_outputs, diag_ds):
         '''This function saves the intermediate outputs of the multi prior model'''
+        #Only using the first batch for calculating phi_r outputs
         batch_pred = full_outputs[0][0]['pred'].detach()
         mp_save_path = self.logger.log_dir + '/multi_prior.nc'
         weight_save_path = self.logger.log_dir + '/multi_prior_weights.pt'
@@ -196,6 +197,11 @@ class LitModelOI(LitModelAugstate):
             for j in range(len(full_outputs[0])): #Doing this to avoid out of range error in build_test_xr_ds
                 full_outputs[0][j][f'phi{i}_weights'] = weights[i]
                 full_outputs[0][j][f'phi{i}_pred'] = (results[i] * np.sqrt(self.var_Tr))+ self.mean_Tr
+
+        print('FULL OUTPUTS', full_outputs)
+        print('len(full_outputs[0])', len(full_outputs[0]))
+        print('len(full_outputs[0][0])', full_outputs[0][0].keys())
+        print('len(full_outputs[0][1])', full_outputs[0][1].keys())
         phi_xr_ds  = self.build_test_xr_ds(full_outputs, diag_ds)
         phi_xr_ds.to_netcdf(path=mp_save_path, mode='w')
 
@@ -253,9 +259,7 @@ class LitModelOI(LitModelAugstate):
             diag_ds = self.trainer.val_dataloaders[0].dataset.datasets[0]
         else:
             raise Exception('unknown phase')
-        print('###full_outputs', )
         self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
-
         log_path = Path(self.logger.log_dir).mkdir(exist_ok=True)
         print('########', f'{log_path=}')
         path_save1 = self.logger.log_dir + f'/test.nc'

@@ -9,7 +9,6 @@ from scipy import stats
 import solver as NN_4DVar
 import xarray as xr
 from metrics import save_netcdf, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, plot_ensemble, maps_score
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class BiLinUnit(torch.nn.Module):
@@ -468,30 +467,11 @@ class Encoder_OI_linear(torch.nn.Module):
     
 
 #MULTI PRIOR SECTION
-
-# class Multi_Prior(torch.nn.Module):
-#     def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi=2, stochastic=False):
-#         super().__init__()
-#         self.phi_list = self.get_phi_list(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi, stochastic)
-#         self.weights = torch.nn.Conv2d(shape_data* nb_phi, shape_data, (2 * dw + 1, 2 * dw + 1), padding=dw, bias=False).to(device)
-#         self.sigm = torch.nn.Sigmoid()
-#     def get_phi_list(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi, stochastic=False):
-#         phi_list = []
-#         for i in range(nb_phi):
-#             phi_list.append(Phi_r_OI(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic).to(device))
-#         return phi_list
-
-#     def forward(self, x_in):
-#         x_out = torch.cat([phi_r(x_in) for phi_r in self.phi_list], dim=1)
-#         x_out = self.sigm(self.weights(x_out))
-#         return x_out
-
-
 class Multi_Prior(torch.nn.Module):
     def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi=2, stochastic=False):
         super().__init__()
         self.phi_list = self.get_phi_list(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi, stochastic)
-        self.weights = torch.nn.Conv2d(shape_data, shape_data * nb_phi, (2 * dw + 1, 2 * dw + 1),device=device, padding=dw, bias=False)
+        self.weights = torch.nn.Conv2d(shape_data, shape_data * nb_phi, (2 * dw + 1, 2 * dw + 1), padding=dw, bias=False)
         self.sigm = torch.nn.Sigmoid()
         self.nb_phi = nb_phi
         self.shape_data = shape_data
@@ -499,99 +479,27 @@ class Multi_Prior(torch.nn.Module):
     def get_phi_list(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi, stochastic=False):
         phi_list = []
         for i in range(nb_phi):
-            phi_list.append(Phi_r_OI(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic).to(device))
+            phi_list.append(Phi_r_OI(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic))
         return phi_list
 
     #gives a list of outputs for the phis for validation step
     def get_intermediate_results(self, x_in):
         with torch.no_grad():
-            x_in = x_in.to(device)
+            x_in = x_in.to(x_in)
+            self.weights = self.weights.to(x_in)
             #Each element of these lists correspond to a phi
             results_list = []
             weights_list = []
             x_weights = self.sigm(self.weights(x_in)).detach().to('cpu')
             for idx, phi_r in enumerate(self.phi_list):
+                phi_r = phi_r.to(x_in)
                 start = idx * self.shape_data
                 stop = (idx + 1) * self.shape_data
                 weights_list.append(x_weights[:,start:stop, :,:])
                 results_list.append(phi_r(x_in).detach().to('cpu'))
         return results_list, weights_list
         
-        #This function plots a list of xr datasets that have the same dimensions
-    def plot_multi_maps(gt,obs, oi, pred_list,lon,lat,resfile,grad=False, crop=None, orthographic=False,supervised=True,  ncols = 3):
 
-        if crop is not None:
-            ilon = np.where((lon>=crop[0]) & (lon<=crop[1]))[0]
-            ilat = np.where((lat>=crop[2]) & (lat<=crop[3]))[0]
-            gt = (gt[:,ilat,:])[:,:,ilon]
-            obs = (obs[:,ilat,:])[:,:,ilon]
-            for pred in pred_list:
-                pred['data'] = (pred[:,ilat,:])[:,:,ilon]
-            oi = (oi[:,ilat,:])[:,:,ilon]
-            lon = lon[ilon]
-            lat = lat[ilat]
-        extent = [np.min(lon)-1,np.max(lon)+1,np.min(lat)-1,np.max(lat)+1]
-        central_lon = np.mean(extent[:2])
-        central_lat = np.mean(extent[2:])
-
-        if orthographic:
-            #crs = ccrs.Orthographic(central_lon,central_lat)
-            crs = ccrs.Orthographic(-30,45)
-        else:
-            crs = ccrs.PlateCarree(central_longitude=0.0)
-
-        if grad:
-            vmax = np.nanmax(np.abs(gradient(gt.to_numpy(), 2)))
-            vmin = 0
-            cm = plt.cm.viridis
-            norm = colors.PowerNorm(gamma=0.7, vmin=vmin, vmax=vmax)
-        else:
-            vmax = np.nanmax(np.abs(gt))
-            vmin = -1.*vmax
-            cm = plt.cm.coolwarm
-            norm = colors.Normalize(vmin=vmin, vmax=vmax)
-
-        extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
-        
-        extra_entries=3
-    
-        nrows = (len(pred_list) + extra_entries) // ncols + ((len(pred_list) +extra_entries) % ncols > 0)
-
-        fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(16, 10), subplot_kw={'projection': ccrs.Mercator()})
-        axs_ravel = axs.ravel()
-        
-        if supervised:
-            #plot oi, gt, and obs
-            ax1 = axs_ravel[0]
-            ax2 = axs_ravel[1]
-            ax3 = axs_ravel[2]
-            if grad:
-                plot(ax1, lon, lat, gradient(gt.to_numpy(), 2), r"$\nabla_{GT}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
-                plot(ax2, lon, lat, np.where(np.isnan(obs), np.nan, 0.), "OBS (mask)", extent=extent, cmap=cm, norm=norm, colorbar=False)
-                plot(ax3, lon, lat, gradient(oi.to_numpy(), 2), r"$\nabla_{OI}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
-            else:
-                plot(ax1, lon, lat, gt, 'GT', extent=extent, cmap=cm, norm=norm, colorbar=False)
-                plot(ax2, lon, lat, obs, 'OBS', extent=extent, cmap=cm, norm=norm, colorbar=False)
-                plot(ax3, lon, lat, oi, 'OI', extent=extent, cmap=cm, norm=norm, colorbar=False)
-
-            # loop through predicted values and axes
-            for result, ax in zip(pred_list, axs_ravel[extra_entries:]):
-                # filter df for ticker and plot on specified axes
-                if grad:
-                    plot(ax, lon, lat, gradient(result['data'], 2), result['name'], extent=extent, cmap=cm, norm=norm, colorbar=False)
-                else:
-                    plot(ax, lon, lat, result['data'], result['name'], extent=extent, cmap=cm, norm=norm, colorbar=False)
-                    
-        # Colorbar
-        cbar_ax = fig.add_axes([0.1, 0.05, 0.8, 0.01])
-        plt.subplots_adjust(wspace=0.1,hspace=0.1)
-        sm = plt.cm.ScalarMappable(cmap=cm, norm=norm)
-        sm._A = []
-        cbar = fig.colorbar(sm, cax=cbar_ax, orientation='horizontal', pad=1.0)
-        plt.savefig(resfile)    # save the figure
-        fig = plt.gcf()
-        plt.close()             # close the figure
-        return fig
 
     # def make_snapshot(self, save_path, x_in,  gt, oi, pred, lon, lat, time,
     #             time_units='days since 2012-10-01 00:00:00'):
@@ -627,10 +535,12 @@ class Multi_Prior(torch.nn.Module):
     #         xrdata.to_netcdf(path=save_path, mode='w')
 
     def forward(self, x_in):
-        x_out = torch.zeros_like(x_in, device=device)
+        x_out = torch.zeros_like(x_in).to(x_in)
+        self.weights= self.weights.to(x_in)
         x_weights = self.sigm(self.weights(x_in))
         for idx, phi_r in enumerate(self.phi_list):
             #Get the indices corresponding to the weights for a given phi
+            phi_r = phi_r.to(x_in)
             start = idx * self.shape_data
             stop = (idx + 1) * self.shape_data
             #Multiply the phi by its weights, add to final sum
