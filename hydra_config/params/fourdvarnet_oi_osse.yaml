@@ -1,8 +1,10 @@
 files_cfg:
   obs_mask_path: ${file_paths.obs_mask_path}
-  obs_mask_var: ssh_obs
+  obs_mask_var: ssh_mod
   gt_path: ${file_paths.gt_path}
   gt_var: ssh
+  oi_path: ${file_paths.oi_path}
+  oi_var: ssh_mod
 iter_update:
   - 0
   - 20

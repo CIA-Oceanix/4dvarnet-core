@@ -1,0 +1,26 @@
+# @package _global_
+xp_name: oi_qg_4dvarnet
+
+params:
+  loss_type: mse_loss
+  n_grad: 20
+  dT: 15
+  shapeData:
+    - 15
+    - 100
+    - 100
+
+datamodule:
+  resize_factor: 1
+  slice_win:
+    lat: 100
+    lon: 100
+    time: 15
+
+defaults:
+  - /params: fourdvarnet_oi_qg
+  - /domain@datamodule.dim_range: qg
+  - /domain@params.test_domain: qg
+  - /training: oi_qg_4dvarnet
+  - _self_
+

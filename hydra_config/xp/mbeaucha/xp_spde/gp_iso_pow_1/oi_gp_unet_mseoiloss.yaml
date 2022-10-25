@@ -8,7 +8,7 @@ params:
 datamodule:
   resize_factor: 1
 
-lit_mod_cls: oi.lit_model_phi.LitModel
+lit_mod_cls: oi.xp_gp.lit_model_phi.LitModel
 
 defaults:
   - /params_gp@params: gp_iso_pow_1

@@ -7,7 +7,7 @@ cd /gpfswork/rech/yrf/uba22to/4dvarnet-core
 
 mkdir -p  oi/logs/${gp_dataset}
 
-sbatch main_gp.slurm ${gp_dataset} oi_gp_ref 1
+#sbatch main_gp.slurm ${gp_dataset} oi_gp_ref 1
 sbatch main_gp.slurm ${gp_dataset} oi_gp_ref_gd 1
 sbatch main_gp.slurm ${gp_dataset} oi_gp_unet_mseloss 10
 sbatch main_gp.slurm ${gp_dataset} oi_gp_unet_oiloss 10

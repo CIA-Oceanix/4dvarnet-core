@@ -7,7 +7,7 @@ datamodule:
     batch_size: 1
     num_workers: 1
 
-lit_mod_cls: oi.lit_model_spde_fp_wolp.LitModel
+lit_mod_cls: oi.xp_gp.lit_model_spde_fp_wolp.LitModel
 
 defaults:
   - /params_gp@params: gp_iso_pow_2

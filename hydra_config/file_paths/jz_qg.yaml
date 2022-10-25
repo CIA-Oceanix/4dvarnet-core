@@ -1,0 +1,4 @@
+obs_path: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/xp_qg/data/qg_sim.nc
+gt_path: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/xp_qg/data/qg_sim.nc
+u_path: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/xp_qg/data/qg_sim.nc
+v_path: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/xp_qg/data/qg_sim.nc

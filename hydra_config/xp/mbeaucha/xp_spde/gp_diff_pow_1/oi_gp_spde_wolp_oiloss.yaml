@@ -8,7 +8,7 @@ params:
 datamodule:
   resize_factor: 1
 
-lit_mod_cls: oi.lit_model_spde_wolp.LitModel
+lit_mod_cls: oi.xp_gp.lit_model_spde_wolp.LitModel
 
 defaults:
   - /params_gp@params: gp_diff_pow_1

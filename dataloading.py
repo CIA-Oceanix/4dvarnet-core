@@ -397,7 +397,7 @@ class FourDVarNetDataset(Dataset):
         # remove patches from data
         supervised = False
         if supervised==False:
-            n_patch = 30
+            n_patch = 10
             s_patch = 10
             for i in range(len(obs_item)):
                 posx = np.random.randint(s_patch,self.slice_win['lon']-s_patch,n_patch)
@@ -594,8 +594,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     resolution=self.resolution,
                     resize_factor=self.resize_factor,
                     compute=self.compute,
-                    #use_auto_padding=self.use_auto_padding,
-                    use_auto_padding=True,
+                    use_auto_padding=self.use_auto_padding,
                     pp=self.pp,
                 ) for sl in slices]
             )

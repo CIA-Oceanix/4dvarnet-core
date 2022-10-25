@@ -14,6 +14,7 @@ from torch.utils.dlpack import to_dlpack
 from torch.utils.dlpack import from_dlpack
 import torch_sparse
 import torch
+from oi.chol_sp_diff import chol_rev
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def spspmm(A,B):
@@ -121,6 +122,7 @@ class cholesky_sparse(Function):
             P = torch.as_tensor(P, dtype=P.dtype).to(device)
             L = torch.as_tensor(L, dtype=L.dtype).to(device)
             inv_D = torch.as_tensor(inv_D, dtype=inv_D.dtype).to(device)
+            ctx.save_for_backward(A, P, L, inv_D)
             return P, L, inv_D
         else:
             L = sksparse.cholmod.cholesky(A_np,ordering_method="natural").L()
@@ -135,8 +137,9 @@ class cholesky_sparse(Function):
 
     @staticmethod
     def backward(ctx, grad):
-        Lbar = grad
-        A, L = ctx.saved_tensor
+        Lbar = grad.cpu()
+        A, L = ctx.saved_tensors
+        A, L = A.cpu(), L.cpu() 
         sp_L = scipy.sparse.csc_matrix((L.coalesce().values(),
                                 L.coalesce().indices()),
                                 shape=(L.shape[0],L.shape[0]))
@@ -146,7 +149,7 @@ class cholesky_sparse(Function):
         # compute Abar = chol_rev(L,Lbar) (Lbar is input grad)
         gradA = chol_rev(sp_L,sp_Lbar)
         gradA = gradA.tocoo()
-        gradA = torch.sparse.FloatTensor(torch.LongTensor([Gcoo.row.tolist(), Gcoo.col.tolist()]),
-                                                torch.FloatTensor(Gcoo.data)).to(device)
+        gradA = torch.sparse.FloatTensor(torch.LongTensor([gradA.row.tolist(), gradA.col.tolist()]),
+                                                torch.FloatTensor(gradA.data)).to(device)
         return gradA
 

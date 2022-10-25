@@ -5,7 +5,7 @@ params:
   loss_type: mse_loss
   n_grad: 100
 
-lit_mod_cls: oi.lit_model_grad_lstm.LitModel
+lit_mod_cls: oi.xp_gp.lit_model_grad_lstm.LitModel
 
 datamodule:
   resize_factor: 1

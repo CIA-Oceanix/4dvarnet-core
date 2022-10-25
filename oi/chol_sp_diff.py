@@ -6,7 +6,9 @@ Implements forwards- and reverse-mode update rules from:
     http://arxiv.org/abs/1602.07527
 """
 
-from libs import *
+from scipy.sparse.linalg import inv
+from scipy.sparse import tril
+import numpy as np
 
 def _Phi(A):
     """Return lower-triangle of matrix and have the diagonal"""

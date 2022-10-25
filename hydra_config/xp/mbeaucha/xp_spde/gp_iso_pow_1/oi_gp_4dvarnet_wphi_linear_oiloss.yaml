@@ -5,7 +5,7 @@ params:
   loss_type: oi_loss
   n_grad: 50
 
-lit_mod_cls: oi.lit_model_wphi_linear.LitModel
+lit_mod_cls: oi.xp_gp.lit_model_wphi_linear.LitModel
 
 datamodule:
   resize_factor: 1

@@ -69,109 +69,91 @@ def DiffOperator(Nx, Ny, dx, dy, m, H, kappa):
     ## Voisin à droite Points de la grille concernés : Retrait du bord droit
     index = torch.where(torch.fmod(indices+1,Nx) != 0)[0]
     indicesVoisins = torch.index_select(indices,0,index)
-    if m is not None:
-        k1 = torch.stack((indicesVoisins.float(), indicesVoisins.float() + 1, -1 * (H[0, 0, indicesVoisins])/(dx**2) + m[0, indicesVoisins]/dx))
-    else:
-        k1 = torch.stack((indicesVoisins.float(), indicesVoisins.float() + 1, -1 * (H[0, 0, indicesVoisins])/(dx**2)))
+    if ( (m is not None) and (H is not None) ):
+        k1 = torch.stack((indicesVoisins.float(), indicesVoisins.float() + 1,
+                          -1 * (H[0, 0, indicesVoisins])/(dx**2) + m[0, indicesVoisins]/dx))
+    elif ( (m is None) and (H is not None) ):
+        k1 = torch.stack((indicesVoisins.float(), indicesVoisins.float() + 1,
+                          -1 * (H[0, 0, indicesVoisins])/(dx**2)))
+    elif ( (m is not None) and (H is None) ):
+        k1 = torch.stack((indicesVoisins.float(), indicesVoisins.float() + 1,
+                          -1 * m[0, indicesVoisins]/dx))
     ## Voisin à gauche Points de la grille concernés : Retrait du bord gauche
     index = torch.where(torch.fmod(indices+1,Nx) != 1)[0]
     indicesVoisins = torch.index_select(indices,0,index)
-    if m is not None:
-        k2 = torch.stack((indicesVoisins.float(), indicesVoisins.float() - 1, -1 * (H[0, 0, indicesVoisins])/(dx**2) - m[0, indicesVoisins]/dx))
-    else:
-        k2 = torch.stack((indicesVoisins.float(), indicesVoisins.float() - 1, -1 * (H[0, 0, indicesVoisins])/(dx**2)))
+    if ( (m is not None) and (H is not None) ):
+        k2 = torch.stack((indicesVoisins.float(), indicesVoisins.float() - 1,
+                          -1 * (H[0, 0, indicesVoisins])/(dx**2) - m[0, indicesVoisins]/dx))
+    elif ( (m is None) and (H is not None) ):
+        k2 = torch.stack((indicesVoisins.float(), indicesVoisins.float() - 1,
+                          -1 * (H[0, 0, indicesVoisins])/(dx**2)))
+    elif ( (m is not None) and (H is None) ):
+        k2 = torch.stack((indicesVoisins.float(), indicesVoisins.float() - 1,
+                          m[0, indicesVoisins]/dx))
     ## Voisin du haut Points de la grille concernés : Retrait du bord haut
     index = torch.where((indices+1) <= (Ny-1)*Nx )[0]
     indicesVoisins = torch.index_select(indices,0,index)
-    if m is not None:
-        k3 = torch.stack((indicesVoisins.float(), indicesVoisins.float() + Nx, -1 * (H[1, 1, indicesVoisins])/(dy**2) + m[1, indicesVoisins]/dy))
-    else:
-        k3 = torch.stack((indicesVoisins.float(), indicesVoisins.float() + Nx, -1 * (H[1, 1, indicesVoisins])/(dy**2)))
+    if ( (m is not None) and (H is not None) ):
+        k3 = torch.stack((indicesVoisins.float(), indicesVoisins.float() + Nx,
+                          -1 * (H[1, 1, indicesVoisins])/(dy**2) + m[1, indicesVoisins]/dy))
+    elif ( (m is None) and (H is not None) ):
+        k3 = torch.stack((indicesVoisins.float(), indicesVoisins.float() + Nx,
+                         -1 * (H[1, 1, indicesVoisins])/(dy**2)))
+    elif ( (m is not None) and (H is None) ):
+        k3 = torch.stack((indicesVoisins.float(), indicesVoisins.float() + Nx,
+                          -1 * m[1, indicesVoisins]/dy))
     ## Voisin du bas Points de la grille concernés : Retrait du bord bas
     index = torch.where((indices+1) >= (Nx+1) )[0]
     indicesVoisins = torch.index_select(indices,0,index)
-    if m is not None:
-        k4 = torch.stack((indicesVoisins.float(), indicesVoisins.float() - Nx, -1 * (H[1, 1, indicesVoisins])/(dy**2) - m[1, indicesVoisins]/dy))
-    else:
-        k4 = torch.stack((indicesVoisins.float(), indicesVoisins.float() - Nx, -1 * (H[1, 1, indicesVoisins])/(dy**2)))
-    ## Voisin en haut à droite Points de la grille concernés : Retrait du bord haut et droit
-    index = torch.where( (torch.fmod(indices+1,Nx) != 0) & ((indices+1)<= (Ny-1)*Nx) )[0]
-    indicesVoisins = torch.index_select(indices,0,index)
-    k5 = torch.stack((indicesVoisins.float(), indicesVoisins.float() + Nx+1, (H[0, 1, indicesVoisins] + H[1, 0, indicesVoisins])/(4*dx*dy)))
-    ## Voisin en haut à gauche Points de la grille concernés : Retrait du bord haut et gauche
-    index = torch.where( (torch.fmod(indices+1,Nx) != 1) & ((indices+1)<= (Ny-1)*Nx) )[0]
-    indicesVoisins = torch.index_select(indices,0,index)
-    k6 = torch.stack((indicesVoisins.float(), indicesVoisins.float() + Nx-1, -1*(H[0, 1, indicesVoisins] + H[1, 0,indicesVoisins])/(4*dx*dy)))
-    ## Voisin en bas à droite Points de la grille concernés : Retrait du bord bas et droit
-    index = torch.where( (torch.fmod(indices+1,Nx) != 0) & ((indices+1)>=(Nx+1)) )[0]
-    indicesVoisins = torch.index_select(indices,0,index)
-    k7 = torch.stack((indicesVoisins.float(), indicesVoisins.float() - Nx+1, -1*(H[0, 1, indicesVoisins] + H[1, 0,indicesVoisins])/(4*dx*dy)))
-    ## Voisin en bas à gauche Points de la grille concernés : Retrait du bord bas et gauche
-    index = torch.where( (torch.fmod(indices+1,Nx) != 1) & ((indices+1)>=(Nx+1)) )[0]
-    indicesVoisins = torch.index_select(indices,0,index)
-    k8 = torch.stack((indicesVoisins.float(), indicesVoisins.float() - Nx-1, (H[0, 1, indicesVoisins] + H[1, 0,indicesVoisins])/(4*dx*dy)))
+    if ( (m is not None) and (H is not None) ):
+        k4 = torch.stack((indicesVoisins.float(), indicesVoisins.float() - Nx, 
+                          -1 * (H[1, 1, indicesVoisins])/(dy**2) - m[1, indicesVoisins]/dy))
+    elif ( (m is None) and (H is not None) ):
+        k4 = torch.stack((indicesVoisins.float(), indicesVoisins.float() - Nx,
+                          -1 * (H[1, 1, indicesVoisins])/(dy**2)))
+    elif ( (m is not None) and (H is None) ):
+        k4 = torch.stack((indicesVoisins.float(), indicesVoisins.float() - Nx, 
+                          m[1, indicesVoisins]/dy))
     ## Point central
-    if torch.is_tensor(kappa):
-        k9 = torch.stack((indices.float(), indices.float(), kappa[0,indices]**2 + 2 * (H[0, 0, indices]/(dx**2) + H[1, 1, indices]/(dy**2))))
+    if H is not None:
+        if torch.is_tensor(kappa):
+            k5 = torch.stack((indices.float(), indices.float(),
+                             kappa[0,indices]**2 + 2 * (H[0, 0, indices]/(dx**2) + H[1, 1, indices]/(dy**2))))
+        else:
+            k5 = torch.stack((indices.float(), indices.float(),
+                            kappa**2 + 2 * (H[0, 0, indices]/(dx**2) + H[1, 1, indices]/(dy**2))))
     else:
-        k9 = torch.stack((indices.float(), indices.float(), kappa**2 + 2 * (H[0, 0, indices]/(dx**2) + H[1, 1, indices]/(dy**2))))
-    ## Tous les voisins
-    k = torch.cat((k1, k2, k3, k4, k5, k6, k7, k8, k9),dim=1)
+        if torch.is_tensor(kappa):
+            k5 = torch.stack((indices.float(), indices.float(),
+                              (kappa[0,indices]**2 + 2 * (1./(dx**2) + 1./(dy**2)))*torch.ones(len(indices)).to(device )))
+        else:
+            k5 = torch.stack((indices.float(), indices.float(), 
+                              (kappa**2 + 2 * (1./(dx**2) + 1./(dy**2)))*torch.ones(len(indices)).to(device) ))
+    if H is not None: 
+        ## Voisin en haut à droite Points de la grille concernés : Retrait du bord haut et droit
+        index = torch.where( (torch.fmod(indices+1,Nx) != 0) & ((indices+1)<= (Ny-1)*Nx) )[0]
+        indicesVoisins = torch.index_select(indices,0,index)
+        k6 = torch.stack((indicesVoisins.float(), indicesVoisins.float() + Nx+1,
+                         (H[0, 1, indicesVoisins] + H[1, 0, indicesVoisins])/(4*dx*dy)))
+        ## Voisin en haut à gauche Points de la grille concernés : Retrait du bord haut et gauche
+        index = torch.where( (torch.fmod(indices+1,Nx) != 1) & ((indices+1)<= (Ny-1)*Nx) )[0]
+        indicesVoisins = torch.index_select(indices,0,index)
+        k7 = torch.stack((indicesVoisins.float(), indicesVoisins.float() + Nx-1, -1*(H[0, 1, indicesVoisins] + H[1, 0,indicesVoisins])/(4*dx*dy)))
+        ## Voisin en bas à droite Points de la grille concernés : Retrait du bord bas et droit
+        index = torch.where( (torch.fmod(indices+1,Nx) != 0) & ((indices+1)>=(Nx+1)) )[0]
+        indicesVoisins = torch.index_select(indices,0,index)
+        k8 = torch.stack((indicesVoisins.float(), indicesVoisins.float() - Nx+1, -1*(H[0, 1, indicesVoisins] + H[1, 0,indicesVoisins])/(4*dx*dy)))
+        ## Voisin en bas à gauche Points de la grille concernés : Retrait du bord bas et gauche
+        index = torch.where( (torch.fmod(indices+1,Nx) != 1) & ((indices+1)>=(Nx+1)) )[0]
+        indicesVoisins = torch.index_select(indices,0,index)
+        k9 = torch.stack((indicesVoisins.float(), indicesVoisins.float() - Nx-1, (H[0, 1, indicesVoisins] + H[1, 0,indicesVoisins])/(4*dx*dy)))
+        ## Tous les voisins
+        k = torch.cat((k1, k2, k3, k4, k5, k6, k7, k8, k9),dim=1)
+    else:
+        ## Tous les voisins
+        k = torch.cat((k1, k2, k3, k4, k5),dim=1)
     return(torch.sparse.FloatTensor(k[0:2].long(), k[2], torch.Size([nbNodes,nbNodes])))
     #return torch.sparse_coo_tensor(k[0:2].long(), k[2], torch.Size([nbNodes,nbNodes]))
-
-
-def DiffOperator_Diffusion(Nx, Ny, dx, dy, H, kappa):
-
-    nbNodes = Nx * Ny
-
-    indices = torch.arange(0,nbNodes).to(device)
-    ## Voisin à droite Points de la grille concernés : Retrait du bord droit
-    index = torch.where(torch.fmod(indices+1,Nx) != 0)[0]
-    N=len(index)
-    indicesVoisins = torch.index_select(indices,0,index)
-    k1 = torch.stack((indicesVoisins.float(), indicesVoisins.float() + 1, (-1*H[0,0,indicesVoisins]/(dx**2)) ))
-    ## Voisin à gauche Points de la grille concernés : Retrait du bord gauche
-    index = torch.where(torch.fmod(indices+1,Nx) != 1)[0]
-    N=len(index)
-    indicesVoisins = torch.index_select(indices,0,index)
-    k2 = torch.stack((indicesVoisins.float(), indicesVoisins.float() - 1, (-1*H[0,0,indicesVoisins]/(dx**2)) ))
-    ## Voisin du haut Points de la grille concernés : Retrait du bord haut
-    index = torch.where((indices+1) <= (Ny-1)*Nx )[0]
-    N=len(index)
-    indicesVoisins = torch.index_select(indices,0,index)
-    k3 = torch.stack((indicesVoisins.float(), indicesVoisins.float() + Nx, (-1*H[1,1,indicesVoisins]/(dx**2)) ))
-    ## Voisin du bas Points de la grille concernés : Retrait du bord bas
-    index = torch.where((indices+1) >= (Nx+1) )[0]
-    N=len(index)
-    indicesVoisins = torch.index_select(indices,0,index)
-    k4 = torch.stack((indicesVoisins.float(), indicesVoisins.float() - Nx, (-1*H[1,1,indicesVoisins]/(dx**2)) ))
-    ## Voisin en haut à droite Points de la grille concernés : Retrait du bord haut et droit
-    index = torch.where( (torch.fmod(indices+1,Nx) != 0) & ((indices+1)<= (Ny-1)*Nx) )[0]
-    N=len(index)
-    indicesVoisins = torch.index_select(indices,0,index)
-    k5 = torch.stack((indicesVoisins.float(), indicesVoisins.float() + Nx+1, ((H[0,1,indicesVoisins]+H[1,0,indicesVoisins])/(4*dx*dy)) ))
-    ## Voisin en haut à gauche Points de la grille concernés : Retrait du bord haut et gauche
-    index = torch.where( (torch.fmod(indices+1,Nx) != 1) & ((indices+1)<= (Ny-1)*Nx) )[0]
-    N=len(index)
-    indicesVoisins = torch.index_select(indices,0,index)
-    k6 = torch.stack((indicesVoisins.float(), indicesVoisins.float() + Nx-1, (-1*(H[0,1,indicesVoisins]+H[1,0,indicesVoisins])/(4*dx*dy)) ))
-    ## Voisin en bas à droite Points de la grille concernés : Retrait du bord bas et droit
-    index = torch.where( (torch.fmod(indices+1,Nx) != 0) & ((indices+1)>=(Nx+1)) )[0]
-    N=len(index)
-    indicesVoisins = torch.index_select(indices,0,index)
-    k7 = torch.stack((indicesVoisins.float(), indicesVoisins.float() - Nx+1, (-1*(H[0,1,indicesVoisins]+H[1,0,indicesVoisins])/(4*dx*dy)) ))
-    ## Voisin en bas à gauche Points de la grille concernés : Retrait du bord bas et gauche
-    index = torch.where( (torch.fmod(indices+1,Nx) != 1) & ((indices+1)>=(Nx+1)) )[0]
-    N=len(index)
-    indicesVoisins = torch.index_select(indices,0,index)
-    k8 = torch.stack((indicesVoisins.float(), indicesVoisins.float() - Nx-1, ((H[0,1,indicesVoisins]+H[1,0,indicesVoisins])/(4*dx*dy)) ))
-    ## Point central
-    N=len(indices)
-    k9 = torch.stack((indices.float(), indices.float(), (kappa**2 + 2*(H[0,0,indices]/(dx**2) + H[1,1,indices]/(dy**2))) ))
-    ## Tous les voisins
-    k = torch.cat((k1, k2, k3, k4, k5, k6, k7, k8, k9),dim=1)
-    return(torch.sparse.FloatTensor(k[0:2].long(), k[2], torch.Size([nbNodes,nbNodes])))
 
 def DiffOperator_Isotropic(Nx, Ny, dx, dy, kappa):
 # kappa is a scalar
