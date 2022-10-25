@@ -328,13 +328,13 @@ def get_multi_data(multi_phi_xr_ds, idx):
         #This function returns multi phi outputs and weights for plot_multi_maps
         phi_out_list = []
         weights_list = []
-        for phi in find_xr_data_names_containing(multi_phi_xr_ds, "pred"):
+        for phi in find_xr_data_names_containing(multi_phi_xr_ds, "out"):
             phi_out_list.append({'name': phi, 'data': multi_phi_xr_ds[phi].data[idx]})
         for weight in find_xr_data_names_containing(multi_phi_xr_ds, "weight"):
             weights_list.append({'name':weight, 'data': multi_phi_xr_ds[weight].data[idx]})
         return phi_out_list + weights_list
 
-#This function plots a list of xr datasets that have the same dimensions
+#This function plots the xr_test dataset from the multi prior
 def plot_multi_maps(multi_phi_xr_ds, resfile, idx =0, grad=False, crop=None, orthographic=False,supervised=True,  ncols = 3):
     oi = multi_phi_xr_ds.oi.data[idx]
     gt = multi_phi_xr_ds.gt.data[idx]
@@ -364,7 +364,7 @@ def plot_multi_maps(multi_phi_xr_ds, resfile, idx =0, grad=False, crop=None, ort
         crs = ccrs.PlateCarree(central_longitude=0.0)
 
     if grad:
-        vmax = np.nanmax(np.abs(gradient(gt.to_numpy(), 2)))
+        vmax = np.nanmax(np.abs(gradient(gt, 2)))
         vmin = 0
         cm = plt.cm.viridis
         norm = colors.PowerNorm(gamma=0.7, vmin=vmin, vmax=vmax)
@@ -389,9 +389,9 @@ def plot_multi_maps(multi_phi_xr_ds, resfile, idx =0, grad=False, crop=None, ort
         ax2 = axs_ravel[1]
         ax3 = axs_ravel[2]
         if grad:
-            plot(ax1, lon, lat, gradient(gt.to_numpy(), 2), r"$\nabla_{GT}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax1, lon, lat, gradient(gt, 2), r"$\nabla_{GT}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
             plot(ax2, lon, lat, np.where(np.isnan(obs), np.nan, 0.), "OBS (mask)", extent=extent, cmap=cm, norm=norm, colorbar=False)
-            plot(ax3, lon, lat, gradient(oi.to_numpy(), 2), r"$\nabla_{OI}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax3, lon, lat, gradient(oi, 2), r"$\nabla_{OI}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
         else:
             plot(ax1, lon, lat, gt, 'GT', extent=extent, cmap=cm, norm=norm, colorbar=False)
             plot(ax2, lon, lat, obs, 'OBS', extent=extent, cmap=cm, norm=norm, colorbar=False)

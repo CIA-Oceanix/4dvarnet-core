@@ -86,11 +86,14 @@ for  defaults in product(
             ('no_sst', '/xp/qfebvre/xp_oi_cnatl'),
         ],
         #training and test areas format trainArea_testArea
-        [ ('cnatl2_cnatl2', '/xp/baseline/dl/dl_cnatl'),
-            ('cnatl2_gf2', '/xp/baseline/dl/dl_cnatl_gf2'),
+        [ ('cnatl2_x_cnatl2', '/xp/baseline/dl/dl_cnatl2'),
+            ('cnatl2_gf2', '/xp/baseline/dl/dl_cnatl2_gf2'),
             ('cnatl2_osmosis','/xp/baseline/dl/dl_cnatl_osmosis'),
             ('gf2_osmosis', '/xp/baseline/dl/dl_gf2_osmosis'),
             ('osmosis_osmosis', '/xp/baseline/dl/dl_osmosis'),
+            ('osmosis_x_osmosis', '/xp/baseline/dl/dl_osmosis_crop'),
+            ('osmosis2_osmosis2', '/xp/baseline/dl/dl_osmosis2'),
+            ('gf_gf', '/xp/baseline/dl/d200_p200x5_s200x1'),
             ('gfx_gf','/xp/baseline/dl/d240_p240x5_s240x1')],
             
         [

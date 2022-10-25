@@ -488,16 +488,16 @@ class Multi_Prior(torch.nn.Module):
             x_in = x_in.to(x_in)
             self.weights = self.weights.to(x_in)
             #Each element of these lists correspond to a phi
-            results_list = []
-            weights_list = []
+            results_dict = {}
+            weights_dict = {}
             x_weights = self.sigm(self.weights(x_in)).detach().to('cpu')
             for idx, phi_r in enumerate(self.phi_list):
                 phi_r = phi_r.to(x_in)
                 start = idx * self.shape_data
                 stop = (idx + 1) * self.shape_data
-                weights_list.append(x_weights[:,start:stop, :,:])
-                results_list.append(phi_r(x_in).detach().to('cpu'))
-        return results_list, weights_list
+                weights_dict[f'phi{idx}_weight'] = x_weights[:,start:stop, :,:]
+                results_dict[f'phi{idx}_out'] =  phi_r(x_in).detach().to('cpu')
+        return results_dict, weights_dict
         
 
 
