@@ -376,7 +376,7 @@ def plot_multi_maps(multi_phi_xr_ds, resfile, idx =0, grad=False, crop=None, ort
 
     extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
     
-    extra_entries=3
+    extra_entries=4
 
     nrows = (len(pred_list) + extra_entries) // ncols + ((len(pred_list) +extra_entries) % ncols > 0)
 
@@ -385,18 +385,21 @@ def plot_multi_maps(multi_phi_xr_ds, resfile, idx =0, grad=False, crop=None, ort
     
     if supervised:
         #plot oi, gt, and obs
-        ax1 = axs_ravel[0]
-        ax2 = axs_ravel[1]
-        ax3 = axs_ravel[2]
+        ax0 = axs_ravel[0]
+        ax1 = axs_ravel[1]
+        ax2 = axs_ravel[2]
+        ax3 = axs_ravel[3]
         if grad:
-            plot(ax1, lon, lat, gradient(gt, 2), r"$\nabla_{GT}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
-            plot(ax2, lon, lat, np.where(np.isnan(obs), np.nan, 0.), "OBS (mask)", extent=extent, cmap=cm, norm=norm, colorbar=False)
-            plot(ax3, lon, lat, gradient(oi, 2), r"$\nabla_{OI}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
-        else:
-            plot(ax1, lon, lat, gt, 'GT', extent=extent, cmap=cm, norm=norm, colorbar=False)
-            plot(ax2, lon, lat, obs, 'OBS', extent=extent, cmap=cm, norm=norm, colorbar=False)
-            plot(ax3, lon, lat, oi, 'OI', extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax0, lon, lat, gradient(gt, 2), r"$\nabla_{GT}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax1, lon, lat, np.where(np.isnan(obs), np.nan, 0.), "OBS (mask)", extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax2, lon, lat, gradient(oi, 2), r"$\nabla_{OI}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax3, lon, lat, gradient(pred, 2), r"$\nabla_{pred}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
 
+        else:
+            plot(ax0, lon, lat, gt, 'GT', extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax1, lon, lat, obs, 'OBS', extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax2, lon, lat, oi, 'OI', extent=extent, cmap=cm, norm=norm, colorbar=False)
+            plot(ax3, lon, lat, pred, 'Pred', extent=extent, cmap=cm, norm=norm, colorbar=False)
         # loop through predicted values and axes
         for result, ax in zip(pred_list, axs_ravel[extra_entries:]):
             # filter df for ticker and plot on specified axes
