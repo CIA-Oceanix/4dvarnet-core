@@ -88,7 +88,7 @@ for  defaults in product(
         #training and test areas format trainArea_testArea
         [ ('cnatl2_x_cnatl2', '/xp/baseline/dl/dl_cnatl2'),
             ('cnatl2_gf2', '/xp/baseline/dl/dl_cnatl2_gf2'),
-            ('cnatl2_osmosis','/xp/baseline/dl/dl_cnatl_osmosis'),
+            ('cnatl2_osmosis','/xp/baseline/dl/dl_cnatl2_osmosis'),
             ('gf2_osmosis', '/xp/baseline/dl/dl_gf2_osmosis'),
             ('osmosis_osmosis', '/xp/baseline/dl/dl_osmosis'),
             ('osmosis_x_osmosis', '/xp/baseline/dl/dl_osmosis_crop'),
