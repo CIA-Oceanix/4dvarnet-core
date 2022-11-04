@@ -380,7 +380,7 @@ def plot_multi_maps(multi_phi_xr_ds, resfile, idx =0, grad=False, crop=None, ort
 
     nrows = (len(pred_list) + extra_entries) // ncols + ((len(pred_list) +extra_entries) % ncols > 0)
 
-    fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(16, 10), subplot_kw={'projection': ccrs.Mercator()})
+    fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(16, 16), subplot_kw={'projection': ccrs.Mercator()})
     axs_ravel = axs.ravel()
     
     if supervised:

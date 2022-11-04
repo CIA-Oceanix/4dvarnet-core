@@ -183,11 +183,6 @@ class LitModelOI(LitModelAugstate):
             #Getting the state from the batch
             _loss, out, state, _metrics = self.compute_loss(batch, phase='test', state_init=[None])
             results, weights = self.model.phi_r.get_intermediate_results(state[0].detach())
-            #Multiplying the weights and phi outputs by 100 in order to see them better in plots
-            # for key, value in weights.items():
-            #     weights[key] = value * 100
-            # for key, value in results.items():
-            #     results[key] = value * 100
             return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'oi'    : (oi.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
@@ -201,22 +196,6 @@ class LitModelOI(LitModelAugstate):
                 'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
 
-    # def save_multi_prior_stats(self, full_outputs, diag_ds):
-    #     '''This function saves the intermediate outputs of the multi prior model'''
-    #     #Only using the first batch for calculating phi_r outputs
-    #     batch_pred = full_outputs[0][0]['pred'].detach()
-    #     mp_save_path = self.logger.log_dir + '/multi_prior.nc'
-    #     weight_save_path = self.logger.log_dir + '/multi_prior_weights.pt'
-    #     results, weights = self.model.phi_r.get_intermediate_results(batch_pred)
-    #     ## Going back into full outputs to make an xr_ds that includes the predictions from the phis and their weights
-    #     #There probably is a better way
-    #     for i in range(self.hparams.nb_phi):
-    #         for j in range(len(full_outputs[0])): #Doing this to avoid out of range error in build_test_xr_ds
-    #             full_outputs[0][j][f'phi{i}_weights'] = weights[i]
-    #             full_outputs[0][j][f'phi{i}_pred'] = (results[i] * np.sqrt(self.var_Tr))+ self.mean_Tr
-
-    #     phi_xr_ds  = self.build_test_xr_ds(full_outputs, diag_ds)
-    #     phi_xr_ds.to_netcdf(path=mp_save_path, mode='w')
 
 
     def sla_diag(self, t_idx=3, log_pref='test'):

@@ -42,8 +42,7 @@ def find_pad(sl, st, N):
 
 def interpolate_na_2D(da, max_value=100.):
     return (
-            da.where(np.abs(da) < max_value, np.nan)
-            .pipe(lambda da: da)
+            da.where(np.abs(da) < max_value, np.nan)#Get rid of outliers in dataset
             .to_dataframe()
             .interpolate()
             .pipe(xr.Dataset.from_dataframe)
