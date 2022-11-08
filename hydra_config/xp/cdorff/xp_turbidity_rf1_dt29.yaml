@@ -35,6 +35,12 @@ params:
     - ${datamodule.slice_win.time}
     - ${datamodule.slice_win.lon}
     - ${datamodule.slice_win.lat}
+    
+  files_cfg:
+    oi_var: bbp443
+    obs_mask_var: bbp443
+    gt_var: bbp443
+    
   animate: true
   
 entrypoint:
@@ -71,9 +77,9 @@ datamodule:
     - _target_: builtins.slice
       _args_: ${adjust_testslices:['2021-02-09', '2021-12-31'],${params.dT}}
       
-  oi_var: "bbp443"
-  gt_var: "bbp443"
-  obs_mask_var: "bbp443"
+  #~ oi_var: "bbp443"
+  #~ gt_var: "bbp443"
+  #~ obs_mask_var: "bbp443"
   
   slice_win:
     lat: ${div:240,${datamodule.resize_factor}}
