@@ -1,9 +1,9 @@
 # @package _global_
 
-xp_name: xp_turbidity_rf1_dt29
+xp_name: xp_turbidity_rf1_dt29_Unet
 
 params:
-  model: 4dvarnet_OI
+  model: 4dvarnet_OI_phir_Unet
   dT: 29
   patch_weight:
     _target_: lit_model_augstate.get_constant_crop

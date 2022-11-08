@@ -53,6 +53,7 @@ class LitModelOI(LitModelAugstate):
     MODELS = {
             '4dvarnet_OI': get_4dvarnet_OI,
             '4dvarnet_OI_phir': get_4dvarnet_OI_phir,
+            '4dvarnet_OI_phir_Unet': get_4dvarnet_OI_phir_Unet,
              }
 
     def __init__(self, *args, **kwargs):
@@ -62,7 +63,7 @@ class LitModelOI(LitModelAugstate):
         opt = torch.optim.Adam
         if hasattr(self.hparams, 'opt'):
             opt = lambda p: hydra.utils.call(self.hparams.opt, p)
-        if self.model_name in {'4dvarnet_OI','4dvarnet_OI_phir'}:
+        if self.model_name in {'4dvarnet_OI','4dvarnet_OI_phir','4dvarnet_OI_phir_Unet'}:
             optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
