@@ -35,10 +35,16 @@ params:
     - ${datamodule.slice_win.time}
     - ${datamodule.slice_win.lon}
     - ${datamodule.slice_win.lat}
+    
+  files_cfg:
+    oi_var: bbp443
+    obs_mask_var: bbp443
+    gt_var: bbp443
+    
   animate: true
   
 entrypoint:
-  max_epochs: 1000
+  max_epochs: 500
   
 lit_mod_cls: lit_model_noOI_turbidity.LitModelOI
 

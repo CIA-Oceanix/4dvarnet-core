@@ -44,7 +44,7 @@ params:
   animate: true
   
 entrypoint:
-  max_epochs: 1000
+  max_epochs: 500
   
 lit_mod_cls: lit_model_noOI_turbidity.LitModelOI
 
