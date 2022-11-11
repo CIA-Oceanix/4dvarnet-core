@@ -209,8 +209,8 @@ def metrics_ose(data_src, alontrack_independent_dataset):
         # %%
         # %matplotlib inline
         # temporal scores        
-        fig_ts = plot_temporal_statistics(['TS_OI.nc', 'TS_4dvarnet.nc'],
-                                 methods,colors)
+        # fig_ts = plot_temporal_statistics(['TS_OI.nc', 'TS_4dvarnet.nc'],
+                                 # methods,colors)
 
         # %% [markdown]
         # # 9. Compute and display spectral scores
@@ -271,7 +271,7 @@ def metrics_ose(data_src, alontrack_independent_dataset):
                 fig_inter_psd=fig_inter_psd,
                 fig_psd=fig_psd,
                 fig_psd_oi=fig_psd_oi,
-                fig_ts=fig_ts,
+                # fig_ts=fig_ts,
         )
     except Exception as e:
         print(traceback.format_exc()) 

@@ -8,6 +8,9 @@ import tqdm
 class IncompleteScanConfiguration(Exception):
     pass
 
+class DangerousDimOrdering(Exception):
+    pass
+
 class XrDataset(torch.utils.data.Dataset):
     """
     torch Dataset based on an xarray.DataArray with on the fly slicing.
@@ -24,7 +27,10 @@ class XrDataset(torch.utils.data.Dataset):
         - have the last dims correspond to the patch dims in same order
     """
     def __init__(
-            self, da, patch_dims, domain_limits=None, strides=None, check_full_scan=False):
+            self, da, patch_dims, domain_limits=None, strides=None,
+            check_full_scan=False, check_dim_order=False,
+            prepro_fn=None, postpro_fn=None
+            ):
         """
         da: xarray.DataArray with patch dims at the end in the dim orders
         patch_dims: dict of da dimension to size of a patch 
@@ -34,6 +40,8 @@ class XrDataset(torch.utils.data.Dataset):
         """
         super().__init__()
         self.return_coords = False
+        self.postpro_fn = postpro_fn
+        self.prepro_fn = prepro_fn
         self.da = da.sel(**(domain_limits or {}))
         self.patch_dims = patch_dims
         self.strides = strides or {}
@@ -57,6 +65,16 @@ class XrDataset(torch.utils.data.Dataset):
                         """
                     )
 
+        if check_dim_order:
+            for dim in patch_dims:
+                if not '#'.join(da.dims).endswith('#'.join(list(patch_dims))): 
+                    raise DangerousDimOrdering(
+                        f"""
+                        input dataarray's dims should end with patch_dims 
+                        dataarray's dim {da.dims}:
+                        patch_dims {list(patch_dims)}
+                        """
+                )
     def __len__(self):
         size = 1
         for v in self.ds_size.values():
@@ -84,9 +102,17 @@ class XrDataset(torch.utils.data.Dataset):
                 for dim, idx in zip(self.ds_size.keys(),
                                     np.unravel_index(item, tuple(self.ds_size.values())))
                 }
+        item =  self.da.isel(**sl)
+        if self.prepro_fn is not None:
+            item = self.prepro_fn(item)
+
         if self.return_coords:
-            return self.da.isel(**sl).coords.to_dataset()[list(self.patch_dims)]
-        return self.da.isel(**sl).data.astype(np.float32)
+            return item.coords.to_dataset()[list(self.patch_dims)]
+
+        item = item.data.astype(np.float32)
+        if self.postpro_fn is not None:
+            return self.postpro_fn(item)
+        return item
 
     def reconstruct(self, batches, weight=None):
         """
@@ -257,6 +283,32 @@ def check_complete_scan_test():
     except Exception as e:
         assert isinstance(e, IncompleteScanConfiguration), "The exception raised should be specific"
 
+def check_dim_order_test():
+    """
+    Creates a configuration with wrong dim_order
+    Checks the Exception is raised
+    """
+
+    xrds = xr.Dataset(
+            dict(
+                v1=(('d1', 'd2', 'd3'), np.random.rand(1000, 1000, 100)),
+                ),
+            coords=dict(d1=np.arange(1000)
+                        ,d2=np.arange(1000)
+                        ,d3=np.arange(100))
+            )
+    try:
+        torch_ds = XrDataset(
+                xrds.v1, patch_dims=dict(d1=3, d2=3),
+                domain_limits=dict(d3=slice(0,50)),
+                strides=dict(d1=3, d2=3),
+                check_dim_order=True,
+                )
+        assert False, "The dataset creation should fail an exception should be raised"
+    except Exception as e:
+        print(e)
+        assert isinstance(e, DangerousDimOrdering), "The exception raised should be specific"
+
 
 def concat_ds_test():
     """
@@ -310,5 +362,6 @@ if __name__ =='__main__':
     reconstruction_test()
     reconstruction_with_overlap_test()
     check_complete_scan_test()
+    check_dim_order_test()
     concat_ds_test()
     print("All test OK")

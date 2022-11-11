@@ -18,15 +18,15 @@ cs.store(name='8', node={'aug_train_data': 8}, group='aug_data', package='datamo
 aug = {
     # 'aug0': '/aug_data/0',
     # 'aug1': '/aug_data/1',
-    'aug2': '/aug_data/2',
+    # 'aug2': '/aug_data/2',
     # 'aug3': '/aug_data/3',
-    # 'aug8': '/aug_data/8',
+    'aug8': '/aug_data/8',
 }
 
 cs.store(name='2', node={'resize_factor': 2}, group='down_samp', package='datamodule')
 cs.store(name='1', node={'resize_factor': 1}, group='down_samp', package='datamodule')
 resize = {
-    'ds2': '/down_samp/2',
+    # 'ds2': '/down_samp/2',
     'ds1': '/down_samp/1',
 }
 
@@ -58,14 +58,14 @@ data = {k: {'params': {'files_cfg': dict(
     )}, 'defaults': [sp] }
 
 for k, sp in[
-    ('natl20_g1_90', '/splits/q_osse_to_osse_natl@datamodule'),
-    ('natl20_g5_90', '/splits/q_osse_to_osse_natl@datamodule'),
-    ('natl20_g8_90', '/splits/q_osse_to_osse_natl@datamodule'),
+    # ('natl20_g1_90', '/splits/q_osse_to_osse_natl@datamodule'),
+    # ('natl20_g5_90', '/splits/q_osse_to_osse_natl@datamodule'),
+    # ('natl20_g8_90', '/splits/q_osse_to_osse_natl@datamodule'),
     ('natl20', '/splits/q_osse_to_osse_natl@datamodule'),
-    ('natl20_g3', '/splits/q_osse_to_osse_natl@datamodule'),
-    ('natl20_g5', '/splits/q_osse_to_osse_natl@datamodule'),
-    ('natl20_g1', '/splits/q_osse_to_osse_natl@datamodule'),
-    ('natl20_g3_90', '/splits/q_osse_to_osse_natl@datamodule'),
+    # ('natl20_g3', '/splits/q_osse_to_osse_natl@datamodule'),
+    # ('natl20_g5', '/splits/q_osse_to_osse_natl@datamodule'),
+    # ('natl20_g1', '/splits/q_osse_to_osse_natl@datamodule'),
+    # ('natl20_g3_90', '/splits/q_osse_to_osse_natl@datamodule'),
     ('glo12_free', '/splits/q_osse_to_osse_glorys@datamodule'),
     ('glo12_rea', '/splits/q_osse_to_osse_glorys@datamodule'),
     ('orca25', '/splits/q_osse_to_osse_orca@datamodule'),

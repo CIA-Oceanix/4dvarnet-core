@@ -36,3 +36,5 @@ gt_osse_path: /raid/localscratch/qfebvre/sla-data-registry/NATL60/NATL/ref_new/N
 sst_osse_path:  /raid/localscratch/qfebvre/sla-data-registry/NATL60/NATL/ref_new/NATL60-CJM165_NATL_sst_y2013.1y.nc
 gt_ose_path: /raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/training/dataset_nadir_0d.nc
 sst_ose_path: /raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/training/sst_CMEMS.nc
+
+data_registry_path: /raid/localscratch/qfebvre/sla-data-registry
