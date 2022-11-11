@@ -8,9 +8,9 @@ hydra:
       account: yrf@gpu
       gres: gpu:1
       ntasks_per_node: 1
-      time: '10:00:00'
+      time: '100:00:00'
       hint: nomultithread
-      qos: qos_gpu-t3
+      qos: qos_gpu-t4
 
 
 defaults:
