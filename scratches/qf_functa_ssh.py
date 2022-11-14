@@ -209,139 +209,212 @@ def off_diagonal(x):
             assert n == m
             return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
 
+def batchify_as(self, x, y):
+    return einops.repeat(x, '... -> b ...', b=y.size(0))
+
 class LitFuncta(pl.LightningModule):
-            def __init__(self, net_fn,  params, grad_net, rec_weight, latent_init, patch_dims):
-                super().__init__()
-                self.net_fn = lambda *args, **kwargs: net_fn(*args, **kwargs)
-                self.grad_net = grad_net
-                self.rec_weight = nn.Parameter(torch.from_numpy(rec_weight), requires_grad=False)
-                self.coords = self.get_coords_mesh(patch_dims)                        
-                self.latent_init = nn.Parameter(torch.from_numpy(latent_init), requires_grad=False)
-                self.params = nn.ParameterList(list(params))
-                self.latents = None
-                self.test_data = None
+    def __init__(self, net_fn,  params, grad_net, rec_weight, latent_init, patch_dims):
+        super().__init__()
+        self.net_fn = lambda *args, **kwargs: net_fn(*args, **kwargs)
+        self.grad_net = grad_net
+        self.rec_weight = nn.Parameter(torch.from_numpy(rec_weight), requires_grad=False)
+        self.coords = self.get_coords_mesh(patch_dims)                        
+        self.latent_init = nn.Parameter(torch.from_numpy(latent_init), requires_grad=False)
+        self.params = nn.ParameterList(list(params))
+        self.latents = None
+        self.test_data = None
 
-                self.use_latents = False
+        self.use_latents = False
 
-                self.n_fit_latent_step = 3
-                self.msk_prop_fit_latent_step = 0.1
-                self.lr_fit_latent = 1e-2 
-                self.lr_init, self.lr_min, self.lr_max = 2e-3, 2e-6, 1e-3
+        self.n_fit_latent_step = 3
+        self.msk_prop_fit_latent_step = 0.1
+        self.lr_fit_latent = 1e-2 
+        self.lr_init, self.lr_min, self.lr_max = 2e-3, 2e-6, 1e-3
 
-            def batchify(self, x, y):
-                return einops.repeat(x, '... -> b ...', b=y.size(0))
+    def get_coords_mesh(self, patch_dims):
+        return nn.Parameter(torch.stack(torch.meshgrid(
+            *(torch.linspace(-1, 1, v) for v in patch_dims.values()), indexing='ij'
+            ), dim=-1), requires_grad=False)
 
+    @staticmethod
+    def weighted_mse(err, weight):
+        err_w = (err * weight[None, ...])
+        non_zeros = (torch.ones_like(err) * weight[None, ...]) == 0.
+        err_num = err.isfinite() & ~non_zeros
+        if err_num.sum() == 0:
+            return torch.scalar_tensor(0., device=err_num.device)
+        loss = F.mse_loss(err_w[err_num], torch.zeros_like(err_w[err_num]))
+        return loss
 
-            def get_coords_mesh(self, patch_dims):
-                return nn.Parameter(torch.stack(torch.meshgrid(
-                    *(torch.linspace(-1, 1, v) for v in patch_dims.values()), indexing='ij'
-                ), dim=-1), requires_grad=False)
+    def rec_loss(self, inp, tgt):
+        rec = self(inp) 
+        return self.weighted_mse(rec - tgt, self.rec_weight)
 
+    def training_step(self, batch, batch_idx, optimizer_idx=None):
+        return self.step(batch, 'tr', optimizer_idx, training=True)[0]
 
-            @staticmethod
-            def weighted_mse(err, weight):
-                err_w = (err * weight[None, ...])
-                non_zeros = (torch.ones_like(err) * weight[None, ...]) == 0.
-                err_num = err.isfinite() & ~non_zeros
-                if err_num.sum() == 0:
-                    return torch.scalar_tensor(0., device=err_num.device)
-                loss = F.mse_loss(err_w[err_num], torch.zeros_like(err_w[err_num]))
-                return loss
+    def validation_step(self, batch, batch_idx):
+        return self.step(batch, 'val')[0]
 
-            def rec_loss(self, inp, tgt):
-                rec = self(inp) 
-                return self.weighted_mse(rec - tgt, self.rec_weight)
+    def forward(self, latent=None, batch=None, coords=None, training=False):
+        if latent is None:
+            latent = self.fit_latent(batch, training=training, msk_prop=self.msk_prop_fit_latent_step)
+        if coords is None:
+            coords = batchify_as(self.coords, latent).detach().requires_grad_()
 
-            def training_step(self, batch, batch_idx, optimizer_idx=None):
-                return self.step(batch, 'tr', optimizer_idx, training=True)[0]
+        return self.net_fn(self.params, (coords, latent)), latent
 
-            def validation_step(self, batch, batch_idx):
-                return self.step(batch, 'val')[0]
-            
-            def forward(self, latent=None, batch=None, coords=None, training=False):
-                if latent is None:
-                    latent = self.fit_latent(batch, training=training, msk_prop=self.msk_prop_fit_latent_step)
-                if coords is None:
-                    coords = self.batchify(self.coords, latent).detach().requires_grad_()
+    def fit_latent(self, batch, training=False, msk_prop=0.1):
+        tgt = batch.ssh[..., None]
+        msk = torch.rand_like(tgt).greater_equal_(msk_prop).int()
+        with torch.enable_grad():
+            inp_c = batchify_as(self.coords, tgt).detach().requires_grad_()
+            latent = batchify_as(self.latent_init, tgt).detach().requires_grad_()
+            for _ in range(3):
+                out = self.net_fn(self.params, (inp_c, latent))
+                loss_inner = F.mse_loss(out*msk, tgt*msk)
+                grad_lat = torch.autograd.grad(loss_inner, (latent,), create_graph=True)[0]
+                latent = latent - 0.01 * (grad_lat + self.grad_net(grad_lat))
+                if not training:
+                    latent.detach_().requires_grad_()
+        return latent
 
-                return self.net_fn(self.params, (coords, latent)), latent
+    def step(self, batch, phase='', opt_idx=None, training=False):
+        out, latent = self(batch=batch, training=training)
+        loss_outer = self.weighted_mse(out.squeeze(-1) - batch.ssh, self.rec_weight)
+        self.log(f'{phase}_loss', loss_outer, prog_bar=True, on_step=False, on_epoch=True)
+        return loss_outer, out, latent
 
-
-            def fit_latent(self, batch, training=False, msk_prop=0.1):
-                tgt = batch.ssh[..., None]
-                msk = torch.rand_like(tgt).greater_equal_(msk_prop).int()
-                with torch.enable_grad():
-                    inp_c = self.batchify(self.coords, tgt).detach().requires_grad_()
-                    latent = self.batchify(self.latent_init, tgt).detach().requires_grad_()
-                    for _ in range(3):
-                        out = self.net_fn(self.params, (inp_c, latent))
-                        loss_inner = F.mse_loss(out*msk, tgt*msk)
-                        grad_lat = torch.autograd.grad(loss_inner, (latent,), create_graph=True)[0]
-                        latent = latent - 0.01 * (grad_lat + self.grad_net(grad_lat))
-                        if not training:
-                            latent.detach_().requires_grad_()
-                return latent
-
-            def step(self, batch, phase='', opt_idx=None, training=False):
-                out, latent = self(batch=batch, training=training)
-                loss_outer = self.weighted_mse(out.squeeze(-1) - batch.ssh, self.rec_weight)
-                self.log(f'{phase}_loss', loss_outer, prog_bar=True, on_step=False, on_epoch=True)
-                return loss_outer, out, latent
-
-            def configure_optimizers(self):
-                # return torch.optim.Adam(self.params, lr=3e-6)
-                opt = torch.optim.Adam(
-                        [{'params': self.parameters(), 'initial_lr': 0.002}],
-                        lr=0.002)
-                # opt = torch.optim.SGD(self.parameters(), lr=self.lr_init)
-                return {
-                    'optimizer': opt,
-                    'lr_scheduler':
-                    # torch.optim.lr_scheduler.ReduceLROnPlateau(
+    def configure_optimizers(self):
+        # return torch.optim.Adam(self.params, lr=3e-6)
+        opt = torch.optim.Adam(
+                [{'params': self.parameters(), 'initial_lr': 0.002}],
+                lr=0.002)
+        # opt = torch.optim.SGD(self.parameters(), lr=self.lr_init)
+        return {
+                'optimizer': opt,
+                'lr_scheduler':
+                # torch.optim.lr_scheduler.ReduceLROnPlateau(
                     #     opt, verbose=True, factor=0.5, min_lr=1e-6, cooldown=5, patience=50,
                     # ),
-                    # 'monitor': 'tr_loss',
-                    # torch.optim.lr_scheduler.CosineAnnealingLR(opt, eta_min=5e-5, T_max=20),
-                    # torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt,
-                    #     eta_min=5e-5, T_0=15, T_mult=2, last_epoch=-1),
-                    torch.optim.lr_scheduler.CyclicLR(
-                        opt, base_lr=2e-6, max_lr=1e-3,  step_size_up=15, step_size_down=25, cycle_momentum=False, mode='triangular'),
+                # 'monitor': 'tr_loss',
+                # torch.optim.lr_scheduler.CosineAnnealingLR(opt, eta_min=5e-5, T_max=20),
+                # torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt,
+                                                                       #     eta_min=5e-5, T_0=15, T_mult=2, last_epoch=-1),
+                torch.optim.lr_scheduler.CyclicLR(
+                    opt, base_lr=2e-6, max_lr=1e-3,  step_size_up=15, step_size_down=25, cycle_momentum=False, mode='triangular'),
                 }
 
-            def test_step(self, batch, batch_idx):
-                
-                if self.use_latents:
-                    bs = batch.ssh.shape[0]
-                    batch_latents = torch.stack(self.latents[batch_idx *bs: (batch_idx+1) * bs], dim=0).to(self.device)
-                    out, latent = self(latent=batch_latents)
-                else:
-                    out, latent = self(batch=batch)
+    def test_step(self, batch, batch_idx):
+        if self.use_latents:
+            bs = batch.ssh.shape[0]
+            batch_latents = torch.stack(self.latents[batch_idx *bs: (batch_idx+1) * bs], dim=0).to(self.device)
+            out, latent = self(latent=batch_latents)
+        else:
+            out, latent = self(batch=batch)
 
-                return torch.stack([
-                    batch.ssh.cpu(),
-                    out.squeeze(dim=-1).detach().cpu(),
-                ],dim=1), latent.cpu()
+        return torch.stack([
+            batch.ssh.cpu(),
+            out.squeeze(dim=-1).detach().cpu(),
+            ],dim=1), latent.cpu()
 
-
-            def test_epoch_end(self, outputs):
-                rec_data, latent = (it.chain(lt) for lt in zip(*outputs))
-                rec_da = (
-                    self.trainer
-                    .test_dataloaders[0].dataset
-                    .reconstruct(rec_data, self.rec_weight.cpu().numpy())
+    def test_epoch_end(self, outputs):
+        rec_data, latent = (it.chain(lt) for lt in zip(*outputs))
+        rec_da = (
+                self.trainer
+                .test_dataloaders[0].dataset
+                .reconstruct(rec_data, self.rec_weight.cpu().numpy())
                 )
-                npa = rec_da.values
-                lonidx = ~np.all(np.isnan(npa), axis=tuple([0, 1, 2]))
-                latidx = ~np.all(np.isnan(npa), axis=tuple([0, 1, 3]))
-                tidx = ~np.all(np.isnan(npa), axis=tuple([0, 2, 3]))
+        npa = rec_da.values
+        lonidx = ~np.all(np.isnan(npa), axis=tuple([0, 1, 2]))
+        latidx = ~np.all(np.isnan(npa), axis=tuple([0, 1, 3]))
+        tidx = ~np.all(np.isnan(npa), axis=tuple([0, 2, 3]))
 
-                self.test_data = xr.Dataset({
-                    k: rec_da.isel(v0=i, time=tidx, lat=latidx, lon=lonidx)
-                    for i,k  in enumerate(['ssh', 'rec_ssh'])
-                })
+        self.test_data = xr.Dataset({
+            k: rec_da.isel(v0=i, time=tidx, lat=latidx, lon=lonidx)
+            for i,k  in enumerate(['ssh', 'rec_ssh'])
+            })
 
-                self.latents = list(it.chain(*latent))
+        self.latents = list(it.chain(*latent))
 
+class MseGradEncoder(nn.Module):
+    def __init__(self, n_iter, lr, train_lr=False):
+        super().__init__()
+        self.n_iter = n_iter
+        self.lr = nn.Parameter(torch.scalar(lr), requires_grad=train_lr)
+
+    def forward(self, x_init, tgt, coords, params, fwd_fn, msk_prop=0.1, training=False):
+        msk = torch.rand_like(tgt).greater_equal_(msk_prop).int()
+        with torch.enable_grad():
+            inp_c = batchify_as(coords, tgt).detach().requires_grad_()
+            latent = batchify_as(x_init, tgt).detach().requires_grad_()
+            for _ in range(3):
+                out = fwd_fn(params, (inp_c, latent))
+                loss_inner = F.mse_loss(out*msk, tgt*msk)
+                grad_lat = torch.autograd.grad(loss_inner, (latent,), create_graph=True)[0]
+                latent = latent - 0.01 * (grad_lat)
+                if not training:
+                    latent.detach_().requires_grad_()
+        return latent
+
+class Conv2dResBlock(LightningModule):
+    '''Aadapted from https://github.com/makora9143/pytorch-convcnp/blob/master/convcnp/modules/resblock.py'''
+
+    def __init__(self, in_channel, out_channel=128):
+        super().__init__()
+        self.convs = nn.Sequential(
+            nn.Conv2d(in_channel, out_channel, 5, 1, 2),
+            nn.ReLU(),
+            nn.Conv2d(out_channel, out_channel, 5, 1, 2),
+            nn.ReLU()
+        )
+
+        self.final_relu = nn.ReLU()
+
+    def forward(self, x):
+        shortcut = x
+        output = self.convs(x)
+        output = self.final_relu(output + shortcut)
+        return output
+
+
+class ConvImgEncoder(LightningModule):
+    # Try vectorized patch
+    # Add stride or pooling
+    # Limit the number of parameters
+    # learn AE and see the limit of the encoder
+
+    def __init__(self, channel, image_resolution, latent_dim):
+        super().__init__()
+
+        self.latent_dim = latent_dim
+        # conv_theta is input convolution
+        self.conv_theta = nn.Conv2d(channel, 128, 3, 1, 1)
+        self.relu = nn.ReLU(inplace=True)
+
+        self.cnn = nn.Sequential(
+            nn.Conv2d(128, 256, 3, 2, 1),  # 16 x 16
+            nn.ReLU(),
+            Conv2dResBlock(256, 256),
+            nn.Conv2d(256, 256, 3, 2, 1),  # 8 x 8
+            nn.ReLU(),
+            Conv2dResBlock(256, 256),
+            Conv2dResBlock(256, 256),
+            nn.Conv2d(256, 128, 3, 2, 1)  # 4 x 4
+            nn.ReLU(),
+            nn.Conv2d(128, 128, 3, 2, 1)  # 2 x 2
+        )
+
+        self.relu_2 = nn.ReLU(inplace=True)
+        self.fc = nn.Linear(128 * ((image_resolution//16) ** 2),
+                            latent_dim)  # Ton of parameters
+        self.image_resolution = image_resolution
+
+    def forward(self, model_input):
+        o = self.relu(self.conv_theta(model_input))
+        o = self.cnn(o)
+        o = self.fc(self.relu_2(o).view(o.shape[0], -1))
+        return o
 
 
 class SirenWrapper(nn.Module):
