@@ -35,11 +35,33 @@ trained_cfgs = list(Path('trained_cfgs').glob('*metrics.yaml'))
 
 uid = '01b8b31e-ef6e-4ebe-bc59-b62a2c253451'
 # uid = '8e039ce7-5dc9-46d9-ac60-df4abcabe86b'
+
+
+# fourdvarc = 'qxp19_aug2_dp240_5nad_map_no_sst_ng5x3cas_l2_dp025_00_no_dataaug'
+fourdvarc = 'qxp19_aug2_dp240_5nad_map_sst_ng5x3cas_l2_dp025_00_no_dataaug'
 for c in trained_cfgs:
     c = OmegaConf.load(c)
     print(OmegaConf.masked_copy(c, ['uid','cal_mod_ckpt', 'fourdvar_cfg', 'training_data'] ))
-    if c.uid == uid:
+
+    if c.fourdvar_cfg == fourdvarc and not c.train_with_ff:
         break
+
+print(pd.DataFrame(c.grid_metrics).T.to_markdown())
+pd.DataFrame(c.ff_grid_metrics)
+
+pd.DataFrame(c.swath_metrics)
+print(pd.DataFrame(c.swath_metrics).T.to_markdown())
+pd.DataFrame(c.ff_swath_metrics)
+
+with open(f'tmp/{c.uid}_figs.pk', 'rb') as f:
+    figs = pickle.load(f)
+
+figs[0]['ssh']
+figs[0]['err']
+
+figs[0]['violin_all']
+
+print(OmegaConf.masked_copy(c, ['uid','cal_mod_ckpt', 'fourdvar_cfg', 'training_data'] ))
 
 cfg =c
 overrides = [

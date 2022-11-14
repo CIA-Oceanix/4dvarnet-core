@@ -1,9 +1,12 @@
 lightning_logs
+mixed_geom_logs
 data
 __pycache__
 .idea
 results
 tb_profile
+**/*.ipynb
+**/.ipynb_checkpoints
 *err
 *out
 log
@@ -50,3 +53,12 @@ instab
 lightning_logs_archives
 report
 trained_cfgs
+
+disc_full_training.ckpt
+full_training.ckpt
+
+scratches/qf_dl_enatl.py
+ssh_anim.gif
+learnt_rescaling.t
+test.pgf
+learnt_rescaling_3009.t

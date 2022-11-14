@@ -7,29 +7,33 @@ import torch.nn.functional as F
 import math
 import calibration.lit_cal_model
 
-
+# Siren imp
 def exists(val):
     return val is not None
 
+def cast_tuple(val, repeat = 1):
+    return val if isinstance(val, tuple) else ((val,) * repeat)
+
+# sin activation
 
 class Sine(nn.Module):
-    def __init__(self, w0=1.):
+    def __init__(self, w0 = 1.):
         super().__init__()
         self.w0 = w0
-
     def forward(self, x):
         return torch.sin(self.w0 * x)
 
+# siren layer
 
 class Siren(nn.Module):
-    def __init__(self, dim_in, dim_out, w0=1., c=6., is_first=False, use_bias=True, activation=None):
+    def __init__(self, dim_in, dim_out, w0 = 1., c = 6., is_first = False, use_bias = True, activation = None):
         super().__init__()
         self.dim_in = dim_in
         self.is_first = is_first
 
         weight = torch.zeros(dim_out, dim_in)
         bias = torch.zeros(dim_out) if use_bias else None
-        self.init_(weight, bias, c=c, w0=w0)
+        self.init_(weight, bias, c = c, w0 = w0)
 
         self.weight = nn.Parameter(weight)
         self.bias = nn.Parameter(bias) if use_bias else None
@@ -45,38 +49,78 @@ class Siren(nn.Module):
             bias.uniform_(-w_std, w_std)
 
     def forward(self, x):
-        out = F.linear(x, self.weight, self.bias)
+        out =  F.linear(x, self.weight, self.bias)
         out = self.activation(out)
         return out
 
+# siren network
 
 class SirenNet(nn.Module):
-    def __init__(self, dim_in, dim_hidden, dim_out, num_layers, w0=1., w0_initial=30., use_bias=True,
-                 final_activation=None):
+    def __init__(self, dim_in, dim_hidden, dim_out, num_layers, w0 = 1., w0_initial = 30., use_bias = True, use_residual=False, final_activation = None):
         super().__init__()
-        layers = []
+        self.dim_in = dim_in
+        self.num_layers = num_layers
+        self.dim_hidden = dim_hidden
+
+        self.use_residual = use_residual
+
+        self.layers = nn.ModuleList([])
         for ind in range(num_layers):
             is_first = ind == 0
             layer_w0 = w0_initial if is_first else w0
             layer_dim_in = dim_in if is_first else dim_hidden
 
-            layers.append(Siren(
-                dim_in=layer_dim_in,
-                dim_out=dim_hidden,
-                w0=layer_w0,
-                use_bias=use_bias,
-                is_first=is_first
+            self.layers.append(Siren(
+                dim_in = layer_dim_in,
+                dim_out = dim_hidden,
+                w0 = layer_w0,
+                use_bias = use_bias,
+                is_first = is_first
             ))
 
-        self.net = nn.Sequential(*layers)
-
         final_activation = nn.Identity() if not exists(final_activation) else final_activation
-        self.last_layer = Siren(dim_in=dim_hidden, dim_out=dim_out, w0=w0, use_bias=use_bias,
-                                activation=final_activation)
+        self.last_layer = Siren(dim_in = dim_hidden, dim_out = dim_out, w0 = w0, use_bias = use_bias, activation = final_activation)
 
-    def forward(self, x):
-        x = self.net(x)
+    def forward(self, x, mods = None):
+        
+        mods = cast_tuple(mods, self.num_layers)
+
+        for i, (layer, mod) in enumerate(zip(self.layers, mods)):
+            res = x
+            x = layer(x)
+
+            if exists(mod):
+                x *= rearrange(mod, f'b d -> b {" ".join(["()" for _ in range(len(x.shape)-2)])} d')
+
+            if 0 < i < (self.num_layers - 1):
+                x = x + res
+
         return self.last_layer(x)
+
+class Modulator(nn.Module):
+    def __init__(self, dim_in, dim_hidden, num_layers):
+        super().__init__()
+        self.layers = nn.ModuleList([])
+
+        for ind in range(num_layers):
+            is_first = ind == 0
+            dim = dim_in if is_first else (dim_hidden + dim_in)
+
+            self.layers.append(nn.Sequential(
+                nn.Linear(dim, dim_hidden),
+                nn.ReLU()
+            ))
+
+    def forward(self, z):
+        x = z
+        hiddens = []
+
+        for layer in self.layers:
+            x = layer(x)
+            hiddens.append(x)
+            x = torch.cat((x, z), dim=1)
+
+        return tuple(hiddens)
 
 
 class SirenState(nn.Module):

@@ -9,15 +9,19 @@ class SmoothSwathDataset(torch.utils.data.Dataset):
     def __init__(
             self,
             swath_data,
-            norm_stats=None,
-            sigmas_obs=(0,*[(i+1)*8 for i in range(40)]),
+            norm_stats=(0., 1.),
+            sigmas_obs=(0,*[(i+1)*8 for i in range(10)]),
             sigmas_xb=(0,),
             sigmas_gt=(0,),
             gt_var='ssh_model',
             ref_var='pred',
             xb_var='oi',
         ):
-        xrgf = lambda da, sig: da if sig==0 else xr.apply_ufunc(lambda nda: ndi.gaussian_filter1d(nda, axis=0, sigma=sig, order=0, mode='mirror', truncate=3.0), da)
+        mean, std = norm_stats
+        print(mean, std)
+        xrgf = lambda da, sig: da if sig==0 else xr.apply_ufunc(
+                lambda nda: ndi.gaussian_filter1d(nda, axis=0, sigma=sig, order=0, mode='mirror', truncate=3.0), da)
+        pp = lambda da: (da - mean) /std
         swath_data = swath_data.assign(contiguous_chunk=lambda _df: (_df.x_al.diff('time').pipe(np.abs) > 3).cumsum())
         # swath_data = swath_data.assign(contiguous_chunk=lambda _df: (_df.x_al.diff('time') > 3).cumsum())
         sw_data_w_aug = (
@@ -25,9 +29,9 @@ class SmoothSwathDataset(torch.utils.data.Dataset):
                 .groupby('contiguous_chunk')
                 .apply(
                     lambda g: g.assign(
-                        err =  lambda _g: _g.syst_error_uncalibrated + _g.wet_tropo_res,
+                        zeros = lambda _g:  xr.zeros_like(_g.ssh_model)
                     ).assign(
-                        zeros = lambda _g:  xr.zeros_like(_g.err)
+                        err =  lambda _g: _g.syst_error_uncalibrated + _g.wet_tropo_res,
                     ).assign(
                         xb =  lambda _g: _g[xb_var],
                     ).assign(
@@ -36,7 +40,14 @@ class SmoothSwathDataset(torch.utils.data.Dataset):
                         obs_res = lambda _g: _g.obs - _g.xb,
                         gt_res= lambda ds: ds.ssh_model - ds.xb,
                         ref_res= lambda ds: ds.pred - ds.xb
-                    ).assign(
+                    ))
+        )
+
+        sw_norm = (sw_data_w_aug[['obs', 'xb', gt_var]].pipe(pp)
+                        .assign(contiguous_chunk=sw_data_w_aug.contiguous_chunk)
+                        .groupby('contiguous_chunk')
+                        .apply(
+                            lambda g: g.assign(
                         **{f'obs_{sig}' : lambda _g, sig=sig: xrgf(_g.obs, sig) for sig in sigmas_obs},
                         **({} if len(sigmas_xb)==0 else {f'xb_{sig}' : lambda _g, sig=sig: xrgf(_g.xb, sig) for sig in sigmas_xb}),
                         **{f'gt_{sig}' : lambda _g, sig=sig: xrgf(_g[gt_var], sig) for sig in sigmas_gt},
@@ -44,7 +55,7 @@ class SmoothSwathDataset(torch.utils.data.Dataset):
                 )
         )
 
-        sw_res_data = sw_data_w_aug.assign(
+        sw_res_data = sw_norm.assign(
                 **{
                     f'dobs_{sig2}_{sig1}': lambda ds, sig1=sig1, sig2=sig2: ds[f'obs_{sig1}'] - ds[f'obs_{sig2}']
                     for sig1, sig2 in zip(sigmas_obs[:-1], sigmas_obs[1:])
@@ -76,16 +87,18 @@ class SmoothSwathDataset(torch.utils.data.Dataset):
         # for v in pp_vars:
         #     p(sw_res_data.isel(time=sw_res_data.contiguous_chunk==2)[v])
         all_vars = gt_vars + pp_vars
-        mean, std =  norm_stats  if norm_stats is not None else (
-                sw_res_data[all_vars].mean(),
-                sw_res_data[all_vars].std(),
-        )
+        # mean, std =  norm_stats  if norm_stats is not None else (
+        #         sw_res_data[all_vars].mean(),
+        #         sw_res_data[all_vars].std(),
+        # )
         # mean, std =train_ds.stats
         # norm_stats=train_ds.stats
         # print(mean)
-        pp_ds = ((sw_res_data[all_vars] - mean) / std).assign(contiguous_chunk=sw_res_data.contiguous_chunk).astype(np.float32)
+        # print(mean, std)
+        # pp_ds = ((sw_res_data[all_vars + ['xb']] - mean) / std).assign(contiguous_chunk=sw_res_data.contiguous_chunk).astype(np.float32)
+        pp_ds = sw_res_data[all_vars + ['xb']].assign(contiguous_chunk=sw_data_w_aug.contiguous_chunk).astype(np.float32)
 
-        min_timestep = 300
+        min_timestep = 500
         self.stats  = mean, std
         self.chunks = list(
                 pp_ds.groupby('contiguous_chunk').count()
@@ -99,6 +112,10 @@ class SmoothSwathDataset(torch.utils.data.Dataset):
         self.ref_var = ref_var
         self.pp_ds = pp_ds
         self.raw_ds = sw_data_w_aug
+        print(f'{sw_norm[["obs", "xb", gt_var]].std()=}')
+        print(f'{sw_norm[["obs", "xb", gt_var]].mean()=}')
+        print(f'{self.raw_ds[["obs", "xb", gt_var]].std()=}')
+        print(f'{self.raw_ds[["obs", "xb", gt_var]].mean()=}')
 
         self.return_coords = False
 
@@ -122,6 +139,7 @@ class SmoothSwathDataset(torch.utils.data.Dataset):
             return raw_item_ds
         return (
             pp_item_ds[self.pp_vars].to_array().data,
+            pp_item_ds.xb.data,
             pp_item_ds[self.gt_vars].to_array().data,
             raw_item_ds[[self.gt_var]].to_array().data,
             raw_item_ds[[self.ref_var]].to_array().data

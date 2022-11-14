@@ -1,4 +1,6 @@
 import einops
+import tqdm
+import matplotlib.pyplot as plt
 import hydra
 import torch.distributed as dist
 import kornia
@@ -94,15 +96,6 @@ class LitModelAugstate(pl.LightningModule):
 
     def __init__(self,
                  hparam=None,
-                 min_lon=None, max_lon=None,
-                 min_lat=None, max_lat=None,
-                 ds_size_time=None,
-                 ds_size_lon=None,
-                 ds_size_lat=None,
-                 time=None,
-                 dX = None, dY = None,
-                 swX = None, swY = None,
-                 coord_ext = None,
                  test_domain=None,
                  *args, **kwargs):
         super().__init__()
@@ -229,6 +222,8 @@ class LitModelAugstate(pl.LightningModule):
         best_ckpt_path = self.trainer.checkpoint_callback.best_model_path
         if len(best_ckpt_path) > 0:
             def should_reload_ckpt(losses):
+                if losses.argmax() < losses.argmin():
+                    return False
                 diffs = losses.diff()
                 if losses.max() > (10 * losses.min()):
                     print("Reloading because of check", 1)
@@ -249,23 +244,31 @@ class LitModelAugstate(pl.LightningModule):
 
         # compute loss and metrics
 
-        losses, _, metrics = self(train_batch, phase='train')
-        if losses[-1] is None:
-            print("None loss")
-            return None
-        # loss = torch.stack(losses).sum()
-        loss = 2*torch.stack(losses).sum() - losses[0]
-
         if not self.automatic_optimization:
             opt = self.optimizers()
             opt.zero_grad()
-            self.manual_backward(loss)
+
+        losses = []
+        metrics = []
+        state_init = [None]
+        out=None
+        for _ in range(self.hparams.n_fourdvar_iter):
+            _loss, out, state, _metrics = self.compute_loss(train_batch, phase='train', state_init=state_init)
+            if not self.automatic_optimization:
+                self.manual_backward(_loss)
+            state_init = [None if s is None else s.detach() for s in state]
+            losses.append(_loss)
+            metrics.append(_metrics)
+
+        if not self.automatic_optimization:
             opt.step()
-        # log step metric
-        # self.log('train_mse', mse)
-        # self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True)
-        # self.log("tr_min_nobs", train_batch[1].sum(dim=[1,2,3]).min().item(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        # self.log("tr_n_nobs", train_batch[1].sum().item(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        # losses, _, metrics = self(train_batch, phase='train')
+        # if losses[-1] is None:
+        #     print("None loss")
+        #     return None
+        # # loss = torch.stack(losses).sum()
+        loss = 2*torch.stack(losses).sum() - losses[0]
+
         self.log("tr_loss", loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log("tr_mse", metrics[-1]['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
         self.log("tr_mseG", metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
@@ -279,7 +282,7 @@ class LitModelAugstate(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
         losses, out, metrics = self(batch, phase='test')
         loss = losses[-1]
-        if loss is not None:
+        if loss is not None and log_pref is not None:
             self.log(f'{log_pref}_loss', loss)
             self.log(f'{log_pref}_mse', metrics[-1]["mse"] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
@@ -300,7 +303,7 @@ class LitModelAugstate(pl.LightningModule):
 
     def validation_epoch_end(self, outputs):
         print(f'epoch end {self.global_rank} {len(outputs)}')
-        if (self.current_epoch + 1) % self.hparams.val_diag_freq == 0:
+        if  (self.current_epoch + 1) % self.hparams.val_diag_freq == 0:
             return self.diag_epoch_end(outputs, log_pref='val')
 
 
@@ -353,7 +356,7 @@ class LitModelAugstate(pl.LightningModule):
                 {v: (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
             )
 
-        for ds in dses:
+        for ds in tqdm.tqdm(dses):
             ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
             xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.gt.dims)
             _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
@@ -417,7 +420,7 @@ class LitModelAugstate(pl.LightningModule):
         # animate maps
         if self.hparams.animate == True:
             path_save0 = self.logger.log_dir + '/animation.mp4'
-            animate_maps(self.x_gt, self.obs_inp, self.x_oi, self.x_rec, self.lon, self.lat, path_save0)
+            animate_maps(self.x_gt, self.obs_inp, self.x_oi, self.x_rec, self.test_lon, self.test_lat, path_save0)
             # save NetCDF
         # PENDING: replace hardcoded 60
         # save_netcdf(saved_path1=path_save1, pred=self.x_rec,
@@ -441,17 +444,16 @@ class LitModelAugstate(pl.LightningModule):
         path_save4 = self.logger.log_dir + '/SNR.png'
         snr_fig = plot_snr(self.x_gt, self.x_oi, self.x_rec, path_save4)
         self.test_figs['snr'] = snr_fig
-
         self.logger.experiment.add_figure(f'{log_pref} SNR', snr_fig, global_step=self.current_epoch)
+
         psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
+        psd_fig = metrics.plot_psd_score(psd_ds)
+        self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
+        self.test_figs['psd'] = psd_fig
+
         fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt, self.test_xr_ds.pred, self.test_xr_ds.oi, with_fig=True)
         self.test_figs['res'] = fig
         self.logger.experiment.add_figure(f'{log_pref} Spat. Resol', fig, global_step=self.current_epoch)
-        psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
-        psd_fig = metrics.plot_psd_score(psd_ds)
-        self.test_figs['psd'] = psd_fig
-        psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
-        self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
         _, _, mu, sig = metrics.rmse_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
 
         mdf = pd.concat([
@@ -482,7 +484,8 @@ class LitModelAugstate(pl.LightningModule):
         else:
             raise Exception('unknown phase')
         self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
-
+        print(self.test_xr_ds.dims)
+        print(self.test_xr_ds.time)
         Path(self.logger.log_dir).mkdir(exist_ok=True)
         path_save1 = self.logger.log_dir + f'/test.nc'
         self.test_xr_ds.to_netcdf(path_save1)
@@ -501,14 +504,19 @@ class LitModelAugstate(pl.LightningModule):
         # display map
         md = self.sla_diag(t_idx=3, log_pref=log_pref)
         self.latest_metrics.update(md)
+        print('I am here')
         self.logger.log_metrics(md, step=self.current_epoch)
+        print('I am here')
 
     def teardown(self, stage='test'):
+        if self.logger is not None:
+            self.logger.log_hyperparams(
+                    {**self.hparams},
+                    self.latest_metrics
+            )
 
-        self.logger.log_hyperparams(
-                {**self.hparams},
-                self.latest_metrics
-    )
+    def predict_step(self, batch, batch_idx):
+        return self.diag_step(batch, batch_idx, log_pref=None)
 
     def get_init_state(self, batch, state=(None,)):
         if state[0] is not None:
@@ -632,7 +640,6 @@ class LitModelAugstate(pl.LightningModule):
                 yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
             )
 
-
             # total loss
             loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
             loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
@@ -687,44 +694,18 @@ if __name__ =='__main__':
     importlib.reload(hydra_main)
     from utils import get_cfg, get_dm, get_model
     from omegaconf import OmegaConf
-    OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
+    # OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
     import hydra_config
-    # cfg_n, ckpt = 'qxp16_aug2_dp240_swot_w_oi_map_no_sst_ng5x3cas_l2_dp025_00', 'archive_dash/qxp16_aug2_dp240_swot_w_oi_map_no_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=170-val_loss=0.0164.ckpt'
+
     cfg_n, ckpt = 'full_core', 'results/xpmultigpus/xphack4g_augx4/version_0/checkpoints/modelCalSLAInterpGF-epoch=26-val_loss=1.4156.ckpt'
-    # cfg_n, ckpt = 'full_core', 'archive_dash/xp_interp_dt7_240_h/version_5/checkpoints/modelCalSLAInterpGF-epoch=47-val_loss=1.3773.ckpt'
-
-    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=181-val_loss=0.0101.ckpt'
-    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=191-val_loss=0.0101.ckpt'
-    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=192-val_loss=0.0102.ckpt'
-    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=192-val_loss=0.0102.ckpt'
-
-    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=187-val_loss=0.0105.ckpt'
-    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=198-val_loss=0.0103.ckpt'
-    # cfg_n, ckpt = 'qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00', 'results/xp17/qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00/version_0/checkpoints/cal-epoch=194-val_loss=0.0106.ckpt'
-
-    # cfg_n, ckpt = 'full_core_sst', 'archive_dash/xp_interp_dt7_240_h_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=114-val_loss=0.6698.ckpt'
-    # cfg_n = f"xp_aug/xp_repro/{cfg_n}"
-    # cfg_n, ckpt = 'full_core_hanning_sst', 'results/xpnew/hanning_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=95-val_loss=0.3419.ckpt'
-    # cfg_n, ckpt = 'full_core_hanning_sst', 'results/xpnew/hanning_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=92-val_loss=0.3393.ckpt'
-    # cfg_n, ckpt = 'full_core_hanning_sst', 'results/xpnew/hanning_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=99-val_loss=0.3438.ckpt'
-    # cfg_n, ckpt = 'full_core_sst_fft', 'results/xpnew/sst_fft/version_0/checkpoints/modelCalSLAInterpGF-epoch=59-val_loss=2.0084.ckpt'
-    # cfg_n, ckpt = 'full_core_sst_fft', 'results/xpnew/sst_fft/version_0/checkpoints/modelCalSLAInterpGF-epoch=92-val_loss=2.0447.ckpt'
-    # cfg_n, ckpt = 'cycle_lr_sst', 'results/xpnew/xp_cycle_lr_sst/version_1/checkpoints/modelCalSLAInterpGF-epoch=103-val_loss=0.9093.ckpt'
-    # cfg_n, ckpt = 'full_core_hanning', 'results/xpnew/hanning/version_0/checkpoints/modelCalSLAInterpGF-epoch=91-val_loss=0.5461.ckpt'
-    # cfg_n, ckpt = 'full_core_hanning', 'results/xpnew/hanning/version_2/checkpoints/modelCalSLAInterpGF-epoch=88-val_loss=0.5654.ckpt'
-    # cfg_n, ckpt = 'full_core_hanning', 'results/xpnew/hanning/version_2/checkpoints/modelCalSLAInterpGF-epoch=129-val_loss=0.5692.ckpt'
-    # cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_hannAdamW/version_0/checkpoints/modelCalSLAInterpGF-epoch=129-val_loss=0.5664.ckpt'
-    # cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_daugx3hann/version_1/checkpoints/modelCalSLAInterpGF-epoch=32-val_loss=0.5734.ckpt'
-    # cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_daugx3hann/version_1/checkpoints/modelCalSLAInterpGF-epoch=34-val_loss=0.5793.ckpt'
-    cfg_n, ckpt = 'full_core_hanning', 'results/xpmultigpus/xphack4g_daugx3hann/version_1/checkpoints/modelCalSLAInterpGF-epoch=43-val_loss=0.5658.ckpt'
-    # cfg_n, ckpt = 'full_core_hanning_t_grad', 'results/xpnew/hanning_grad/version_0/checkpoints/modelCalSLAInterpGF-epoch=102-val_loss=3.7019.ckpt'
-    cfg_n = f"xp_aug/xp_repro/{cfg_n}"
+    cfg_n = f"baseline/{cfg_n}"
+    cfg_n, ckpt = 'qxp21_5nad_sst_11', 'dashboard/qxp21_5nad_sst_11/version_0/checkpoints/modelCalSLAInterpGF-epoch=17-val_loss=1.3117.ckpt'
+    cfg_n, ckpt = 'qxp21_5nad_no_sst_11', 'dashboard/qxp21_5nad_no_sst_11/version_0/checkpoints/modelCalSLAInterpGF-epoch=80-val_loss=1.7154.ckpt'
+    # cfg_n, ckpt = 'qxp21_5nad_no_sst_11', 'dashboard/qxp21_5nad_no_sst_11/version_0/checkpoints/modelCalSLAInterpGF-epoch=102-val_loss=1.7432.ckpt'
+    # cfg_n, ckpt = 'qxp21_5nad_no_sst_11', 'dashboard/qxp21_5nad_no_sst_11/version_0/checkpoints/modelCalSLAInterpGF-epoch=37-val_loss=1.7465.ckpt'
     dm = get_dm(cfg_n, setup=False,
             add_overrides=[
-                # 'params.files_cfg.obs_mask_path=/gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/CalData/cal_data_new_errs.nc',
-                # 'params.files_cfg.obs_mask_path=/gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d.nc',
-                # 'params.files_cfg.obs_mask_var=four_nadirs'
-                # 'params.files_cfg.obs_mask_var=swot_nadirs_no_noise'
+                'file_paths=dgx_ifremer',
             ]
 
 
@@ -733,11 +714,23 @@ if __name__ =='__main__':
             cfg_n,
             ckpt,
             dm=dm)
-    mod.hparams
-    cfg = get_cfg(cfg_n)
-    # cfg = get_cfg("xp_aug/xp_repro/quentin_repro")
+    cfg = get_cfg(
+        cfg_n,
+        overrides=[
+            'file_paths=dgx_ifremer',
+            # 'params.patch_weight._target_=lit_model_augstate.get_cropped_hanning_mask',
+            # 'params.patch_weight.crop.time=4',
+    ])
+
     print(OmegaConf.to_yaml(cfg))
     lit_mod_cls = get_class(cfg.lit_mod_cls)
     runner = hydra_main.FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls)
-    mod = runner.test(ckpt)
+    mod = runner._get_model(ckpt_path=ckpt)
+    mod.patch_weight.data = torch.tensor(hydra.utils.call(cfg.params.patch_weight))
+    mod = runner.test(ckpt, _mod=mod)
     mod.test_figs['psd']
+
+    # self = mod
+    # animate_maps(self.x_gt, self.obs_inp, self.x_oi, self.x_rec, self.test_lon, self.test_lat, 'animation.mp4')
+
+

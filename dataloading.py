@@ -134,7 +134,6 @@ class XrDataset(Dataset):
             }
             self.ds = _ds.sel(**(dim_range_ or {}))
             self.Nt, self.Nx, self.Ny = tuple(self.ds.dims[d] for d in ['time', 'lon', 'lat'])
-
             # II) second padding x and y using padding
             pad_x = find_pad(slice_win['lon'], strides['lon'], self.Nx)
             pad_y = find_pad(slice_win['lat'], strides['lat'], self.Ny)
@@ -224,7 +223,7 @@ class XrDataset(Dataset):
         }
         if self.return_coords:
             return self.ds.isel(**sl).coords
-        return self.ds.isel(**sl)[self.var].data.astype(np.float32)
+        return self.ds.isel(**sl)[self.var].transpose("time", "lat", "lon").data.astype(np.float32)
 
 
 class FourDVarNetDataset(Dataset):

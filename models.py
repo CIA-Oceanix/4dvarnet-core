@@ -69,6 +69,7 @@ class Encoder(torch.nn.Module):
 
         return x_lr + x_hr
 
+
 class Encoder_OI(torch.nn.Module):
     def __init__(self, dim_inp, dim_out, dim_ae, dw, dw2, ss, nb_blocks, rateDropout=0.):
         super().__init__()

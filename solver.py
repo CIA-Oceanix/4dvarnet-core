@@ -66,8 +66,8 @@ class ConvLSTM2d(torch.nn.Module):
         if prev_state is None:
             state_size = [batch_size, self.hidden_size] + list(spatial_size)
             prev_state = (
-                torch.autograd.Variable(torch.zeros(state_size)).to(device),
-                torch.autograd.Variable(torch.zeros(state_size)).to(device)
+                torch.autograd.Variable(torch.zeros(state_size)).to(input_.device),
+                torch.autograd.Variable(torch.zeros(state_size)).to(input_.device)
             )
 
         # prev_state has two components
@@ -344,11 +344,19 @@ class Model_Var_Cost(nn.Module):
         if self.dim_obs == 1 :
             loss +=  self.alphaObs[0]**2 * self.normObs(dy,self.WObs[0,:]**2,self.epsObs[0])
         else:
-            for kk in range(0,self.dim_obs):
+            # for kk in range(0,self.dim_obs):
+
+            #     # print(kk)
+            #     _dy = dy[kk]
+            #     # patch_weight=torch.ones_like(_dy)
+            #     # y_loss = F.mse_loss(_dy, torch.zeros_like(_dy))
+            #     # print(y_loss)
+            #     loss +=  y_loss
+            for kk, ddy in enumerate(dy):
                 loss +=  (
                     self.alphaObs[kk]**2
                     * self.normObs(
-                        dy[kk],
+                        ddy,
                         self.WObs[kk,0:dy[kk].size(1)]**2,
                         self.epsObs[kk]
                     )
@@ -392,12 +400,14 @@ class Solver_Grad_4DVarNN(nn.Module):
         return self.solve(x, yobs, mask, *internal_state)
 
     def solve(self, x_0, obs, mask, hidden=None, cell=None, normgrad_=0.):
-        x_k = torch.mul(x_0,1.)
+        # x_k = torch.mul(x_0,1.)
+        x_k = x_0 
         x_k_plus_1 = None
         for _ in range(self.n_grad):
             x_k_plus_1, hidden, cell, normgrad_ = self.solver_step(x_k, obs, mask,hidden, cell, normgrad_)
 
-            x_k = torch.mul(x_k_plus_1,1.)
+            # x_k = torch.mul(x_k_plus_1,1.)
+            x_k = x_k_plus_1
 
         return x_k_plus_1, hidden, cell, normgrad_
 
@@ -417,6 +427,5 @@ class Solver_Grad_4DVarNN(nn.Module):
         dx = x - self.phi_r(x)
 
         loss = self.model_VarCost( dx , dy )
-
         var_cost_grad = torch.autograd.grad(loss, x, create_graph=True)[0]
         return loss, var_cost_grad

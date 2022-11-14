@@ -18,7 +18,7 @@ from scipy import stats
 import solver as NN_4DVar
 import metrics
 from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps_oi, animate_maps, get_psd_score
-from models import Model_H, Phi_r_OI, Gradient_img
+from models import Model_H, Model_HwithSST, Phi_r_OI, Gradient_img
 
 from lit_model_augstate import LitModelAugstate
 
@@ -31,10 +31,20 @@ def get_4dvarnet_OI(hparams):
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
+def get_4dvarnet_OI_sst(hparams):
+    return NN_4DVar.Solver_Grad_4DVarNN(
+                Phi_r_OI(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+                Model_HwithSST(hparams.shape_state[0], dT=hparams.dT),
+                NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+                    hparams.dim_grad_solver, hparams.dropout),
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+
 class LitModelOI(LitModelAugstate):
     MODELS = {
-            '4dvarnet_OI': get_4dvarnet_OI,
-             }
+        '4dvarnet_OI': get_4dvarnet_OI,
+        '4dvarnet_OI_sst': get_4dvarnet_OI_sst,
+     }
 
     def __init__(self, *args, **kwargs):
          super().__init__(*args, **kwargs)
@@ -43,7 +53,7 @@ class LitModelOI(LitModelAugstate):
         opt = torch.optim.Adam
         if hasattr(self.hparams, 'opt'):
             opt = lambda p: hydra.utils.call(self.hparams.opt, p)
-        if self.model_name == '4dvarnet_OI':
+        if self.model_name in ('4dvarnet_OI', '4dvarnet_OI_sst'):
             optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
@@ -53,16 +63,17 @@ class LitModelOI(LitModelAugstate):
         return optimizer
 
     def diag_step(self, batch, batch_idx, log_pref='test'):
-        _, inputs_Mask, inputs_obs, targets_GT = batch
+        oi, inputs_Mask, inputs_obs, targets_GT, *_= batch
         losses, out, metrics = self(batch, phase='test')
         loss = losses[-1]
-        if loss is not None:
+        if loss is not None and log_pref is not None:
             self.log(f'{log_pref}_loss', loss)
             self.log(f'{log_pref}_mse', metrics[-1]["mse"] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
 
         return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'oi'    : (oi.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def sla_diag(self, t_idx=3, log_pref='test'):
@@ -85,11 +96,15 @@ class LitModelOI(LitModelAugstate):
         self.logger.experiment.add_figure(f'{log_pref} Maps', fig_maps, global_step=self.current_epoch)
         self.logger.experiment.add_figure(f'{log_pref} Maps Grad', fig_maps_grad, global_step=self.current_epoch)
 
-        psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
-        psd_fig = metrics.plot_psd_score(psd_ds)
-        self.test_figs['psd'] = psd_fig
-        self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
-        _, _, mu, sig = metrics.rmse_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
+        lamb_x, lamb_t, mu, sig = np.nan, np.nan, np.nan, np.nan
+        try:
+            psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
+            psd_fig = metrics.plot_psd_score(psd_ds)
+            self.test_figs['psd'] = psd_fig
+            self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
+            _, _, mu, sig = metrics.rmse_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
+        except:
+            print('fail to compute psd scores')
 
         md = {
             f'{log_pref}_lambda_x': lamb_x,
@@ -136,14 +151,18 @@ class LitModelOI(LitModelAugstate):
         if state[0] is not None:
             return state[0]
 
-        _, inputs_Mask, inputs_obs, _ = batch
+        _, inputs_Mask, inputs_obs, *_ = batch
 
         init_state = inputs_Mask * inputs_obs
         return init_state
 
     def compute_loss(self, batch, phase, state_init=(None,)):
 
-        _, inputs_Mask, inputs_obs, targets_GT = batch
+
+        if not self.use_sst:
+            _, inputs_Mask, inputs_obs, targets_GT = batch
+        else:
+            _, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
 
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:
@@ -165,14 +184,22 @@ class LitModelOI(LitModelAugstate):
         obs = inputs_Mask * inputs_obs
         new_masks =  inputs_Mask
 
+        if self.use_sst:
+            new_masks = [ new_masks, torch.ones_like(sst_gt) ]
+            obs = [ obs, sst_gt ]
+
         # gradient norm field
         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
 
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
-            state = torch.autograd.Variable(state, requires_grad=True)
-            outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
-
+            # state = torch.autograd.Variable(state, requires_grad=True)
+            state.requires_grad_(True)
+            # print(state.requires_grad)
+            # print([s.requires_grad for s in state_init[1:]])
+            outputs, hidden_new, cell_new, normgrad = self.model(
+                state, obs, new_masks, *state_init[1:],
+            )
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
 

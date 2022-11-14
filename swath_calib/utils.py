@@ -42,8 +42,6 @@ def get_swot_slice(path, drop_vars=('model_index',),
     dt_end = pd.to_datetime(slice_args.get('time_max', "2013-09-30"))
     groups = [f"{dt.year}/{dt.month}" for dt in
               pd.date_range(start=dt_start.date().replace(day=1), end=dt_end, freq='MS')]
-    print(slice_args)
-    print(groups)
 
     dses = []
     for group in groups:
@@ -65,8 +63,8 @@ def get_swot_slice(path, drop_vars=('model_index',),
 
     dses = [_ds for _ds in dses if _ds.dims['time']]
     if len(dses) == 0:
-        print(
-            f"no data found at {path} for {slice_args} {groups} {pd.date_range(start=dt_start.replace(day=1), end=dt_end, freq='MS')}")
+        # print(
+        #     f"no data found at {path} for {slice_args} {groups} {pd.date_range(start=dt_start.replace(day=1), end=dt_end, freq='MS')}")
         return None
     return xr.concat(
         [xr.decode_cf(_ds) for _ds in dses if _ds.dims['time']],
@@ -98,8 +96,8 @@ def get_nadir_slice(path, **slice_args):
             )
     dses = [_ds for _ds in dses if _ds.dims['time']]
     if len(dses) == 0:
-        print(
-            f"no data at {path} found for {slice_args} {groups} {pd.date_range(start=dt_start, end=dt_end, freq='MS')}")
+        # print(
+        #     f"no data at {path} found for {slice_args} {groups} {pd.date_range(start=dt_start, end=dt_end, freq='MS')}")
         return None
     return xr.concat(
         [xr.decode_cf(_ds) for _ds in dses if _ds.dims['time']],
@@ -118,7 +116,7 @@ def generate_cal_xrds(ds, lit_mod, trainer, var_name='cal'):
 
     return xr.concat(
             [
-                coord.assign({var_name: lambda ds: (ds.ssh_model.dims, pred + coord.xb.values)})
+                coord.assign({var_name: lambda ds: (ds.ssh_model.dims, pred)})#+ coord.xb.values)})
                 for pred, coord in zip(predictions, coords)
             ], dim='time'
     )

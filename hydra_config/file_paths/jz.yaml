@@ -12,3 +12,34 @@ new_noisy_swot_with_1d_decomp: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-regist
 natl_ssh_daily: /gpfsdsstore/projects/rech/yrf/commun/NATL60/NATL/ref_new/NATL60-CJM165_NATL_ssh_y2013.1y.nc
 natl_sst_daily: /gpfsdsstore/projects/rech/yrf/commun/NATL60/NATL/ref_new/NATL60-CJM165_NATL_sst_y2013.1y.nc
 
+
+ref_natl_degraded: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/natl60_degraded/ref220921.nc
+obs_natl_degraded: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/natl60_degraded/obs220921.nc
+
+orca_preprocessed: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/eORCA025/preprocessed_eorca220921.nc
+glorys_preprocessed: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/GLORYS/preprocessed_glorys220928.nc
+
+ose_oi_path: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/data_OSE/NATL/training/ssh_alg_h2g_j2g_j2n_j3_s3a_duacs.nc
+ose_obs_mask_path: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/data_OSE/NATL/training/dataset_nadir_0d.nc
+ose_gt_path: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/data_OSE/NATL/validation/dataset_nadir_0d.nc
+ose_sst_path: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/data_OSE/NATL/training/sst_CMEMS.nc
+ose_test_along_track: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/data_OSE/along_track/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc
+
+oi_ose_osse_nadswot_path: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/data_OSE/NATL/training/oi_OSE_OSSE_nadswot.nc
+oi_ose_osse_nad_path: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/data_OSE/NATL/training/oi_OSE_OSSE_nad.nc
+oi_osse_nadswot_path: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/data_OSE/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc
+oi_osse_nad_path: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/data_OSE/NATL60/NATL/oi/ssh_NATL60_4nadir.nc
+oi_ose_nad_path: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/data_OSE/NATL/training/ssh_alg_h2g_j2g_j2n_j3_s3a_duacs.nc
+obs_mask_ose_osse_nadswot_path: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/data_OSE/NATL/training/data_OSE_OSSE_nadswot.nc
+obs_mask_ose_osse_nad_path: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/data_OSE/NATL/training/data_OSE_OSSE_nad.nc
+obs_mask_osse_nadswot_path: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/data_new/dataset_nadir_0d_swot.nc
+obs_mask_osse_nad_path: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/data_new/dataset_nadir_0d.nc
+obs_mask_ose_nad_path: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/data_OSE/NATL/training/dataset_nadir_0d.nc
+gt_ose_osse_path: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/data_OSE/NATL/training/ref_ssh_OSE_OSSE.nc
+sst_ose_osse_path: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/data_OSE/NATL/training/ref_sst_OSE_OSSE.nc
+gt_osse_path: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/NATL60/NATL/ref_new/NATL60-CJM165_NATL_ssh_y2013.1y.nc
+sst_osse_path:  /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/NATL60/NATL/ref_new/NATL60-CJM165_NATL_sst_y2013.1y.nc
+gt_ose_path: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/data_OSE/NATL/training/dataset_nadir_0d.nc
+sst_ose_path: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry/data_OSE/NATL/training/sst_CMEMS.nc
+
+data_registry_path: /gpfsssd/scratch/rech/yrf/ual82ir/sla-data-registry

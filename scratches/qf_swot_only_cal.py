@@ -7,7 +7,7 @@ from functools import cache
 from omegaconf import OmegaConf
 import holoviews as hv
 import holoviews.plotting.mpl  # noqa
-from dvc_main import VersioningCallback
+from swath_calib.versioning_cb import  VersioningCallback
 import einops
 import scipy.ndimage as ndi
 import contextlib
@@ -291,26 +291,29 @@ class SwotOverlapDataset(torch.utils.data.Dataset):
         #             .pipe(lambda ds: ds - xr.merge([gt_stats[0], sw_stats[0]]) / xr.merge([gt_stats[1], sw_stats[1]])))
         first_sw_chunk = sw_data_w_aug.isel(time=sw_data_w_aug.contiguous_chunk==chunks[item])
         sw_cs = [
-                first_sw_chunk.pipe(lambda ds: ds - xr.merge([gt_stats[0], sw_stats[0]]) / xr.merge([gt_stats[1], sw_stats[1]])),
-                sw_data_w_aug.sel(time=first_sw_chunk.time + cycle_period, method='nearest').pipe(lambda ds: ds - xr.merge([gt_stats[0], sw_stats[0]]) / xr.merge([gt_stats[1], sw_stats[1]])),
-                sw_data_w_aug.sel(time=first_sw_chunk.time + 2*cycle_period, method='nearest').pipe(lambda ds: ds - xr.merge([gt_stats[0], sw_stats[0]]) / xr.merge([gt_stats[1], sw_stats[1]])),
+                # first_sw_chunk.pipe(lambda ds: ds - xr.merge([gt_stats[0], sw_stats[0]]) / xr.merge([gt_stats[1], sw_stats[1]])),
+                # sw_data_w_aug.sel(time=first_sw_chunk.time + cycle_period, method='nearest').pipe(lambda ds: ds - xr.merge([gt_stats[0], sw_stats[0]]) / xr.merge([gt_stats[1], sw_stats[1]])),
+                # sw_data_w_aug.sel(time=first_sw_chunk.time + 2*cycle_period, method='nearest').pipe(lambda ds: ds - xr.merge([gt_stats[0], sw_stats[0]]) / xr.merge([gt_stats[1], sw_stats[1]])),
+                first_sw_chunk.pipe(lambda ds: (ds - sw_stats[0]) / sw_stats[1]),
+                sw_data_w_aug.sel(time=first_sw_chunk.time + cycle_period, method='nearest').pipe(lambda ds: (ds - sw_stats[0]) / sw_stats[1]),
+                sw_data_w_aug.sel(time=first_sw_chunk.time + 2*cycle_period, method='nearest').pipe(lambda ds: (ds - sw_stats[0]) / sw_stats[1]),
         ]
         first_nad_chunk = nad_data_w_aug.isel(time=nad_data_w_aug.contiguous_chunk==chunks[item])
         nad_cs = [
-                first_nad_chunk.pipe(lambda ds: ds - nad_stats[0] / nad_stats[1]),
+                first_nad_chunk.pipe(lambda ds: (ds - nad_stats[0]) / nad_stats[1]),
                 nad_data_w_aug.sel(time=first_nad_chunk.time + cycle_period, method='nearest').pipe(lambda ds: ds - nad_stats[0] / nad_stats[1]),
                 nad_data_w_aug.sel(time=first_nad_chunk.time + 2*cycle_period, method='nearest').pipe(lambda ds: ds - nad_stats[0] / nad_stats[1]),
         ]
         sw_chunk = sw_cs[1].assign(
             **{prev_v: lambda ds: (ds[obs_vars[0]].dims, sw_cs[0][obs_v].values) for prev_v, obs_v in zip(prev_vars, obs_vars)},
-            **{next_v: lambda ds: (ds[obs_vars[0]].dims, sw_cs[0][obs_v].values) for next_v, obs_v in zip(next_vars, obs_vars)},
+            **{next_v: lambda ds: (ds[obs_vars[0]].dims, sw_cs[2][obs_v].values) for next_v, obs_v in zip(next_vars, obs_vars)},
         )
         if self.return_coords:
             return sw_chunk
         nad_cs[2]
         nad_chunk = nad_cs[1].assign(
             **{prev_v: lambda ds: (ds[obs_vars[0]].dims, nad_cs[0][obs_v].values) for prev_v, obs_v in zip(prev_vars, obs_vars)},
-            **{next_v: lambda ds: (ds[obs_vars[0]].dims, nad_cs[0][obs_v].values) for next_v, obs_v in zip(next_vars, obs_vars)},
+            **{next_v: lambda ds: (ds[obs_vars[0]].dims, nad_cs[2][obs_v].values) for next_v, obs_v in zip(next_vars, obs_vars)},
         )
         return (
             sw_chunk.ssh_model.values.astype(np.float32),
@@ -479,7 +482,12 @@ class LitDirectCNN(pl.LightningModule):
                        Rearrange('b t (c nC) -> b c t nC', c=nad_embed, nC=52),
                 )
                 self.loss_pp = lambda l: (l.log() if log_loss else l)
-                self.net = build_net(in_channels=len_pp+nad_embed, out_channels=1,**net_kwargs)
+                net = build_net(in_channels=len_pp+nad_embed, out_channels=1,**net_kwargs)
+                self.net = torch.nn.Sequential(
+                    torch.nn.BatchNorm2d(num_features=len_pp+nad_embed, affine=True, momentum=0.1),
+                    net,
+                    # torch.nn.BatchNorm2d(num_features=1, affine=True, momentum=0.1),
+                )
                 self.lr_init = lr_init
                 self.wd = wd
                 self.loss_w = loss_w
@@ -530,7 +538,7 @@ class LitDirectCNN(pl.LightningModule):
                 losses['err_rec'], losses['g_err_rec'], losses['l_err_rec'] = self.loss(rec_out, raw_gt)
 
                 for ln, l in losses.items():
-                    self.log(f'{phase}_{ln}', l)
+                    self.log(f'{phase}_{ln}', l, prog_bar=True, on_epoch=True, on_step=False)
 
                 loss = (
                     self.loss_w[0] * self.loss_pp(losses['err_tot'])
@@ -584,49 +592,56 @@ def full_swot_training():
                time_max='2013-02-28',
                **spat_domain,
         )
+        # min_timestep = 300
+        # sigmas = (0,*sorted(list(set([int(s) for s in np.logspace(0,3,15)])))) 
         min_timestep = 500
-        sigmas = (0,*[(i+1)*20 for i in range(30)]) 
-        ds = SwotOverlapDataset(train_domain, min_timestep, sigmas)
-        val_ds = SwotOverlapDataset(val_domain, min_timestep, sigmas, stats=ds.stats)
+        # sigmas = (0,*[(i+1)*4 for i in range(30)]) 
+        # sigmas = (0,*sorted(list(set([int(s) for s in np.logspace(0,3,50)])))) 
+        sigmas = (0,*sorted(list(set([int(s) for s in np.logspace(0,3,50)])))) 
+        ns = (0.31446309894037083, 0.3886609494201447)
+        # ns = (0., 1.)
+        
+        ds = SwotOverlapDataset(train_domain, min_timestep, sigmas, stats=(ns,ns,ns))
+        val_ds = SwotOverlapDataset(val_domain, min_timestep, sigmas, stats=(ns,ns,ns))
         train_dl = torch.utils.data.DataLoader(ds)
         val_dl = torch.utils.data.DataLoader(val_ds)
-        nad_embed=128
+        nad_embed=32
         net_kwargs = dict(
             nhidden = 128,
             depth = 3,
-            kernel_size = 7,
+            kernel_size = 3,
             num_repeat = 1,
             residual = True,
             split_sides =True,
             norm_type = 'none',
             act_type = 'relu',
-            mix = False,
+            mix = True,
             mix_residual = False,
             mix_act_type = 'none',
             mix_norm_type = 'none',
         )
-        gt_stats=(ds.gt_stats[0].to_array().values,  ds.gt_stats[1].to_array().values)
+        gt_stats=[np.array([ns[0]]), np.array([ns[1]])]
         logger = pl.loggers.TensorBoardLogger('lightning_logs', name='swot_only')#, version='')
         trainer = pl.Trainer(
-            gpus=[5],
+            gpus=1,
             logger=logger,
             callbacks=[
                 callbacks.LearningRateMonitor(),
-                callbacks.RichProgressBar(),
+                # callbacks.RichProgressBar(),
                 callbacks.ModelCheckpoint(monitor='val_loss', save_last=True),
                 # callbacks.StochasticWeightAveraging(),
                 callbacks.GradientAccumulationScheduler({1: 4, 10: 8, 15: 16, 200: 32}),#, 300: 50}),
                 VersioningCallback()
             ],
             log_every_n_steps=10,
-            max_epochs=1500,
+            max_epochs=500,
         )
 
         lit_mod = LitDirectCNN(net_kwargs=net_kwargs,
                 nad_embed=nad_embed, len_pp=len(ds.pp_vars), gt_stats=gt_stats,
                 loss_w=(10., 5., 2.),
                 lr_init=2e-4,
-                wd=2e-5,
+                wd=1e-5,
                 log_loss=True,
                 stats=ds.stats)
         trainer.fit(lit_mod,
@@ -644,6 +659,7 @@ def main():
     try:
         ...
         fn = full_swot_training
+        # fn = test
 
         locals().update(fn())
     except Exception as e:
@@ -672,15 +688,19 @@ def test():
            time_max='2013-02-28',
            **spat_domain,
     )
-    ckpt = 'lightning_logs/swot_only/version_1/checkpoints/epoch=798-step=5183.ckpt'
+    ckpt = 'lightning_logs/swot_only/version_6/checkpoints/last.ckpt'
     # ckpt = 'lightning_logs/swot_only/version_1/checkpoints/last.ckpt'
     lit_mod = LitDirectCNN.load_from_checkpoint(ckpt)
     min_timestep = 500
-    sigmas = (0,*[(i+1)*8 for i in range(50)]) 
-    test_ds = SwotOverlapDataset(test_domain, min_timestep, sigmas, stats=lit_mod.stats)
+    # sigmas = (0,*[(i+1)*4 for i in range(30)]) 
+    sigmas = (0,*sorted(list(set([int(s) for s in np.logspace(0,3,50)])))) 
+    # sigmas = (0,*[(i+1)*8 for i in range(50)]) 
+    # ns = (0., 1.)
+    ns = (0.31446309894037083, 0.3886609494201447)
+    test_ds = SwotOverlapDataset(test_domain, min_timestep, sigmas, stats=(ns, ns, ns))
     test_dl = torch.utils.data.DataLoader(test_ds, shuffle=False)
     trainer = pl.Trainer(
-        gpus=[7],
+        gpus=1,
         logger=False,
         log_every_n_steps=10,
         max_epochs=1500,
@@ -704,15 +724,15 @@ def test():
         dx_ac = xr.apply_ufunc(lambda _da: ndi.sobel(_da, 0), da) /2
         dx_al = xr.apply_ufunc(lambda _da: ndi.sobel(_da, 1), da) /2
         return np.hypot(dx_ac, dx_al)
-    (
+    print(
         pred_ds
         .pipe(lambda ds: np.sqrt(((ds.gt - ds.cal)**2).mean()))
     )
 
-    pred_ds.isel(time=slice(0, 600))[['gt', 'cal']].to_array().T.plot.pcolormesh('time', 'nC', col='variable', col_wrap=1, figsize=(15, 7))
-    pred_ds.isel(time=slice(0, 600))[['gt', 'cal']].map(sobel).to_array().T.plot.pcolormesh('time', 'nC', col='variable', col_wrap=1, figsize=(15, 7))
-    type(val_pred[0]), val_pred[0].shape
-    type(val_pred), len(val_pred)
+    # pred_ds.isel(time=slice(0, 600))[['gt', 'cal']].to_array().T.plot.pcolormesh('time', 'nC', col='variable', col_wrap=1, figsize=(15, 7))
+    # pred_ds.isel(time=slice(0, 600))[['gt', 'cal']].map(sobel).to_array().T.plot.pcolormesh('time', 'nC', col='variable', col_wrap=1, figsize=(15, 7))
+    # type(val_pred[0]), val_pred[0].shape
+    # type(val_pred), len(val_pred)
 
 if __name__ == '__main__':
     locals().update(main())

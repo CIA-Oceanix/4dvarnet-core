@@ -16,9 +16,11 @@ import shapely
 from shapely import wkt
 #import geopandas as gpd
 import cartopy
-from os.path import expanduser
-#cartopy.config['pre_existing_data_dir'] = expanduser('/gpfswork/rech/yrf/uba22to/4dvarnet-core/shapefiles/natural_earth/physical')
-#cartopy.config['data_dir'] = '/gpfswork/rech/yrf/uba22to/4dvarnet-core/shapefiles/natural_earth/physical'
+# from os.path import expanduser
+import os
+cartopy.config['pre_existing_data_dir'] = os.environ['CARTOPY_OFFLINE_SHARED']
+cartopy.config['data_dir'] = os.environ['CARTOPY_OFFLINE_SHARED']
+# cartopy.config['data_dir'] = '/gpfswork/rech/yrf/uba22to/4dvarnet-core/shapefiles/natural_earth/physical'
 from cartopy import crs as ccrs
 import cartopy.feature as cfeature
 from cartopy.io.shapereader import Reader
@@ -158,9 +160,9 @@ def plot(ax, lon, lat, data, title, cmap, norm, extent=[-65, -55, 30, 40], gridd
     if colorbar==True:
         clb = plt.colorbar(im, orientation=orientation, extend='both', pad=0.1, ax=ax)
     ax.set_title(title, pad=10, fontsize = 15)
-    ax.add_feature(cfeature.LAND.with_scale('10m'), zorder=100,
-                   edgecolor='k', facecolor='white')
     try:
+        ax.add_feature(cfeature.LAND.with_scale('10m'), zorder=100,
+                       edgecolor='k', facecolor='white')
         gl = ax.gridlines(alpha=0.5, zorder=200)#,draw_labels=True)
         gl.xformatter = LONGITUDE_FORMATTER
         gl.yformatter = LATITUDE_FORMATTER
@@ -720,17 +722,20 @@ def rmse_based_scores(da_rec, da_ref):
 
 
 def psd_based_scores(da_rec, da_ref):
+    
     # boost-swot-psd-score
     logging.info('     Compute PSD-based scores...')
 
     # Compute error = SSH_reconstruction - SSH_true
     err = (da_rec - da_ref)
-    err = err.chunk({"lat":1, 'time': err['time'].size, 'lon': err['lon'].size})
+    # err = err.chunk({"lat":1, 'time': err['time'].size, 'lon': err['lon'].size})
     # make time vector in days units
     err['time'] = (err.time - err.time[0]) / np.timedelta64(1, 'D')
 
+
     # Rechunk SSH_true
-    signal = da_ref.chunk({"lat":1, 'time': da_ref['time'].size, 'lon': da_ref['lon'].size})
+    # signal = da_ref.chunk({"lat":1, 'time': da_ref['time'].size, 'lon': da_ref['lon'].size})
+    signal = da_ref
     # make time vector in days units
     signal['time'] = (signal.time - signal.time[0]) / np.timedelta64(1, 'D')
 

@@ -6,7 +6,7 @@ from itertools import product
 cs = ConfigStore.instance()
 
 BASE_DEFAULTS = [
-  '/xp/xp_aug/xp_repro/full_core_hanning',
+  '/xp/baseline/full_core_hanning',
   '/splits/dc_boost_swot@datamodule',
 ]
 XP=20

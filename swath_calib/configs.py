@@ -32,31 +32,77 @@ def bst_ckpt(dirpath, glob='version_*/checkpoints/*', ckpt_fmt='.+val_loss=(.+)\
 
 
 cfgs = {}
-for xp, cfgn in list(zip(
-    [17]*100,
+for xp, cfgn in (
+        # list(zip( [17]*100,
+    # [
+        # 'qxp17_aug2_dp240_swot_map_no_sst_ng5x3cas_l2_dp025_00',
+        # 'qxp17_aug2_dp240_swot_cal_no_sst_ng5x3cas_l2_dp025_00',
+        # 'qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00',
+        # 'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00',
+    # ])) +
+    # list(zip(
+    # [19]*100,
+    # [
+    #     'qxp19_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00_dataaug',
+    #     'qxp19_aug2_dp240_swot_map_no_sst_ng5x3cas_l2_dp025_00_no_dataaug',
+    #     'qxp19_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00_no_dataaug',
+    #     'qxp19_aug2_dp240_5nad_map_no_sst_ng5x3cas_l2_dp025_00_dataaug',
+    #     'qxp19_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l2_dp025_00_no_dataaug',
+    #     'qxp19_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00_dataaug',
+    #     'qxp19_aug2_dp240_swot_map_no_sst_ng5x3cas_l2_dp025_00_dataaug',
+    #     'qxp19_aug2_dp240_5nad_cal_sst_ng5x3cas_l2_dp025_00_no_dataaug',
+    #     'qxp19_aug2_dp240_5nad_cal_no_sst_ng5x3cas_l2_dp025_00_dataaug',
+    #     'qxp19_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00_no_dataaug',
+    #     'qxp19_aug2_dp240_5nad_map_sst_ng5x3cas_l2_dp025_00_dataaug',
+    #     'qxp19_aug2_dp240_5nad_map_sst_ng5x3cas_l2_dp025_00_no_dataaug',
+    #     'qxp19_aug2_dp240_5nad_cal_sst_ng5x3cas_l2_dp025_00_dataaug',
+    #     'qxp19_aug2_dp240_swot_cal_no_sst_ng5x3cas_l2_dp025_00_no_dataaug',
+    #     'qxp19_aug2_dp240_5nad_map_no_sst_ng5x3cas_l2_dp025_00_no_dataaug',
+    #     'qxp19_aug2_dp240_swot_cal_no_sst_ng5x3cas_l2_dp025_00_dataaug',
+    # ])) +
+    # list(zip(
+    # [20]*100,
+    # [
+    #     'qxp20_5nad_no_sst',
+    #     'qxp20_5nad_sst',
+    #     # 'qxp20_swot_no_sst',
+    #     # 'qxp20_swot_sst',
+    #     # 'qxp20_noisy_sst',
+    #     # 'qxp20_noisy_no_sst',
+# ]))
+    # + 
+    # list(zip(
+    # [21]*100,
+    # [
+    #     'qxp21_5nad_no_sst_11',
+    #     # 'qxp20_swot_no_sst',
+    #     # 'qxp20_swot_sst',
+    #     # 'qxp20_5nad_sst',
+    #     # 'qxp20_noisy_sst',
+    #     # 'qxp20_noisy_no_sst',
+# ]))
+    # + 
+    list(zip(
+    [23]*100,
     [
-        'qxp17_aug2_dp240_swot_map_no_sst_ng5x3cas_l2_dp025_00',
-        'qxp17_aug2_dp240_swot_cal_no_sst_ng5x3cas_l2_dp025_00',
-        'qxp17_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00',
-        'qxp17_aug2_dp240_swot_cal_sst_ng5x3cas_l2_dp025_00',
-    ]
-    )) + list(zip(
-    [19]*100,
-    [
-        'qxp19_aug2_dp240_5nad_map_no_sst_ng5x3cas_l2_dp025_00_dataaug',
-        'qxp19_aug2_dp240_swot_map_no_sst_ng5x3cas_l2_dp025_00_dataaug',
-        'qxp19_aug2_dp240_swot_map_sst_ng5x3cas_l2_dp025_00_dataaug',
-        'qxp19_aug2_dp240_5nad_map_sst_ng5x3cas_l2_dp025_00_dataaug',
-    ]
-    )):
+        'qxp23_no_sst_5nad_aug3_ds2_dT29_8',
+        # 'qxp20_swot_no_sst',
+        # 'qxp20_swot_sst',
+        # 'qxp20_5nad_sst',
+        # 'qxp20_noisy_sst',
+        # 'qxp20_noisy_no_sst',
+]))
+):
     cfgs[cfgn] =  OmegaConf.create(dict(
         fourdvar_cfg=cfgn,
         fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp{xp}/{cfgn}')),
         cal_mod_ckpt=None,
         swath_ds_cfg=dict(
             sigmas_gt=(0,),
-            gt_var='gt_res',
-            ref_var='ref_res',
+            gt_var='gt',
+            ref_var='pred',
+            # gt_var='gt_res',
+            # ref_var='ref_res',
             xb_var='pred',
         ),
     ))
@@ -122,6 +168,10 @@ size_overrides_cfg = dict(
         sigmas_obs=(0,*[(i+1)*5 for i in range(10)]),
         sigmas_xb=(0,*[(i+1)*5 for i in range(10)]),
     ))),
+    pp10x8=OmegaConf.create(dict(swath_ds_cfg=dict(
+        sigmas_obs=(0,*[(i+1)*8 for i in range(10)]),
+        sigmas_xb=(0,*[(i+1)*8 for i in range(10)]),
+    ))),
     pp20x5=OmegaConf.create(dict(swath_ds_cfg=dict(
         sigmas_obs=(0,*[(i+1)*5 for i in range(20)]),
         sigmas_xb=(0,*[(i+1)*5 for i in range(20)]),
@@ -162,6 +212,27 @@ overrides_cfg = dict(
     relu_act=OmegaConf.create(dict(net_cfg=dict(act_type='relu',))),
 )
 
+def register_configs_tgrs():
+    from hydra.core.config_store import ConfigStore
+    from omegaconf import OmegaConf
+    from pathlib import Path
+    from itertools import product
+
+    cs = ConfigStore.instance()
+    xpns = []
+    basic_overrides = [overrides_cfg[o] for o in ['no_norm', 'no_mix', 'relu_act']]
+    for xp_name, cfg in cfgs.items():
+        for train_with_ff in [False]: #True, False]:
+            xpns.append(f'ff{train_with_ff}_swath_calib_{xp_name}')
+            cs.store(name=xpns[-1], node=OmegaConf.merge(
+                common_cfg,
+                cfg,
+                size_overrides_cfg['pp10x8'],
+                *basic_overrides,
+                {'train_with_ff': train_with_ff}
+            ), group='xp', package='_global_')
+    return xpns
+
 def register_configs():
     from hydra.core.config_store import ConfigStore
     from omegaconf import OmegaConf
@@ -169,13 +240,14 @@ def register_configs():
     from itertools import product
 
     cs = ConfigStore.instance()
-
+    xpns = []
     basic_overrides = [overrides_cfg[o] for o in ['no_norm', 'no_mix', 'relu_act']]
     for xp_name, cfg in cfgs.items():
-        cs.store(name=f'swath_calib_{xp_name}', node=OmegaConf.merge(
+        xpns.append(f'swath_calib_{xp_name}')
+        cs.store(name=xpns[-1], node=OmegaConf.merge(
             common_cfg,
             cfg,
-            size_overrides_cfg['pp20x8'],
+            size_overrides_cfg['pp10x8'],
             *basic_overrides,
         ), group='xp', package='_global_')
-    return list(map(lambda c: 'swath_calib_' + c, cfgs))
+    return xpns
