@@ -10,7 +10,7 @@ import solver as NN_4DVar
 import xarray as xr
 from metrics import save_netcdf, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, plot_ensemble, maps_score
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+from torch.nn.functional import interpolate
 class BiLinUnit(torch.nn.Module):
     def __init__(self, dim_in, dim_out, dim, dw, dw2, dropout=0.):
         super(BiLinUnit, self).__init__()
@@ -436,8 +436,8 @@ class LinUnit(torch.nn.Module):
         # self.bilin2 = torch.nn.Conv2d(dim, dim, (2 * dw2 + 1, 2 * dw2 + 1), padding=dw2, bias=False)
         self.dropout = torch.nn.Dropout(dropout)
 
-    def forward(self, xin):
-        x = self.conv1(xin)
+    def forward(self, x_in):
+        x = self.conv1(x_in)
         x = self.dropout(x)
         x = self.conv2(x)
         x = self.dropout(x)
@@ -461,21 +461,46 @@ class Encoder_OI_linear(torch.nn.Module):
             layers.append(LinUnit(dim_ae, dim_out, dim_ae, dw, dw2, dropout))
         return torch.nn.Sequential(*layers)
 
-    def forward(self, xinp):
-        x = self.nn(xinp)
+    def forward(self, x_in):
+        x = self.nn(x_in)
         return x
     
 
 #MULTI PRIOR SECTION
+class Weight_Network(torch.nn.Module):
+    def __init__(self, shape_data, nb_phi, dw):
+        super().__init__()
+        self.shape_data = shape_data
+        self.avg_pool_conv = torch.nn.Sequential(
+            DoubleConv(shape_data[0], shape_data[0]*2),
+            torch.nn.MaxPool2d(2),
+            DoubleConv(shape_data[0] * 2, shape_data[0] * 4),
+            torch.nn.MaxPool2d(2),
+            torch.nn.BatchNorm2d(shape_data[0] * 4),
+            DoubleConv(shape_data[0] * 4, shape_data[0] * 8),
+            torch.nn.MaxPool2d(2),
+            torch.nn.BatchNorm2d(shape_data[0] * 8),
+            torch.nn.Conv2d(shape_data[0] * 8, shape_data[0] * 16, (2 * dw + 1, 2 * dw + 1), padding=dw),
+            torch.nn.ReLU(True),
+            torch.nn.BatchNorm2d(shape_data[0] * 16),
+            torch.nn.Conv2d(shape_data[0] * 16, shape_data[0] * nb_phi, (2 * dw + 1, 2 * dw + 1), padding=dw),
+            torch.nn.Sigmoid()
+        )
+    def forward(self, x_in):
+        x_out  = self.avg_pool_conv(x_in)
+        #TODO need to make sure that this works for non-square windows
+        x_out = interpolate(x_out, (self.shape_data[1],self.shape_data[2]))
+        return x_out
+
+
 class Multi_Prior(torch.nn.Module):
     def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi=2, stochastic=False):
         super().__init__()
-        self.phi_list = self.get_phi_list(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi, stochastic)
-        self.weights = torch.nn.Conv2d(shape_data, shape_data * nb_phi, (2 * dw + 1, 2 * dw + 1), padding=dw, bias=False)
-        self.sigm = torch.nn.Sigmoid()
+        self.phi_list = self.get_phi_list(shape_data[0], DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi, stochastic)
+        self.weights = Weight_Network(shape_data, nb_phi, dw)
         self.nb_phi = nb_phi
         self.shape_data = shape_data
-
+    
     def get_phi_list(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi, stochastic=False):
         phi_list = []
         for i in range(nb_phi):
@@ -487,62 +512,28 @@ class Multi_Prior(torch.nn.Module):
         with torch.no_grad():
             x_in = x_in.to(x_in)
             self.weights = self.weights.to(x_in)
-            #Each element of these lists correspond to a phi
+            #Each element of these dicts correspond to a phi
             results_dict = {}
             weights_dict = {}
-            x_weights = self.sigm(self.weights(x_in)).detach().to('cpu')
+            x_weights = self.weights(x_in).detach().to('cpu')
             for idx, phi_r in enumerate(self.phi_list):
                 phi_r = phi_r.to(x_in)
-                start = idx * self.shape_data
-                stop = (idx + 1) * self.shape_data
+                start = idx * self.shape_data[0]
+                stop = (idx + 1) * self.shape_data[0]
                 weights_dict[f'phi{idx}_weight'] = x_weights[:,start:stop, :,:]
                 results_dict[f'phi{idx}_out'] =  phi_r(x_in).detach().to('cpu')
         return results_dict, weights_dict
         
 
-
-    # def make_snapshot(self, save_path, x_in,  gt, oi, pred, lon, lat, time,
-    #             time_units='days since 2012-10-01 00:00:00'):
-    #     phi_r_res = self.get_intermediate_results(x_in)
-    #     self.save_outputs(save_path, phi_r_res,  gt, oi, pred, lon, lat, time,
-    #             time_units)
-
-
-    # def save_outputs(self, save_path, phi_r_res,  gt, oi, pred, lon, lat, time,
-    #             time_units='days since 2012-10-01 00:00:00'):
-    #         '''
-    #         saved_path1: string
-    #         pred: 3d numpy array (4DVarNet-based predictions)
-    #         lon: 1d numpy array
-    #         lat: 1d numpy array
-    #         time: 1d array-like of time corresponding to the experiment
-    #         '''
-
-    #         mesh_lat, mesh_lon = np.meshgrid(lat, lon)
-    #         mesh_lat = mesh_lat.T
-    #         mesh_lon = mesh_lon.T
-
-    #         dt = pred.shape[1]
-    #         xrdata = xr.Dataset( \
-    #             data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
-    #                     'latitude': (('lat', 'lon'), mesh_lat), \
-    #                     'Time': (('time'), time), \
-    #                     'GT': (('time', 'lat', 'lon'), gt),
-    #                     'OI': (('time', 'lat', 'lon'), oi),
-    #                     '4DVarNet': (('time', 'lat', 'lon'), pred)}, \
-    #             coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred))})
-    #         xrdata.time.attrs['units'] = time_units
-    #         xrdata.to_netcdf(path=save_path, mode='w')
-
     def forward(self, x_in):
         x_out = torch.zeros_like(x_in).to(x_in)
         self.weights= self.weights.to(x_in)
-        x_weights = self.sigm(self.weights(x_in))
+        x_weights = self.weights(x_in)
         for idx, phi_r in enumerate(self.phi_list):
             #Get the indices corresponding to the weights for a given phi
             phi_r = phi_r.to(x_in)
-            start = idx * self.shape_data
-            stop = (idx + 1) * self.shape_data
+            start = idx * self.shape_data[0]
+            stop = (idx + 1) * self.shape_data[0]
             #Multiply the phi by its weights, add to final sum
-            x_out = torch.add(x_out, torch.matmul(phi_r(x_in), x_weights[:,start:stop, :,:]))
+            x_out = torch.add(x_out, torch.matmul( x_weights[:,start:stop, :,:],phi_r(x_in)))
         return x_out

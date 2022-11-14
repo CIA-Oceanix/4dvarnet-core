@@ -35,6 +35,7 @@ defaults:
   - /xp/base_xp
   - /splits/dc_boost_swot@datamodule
   - /xp/baseline/aug/without_aug_state
+  #- /xp/baseline/dl/d200_p200x5_s200x1
   - /xp/baseline/dl/d240_p240x5_s240x1
   - /xp/baseline/sst/with_sst
   - /xp/baseline/loss/map

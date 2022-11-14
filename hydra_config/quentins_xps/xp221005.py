@@ -25,7 +25,7 @@ cs.store(name='multi_prior', node={'model': 'multi_prior', 'nb_phi':2}, group='m
 
 model = {
     '4dvarnet_OI': '/model/4dvarnet_OI',
-    #'4dvarnet_OI_sst': '/model/4dvarnet_OI_sst',
+    '4dvarnet_OI_sst': '/model/4dvarnet_OI_sst',
     #'4dvarnet_UNet': '/model/4dvarnet_UNet', 
     #'4dvarnet_UNet_sst': '/model/4dvarnet_UNet_sst', 
     #'4dvarnet_UNet_dropout': '/model/4dvarnet_UNet_dropout',
@@ -49,8 +49,8 @@ aug = {
     'aug0': '/aug_data/0',
     #'aug1': '/aug_data/1',
     #'aug2': '/aug_data/2',
-    'aug3': '/aug_data/3',
-    #'aug8': '/aug_data/8',
+    #'aug3': '/aug_data/3',
+    'aug8': '/aug_data/8',
     #'aug10': '/aug_data/10',
 
 }
@@ -59,8 +59,8 @@ cs.store(name='2', node={'resize_factor': 2}, group='down_samp', package='datamo
 cs.store(name='1', node={'resize_factor': 1}, group='down_samp', package='datamodule')
 resize = {
     'ds4': '/down_samp/4',
-    'ds2': '/down_samp/2',
-    #'ds1': '/down_samp/1',
+    #'ds2': '/down_samp/2',
+    'ds1': '/down_samp/1',
 }
 
 cs.store(name='29_8', node={
@@ -82,7 +82,7 @@ dT = {
 
 for  defaults in product(
         [
-          #  ('sst', '/xp/qfebvre/xp_oi_sst'),
+          #('sst', '/xp/qfebvre/xp_oi_sst'),
             ('no_sst', '/xp/qfebvre/xp_oi_cnatl'),
         ],
         #training and test areas format trainArea_testArea

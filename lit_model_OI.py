@@ -100,7 +100,7 @@ def get_UNet_direct(hparams):
 
 def get_multi_prior(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
-                Multi_Prior(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                Multi_Prior(hparams.shape_state, hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                     hparams.nbBlocks, hparams.dropout_phi_r, hparams.nb_phi, hparams.stochastic),
                 Model_H(hparams.shape_state[0]),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
@@ -153,7 +153,7 @@ class LitModelOI(LitModelAugstate):
         opt = torch.optim.Adam
         if hasattr(self.hparams, 'opt'):
             opt = lambda p: hydra.utils.call(self.hparams.opt, p)
-        if self.model_name in ['4dvarnet_OI','4dvarnet_OI_linear', '4dvarnet_OI_sst', '4dvarnet_UNet','4dvarnet_UNet_sst']:
+        if self.model_name in ['4dvarnet_OI','4dvarnet_OI_linear', '4dvarnet_OI_sst', '4dvarnet_UNet','4dvarnet_UNet_sst', 'multi_prior']:
             optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
@@ -163,7 +163,7 @@ class LitModelOI(LitModelAugstate):
             optimizer = opt([{'params': self.model.phi_r.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]}
                 ])
-        elif self.model_name in [ 'UNet_direct','UNet_FP', 'phi_r_FP', 'multi_prior']:
+        elif self.model_name in [ 'UNet_direct','UNet_FP', 'phi_r_FP']:
             optimizer = opt([{'params': self.model.parameters(), 'lr': self.hparams.lr_update[0]}])
 
 

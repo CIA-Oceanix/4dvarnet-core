@@ -82,7 +82,8 @@ for  defaults in product(
         ],
         [
             # ('swot', '/xp/qfebvre/ds/clean_swot_oi_no_swot.yaml'),
-            ('4nad', '/xp/qfebvre/ds/four_nadirs_dc.yaml'),
+            ('swot_4nad', '/xp/qfebvre/ds/swot_four_nadirs_dc.yaml'),
+            #('4nad', '/xp/qfebvre/ds/four_nadirs_dc.yaml'),
             # ('5nad', '/xp/qfebvre/ds/five_nadirs.yaml'),
             # ('swot_w_oi', '/xp/qfebvre/ds/clean_swot_oi_w_swot.yaml'),
             # ('roll', '/xp/qfebvre/ds/new_noisy_swot_roll.yaml'),
