@@ -429,6 +429,11 @@ class Solver_Grad_4DVarNN(nn.Module):
         var_cost_grad = torch.autograd.grad(loss, x, create_graph=True)[0]
         return loss, var_cost_grad
 
+#Multi prior whose weight matrix depends on spatial coodinates
+# class MP_Solver_Grad_4dVarNN(Solver_Grad_4DVarNN):
+
+
+
 #FP solver class
 #Fixed Point solver for 4dVarnet
 class FP_Solver(nn.Module):

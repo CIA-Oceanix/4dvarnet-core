@@ -537,3 +537,52 @@ class Multi_Prior(torch.nn.Module):
             #Multiply the phi by its weights, add to final sum
             x_out = torch.add(x_out, torch.matmul( x_weights[:,start:stop, :,:],phi_r(x_in)))
         return x_out
+
+
+
+class Lat_Lon_Multi_Prior(torch.nn.Module):
+    def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi=2, stochastic=False):
+        super().__init__()
+        self.phi_list = self.get_phi_list(shape_data[0], DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi, stochastic)
+        self.weights = Weight_Network(shape_data, nb_phi, dw)
+        self.nb_phi = nb_phi
+        self.shape_data = shape_data
+    
+    def get_phi_list(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi, stochastic=False):
+        phi_list = []
+        for i in range(nb_phi):
+            phi_list.append(Phi_r_OI(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic))
+        return phi_list
+
+    #gives a list of outputs for the phis for validation step
+    def get_intermediate_results(self, x_in):
+        with torch.no_grad():
+            x_in = x_in.to(x_in)
+            self.weights = self.weights.to(x_in)
+            #Each element of these dicts correspond to a phi
+            results_dict = {}
+            weights_dict = {}
+            x_weights = self.weights(x_in).detach().to('cpu')
+            for idx, phi_r in enumerate(self.phi_list):
+                phi_r = phi_r.to(x_in)
+                start = idx * self.shape_data[0]
+                stop = (idx + 1) * self.shape_data[0]
+                weights_dict[f'phi{idx}_weight'] = x_weights[:,start:stop, :,:]
+                results_dict[f'phi{idx}_out'] =  phi_r(x_in).detach().to('cpu')
+        return results_dict, weights_dict
+        
+
+    def forward(self, x_in):
+        x_out = torch.zeros_like(x_in).to(x_in)
+        self.weights= self.weights.to(x_in)
+        x_weights = self.weights(x_in)
+        for idx, phi_r in enumerate(self.phi_list):
+            #Get the indices corresponding to the weights for a given phi
+            phi_r = phi_r.to(x_in)
+            start = idx * self.shape_data[0]
+            stop = (idx + 1) * self.shape_data[0]
+            #Multiply the phi by its weights, add to final sum
+            x_out = torch.add(x_out, torch.matmul( x_weights[:,start:stop, :,:],phi_r(x_in)))
+        return x_out
+
+        

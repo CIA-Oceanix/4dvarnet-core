@@ -5,6 +5,7 @@ import xarray as xr
 from torch.utils.data import Dataset, ConcatDataset, DataLoader
 import pandas as pd
 import contextlib
+#from memory_profiler import profile
 
 def parse_resolution_to_float(frac):
     """ Matches a string consting of an integer followed by either a divisor
@@ -52,6 +53,7 @@ class XrDataset(Dataset):
     """
     torch Dataset based on an xarray file with on the fly slicing.
     """
+    #@profile
     def __init__(
         self,
         path,

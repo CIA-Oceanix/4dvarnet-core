@@ -21,7 +21,7 @@ cs.store(name='4dvarnet_UNet_dropout', node={'model': '4dvarnet_UNet', 'UNet_shr
 #cs.store(name='UNet_FP', node={'model': '4dvarnet_UNet', 'shrink_factor':2}, group='model', package='params')
 cs.store(name='phi_r_FP', node={'model': 'phi_r_FP', 'n_grad':1}, group='model', package='params')
 cs.store(name='phi_r_direct', node={'model': 'phi_r_FP', 'n_grad':0}, group='model', package='params')
-cs.store(name='multi_prior', node={'model': 'multi_prior', 'nb_phi':2}, group='model', package='params')
+cs.store(name='multi_prior', node={'model': 'multi_prior', 'nb_phi':5}, group='model', package='params')
 
 model = {
     '4dvarnet_OI': '/model/4dvarnet_OI',
@@ -46,11 +46,11 @@ cs.store(name='8', node={'aug_train_data': 8}, group='aug_data', package='datamo
 cs.store(name='10', node={'aug_train_data': 10}, group='aug_data', package='datamodule')
 
 aug = {
-    'aug0': '/aug_data/0',
+    #'aug0': '/aug_data/0',
     #'aug1': '/aug_data/1',
     #'aug2': '/aug_data/2',
-    #'aug3': '/aug_data/3',
-    'aug8': '/aug_data/8',
+    'aug3': '/aug_data/3',
+    #'aug8': '/aug_data/8',
     #'aug10': '/aug_data/10',
 
 }
@@ -58,9 +58,9 @@ cs.store(name='4', node={'resize_factor': 4}, group='down_samp', package='datamo
 cs.store(name='2', node={'resize_factor': 2}, group='down_samp', package='datamodule')
 cs.store(name='1', node={'resize_factor': 1}, group='down_samp', package='datamodule')
 resize = {
-    'ds4': '/down_samp/4',
-    #'ds2': '/down_samp/2',
-    'ds1': '/down_samp/1',
+    #'ds4': '/down_samp/4',
+    'ds2': '/down_samp/2',
+    #'ds1': '/down_samp/1',
 }
 
 cs.store(name='29_8', node={
@@ -87,6 +87,7 @@ for  defaults in product(
         ],
         #training and test areas format trainArea_testArea
         [ ('cnatl2_x_cnatl2', '/xp/baseline/dl/dl_cnatl2'),
+            ('cnatl_no_crop', '/xp/baseline/dl/dl_cnatl2_no_crop'),
             ('cnatl2_gf2', '/xp/baseline/dl/dl_cnatl2_gf2'),
             ('cnatl2_osmosis','/xp/baseline/dl/dl_cnatl2_osmosis'),
             ('gf2_osmosis', '/xp/baseline/dl/dl_gf2_osmosis'),
