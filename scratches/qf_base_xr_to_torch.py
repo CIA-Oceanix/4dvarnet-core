@@ -29,7 +29,7 @@ class XrDataset(torch.utils.data.Dataset):
     def __init__(
             self, da, patch_dims, domain_limits=None, strides=None,
             check_full_scan=False, check_dim_order=False,
-            prepro_fn=None, postpro_fn=None
+            postpro_fn=None
             ):
         """
         da: xarray.DataArray with patch dims at the end in the dim orders
@@ -41,7 +41,6 @@ class XrDataset(torch.utils.data.Dataset):
         super().__init__()
         self.return_coords = False
         self.postpro_fn = postpro_fn
-        self.prepro_fn = prepro_fn
         self.da = da.sel(**(domain_limits or {}))
         self.patch_dims = patch_dims
         self.strides = strides or {}
@@ -103,8 +102,6 @@ class XrDataset(torch.utils.data.Dataset):
                                     np.unravel_index(item, tuple(self.ds_size.values())))
                 }
         item =  self.da.isel(**sl)
-        if self.prepro_fn is not None:
-            item = self.prepro_fn(item)
 
         if self.return_coords:
             return item.coords.to_dataset()[list(self.patch_dims)]
