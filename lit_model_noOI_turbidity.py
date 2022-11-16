@@ -53,7 +53,7 @@ class LitModelOI(LitModelAugstate):
     MODELS = {
             '4dvarnet_OI': get_4dvarnet_OI,
             '4dvarnet_OI_phir': get_4dvarnet_OI_phir,
-            '4dvarnet_OI_phir_Unet': get_4dvarnet_OI_phir_Unet,
+#            '4dvarnet_OI_phir_Unet': get_4dvarnet_OI_phir_Unet,
              }
 
     def __init__(self, *args, **kwargs):
