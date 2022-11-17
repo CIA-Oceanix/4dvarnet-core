@@ -42,7 +42,7 @@ cs.store(name='8', node={'aug_train_data': 8}, group='aug_data', package='datamo
 cs.store(name='10', node={'aug_train_data': 10}, group='aug_data', package='datamodule')
 
 aug = {
-    # 'aug0': '/aug_data/0',
+     'aug0': '/aug_data/0',
     #'aug1': '/aug_data/1',
     #'aug2': '/aug_data/2',
     # 'aug3': '/aug_data/3',
@@ -64,6 +64,14 @@ cs.store(name='29_8', node={
         'patch_size': '${datamodule.slice_win}',
         'crop': { 'time': 8, 'lat': '${div:20,${datamodule.resize_factor}}', 'lon':  '${div:20,${datamodule.resize_factor}}'}
     }, 'dT': 29, }, group='dT', package='params')
+
+cs.store(name='29_13_no_crop', node={
+    'patch_weight': {
+        '_target_': 'lit_model_augstate.get_constant_crop',
+        'patch_size': '${datamodule.slice_win}',
+        'crop': { 'time': 13, 'lat': '${div:0,${datamodule.resize_factor}}', 'lon':  '${div:0,${datamodule.resize_factor}}'}
+    }, 'dT': 29, }, group='dT', package='params')
+
 cs.store(name='29_13', node={
     'patch_weight': {
         '_target_': 'lit_model_augstate.get_constant_crop',
@@ -73,6 +81,7 @@ cs.store(name='29_13', node={
 dT = {
     # 'dT29_8': '/dT/29_8',
     'dT29_13': '/dT/29_13',
+    'dT29_13_no_crop': '/dT/29_13_no_crop',
 }
 
 for  defaults in product(

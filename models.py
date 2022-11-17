@@ -524,7 +524,6 @@ class Multi_Prior(torch.nn.Module):
                 results_dict[f'phi{idx}_out'] =  phi_r(x_in).detach().to('cpu')
         return results_dict, weights_dict
         
-
     def forward(self, x_in):
         x_out = torch.zeros_like(x_in).to(x_in)
         self.weights= self.weights.to(x_in)
@@ -540,22 +539,12 @@ class Multi_Prior(torch.nn.Module):
 
 
 
-class Lat_Lon_Multi_Prior(torch.nn.Module):
+class Lat_Lon_Multi_Prior(Multi_Prior):
     def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi=2, stochastic=False):
-        super().__init__()
-        self.phi_list = self.get_phi_list(shape_data[0], DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi, stochastic)
-        self.weights = Weight_Network(shape_data, nb_phi, dw)
-        self.nb_phi = nb_phi
-        self.shape_data = shape_data
+        super().__init__(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi=2, stochastic=False)
     
-    def get_phi_list(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi, stochastic=False):
-        phi_list = []
-        for i in range(nb_phi):
-            phi_list.append(Phi_r_OI(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic))
-        return phi_list
-
     #gives a list of outputs for the phis for validation step
-    def get_intermediate_results(self, x_in):
+    def get_intermediate_results(self, x_in, latitude, longitude):
         with torch.no_grad():
             x_in = x_in.to(x_in)
             self.weights = self.weights.to(x_in)
@@ -570,11 +559,20 @@ class Lat_Lon_Multi_Prior(torch.nn.Module):
                 weights_dict[f'phi{idx}_weight'] = x_weights[:,start:stop, :,:]
                 results_dict[f'phi{idx}_out'] =  phi_r(x_in).detach().to('cpu')
         return results_dict, weights_dict
-        
-
-    def forward(self, x_in):
+    
+    def forward(self, x_in, latitude, longitude):
         x_out = torch.zeros_like(x_in).to(x_in)
         self.weights= self.weights.to(x_in)
+        latitude = torch.unsqueeze(torch.flip(latitude, [1]), 2)
+        latitude = torch.tile(latitude, (1, 1, self.shape_data[2]))
+        print('longitude', longitude)
+        print('longitude shape', longitude.shape)
+        longitude = torch.tile(longitude, (1, self.shape_data[1], 1))
+        print('longitude', longitude)
+        print('longitude shape', longitude.shape)
+        lat_lon_stack = torch.stack((latitude, longitude))
+        # print('X_IN SHAPE', x_in.shape)
+        # print('NEW SHAPE', lat_lon_stack.shape)
         x_weights = self.weights(x_in)
         for idx, phi_r in enumerate(self.phi_list):
             #Get the indices corresponding to the weights for a given phi

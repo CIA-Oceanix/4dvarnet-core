@@ -5,6 +5,8 @@ import xarray as xr
 from torch.utils.data import Dataset, ConcatDataset, DataLoader
 import pandas as pd
 import contextlib
+from hydra.utils import get_class, instantiate, call
+
 #from memory_profiler import profile
 
 def parse_resolution_to_float(frac):
@@ -396,10 +398,193 @@ class FourDVarNetDataset(Dataset):
 
             return oi_item, obs_mask_item, obs_item, gt_item, sst_item
 
+#This is the dataset for the multi-prior 4dVarNet Model that calculates the weight matrix based on latitude and longitude
+class FourDVarNetDatasetMultiPrior(Dataset):
+    """
+    Dataset for the multi prior 4DVARNET method:
+        an item contains a slice of OI, mask, latitude, longitude and GT
+        does the preprocessing for the item
+    """
+
+    def __init__(
+        self,
+        slice_win,
+        dim_range=None,
+        strides=None,
+        oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc',
+        oi_var='ssh_mod',
+        oi_decode=False,
+        obs_mask_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_nadir_0d_swot.nc',
+        obs_mask_var='ssh_mod',
+        obs_mask_decode=False,
+        gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
+        gt_var='ssh',
+        gt_decode=True,
+        sst_path=None,
+        sst_var=None,
+        sst_decode=True,
+        resolution=1/20,
+        resize_factor=1,
+        use_auto_padding=False,
+        aug_train_data=False,
+        compute=False,
+        pp='std',
+    ):
+        super().__init__()
+
+        self.use_auto_padding=use_auto_padding
+
+        self.aug_train_data = aug_train_data
+        self.return_coords = False
+        self.pp=pp
+        self.dim_range = dim_range
+        self.gt_ds = XrDataset(
+            gt_path, gt_var,
+            slice_win=slice_win,
+            resolution=resolution,
+            dim_range=dim_range,
+            strides=strides,
+            decode=gt_decode,
+            resize_factor=resize_factor,
+            compute=compute,
+            auto_padding=use_auto_padding,
+            interp_na=True,
+        )
+        self.obs_mask_ds = XrDataset(
+            obs_mask_path, obs_mask_var,
+            slice_win=slice_win,
+            resolution=resolution,
+            dim_range=dim_range,
+            strides=strides,
+            decode=obs_mask_decode,
+            resize_factor=resize_factor,
+            compute=compute,
+            auto_padding=use_auto_padding,
+        )
+
+        self.oi_ds = XrDataset(
+            oi_path, oi_var,
+            slice_win=slice_win,
+            resolution=resolution,
+            dim_range=dim_range,
+            strides=strides,
+            decode=oi_decode,
+            resize_factor=resize_factor,
+            compute=compute,
+            auto_padding=use_auto_padding,
+            interp_na=True,
+        )
+
+        if sst_var is not None:
+            self.sst_ds = XrDataset(
+                sst_path, sst_var,
+                slice_win=slice_win,
+                resolution=resolution,
+                dim_range=dim_range,
+                strides=strides,
+                decode=sst_decode,
+                resize_factor=resize_factor,
+                compute=compute,
+                auto_padding=use_auto_padding,
+                interp_na=True,
+            )
+        else:
+            self.sst_ds = None
+
+        if self.aug_train_data:
+            self.perm = np.random.permutation(len(self.obs_mask_ds))
+
+        self.norm_stats = (0, 1)
+        self.norm_stats_sst = (0, 1)
+
+    def set_norm_stats(self, stats, stats_sst=None):
+        self.norm_stats = stats
+        self.norm_stats_sst = stats_sst
+
+    def __len__(self):
+        length = min(len(self.oi_ds), len(self.gt_ds), len(self.obs_mask_ds))
+        if self.aug_train_data:
+            factor = int(self.aug_train_data) + 1
+            return factor * length
+        return length
+
+    def coordXY(self):
+        # return self.gt_ds.lon, self.gt_ds.lat
+        return self.gt_ds.ds.lon.data, self.gt_ds.ds.lat.data
+
+    @contextlib.contextmanager
+    def get_coords(self):
+        try:
+            self.return_coords = True
+            yield
+        finally:
+            self.return_coords = False
+
+    def get_pp(self, normstats):
+        bias, scale = normstats
+        return lambda t: (t-bias)/scale
+
+    def __getitem__(self, item):
+        if self.return_coords:
+            with self.gt_ds.get_coords():
+                return self.gt_ds[item]
+        pp = self.get_pp(self.norm_stats)
+        length = len(self.obs_mask_ds)
+        if item < length:
+            _oi_item = self.oi_ds[item]
+            _obs_item = pp(self.obs_mask_ds[item])
+            _gt_item = pp(self.gt_ds[item])
+        else:
+            _oi_item = self.oi_ds[item % length]
+            _gt_item = pp(self.gt_ds[item % length])
+            nperm  = item // length
+            pitem = item % length
+            for _ in range(nperm):
+                pitem = self.perm[pitem]
+            _obs_mask_item = self.obs_mask_ds[pitem]
+            obs_mask_item = ~np.isnan(_obs_mask_item)
+            _obs_item = np.where(obs_mask_item, _gt_item, np.full_like(_gt_item,np.nan))
+
+        _oi_item = pp(np.where(
+            np.abs(_oi_item) < 10,
+            _oi_item,
+            np.nan,
+        ))
+        
+        # glorys model has NaNs on land
+        gt_item = _gt_item
+        oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
+        # obs_mask_item = self.obs_mask_ds[item].astype(bool) & ~np.isnan(oi_item) & ~np.isnan(_gt_item)
+        with self.gt_ds.get_coords():
+                        _item_coords = self.gt_ds[item % length]
+                        lat_item = np.float32( _item_coords['lat'] )
+                        lon_item = np.float32( _item_coords['lon'] )
+                        #normalizing the data
+                        #We are using the entire domain for normalization to keep consistency between the patches
+                        lat_start = self.dim_range['lat'].start
+                        lat_stop = self.dim_range['lat'].stop
+                        lon_start = self.dim_range['lon'].start
+                        lon_stop = self.dim_range['lon'].stop
+                        #shift to 0, scale so it is in between 1 and 0
+                        lat_item = (lat_item - lat_start)/np.abs(lat_stop-lat_start)
+                        lon_item = (lon_item - lon_start)/np.abs(lon_stop-lon_start)
+
+        obs_mask_item = ~np.isnan(_obs_item)
+        obs_item = np.where(~np.isnan(_obs_item), _obs_item, np.zeros_like(_obs_item))
+        if self.sst_ds == None:
+            return oi_item, obs_mask_item, obs_item, gt_item, lat_item, lon_item
+        else:
+            pp_sst = self.get_pp(self.norm_stats_sst)
+            _sst_item = pp_sst(self.sst_ds[item % length])
+            sst_item = np.where(~np.isnan(_sst_item), _sst_item, 0.)
+            return oi_item, obs_mask_item, obs_item, gt_item,lat_item, lon_item, sst_item
+
+
 class FourDVarNetDataModule(pl.LightningDataModule):
     def __init__(
             self,
             slice_win,
+            dataset_class,
             dim_range=None,
             strides=None,
             train_slices= (slice('2012-10-01', "2012-11-20"), slice('2013-02-07', "2013-09-30")),
@@ -423,7 +608,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             dl_kwargs=None,
             compute=False,
             use_auto_padding=False,
-            pp='std'
+            pp='std',
     ):
         super().__init__()
         self.resize_factor = resize_factor
@@ -458,6 +643,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.train_ds, self.val_ds, self.test_ds = None, None, None
         self.norm_stats = (0, 1)
         self.norm_stats_sst = None
+
+        self.dataset_class = dataset_class #determines which dataset class to use (default is FourDVarNetDataset)
 
 
     def mean_stds(self, ds):
@@ -528,8 +715,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         return self.test_ds.datasets[0].gt_ds.ds_size
 
     def setup(self, stage=None):
+
         self.train_ds = ConcatDataset(
-            [FourDVarNetDataset(
+            [self.dataset_class(
                 dim_range={**self.dim_range, **{'time': sl}},
                 strides=self.strides,
                 slice_win=self.slice_win,
@@ -551,11 +739,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 compute=self.compute,
                 pp=self.pp,
             ) for sl in self.train_slices])
-
-
         self.val_ds, self.test_ds = [
             ConcatDataset(
-                [FourDVarNetDataset(
+                [self.dataset_class(
                     dim_range={**self.dim_range, **{'time': sl}},
                     strides=self.strides,
                     slice_win=self.slice_win,
@@ -580,7 +766,6 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             )
             for slices in (self.val_slices, self.test_slices)
         ]
-
         if self.sst_var is None:
             self.norm_stats = self.compute_norm_stats(self.train_ds)
             self.set_norm_stats(self.train_ds, self.norm_stats)

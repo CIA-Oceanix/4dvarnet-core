@@ -20,7 +20,7 @@ import solver as NN_4DVar
 import metrics
 from metrics import (save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, 
 plot_mse, plot_snr, plot_maps_oi, animate_maps, get_psd_score)
-from models import Model_H, Model_HwithSST, Phi_r_OI,Phi_r_OI_linear, Gradient_img, UNet, Phi_r_UNet, Multi_Prior
+from models import Model_H, Model_HwithSST, Phi_r_OI,Phi_r_OI_linear, Gradient_img, UNet, Phi_r_UNet, Multi_Prior, Lat_Lon_Multi_Prior
 from lit_model_augstate import LitModelAugstate
 
 
@@ -107,7 +107,7 @@ def get_multi_prior(hparams):
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
 def get_lat_lon_multi_prior(hparams):
-    return NN_4DVar.Solver_Grad_4DVarNN(
+    return NN_4DVar.Solver_Grad_4DVarNN_Lat_Lon(
                 Lat_Lon_Multi_Prior(hparams.shape_state, hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                     hparams.nbBlocks, hparams.dropout_phi_r, hparams.nb_phi, hparams.stochastic),
                 Model_H(hparams.shape_state[0]),
@@ -185,11 +185,18 @@ class LitModelOI(LitModelAugstate):
             self.log(f'{log_pref}_mse', metrics[-1]["mse"] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
         inp_masker = (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr
-        if self.model_name =='multi_prior':
+        if self.model_name in ['multi_prior', 'lat_lon_multi_prior']:
+
+
             #adding model weights and phi outputs to test outputs
             #Getting the state from the batch
-            _loss, out, state, _metrics = self.compute_loss(batch, phase='test', state_init=[None])
-            results, weights = self.model.phi_r.get_intermediate_results(state[0].detach())
+            if self.model_name in ['lat_lon_multi_prior']:
+                oi, inputs_Mask, inputs_obs, targets_GT, latitude, longitude, *_= batch
+                _loss, out, state, _metrics = self.compute_loss(batch, phase='test', state_init=[None])
+                results, weights = self.model.phi_r.get_intermediate_results(state[0].detach(), latitude, longitude)
+            else:
+                _loss, out, state, _metrics = self.compute_loss(batch, phase='test', state_init=[None])
+                results, weights = self.model.phi_r.get_intermediate_results(state[0].detach())
             return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'oi'    : (oi.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
@@ -207,7 +214,6 @@ class LitModelOI(LitModelAugstate):
 
     def sla_diag(self, t_idx=3, log_pref='test'):
         path_save0 = self.logger.log_dir + '/maps.png'
-        print('### X GT', self.x_gt)
         fig_maps = plot_maps_oi(
                   self.x_gt[t_idx],
                 self.obs_inp[t_idx],
@@ -249,7 +255,6 @@ class LitModelOI(LitModelAugstate):
         return md
 
     def diag_epoch_end(self, outputs, log_pref='test'):
-        print('#######OUTPUTS', torch.isnan(outputs[0]['pred']).any())
         full_outputs = self.gather_outputs(outputs, log_pref=log_pref)
         if full_outputs is None:
             print("full_outputs is None on ", self.global_rank)
@@ -293,22 +298,34 @@ class LitModelOI(LitModelAugstate):
         init_state = inputs_Mask * inputs_obs
         return init_state
 
-    def loss_ae(self, state_out):
+    def loss_ae(self, state_out, latitude=None, longitude=None):
         #Ignore autoencoder loss for fixed point solver
         if self.model_name in ['UNet_FP']:
             return 0.
+        elif self.model_name in ['lat_lon_multi_prior']:
+            return torch.mean((self.model.phi_r(state_out, latitude, longitude) - state_out) ** 2)
         else: 
             #same as in lit_model_augstate
             return torch.mean((self.model.phi_r(state_out) - state_out) ** 2)
 
     def compute_loss(self, batch, phase, state_init=(None,)):
+        if self.model_name in ['lat_lon_multi_prior']:
+             #Latitude and longitude are used for the weight matrix for the multi-prior
+            if self.use_sst:
+                _, inputs_Mask, inputs_obs, targets_GT, latitude, longitude, sst_gt = batch
+    
+            else:
+                _, inputs_Mask, inputs_obs, targets_GT, latitude, longitude = batch
 
-
-        if not self.use_sst:
-            _, inputs_Mask, inputs_obs, targets_GT = batch
         else:
-            _, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
-        
+            latitude = None
+            longitude = None #Passed to loss AE
+            if self.use_sst:
+                _, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
+    
+            else:
+                _, inputs_Mask, inputs_obs, targets_GT = batch
+                
  
 
         # handle patch with no observation
@@ -341,13 +358,16 @@ class LitModelOI(LitModelAugstate):
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
             state = torch.autograd.Variable(state, requires_grad=True)
-            outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
+            if self.model_name in ['lat_lon_multi_prior']:
+                outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, latitude, longitude, *state_init[1:])
+            else:
+                outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
 
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
 
             loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
-            loss_AE = self.loss_ae(outputs)
+            loss_AE = self.loss_ae(outputs, latitude, longitude)
 
             # total loss
             loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
