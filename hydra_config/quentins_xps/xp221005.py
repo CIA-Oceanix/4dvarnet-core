@@ -58,7 +58,7 @@ aug = {
     #'aug1': '/aug_data/1',
     #'aug2': '/aug_data/2',
     #'aug3': '/aug_data/3',
-    #'aug8': '/aug_data/8',
+    'aug8': '/aug_data/8',
     #'aug10': '/aug_data/10',
 
 }
@@ -66,9 +66,9 @@ cs.store(name='4', node={'resize_factor': 4}, group='down_samp', package='datamo
 cs.store(name='2', node={'resize_factor': 2}, group='down_samp', package='datamodule')
 cs.store(name='1', node={'resize_factor': 1}, group='down_samp', package='datamodule')
 resize = {
-    'ds4': '/down_samp/4',
+    #'ds4': '/down_samp/4',
     #'ds2': '/down_samp/2',
-    #'ds1': '/down_samp/1',
+    'ds1': '/down_samp/1',
 }
 
 cs.store(name='29_8', node={
@@ -105,13 +105,13 @@ for  defaults in product(
             
         ],
         #training and test areas format trainArea_testArea
-        [ ('cnatl2_x_cnatl2', '/xp/baseline/dl/dl_cnatl2'),
+        [ #('cnatl2_x_cnatl2', '/xp/baseline/dl/dl_cnatl2'),
             ('cnatl_no_crop', '/xp/baseline/dl/dl_cnatl2_no_crop'),
             ('cnatl2_gf2', '/xp/baseline/dl/dl_cnatl2_gf2'),
             ('cnatl2_osmosis','/xp/baseline/dl/dl_cnatl2_osmosis'),
             ('gf2_osmosis', '/xp/baseline/dl/dl_gf2_osmosis'),
             ('osmosis_osmosis', '/xp/baseline/dl/dl_osmosis'),
-            ('osmosis_x_osmosis', '/xp/baseline/dl/dl_osmosis_crop'),
+           # ('osmosis_x_osmosis', '/xp/baseline/dl/dl_osmosis_crop'),
             ('osmosis2_osmosis2', '/xp/baseline/dl/dl_osmosis2'),
             ('gf_gf', '/xp/baseline/dl/d200_p200x5_s200x1'),
             ('gfx_gf','/xp/baseline/dl/d240_p240x5_s240x1')],
