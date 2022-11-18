@@ -471,14 +471,28 @@ class Weight_Network(torch.nn.Module):
     def __init__(self, shape_data, nb_phi, dw):
         super().__init__()
         self.shape_data = shape_data
+        # self.avg_pool_conv = torch.nn.Sequential(
+        #     DoubleConv(shape_data[0], shape_data[0]*2),
+        #     torch.nn.AvgPool2d(2),
+        #     torch.nn.BatchNorm2d(shape_data[0] * 2),
+        #     DoubleConv(shape_data[0] * 2, shape_data[0] * 4), #From DoubleConv from the UNet section
+        #     torch.nn.AvgPool2d(2),
+        #     torch.nn.BatchNorm2d(shape_data[0] * 4),
+        #     torch.nn.Conv2d(shape_data[0] * 4, shape_data[0] * 8, (2 * dw + 1, 2 * dw + 1), padding=dw),
+        #     torch.nn.ReLU(True),
+        #     torch.nn.BatchNorm2d(shape_data[0] * 8),
+        #     torch.nn.Conv2d(shape_data[0] * 8, shape_data[0] * nb_phi, (2 * dw + 1, 2 * dw + 1), padding=dw),
+        #     torch.nn.Sigmoid()
+        # )
         self.avg_pool_conv = torch.nn.Sequential(
             DoubleConv(shape_data[0], shape_data[0]*2),
-            torch.nn.MaxPool2d(2),
-            DoubleConv(shape_data[0] * 2, shape_data[0] * 4),
-            torch.nn.MaxPool2d(2),
+            torch.nn.AvgPool2d(2),
+            torch.nn.BatchNorm2d(shape_data[0] * 2),
+            DoubleConv(shape_data[0] * 2, shape_data[0] * 4), #From DoubleConv from the UNet section
+            torch.nn.AvgPool2d(2),
             torch.nn.BatchNorm2d(shape_data[0] * 4),
             DoubleConv(shape_data[0] * 4, shape_data[0] * 8),
-            torch.nn.MaxPool2d(2),
+            torch.nn.AvgPool2d(2),
             torch.nn.BatchNorm2d(shape_data[0] * 8),
             torch.nn.Conv2d(shape_data[0] * 8, shape_data[0] * 16, (2 * dw + 1, 2 * dw + 1), padding=dw),
             torch.nn.ReLU(True),
@@ -489,10 +503,11 @@ class Weight_Network(torch.nn.Module):
     def forward(self, x_in):
         x_out  = self.avg_pool_conv(x_in)
         #TODO need to make sure that this works for non-square windows
-        x_out = interpolate(x_out, (self.shape_data[1],self.shape_data[2]))
+        x_out = interpolate(x_out, (self.shape_data[2],self.shape_data[1]))
+        #x_out = interpolate(x_out, (self.shape_data[2],self.shape_data[1]), mode='bilinear', align_corners=True)
         return x_out
 
-
+#Multi prior that uses the state to calculate the weights
 class Multi_Prior(torch.nn.Module):
     def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi=2, stochastic=False):
         super().__init__()
@@ -534,7 +549,7 @@ class Multi_Prior(torch.nn.Module):
             start = idx * self.shape_data[0]
             stop = (idx + 1) * self.shape_data[0]
             #Multiply the phi by its weights, add to final sum
-            x_out = torch.add(x_out, torch.matmul( x_weights[:,start:stop, :,:],phi_r(x_in)))
+            x_out = torch.add(x_out, torch.mul( x_weights[:,start:stop, :,:],phi_r(x_in)))
         return x_out
 
 
@@ -563,13 +578,13 @@ class Lat_Lon_Multi_Prior(Multi_Prior):
     def forward(self, x_in, latitude, longitude):
         x_out = torch.zeros_like(x_in).to(x_in)
         self.weights= self.weights.to(x_in)
-        latitude = torch.unsqueeze(torch.flip(latitude, [1]), 2)
-        latitude = torch.tile(latitude, (1, 1, self.shape_data[2]))
-        print('longitude', longitude)
-        print('longitude shape', longitude.shape)
-        longitude = torch.tile(longitude, (1, self.shape_data[1], 1))
-        print('longitude', longitude)
-        print('longitude shape', longitude.shape)
+        # latitude = torch.unsqueeze(torch.flip(latitude, [1]), 2)
+        # latitude = torch.tile(latitude, (1, 1, self.shape_data[2]))
+        # print('longitude', longitude)
+        # print('longitude shape', longitude.shape)
+        # longitude = torch.tile(longitude, (1, self.shape_data[1], 1))
+        # print('longitude', longitude)
+        # print('longitude shape', longitude.shape)
         lat_lon_stack = torch.stack((latitude, longitude))
         # print('X_IN SHAPE', x_in.shape)
         # print('NEW SHAPE', lat_lon_stack.shape)
@@ -580,7 +595,7 @@ class Lat_Lon_Multi_Prior(Multi_Prior):
             start = idx * self.shape_data[0]
             stop = (idx + 1) * self.shape_data[0]
             #Multiply the phi by its weights, add to final sum
-            x_out = torch.add(x_out, torch.matmul( x_weights[:,start:stop, :,:],phi_r(x_in)))
+            x_out = torch.add(x_out, torch.mul( x_weights[:,start:stop, :,:],phi_r(x_in)))
         return x_out
 
         

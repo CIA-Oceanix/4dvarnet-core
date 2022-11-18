@@ -399,7 +399,7 @@ class FourDVarNetDataset(Dataset):
             return oi_item, obs_mask_item, obs_item, gt_item, sst_item
 
 #This is the dataset for the multi-prior 4dVarNet Model that calculates the weight matrix based on latitude and longitude
-class FourDVarNetDatasetMultiPrior(Dataset):
+class FourDVarNetDatasetLatLon(Dataset):
     """
     Dataset for the multi prior 4DVARNET method:
         an item contains a slice of OI, mask, latitude, longitude and GT
@@ -429,11 +429,12 @@ class FourDVarNetDatasetMultiPrior(Dataset):
         aug_train_data=False,
         compute=False,
         pp='std',
+        tile_latlon = True
     ):
         super().__init__()
-
+        self.slice_win = slice_win
         self.use_auto_padding=use_auto_padding
-
+        self.tile_latlon = tile_latlon
         self.aug_train_data = aug_train_data
         self.return_coords = False
         self.pp=pp
@@ -568,6 +569,14 @@ class FourDVarNetDatasetMultiPrior(Dataset):
                         #shift to 0, scale so it is in between 1 and 0
                         lat_item = (lat_item - lat_start)/np.abs(lat_stop-lat_start)
                         lon_item = (lon_item - lon_start)/np.abs(lon_stop-lon_start)
+
+                        if self.tile_latlon:
+                            #lat item is repeated columns of the lat coordinate
+                            lat_item = np.tile(np.flip(lat_item), (self.slice_win['lon'], 1)).T
+                            #lon item is repeated rows of the lon coordinate
+                            lon_item = np.tile(lon_item, (self.slice_win['lat'], 1))
+
+
 
         obs_mask_item = ~np.isnan(_obs_item)
         obs_item = np.where(~np.isnan(_obs_item), _obs_item, np.zeros_like(_obs_item))
