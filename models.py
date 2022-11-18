@@ -468,38 +468,25 @@ class Encoder_OI_linear(torch.nn.Module):
 
 #MULTI PRIOR SECTION
 class Weight_Network(torch.nn.Module):
-    def __init__(self, shape_data, nb_phi, dw):
+    def __init__(self, shape_data, nb_phi, dw, in_channels):
         super().__init__()
         self.shape_data = shape_data
-        # self.avg_pool_conv = torch.nn.Sequential(
-        #     DoubleConv(shape_data[0], shape_data[0]*2),
-        #     torch.nn.AvgPool2d(2),
-        #     torch.nn.BatchNorm2d(shape_data[0] * 2),
-        #     DoubleConv(shape_data[0] * 2, shape_data[0] * 4), #From DoubleConv from the UNet section
-        #     torch.nn.AvgPool2d(2),
-        #     torch.nn.BatchNorm2d(shape_data[0] * 4),
-        #     torch.nn.Conv2d(shape_data[0] * 4, shape_data[0] * 8, (2 * dw + 1, 2 * dw + 1), padding=dw),
-        #     torch.nn.ReLU(True),
-        #     torch.nn.BatchNorm2d(shape_data[0] * 8),
-        #     torch.nn.Conv2d(shape_data[0] * 8, shape_data[0] * nb_phi, (2 * dw + 1, 2 * dw + 1), padding=dw),
-        #     torch.nn.Sigmoid()
-        # )
+
         self.avg_pool_conv = torch.nn.Sequential(
-            DoubleConv(shape_data[0], shape_data[0]*2),
+            DoubleConv(in_channels, in_channels*2),
             torch.nn.AvgPool2d(2),
-            torch.nn.BatchNorm2d(shape_data[0] * 2),
-            DoubleConv(shape_data[0] * 2, shape_data[0] * 4), #From DoubleConv from the UNet section
+            torch.nn.BatchNorm2d(in_channels * 2),
+            DoubleConv(in_channels * 2, in_channels * 4), #From DoubleConv from the UNet section
             torch.nn.AvgPool2d(2),
-            torch.nn.BatchNorm2d(shape_data[0] * 4),
-            DoubleConv(shape_data[0] * 4, shape_data[0] * 8),
-            torch.nn.AvgPool2d(2),
-            torch.nn.BatchNorm2d(shape_data[0] * 8),
-            torch.nn.Conv2d(shape_data[0] * 8, shape_data[0] * 16, (2 * dw + 1, 2 * dw + 1), padding=dw),
+            torch.nn.BatchNorm2d(in_channels * 4),
+            torch.nn.Conv2d(in_channels * 4, in_channels* 8, (2 * dw + 1, 2 * dw + 1), padding=dw),
             torch.nn.ReLU(True),
-            torch.nn.BatchNorm2d(shape_data[0] * 16),
-            torch.nn.Conv2d(shape_data[0] * 16, shape_data[0] * nb_phi, (2 * dw + 1, 2 * dw + 1), padding=dw),
+            torch.nn.BatchNorm2d(in_channels * 8),
+            #changes channels to number of days * number of priors
+            torch.nn.Conv2d(in_channels * 8, shape_data[0] * nb_phi, (2 * dw + 1, 2 * dw + 1), padding=dw),
             torch.nn.Sigmoid()
         )
+
     def forward(self, x_in):
         x_out  = self.avg_pool_conv(x_in)
         #TODO need to make sure that this works for non-square windows
@@ -512,7 +499,7 @@ class Multi_Prior(torch.nn.Module):
     def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi=2, stochastic=False):
         super().__init__()
         self.phi_list = self.get_phi_list(shape_data[0], DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi, stochastic)
-        self.weights = Weight_Network(shape_data, nb_phi, dw)
+        self.weights = Weight_Network(shape_data, nb_phi, dw, shape_data[0])
         self.nb_phi = nb_phi
         self.shape_data = shape_data
     
@@ -557,6 +544,7 @@ class Multi_Prior(torch.nn.Module):
 class Lat_Lon_Multi_Prior(Multi_Prior):
     def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi=2, stochastic=False):
         super().__init__(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi=2, stochastic=False)
+        self.weights = Weight_Network(shape_data, nb_phi, dw, 2)
     
     #gives a list of outputs for the phis for validation step
     def get_intermediate_results(self, x_in, latitude, longitude):
@@ -566,7 +554,8 @@ class Lat_Lon_Multi_Prior(Multi_Prior):
             #Each element of these dicts correspond to a phi
             results_dict = {}
             weights_dict = {}
-            x_weights = self.weights(x_in).detach().to('cpu')
+            lat_lon_stack = torch.stack((latitude, longitude))
+            x_weights = self.weights(lat_lon_stack).detach().to('cpu')
             for idx, phi_r in enumerate(self.phi_list):
                 phi_r = phi_r.to(x_in)
                 start = idx * self.shape_data[0]
@@ -578,17 +567,8 @@ class Lat_Lon_Multi_Prior(Multi_Prior):
     def forward(self, x_in, latitude, longitude):
         x_out = torch.zeros_like(x_in).to(x_in)
         self.weights= self.weights.to(x_in)
-        # latitude = torch.unsqueeze(torch.flip(latitude, [1]), 2)
-        # latitude = torch.tile(latitude, (1, 1, self.shape_data[2]))
-        # print('longitude', longitude)
-        # print('longitude shape', longitude.shape)
-        # longitude = torch.tile(longitude, (1, self.shape_data[1], 1))
-        # print('longitude', longitude)
-        # print('longitude shape', longitude.shape)
         lat_lon_stack = torch.stack((latitude, longitude))
-        # print('X_IN SHAPE', x_in.shape)
-        # print('NEW SHAPE', lat_lon_stack.shape)
-        x_weights = self.weights(x_in)
+        x_weights = self.weights(lat_lon_stack)
         for idx, phi_r in enumerate(self.phi_list):
             #Get the indices corresponding to the weights for a given phi
             phi_r = phi_r.to(x_in)
