@@ -13,7 +13,7 @@ params:
       lon: ${div:0,${datamodule.resize_factor}}
       time: 0
   k_n_grad: 3
-  n_grad: 5
+  n_grad: 0
   val_diag_freq: 5
   padding_mode: reflect
   alpha_mse_ssh: 50. # loss
