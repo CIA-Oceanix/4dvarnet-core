@@ -1,4 +1,4 @@
 natl_ssh_daily: /gpfswork/rech/yrf/commun/data_turbidity/GT_FrMedCoast_2019_2020_2021_log10.nc
 #~ natl_sst_daily: /gpfswork/rech/yrf/commun/data_turbidity/GT_FrMedCoast_2019_2020_2021_log10.nc
 oi_swot_4nadir: /gpfswork/rech/yrf/commun/data_turbidity/GT_FrMedCoast_2019_2020_2021_log10.nc
-pseudo_obs: /gpfswork/rech/yrf/commun/data_turbidity/Obs_rand_FrMedCoast_2019_2020_2021_log10.nc
+pseudo_obs: /gpfswork/rech/yrf/commun/data_turbidity/Obs_patch_FrMedCoast_2019_2020_2021_log10.nc

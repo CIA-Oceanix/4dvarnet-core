@@ -1,9 +1,9 @@
 # @package _global_
 
-xp_name: xp_turbidity_rf4_dt29
+xp_name: xp_turbidity_rf1_dt29_unet
 
 params:
-  model: 4dvarnet_OI
+  model: 4dvarnet_OI_unet
   dT: 29
   patch_weight:
     _target_: lit_model_augstate.get_constant_crop
@@ -11,7 +11,7 @@ params:
     crop: 
       lat: ${div:0,${datamodule.resize_factor}}
       lon: ${div:0,${datamodule.resize_factor}}
-      time: 2
+      time: 0
   k_n_grad: 3
   n_grad: 5
   val_diag_freq: 5
@@ -36,11 +36,6 @@ params:
     - ${datamodule.slice_win.lon}
     - ${datamodule.slice_win.lat}
     
-  #files_cfg:
-    #oi_var: bbp443
-    #obs_mask_var: bbp443
-    #gt_var: bbp443
-    
   animate: true
   
 entrypoint:
@@ -51,7 +46,7 @@ lit_mod_cls: lit_model_noOI_turbidity.LitModelOI
 
 datamodule:
   _target_: dataloading.FourDVarNetDataModule
-  resize_factor: 4
+  resize_factor: 1
     
   dim_range:
     lat:

@@ -11,7 +11,7 @@ params:
     crop: 
       lat: ${div:0,${datamodule.resize_factor}}
       lon: ${div:0,${datamodule.resize_factor}}
-      time: 2
+      time: 0
   k_n_grad: 3
   n_grad: 5
   val_diag_freq: 5
@@ -35,11 +35,6 @@ params:
     - ${datamodule.slice_win.time}
     - ${datamodule.slice_win.lon}
     - ${datamodule.slice_win.lat}
-    
-  #files_cfg:
-    #oi_var: bbp443
-    #obs_mask_var: bbp443
-    #gt_var: bbp443
     
   animate: true
   
