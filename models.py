@@ -527,6 +527,7 @@ class Multi_Prior(torch.nn.Module):
         return results_dict, weights_dict
         
     def forward(self, x_in):
+        print('###X_IN SHAPE', x_in.shape)
         x_out = torch.zeros_like(x_in).to(x_in)
         self.weights= self.weights.to(x_in)
         x_weights = self.weights(x_in)
@@ -543,7 +544,8 @@ class Multi_Prior(torch.nn.Module):
 
 class Lat_Lon_Multi_Prior(Multi_Prior):
     def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi=2, stochastic=False):
-        super().__init__(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi=2, stochastic=False)
+        print('####NB PHI', nb_phi)
+        super().__init__(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi, stochastic=False)
         self.weights = Weight_Network(shape_data, nb_phi, dw, 2)
     
     #gives a list of outputs for the phis for validation step
@@ -554,7 +556,7 @@ class Lat_Lon_Multi_Prior(Multi_Prior):
             #Each element of these dicts correspond to a phi
             results_dict = {}
             weights_dict = {}
-            lat_lon_stack = torch.stack((latitude, longitude))
+            lat_lon_stack = torch.stack((latitude, longitude), dim=1)
             x_weights = self.weights(lat_lon_stack).detach().to('cpu')
             for idx, phi_r in enumerate(self.phi_list):
                 phi_r = phi_r.to(x_in)
@@ -567,7 +569,7 @@ class Lat_Lon_Multi_Prior(Multi_Prior):
     def forward(self, x_in, latitude, longitude):
         x_out = torch.zeros_like(x_in).to(x_in)
         self.weights= self.weights.to(x_in)
-        lat_lon_stack = torch.stack((latitude, longitude))
+        lat_lon_stack = torch.stack((latitude, longitude), dim=1)
         x_weights = self.weights(lat_lon_stack)
         for idx, phi_r in enumerate(self.phi_list):
             #Get the indices corresponding to the weights for a given phi

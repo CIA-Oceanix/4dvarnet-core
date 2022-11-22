@@ -575,9 +575,6 @@ class FourDVarNetDatasetLatLon(Dataset):
                             lat_item = np.tile(np.flip(lat_item), (self.slice_win['lon'], 1)).T
                             #lon item is repeated rows of the lon coordinate
                             lon_item = np.tile(lon_item, (self.slice_win['lat'], 1))
-
-
-
         obs_mask_item = ~np.isnan(_obs_item)
         obs_item = np.where(~np.isnan(_obs_item), _obs_item, np.zeros_like(_obs_item))
         if self.sst_ds == None:
@@ -748,6 +745,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 compute=self.compute,
                 pp=self.pp,
             ) for sl in self.train_slices])
+
         self.val_ds, self.test_ds = [
             ConcatDataset(
                 [self.dataset_class(
@@ -775,6 +773,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             )
             for slices in (self.val_slices, self.test_slices)
         ]
+
         if self.sst_var is None:
             self.norm_stats = self.compute_norm_stats(self.train_ds)
             self.set_norm_stats(self.train_ds, self.norm_stats)
