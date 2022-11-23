@@ -47,6 +47,9 @@ params:
   scale_dwscaling_sst: 1.
   path_save_netcdf: '/gpfsscratch/rech/yrf/ulh44ct/temp/save.ckpt'
   ckpt_name: 'modelSLAwSSTGF-unet1-{epoch:02d}-{val_loss:.4f}'
+datamodule:
+  aug_train_data: True 
+  resize_factor: 1
 defaults:
 #- /xp/xp_aug/xp_ronan/full_core_hanning
 - /xp/xp_aug/xp_ronan/full_core_hanning_sst
