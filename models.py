@@ -489,7 +489,6 @@ class Weight_Network(torch.nn.Module):
 
     def forward(self, x_in):
         x_out  = self.avg_pool_conv(x_in)
-        #TODO need to make sure that this works for non-square windows
         x_out = interpolate(x_out, (self.shape_data[2],self.shape_data[1]))
         #x_out = interpolate(x_out, (self.shape_data[2],self.shape_data[1]), mode='bilinear', align_corners=True)
         return x_out
@@ -527,13 +526,12 @@ class Multi_Prior(torch.nn.Module):
         return results_dict, weights_dict
         
     def forward(self, x_in):
-        print('###X_IN SHAPE', x_in.shape)
         x_out = torch.zeros_like(x_in).to(x_in)
         self.weights= self.weights.to(x_in)
         x_weights = self.weights(x_in)
         for idx, phi_r in enumerate(self.phi_list):
-            #Get the indices corresponding to the weights for a given phi
             phi_r = phi_r.to(x_in)
+            #Get the indices corresponding to the weights for a given phi
             start = idx * self.shape_data[0]
             stop = (idx + 1) * self.shape_data[0]
             #Multiply the phi by its weights, add to final sum
@@ -544,7 +542,6 @@ class Multi_Prior(torch.nn.Module):
 
 class Lat_Lon_Multi_Prior(Multi_Prior):
     def __init__(self, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi=2, stochastic=False):
-        print('####NB PHI', nb_phi)
         super().__init__(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, nb_phi, stochastic=False)
         self.weights = Weight_Network(shape_data, nb_phi, dw, 2)
     
