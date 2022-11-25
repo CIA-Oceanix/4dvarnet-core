@@ -1,0 +1,16 @@
+
+
+
+oi_swot_4nadir: /home/simon/Bureau/NATL/oi/ssh_NATL60_4nadir.nc
+pseudo_obs:  /home/simon/Bureau/NATL/dataset_nadir_0d.nc
+
+
+
+oi_4nadir: /home/simon/Bureau/NATL/oi/ssh_NATL60_4nadir.nc
+pseudo_obs_4nadir: /home/simon/Bureau/NATL/dataset_nadir_0d.nc
+natl_ssh_daily: /home/simon/Bureau/NATL/NATL60-CJM165_NATL_ssh_y2013.1y.nc
+natl_sst_daily: /home/simon/Bureau/NATL/NATL60-CJM165_NATL_sst_y2013.1y.nc
+
+natl_u_daily: /home/simon/Bureau/NATL/NATL60-CJM165_NATL_u_y2013.1y.nc
+natl_v_daily: /home/simon/Bureau/NATL/NATL60-CJM165_NATL_v_y2013.1y.nc
+

@@ -1,0 +1,17 @@
+# @package _global_
+
+params:
+  aug_state: True
+  shape_state_hr:
+    - ${mul:${params.dT_hr_model},5} 
+    - ${datamodule.slice_win.lon}
+    - ${datamodule.slice_win.lat}
+  shape_state_lr:
+    - ${mul:${datamodule.slice_win.time},4} 
+    - ${div:${datamodule.slice_win.lon},${params.scale_lr}}
+    - ${div:${datamodule.slice_win.lon},${params.scale_lr}}
+  shape_data:
+    - ${mul:${datamodule.slice_win.time},5} 
+    - ${datamodule.slice_win.lon}
+    - ${datamodule.slice_win.lat}
+

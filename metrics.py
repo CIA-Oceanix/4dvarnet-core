@@ -17,8 +17,7 @@ from shapely import wkt
 #import geopandas as gpd
 import cartopy
 from os.path import expanduser
-#cartopy.config['pre_existing_data_dir'] = expanduser('/gpfswork/rech/yrf/uba22to/4dvarnet-core/shapefiles/natural_earth/physical')
-#cartopy.config['data_dir'] = '/gpfswork/rech/yrf/uba22to/4dvarnet-core/shapefiles/natural_earth/physical'
+
 from cartopy import crs as ccrs
 import cartopy.feature as cfeature
 from cartopy.io.shapereader import Reader
@@ -170,8 +169,8 @@ def plot(ax, lon, lat, data, title, cmap, norm, extent=[-65, -55, 30, 40], gridd
         gl.ylabel_style = {'fontsize': 10}
     except Exception as e:
         import traceback
-        print(traceback.format_exc()) 
-        
+        print(traceback.format_exc())
+
 
 def gradient(img, order):
     """ calculate x, y gradient and magnitude """
@@ -251,66 +250,6 @@ def plot_maps(gt,obs,oi,pred,lon,lat,resfile,grad=False,
         else:
             plot(ax1, lon, lat, obs, 'OBS', extent=extent, cmap=cm, norm=norm, colorbar=False)
             plot(ax2, lon, lat, oi, 'OI', extent=extent, cmap=cm, norm=norm, colorbar=False)
-            plot(ax3, lon, lat, pred, '4DVarNet', extent=extent, cmap=cm, norm=norm, colorbar=False)
-
-    # Colorbar
-    cbar_ax = fig.add_axes([0.1, 0.05, 0.8, 0.01])
-    sm = plt.cm.ScalarMappable(cmap=cm, norm=norm)
-    sm._A = []
-    cbar = fig.colorbar(sm, cax=cbar_ax, orientation='horizontal', pad=3.0)
-    plt.savefig(resfile)    # save the figure
-    fig = plt.gcf()
-    plt.close()             # close the figure
-    return fig
-
-def plot_maps_oi(gt,obs,pred,lon,lat,resfile,grad=False,
-                 crop=None, orthographic=False,supervised=True):
-
-    if crop is not None:
-        ilon = np.where((lon>=crop[0]) & (lon<=crop[1]))[0]
-        ilat = np.where((lat>=crop[2]) & (lat<=crop[3]))[0]
-        gt = (gt[:,ilat,:])[:,:,ilon]
-        obs = (obs[:,ilat,:])[:,:,ilon]
-        pred = (pred[:,ilat,:])[:,:,ilon]
-        lon = lon[ilon]
-        lat = lat[ilat]
-    extent = [np.min(lon)-1,np.max(lon)+1,np.min(lat)-1,np.max(lat)+1]
-    central_lon = np.mean(extent[:2])
-    central_lat = np.mean(extent[2:])
-
-    if orthographic:
-        #crs = ccrs.Orthographic(central_lon,central_lat)
-        crs = ccrs.Orthographic(-30,45)
-    else:
-        crs = ccrs.PlateCarree(central_longitude=0.0)
-
-    if grad:
-        vmax = np.nanmax(np.abs(gradient(gt, 2)))
-        vmin = 0
-        cm = plt.cm.viridis
-        norm = colors.PowerNorm(gamma=0.7, vmin=vmin, vmax=vmax)
-    else:
-        vmax = np.nanmax(np.abs(gt))
-        vmin = -1.*vmax
-        cm = plt.cm.coolwarm
-        norm = colors.Normalize(vmin=vmin, vmax=vmax)
-
-    extent = [np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
-
-    fig = plt.figure(figsize=(15,9))
-    gs = gridspec.GridSpec(2, 4)
-    gs.update(wspace=0.5)
-    if supervised:
-        ax1 = fig.add_subplot(gs[0, :2], projection=crs)
-        ax2 = fig.add_subplot(gs[0, 2:], projection=crs)
-        ax3 = fig.add_subplot(gs[1, 1:3], projection=crs)
-        if grad:
-            plot(ax1, lon, lat, gradient(gt, 2), r"$\nabla_{GT}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
-            plot(ax2, lon, lat, np.where(np.isnan(obs), np.nan, 0.), "OBS (mask)", extent=extent, cmap=cm, norm=norm, colorbar=False)
-            plot(ax3, lon, lat, gradient(pred, 2), r"$\nabla_{4DVarNet}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
-        else:
-            plot(ax1, lon, lat, gt, 'GT', extent=extent, cmap=cm, norm=norm, colorbar=False)
-            plot(ax2, lon, lat, obs, 'OBS', extent=extent, cmap=cm, norm=norm, colorbar=False)
             plot(ax3, lon, lat, pred, '4DVarNet', extent=extent, cmap=cm, norm=norm, colorbar=False)
 
     # Colorbar
@@ -532,6 +471,157 @@ def save_netcdf(saved_path1, gt, oi, pred, lon, lat, time,
     xrdata.time.attrs['units'] = time_units
     xrdata.to_netcdf(path=saved_path1, mode='w')
 
+def save_netcdf_with_sst(saved_path1, gt, obs, oi, pred, sst_feat, lon, lat, time,
+                time_units='days since 2012-10-01 00:00:00'):
+    '''
+    saved_path1: string
+    pred: 3d numpy array (4DVarNet-based predictions)
+    lon: 1d numpy array
+    lat: 1d numpy array
+    time: 1d array-like of time corresponding to the experiment
+    '''
+
+    mesh_lat, mesh_lon = np.meshgrid(lat, lon)
+    mesh_lat = mesh_lat.T
+    mesh_lon = mesh_lon.T
+
+    time = np.arange(gt.shape[0])
+    dt = pred.shape[1]
+
+    xrdata = xr.Dataset( \
+        data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
+                   'latitude': (('lat', 'lon'), mesh_lat), \
+                   'Time': (('time'), time), \
+                   'ssh_gt': (('time', 'lat', 'lon'), gt),
+                   'ssh_obs': (('time', 'lat', 'lon'), obs),
+                   'ssh_oi': (('time', 'lat', 'lon'), oi),
+                   'ssh_rec': (('time', 'lat', 'lon'), pred),
+                   'sst_feat': (('time', 'feat', 'lat', 'lon'), sst_feat)}, \
+        coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred)),'feat':np.arange(sst_feat.shape[1])})
+
+    #xrdata = xr.Dataset( \
+    #    data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
+    #               'latitude': (('lat', 'lon'), mesh_lat), \
+                   #'Time': (('time'), time), \
+                   #'ssh_gt': (('time', 'lat', 'lon'), gt), \
+                   #'ssh_oi': (('time', 'lat', 'lon'), oi), \
+                   #'ssh_obs': (('time', 'lat', 'lon'), obs), \
+    #               'ssh_rec': (('time', 'lat', 'lon'), pred)})#, \
+    #              'sst_feat': (('time', 'feat', 'lat', 'lon'), sst_feat)})#, \
+    #    coords={'lon': lon, 'lat': lat, 'time': time,'feat':np.arange(sst_feat.shape[1])})
+
+    #xrdata.time.attrs['units'] = time_units
+    xrdata.to_netcdf(path=saved_path1, mode='w')
+    print('... file saved',flush=True)
+
+def save_netcdf_uv(saved_path1, gt, u_gt, v_gt, obs, oi, pred, lon, lat, time,
+                   u_pred=None, v_pred=None, sst_feat=None,
+                   curl_gt = None, strain_gt = None,
+                   curl_pred = None, strain_pred = None,
+                   time_units='days since 2012-10-01 00:00:00'):
+    '''
+    saved_path1: string
+    pred: 3d numpy array (4DVarNet-based predictions)
+    lon: 1d numpy array
+    lat: 1d numpy array
+    time: 1d array-like of time corresponding to the experiment
+    '''
+
+    mesh_lat, mesh_lon = np.meshgrid(lat, lon)
+    mesh_lat = mesh_lat.T
+    mesh_lon = mesh_lon.T
+
+    #time = np.arange(gt.shape[0])
+    #dt = pred.shape[1]
+    #print(time)
+
+    if  sst_feat is None :
+
+        xrdata = xr.Dataset( \
+            data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
+                       'latitude': (('lat', 'lon'), mesh_lat), \
+                       'Time': (('time'), time), \
+                       'ssh_gt': (('time', 'lat', 'lon'), gt),
+                       'u_gt': (('time', 'lat', 'lon'), u_gt),
+                       'v_gt': (('time', 'lat', 'lon'), v_gt),
+                       'ssh_obs': (('time', 'lat', 'lon'), obs),
+                       'ssh_oi': (('time', 'lat', 'lon'), oi),
+                       'ssh_rec': (('time', 'lat', 'lon'), pred),
+                       'u_rec': (('time', 'lat', 'lon'), u_pred),
+                       'v_rec': (('time', 'lat', 'lon'), v_pred)}, \
+            coords={'lon': lon, 'lat': lat, 'time': time})
+    else:
+        xrdata = xr.Dataset( \
+                data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
+                           'latitude': (('lat', 'lon'), mesh_lat), \
+                           'Time': (('time'), time), \
+                           'ssh_gt': (('time', 'lat', 'lon'), gt),
+                           'u_gt': (('time', 'lat', 'lon'), u_gt),
+                           'v_gt': (('time', 'lat', 'lon'), v_gt),
+                           'ssh_obs': (('time', 'lat', 'lon'), obs),
+                           'ssh_oi': (('time', 'lat', 'lon'), oi),
+                           'ssh_rec': (('time', 'lat', 'lon'), pred),
+                           'u_rec': (('time', 'lat', 'lon'), u_pred),
+                           'v_rec': (('time', 'lat', 'lon'), v_pred),
+                           'sst_feat': (('time', 'feat', 'lat', 'lon'), sst_feat)}, \
+                coords={'lon': lon, 'lat': lat, 'time': time,'feat':np.arange(sst_feat.shape[1])})
+
+        xrdata['sst_feat'] = (['time', 'feat', 'lat', 'lon'],  sst_feat)
+
+    if curl_gt is not None :
+        xrdata["curl_gt"]=(['time', 'lat', 'lon'],  curl_gt)
+
+    if strain_gt is not None :
+        xrdata["strain_gt"]=(['time', 'lat', 'lon'],  strain_gt)
+
+    if curl_pred is not None :
+        xrdata["curl_rec"]=(['time', 'lat', 'lon'],  curl_pred)
+
+    if strain_pred is not None :
+        xrdata["strain_rec"]=(['time', 'lat', 'lon'],  strain_pred)
+
+    #xrdata.time.attrs['units'] = time_units
+    xrdata.to_netcdf(path=saved_path1, mode='w')
+    print('... file saved',flush=True)
+def save_netcdf_with_obs(saved_path1, gt, obs, oi, pred, lon, lat, time,
+                time_units='days since 2012-10-01 00:00:00'):
+    '''
+    saved_path1: string
+    pred: 3d numpy array (4DVarNet-based predictions)
+    lon: 1d numpy array
+    lat: 1d numpy array
+    time: 1d array-like of time corresponding to the experiment
+    '''
+
+    mesh_lat, mesh_lon = np.meshgrid(lat, lon)
+    mesh_lat = mesh_lat.T
+    mesh_lon = mesh_lon.T
+
+    time = np.arange(gt.shape[0])
+    #dt = pred.shape[1]
+    #delta_days = np.zeros(len(time),)
+    #ii = 0
+    #for _time in time:
+    #    delta = datetime.date(_time[:24],'%Y-%m-%dT%H:%M:%S.%f').date()  - datetime.date(2012, 10, 1)
+    #    delta_days[ii] = delta.days
+    #    ii += 1
+
+    xrdata = xr.Dataset( \
+        data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
+                   'latitude': (('lat', 'lon'), mesh_lat), \
+                   'Time': (('time'), time), \
+                   'ssh_gt': (('time', 'lat', 'lon'), gt),
+                   'ssh_obs': (('time', 'lat', 'lon'), obs),
+                   'ssh_oi': (('time', 'lat', 'lon'), oi),
+                   'ssh_rec': (('time', 'lat', 'lon'), pred)}, \
+        coords={'lon': lon, 'lat': lat, 'time': time})
+
+
+    #print(time)
+    #xrdata.time.attrs['units'] = time_units
+    xrdata.to_netcdf(path=saved_path1, mode='w')
+    print('... file saved',flush=True)
+
 def nrmse(ref, pred):
     '''
     ref: Ground Truth fields
@@ -611,6 +701,38 @@ def compute_metrics(x_test, x_rec):
 
     return {'mse': mse, 'mseGrad': gmse, 'meanGrad': ng}
 
+from scipy.ndimage import gaussian_filter
+
+def compute_laplacian(x):
+
+    if len( x.shape ) == 2 :
+        lap = x[1:-1,1:-1]
+        lap = lap - 0.25 * x[1:-1,0:x.shape[1]-2]
+        lap = lap - 0.25 * x[1:-1,2:x.shape[1]]
+        lap = lap - 0.25 * x[0:x.shape[0]-2,1:-1]
+        lap = lap - 0.25 * x[2:x.shape[0],1:-1]
+    else:
+        lap = x[:,1:-1,1:-1]
+        lap = lap - 0.25 * x[:,1:-1,0:x.shape[2]-2]
+        lap = lap - 0.25 * x[:,1:-1,2:x.shape[2]]
+        lap = lap - 0.25 * x[:,0:x.shape[1]-2,1:-1]
+        lap = lap - 0.25 * x[:,2:x.shape[1],1:-1]
+
+
+    return lap
+
+def compute_laplacian_metrics(x_ref,x,sig_lap=1):
+
+    lap_ref = compute_laplacian( gaussian_filter(x_ref, sigma=sig_lap))
+    lap_rec = compute_laplacian( gaussian_filter(x, sigma=sig_lap))
+
+    mse_lap = np.mean((lap_ref-lap_rec)**2)
+    var_lap = np.var(lap_ref)
+
+    R2 = np.corrcoef(lap_ref.ravel(), lap_rec.ravel())[0,1]
+
+    return {'mse':mse_lap,'var_lap': var_lap,'r_square': R2}
+
 
 def get_psd_score(x_t, x, ref, with_fig=False):
     def psd_score(da: xr.DataArray) -> xr.DataArray:
@@ -632,6 +754,9 @@ def get_psd_score(x_t, x, ref, with_fig=False):
         psd_score = 1 - psd_err / psd_x_t
         return psd_score
 
+    #print(ref.shape)
+    #print(x.shape)
+
     ref_score = psd_score(ref)
     model_score = psd_score(x)
 
@@ -649,8 +774,8 @@ def get_psd_score(x_t, x, ref, with_fig=False):
     )
 
     try:
-        print('here')
-        print(psd_plot_data.wl.data)
+        #print('here')
+        #print(psd_plot_data.wl.data)
         spatial_resolution_model = (
             xr.DataArray(
                 psd_plot_data.wl.data,
@@ -695,7 +820,7 @@ def get_psd_score(x_t, x, ref, with_fig=False):
 
 def rmse_based_scores(da_rec, da_ref):
     # boost swot rmse score
-    logging.info('     Compute RMSE-based scores...')
+    #logging.info('     Compute RMSE-based scores...')
 
     # RMSE(t) based score
     rmse_t = 1.0 - (((da_rec - da_ref)**2).mean(dim=('lon', 'lat')))**0.5/(((da_ref)**2).mean(dim=('lon', 'lat')))**0.5
@@ -721,7 +846,7 @@ def rmse_based_scores(da_rec, da_ref):
 
 def psd_based_scores(da_rec, da_ref):
     # boost-swot-psd-score
-    logging.info('     Compute PSD-based scores...')
+    #logging.info('     Compute PSD-based scores...')
 
     # Compute error = SSH_reconstruction - SSH_true
     err = (da_rec - da_ref)
@@ -749,6 +874,7 @@ def psd_based_scores(da_rec, da_ref):
 
     level = [0.5]
     cs = plt.contour(1./psd_based_score.freq_lon.values,1./psd_based_score.freq_time.values, psd_based_score, level)
+
     x05, y05 = cs.collections[0].get_paths()[0].vertices.T
     plt.close()
 

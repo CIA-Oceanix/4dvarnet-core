@@ -6,11 +6,11 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 import hydra
 import pandas as pd
-from datetime import datetime, timedelta
 from hydra.utils import get_class, instantiate, call
-from omegaconf import OmegaConf
+from omegaconf import MissingMandatoryValue, OmegaConf
 import hydra_config
 import numpy as np
+
 
 def get_profiler():
     from pytorch_lightning.profiler import PyTorchProfiler
@@ -31,6 +31,8 @@ def get_profiler():
             record_shapes=True,
             profile_memory=True,
     )
+
+
 class FourDVarNetHydraRunner:
     def __init__(self, params, dm, lit_mod_cls, callbacks=None, logger=None):
         self.cfg = params
@@ -81,6 +83,9 @@ class FourDVarNetHydraRunner:
         self.original_coords = datamodule.get_original_coords()
         self.padded_coords = datamodule.get_padded_coords()
 
+        if self.lit_cls.__name__ == 'LitModelUV':
+            self.var_tr_uv = datamodule.norm_stats_uv[1]**2
+
     def run(self, ckpt_path=None, dataloader="test", **trainer_kwargs):
         """
         Train and test model and run the test suite
@@ -98,57 +103,81 @@ class FourDVarNetHydraRunner:
         :return: lightning module
         """
         print('get_model: ', ckpt_path)
+        mod_kwargs = {
+            'hparam': self.cfg,
+            'w_loss': self.wLoss,
+            'mean_Tr': self.mean_Tr,
+            'mean_Tt': self.mean_Tt,
+            'mean_Val': self.mean_Val,
+            'var_Tr': self.var_Tr,
+            'var_Tt': self.var_Tt,
+            'var_Val': self.var_Val,
+            'min_lon': self.min_lon, 'max_lon': self.max_lon,
+            'min_lat': self.min_lat, 'max_lat': self.max_lat,
+            'ds_size_time': self.ds_size_time,
+            'ds_size_lon': self.ds_size_lon,
+            'ds_size_lat': self.ds_size_lat,
+            'time': self.time,
+            'dX': self.dX, 'dY' :  self.dY,
+            'swX': self.swX, 'swY': self.swY,
+            'coord_ext': {
+                'lon_ext': self.lon,
+                'lat_ext': self.lat,
+            },
+            'test_domain': self.cfg.test_domain,
+            'resolution': self.resolution,
+            'original_coords': self.original_coords,
+            'padded_coords': self.padded_coords
+        }
+
+        if hasattr(self, 'var_tr_uv'):
+            mod_kwargs['var_tr_uv'] = self.var_tr_uv
+
         if ckpt_path:
-            mod = self.lit_cls.load_from_checkpoint(ckpt_path,
-                                                    hparam=self.cfg,
-                                                    w_loss=self.wLoss,
-                                                    strict=False,
-                                                    mean_Tr=self.mean_Tr,
-                                                    mean_Tt=self.mean_Tt,
-                                                    mean_Val=self.mean_Val,
-                                                    var_Tr=self.var_Tr,
-                                                    var_Tt=self.var_Tt,
-                                                    var_Val=self.var_Val,
-                                                    min_lon=self.min_lon, max_lon=self.max_lon,
-                                                    min_lat=self.min_lat, max_lat=self.max_lat,
-                                                    ds_size_time=self.ds_size_time,
-                                                    ds_size_lon=self.ds_size_lon,
-                                                    ds_size_lat=self.ds_size_lat,
-                                                    time=self.time,
-                                                    dX=self.dX, dY = self.dY,
-                                                    swX=self.swX, swY=self.swY,
-                                                    coord_ext={'lon_ext': self.lon,
-                                                               'lat_ext': self.lat},
-                                                    test_domain=self.cfg.test_domain,
-                                                    resolution=self.resolution,
-                                                    original_coords=self.original_coords,
-                                                    padded_coords=self.padded_coords
-                                                    )
+            mod_kwargs |= {
+                'checkpoint_path': ckpt_path,
+                'strict': False,
+            }
+            mod = self.lit_cls.load_from_checkpoint(**mod_kwargs)
 
         else:
-            mod = self.lit_cls(hparam=self.cfg,
-                               w_loss=self.wLoss,
-                               mean_Tr=self.mean_Tr,
-                               mean_Tt=self.mean_Tt,
-                               mean_Val=self.mean_Val,
-                               var_Tr=self.var_Tr,
-                               var_Tt=self.var_Tt,
-                               var_Val=self.var_Val,
-                               min_lon=self.min_lon, max_lon=self.max_lon,
-                               min_lat=self.min_lat, max_lat=self.max_lat,
-                               ds_size_time=self.ds_size_time,
-                               ds_size_lon=self.ds_size_lon,
-                               ds_size_lat=self.ds_size_lat,
-                               time=self.time,
-                               dX=self.dX, dY = self.dY,
-                               swX=self.swX, swY=self.swY,
-                               coord_ext = {'lon_ext': self.lon,
-                                            'lat_ext': self.lat},
-                               test_domain=self.cfg.test_domain,
-                               resolution=self.resolution,
-                               original_coords=self.original_coords,
-                               padded_coords=self.padded_coords
-                               )
+            mod = self.lit_cls(**mod_kwargs)
+
+        if ( ckpt_path is not None ) & ( hasattr(self.cfg, 'flag_update_training_config') == True  ) :
+
+
+            if self.cfg.flag_update_training_config == True :
+                print('\n')
+                print('... update solver iterations : %d/%d -- %d/%d'%(mod.hparams.n_fourdvar_iter,mod.hparams.n_grad,self.cfg.k_n_grad,self.cfg.n_grad))
+                mod.hparams.n_fourdvar_iter = self.cfg.k_n_grad
+                mod.hparams.k_n_grad = self.cfg.k_n_grad
+                mod.hparams.n_grad = self.cfg.n_grad
+
+                print('.... Update parameters after loading chkpt model')
+
+
+
+                if( hasattr(self.cfg, 'type_div_train_loss') ):
+                    print('... Update div/strain loss type to %d'%self.cfg.type_div_train_loss)
+                    mod.hparams.type_div_train_loss = self.cfg.type_div_train_loss
+                    mod.hparams.alpha_mse_div = self.cfg.alpha_mse_div
+                    mod.hparams.alpha_mse_strain = self.cfg.alpha_mse_strain
+
+                    #print('.... Update sst resolution: %d'%self.cfg.scale_dwscaling_sst)
+                    #mod.hparams.scale_dwscaling_sst = self.cfg.scale_dwscaling_sst
+                    if hasattr(self.cfg, 'aug_train_data') :
+                        mod.hparams.aug_train_data = self.cfg.aug_train_data
+
+                    if hasattr(self.cfg, 'alpha_loss_hr') :
+                        mod.hparams.alpha_loss_hr = self.cfg.alpha_loss_hr
+                        mod.hparams.alpha_loss_lr = self.cfg.alpha_loss_lr
+
+                        print('.. Update solver iteration parameters')
+                        mod.hparams.n_fourdvar_iter_lr = self.cfg.n_fourdvar_iter_lr
+                        mod.hparams.n_fourdvar_iter_hr = self.cfg.n_fourdvar_iter_hr
+                        mod.hparams.n_fourdvar_iter    = self.cfg.n_fourdvar_iter
+                        print('.... iter 4dvarnet = %d -- %d -- %d'%(mod.hparams.n_fourdvar_iter,mod.hparams.n_fourdvar_iter_lr,mod.hparams.n_fourdvar_iter_hr))
+
         return mod
 
     def train(self, ckpt_path=None, **trainer_kwargs):
@@ -160,6 +189,11 @@ class FourDVarNetHydraRunner:
         """
 
         mod = self._get_model(ckpt_path=ckpt_path)
+
+        if self.lit_cls.__name__ == 'LitModelUV':
+            print('...... Current ckpt filename (test): '+self.filename_chkpt)
+            self.filename_chkpt = mod.update_filename_chkpt( self.filename_chkpt )
+            print('...... New ckpt filename '+self.filename_chkpt)
 
         checkpoint_callback = ModelCheckpoint(monitor='val_loss',
                                               filename=self.filename_chkpt,
@@ -188,13 +222,11 @@ class FourDVarNetHydraRunner:
         :param trainer_kwargs: (Optional)
         """
 
-        if _trainer is not None:
-            _trainer.test(mod, dataloaders=self.dataloaders[dataloader])
-            return
-
+        trainer = _trainer or pl.Trainer(
+            num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs
+        )
         mod = _mod or self._get_model(ckpt_path=ckpt_path)
 
-        trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs)
         trainer.test(mod, dataloaders=self.dataloaders[dataloader])
         return mod
 
@@ -228,6 +260,11 @@ class FourDVarNetHydraRunner:
 
 def _main(cfg):
     print(OmegaConf.to_yaml(cfg))
+
+    missing_keys = OmegaConf.missing_keys(cfg)
+    if missing_keys:
+        raise MissingMandatoryValue(missing_keys)
+
     pl.seed_everything(seed=cfg.get('seed', None))
     dm = instantiate(cfg.datamodule)
     if cfg.get('callbacks') is not None:
@@ -246,7 +283,9 @@ def _main(cfg):
     call(cfg.entrypoint, self=runner)
 
 
-main = hydra.main(config_path='hydra_config', config_name='main')(_main)
+main = hydra.main(
+    config_path='hydra_config', config_name='main', version_base=None,
+)(_main)
 
 if __name__ == '__main__':
     main()

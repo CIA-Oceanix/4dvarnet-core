@@ -237,7 +237,7 @@ def compute_WeightedL2Norm1D(x2,w):
 
 # Gradient-based minimization using a LSTM using a (sub)gradient as inputs
 class model_GradUpdateLSTM(torch.nn.Module):
-    def __init__(self,ShapeData,periodicBnd=False,DimLSTM=0,rateDropout=0.,stochastic=False):
+    def __init__(self,ShapeData,periodicBnd=False,DimLSTM=0,rateDropout=0.,stochastic=False,asymptotic_term=False):
         super(model_GradUpdateLSTM, self).__init__()
 
         with torch.no_grad():
@@ -263,6 +263,24 @@ class model_GradUpdateLSTM(torch.nn.Module):
         elif len(self.shape) == 3: ## 2D Data
             self.lstm = ConvLSTM2d(self.shape[0],self.dim_state,3,stochastic=self.stochastic)
 
+        self.asymptotic_term = asymptotic_term
+        self.trainable_fsgd_term = False
+        self.K1min = torch.nn.Parameter(torch.Tensor([10.]),requires_grad=False)
+        self.K2min = torch.nn.Parameter(torch.Tensor([10.]),requires_grad=False)
+
+        if self.trainable_fsgd_term == False :
+            self.iter = 0
+            self.K1 = torch.nn.Parameter(torch.Tensor([15.]),requires_grad=False)
+            self.K2 = torch.nn.Parameter(torch.Tensor([15.]),requires_grad=False)
+            self.a = torch.nn.Parameter(torch.Tensor([np.sqrt(0.5)]),requires_grad=False)
+            self.b = torch.nn.Parameter(torch.Tensor([np.sqrt(1e-3)]),requires_grad=False)
+
+    def set_fsgd_param_trainable(self):
+        self.K1.requires_grad = True
+        self.K2.requires_grad = True
+        self.a.requires_grad = True
+        self.b.requires_grad = True
+
     def _make_ConvGrad(self):
         layers = []
 
@@ -282,35 +300,47 @@ class model_GradUpdateLSTM(torch.nn.Module):
 
         return torch.nn.Sequential(*layers)
 
-    def forward(self,hidden,cell,grad,gradnorm=1.0):
+    def forward(self,hidden,cell,grad_,gradnorm=1.0):
         # compute gradient
-        grad  = grad / gradnorm
-        grad  = self.dropout( grad )
+        grad_  = grad_ / gradnorm
+        grad_  = self.dropout( grad_ )
 
         if self.PeriodicBnd == True :
             dB     = 7
             #
-            grad_  = torch.cat((grad[:,:,grad.size(2)-dB:,:],grad,grad[:,:,0:dB,:]),dim=2)
+            grad_  = torch.cat((grad_[:,:,grad_.size(2)-dB:,:],grad_,grad_[:,:,0:dB,:]),dim=2)
             if hidden is None:
                 hidden_,cell_ = self.lstm(grad_,None)
             else:
-                hidden_  = torch.cat((hidden[:,:,grad.size(2)-dB:,:],hidden,hidden[:,:,0:dB,:]),dim=2)
-                cell_    = torch.cat((cell[:,:,grad.size(2)-dB:,:],cell,cell[:,:,0:dB,:]),dim=2)
+                hidden_  = torch.cat((hidden[:,:,grad_.size(2)-dB:,:],hidden,hidden[:,:,0:dB,:]),dim=2)
+                cell_    = torch.cat((cell[:,:,grad_.size(2)-dB:,:],cell,cell[:,:,0:dB,:]),dim=2)
                 hidden_,cell_ = self.lstm(grad_,[hidden_,cell_])
 
-            hidden = hidden_[:,:,dB:grad.size(2)+dB,:]
-            cell   = cell_[:,:,dB:grad.size(2)+dB,:]
+            hidden = hidden_[:,:,dB:grad_.size(2)+dB,:]
+            cell   = cell_[:,:,dB:grad_.size(2)+dB,:]
         else:
             if hidden is None:
-                hidden,cell = self.lstm(grad,None)
+                hidden,cell = self.lstm(grad_,None)
             else:
-                hidden,cell = self.lstm(grad,[hidden,cell])
+                hidden,cell = self.lstm(grad_,[hidden,cell])
 
         grad = self.dropout( hidden )
         grad = self.convLayer( grad )
 
-        return grad,hidden,cell
+        if self.asymptotic_term == True:
+            K1 = self.K1min + torch.nn.functional.relu( self.K1 - self.K1min )
+            w1 = K1 / (K1 + self.iter )
 
+            K2 = self.K2min + torch.nn.functional.relu( self.K2 - self.K2min )
+            w2 = torch.log( K2 ) / torch.log( K2 + self.iter )
+            w2 = ( self.b ** 2 ) * w2 * torch.tanh( (self.a **2 ) * (self.iter - K2)  )
+            self.iter += 1.
+
+            grad = w1 * grad + w2 * grad_
+
+            #print('-- %d'%self.iter)
+
+        return grad,hidden,cell
 
 # New module for the definition/computation of the variational cost
 class Model_Var_Cost(nn.Module):
@@ -413,6 +443,7 @@ class Solver_Grad_4DVarNN(nn.Module):
         return x_k_plus_1, hidden, cell, normgrad_
 
     def var_cost(self , x, yobs, mask):
+        #print(" var cost l 446 : ", x.size(),yobs.size(),mask.size())
         dy = self.model_H(x,yobs,mask)
         dx = x - self.phi_r(x)
 
