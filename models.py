@@ -214,7 +214,7 @@ class Model_H_AIS(torch.nn.Module):
         dyout_alti = (x - obs_alti) * mask
         
         #print(x.size(), x_u.size(), obs_ais_u.size(),mask_ais.size(), " l 216")
-        dyout_ais = torch.cat([dyout_alti[:,:3*dT], (x_u - obs_ais_u) * mask_ais , (x_v - obs_ais_v) * mask_ais],dim = 1)
+        dyout_ais = torch.cat([0*dyout_alti[:,:3*dT], (x_u - obs_ais_u) * mask_ais , (x_v - obs_ais_v) * mask_ais],dim = 1)
         
         
         return dyout_ais
