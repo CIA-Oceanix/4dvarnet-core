@@ -5,6 +5,9 @@ import xarray as xr
 from torch.utils.data import Dataset, ConcatDataset, DataLoader
 import pandas as pd
 import contextlib
+import print_log
+
+log = print_log.get_logger(__name__)
 
 def parse_resolution_to_float(frac):
     """ Matches a string consting of an integer followed by either a divisor
@@ -179,11 +182,12 @@ class XrDataset(Dataset):
             }
 
 
-        self.ds = self.ds.transpose("time", "lat", "lon")
+        #self.ds = self.ds.transpose("time", "lat", "lon")
 
         if self.interp_na:
             self.ds = interpolate_na_2D(self.ds)
-
+        self.ds = self.ds.transpose("time", "lat", "lon")
+        
         if compute:
             self.ds = self.ds.compute()
 
@@ -277,6 +281,7 @@ class FourDVarNetDataset(Dataset):
             auto_padding=use_auto_padding,
             interp_na=True,
         )
+
         self.obs_mask_ds = XrDataset(
             obs_mask_path, obs_mask_var,
             slice_win=slice_win,
@@ -431,6 +436,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.dim_range = dim_range
         self.slice_win = slice_win
         self.strides = strides
+        log.info('Slice win = {} and Strides = {}'.format(self.slice_win, self.strides))
         self.dl_kwargs = {
             **{'batch_size': 2, 'num_workers': 2, 'pin_memory': True},
             **(dl_kwargs or {})
@@ -549,8 +555,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 compute=self.compute,
                 pp=self.pp,
             ) for sl in self.train_slices])
-
-
+       
         self.val_ds, self.test_ds = [
             ConcatDataset(
                 [FourDVarNetDataset(

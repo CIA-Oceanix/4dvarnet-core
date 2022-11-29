@@ -1,4 +1,6 @@
+from traceback import print_tb
 import einops
+import logging
 import torch.distributed as dist
 import kornia
 from hydra.utils import instantiate
@@ -22,6 +24,10 @@ from models import Model_H, Phi_r_OI, Gradient_img
 
 from lit_model_augstate import LitModelAugstate
 
+import print_log
+log = print_log.get_logger(__name__)
+
+
 def get_4dvarnet_OI(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r_OI(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
@@ -37,7 +43,12 @@ class LitModelOI(LitModelAugstate):
              }
 
     def __init__(self, *args, **kwargs):
-         super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
+        self.log_train = []
+        self.log_val = []
+        self.print_log_train_val = False
+        print(self.hparams)
+        #self.save_outputs_path = self.hparams.save_outputs_path
 
     def configure_optimizers(self):
         opt = torch.optim.Adam
@@ -55,26 +66,39 @@ class LitModelOI(LitModelAugstate):
     def diag_step(self, batch, batch_idx, log_pref='test'):
         _, inputs_Mask, inputs_obs, targets_GT = batch
         losses, out, metrics = self(batch, phase='test')
-        loss = losses[-1]
+        loss = losses[-1] 
         if loss is not None:
             self.log(f'{log_pref}_loss', loss)
             self.log(f'{log_pref}_mse', metrics[-1]["mse"] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+
+            if log_pref == 'val' :
+                self.log_val.append( [loss, metrics[-1]["mse"] / self.var_Tt, metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'] ] )
 
         return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def sla_diag(self, t_idx=3, log_pref='test'):
+        if hasattr(self.hparams, 'save_outputs_path') : 
+            self.save_outputs_path = self.hparams.save_outputs_path if self.hparams.save_outputs_path else self.logger.log_dir
+        else : 
+            self.save_outputs_path = self.logger.log_dir
+        #log.info('Save outputs files in {}'.format(self.save_outputs_path))
+        Path(self.save_outputs_path).mkdir(parents = True, exist_ok=True)
 
-        path_save0 = self.logger.log_dir + '/maps.png'
+        path_save0 = self.save_outputs_path + '/maps.png'
         t_idx = 3
+        print(self.x_gt.shape, self.x_gt[3])
+        print(self.obs_inp.shape)
+        print(self.x_rec.shape)
+
         fig_maps = plot_maps_oi(
                   self.x_gt[t_idx],
                 self.obs_inp[t_idx],
                   self.x_rec[t_idx],
                   self.test_lon, self.test_lat, path_save0)
-        path_save01 = self.logger.log_dir + '/maps_Grad.png'
+        path_save01 = self.save_outputs_path + '/maps_Grad.png'
         fig_maps_grad = plot_maps_oi(
                   self.x_gt[t_idx],
                 self.obs_inp[t_idx],
@@ -86,7 +110,7 @@ class LitModelOI(LitModelAugstate):
         self.logger.experiment.add_figure(f'{log_pref} Maps Grad', fig_maps_grad, global_step=self.current_epoch)
 
         psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
-        psd_fig = metrics.plot_psd_score(psd_ds)
+        psd_fig = metrics.plot_psd_score(psd_ds, self.save_outputs_path + '/psd_score.png')
         self.test_figs['psd'] = psd_fig
         self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
         _, _, mu, sig = metrics.rmse_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
@@ -98,6 +122,7 @@ class LitModelOI(LitModelAugstate):
             f'{log_pref}_sigma': sig,
         }
         print(pd.DataFrame([md]).T.to_markdown())
+        log.info('Computing additional diags : lambda_x = {}, lambda_t = {}, mu = {}, sigma = {}'.format(lamb_x, lamb_t, mu, sig))
         return md
 
     def diag_epoch_end(self, outputs, log_pref='test'):
@@ -113,10 +138,6 @@ class LitModelOI(LitModelAugstate):
             raise Exception('unknown phase')
         self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
 
-        Path(self.logger.log_dir).mkdir(exist_ok=True)
-        path_save1 = self.logger.log_dir + f'/test.nc'
-        self.test_xr_ds.to_netcdf(path_save1)
-
         self.x_gt = self.test_xr_ds.gt.data
         self.obs_inp = self.test_xr_ds.obs_inp.data
         self.x_rec = self.test_xr_ds.pred.data
@@ -131,6 +152,13 @@ class LitModelOI(LitModelAugstate):
         md = self.sla_diag(t_idx=3, log_pref=log_pref)
         self.latest_metrics.update(md)
         self.logger.log_metrics(md, step=self.current_epoch)
+
+        if log_pref == 'test' :
+            path_save1 = self.save_outputs_path + f'/outputs_dataset_test.nc'
+            self.test_xr_ds.attrs = md 
+            self.test_xr_ds.to_netcdf(path_save1)
+
+
 
     def get_init_state(self, batch, state=(None,)):
         if state[0] is not None:
@@ -196,3 +224,50 @@ class LitModelOI(LitModelAugstate):
                 ])
 
         return loss, outputs, [outputs, hidden_new, cell_new, normgrad], metrics
+
+    def training_step(self, train_batch, batch_idx, optimizer_idx=0):
+
+        # compute loss and metrics
+
+        losses, _, metrics = self(train_batch, phase='train')
+        if losses[-1] is None:
+            print("None loss")
+            return None
+        # loss = torch.stack(losses).sum()
+        loss = 2*torch.stack(losses).sum() - losses[0]
+
+        if not self.automatic_optimization:
+            opt = self.optimizers()
+            opt.zero_grad()
+            self.manual_backward(loss)
+            opt.step()
+        # log step metric
+        # self.log('train_mse', mse)
+        # self.log("dev_loss", mse / var_Tr , on_step=True, on_epoch=True, prog_bar=True)
+        # self.log("tr_min_nobs", train_batch[1].sum(dim=[1,2,3]).min().item(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        # self.log("tr_n_nobs", train_batch[1].sum().item(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log("tr_loss", loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log("tr_mse", metrics[-1]['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_mseG", metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+
+        self.log_train.append( [loss, metrics[-1]['mse'] / self.var_Tr, metrics[-1]['mseGrad'] / metrics[-1]['meanGrad']] )
+        self.print_log_train_val = True
+        return loss
+
+
+
+    def validation_epoch_end(self, outputs):
+        if self.print_log_train_val :
+            log_val = np.nanmean(self.log_val, axis = 0)
+            log_train = np.nanmean(self.log_train, axis = 0)
+            log.info('------------------------------------------------------------------------------------------')
+            log.info('Epochs {} - val_mse = {:.4}, val_mseG = {:.4}, tr_loss = {:.4}, tr_mse = {:.4}, tr_mseG = {:.4}'.format(
+                self.current_epoch, log_val[1], log_val[2], 
+                log_train[0], log_train[1], log_train[2]))
+
+            self.log_val = []
+            self.log_train = []
+
+        
+        if (self.current_epoch + 1) % self.hparams.val_diag_freq == 0:
+            return self.diag_epoch_end(outputs, log_pref='val')

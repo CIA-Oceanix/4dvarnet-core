@@ -1,4 +1,5 @@
 import einops
+import logging
 import hydra
 import torch.distributed as dist
 import kornia
@@ -307,8 +308,8 @@ class LitModelAugstate(pl.LightningModule):
     def gather_outputs(self, outputs, log_pref):
         data_path = Path(f'{self.logger.log_dir}/{log_pref}_data')
         data_path.mkdir(exist_ok=True, parents=True)
-        print(len(outputs))
-        torch.save(outputs, data_path / f'{self.global_rank}.t')
+        #print(len(outputs))
+        torch.save(outputs, data_path / f'{self.global_rank}.t') #save t file 
 
         if dist.is_initialized():
             dist.barrier()
@@ -319,6 +320,7 @@ class LitModelAugstate(pl.LightningModule):
     def build_test_xr_ds(self, outputs, diag_ds):
 
         outputs_keys = list(outputs[0][0].keys())
+
         with diag_ds.get_coords():
             self.test_patch_coords = [
                diag_ds[i]
@@ -504,7 +506,6 @@ class LitModelAugstate(pl.LightningModule):
         self.logger.log_metrics(md, step=self.current_epoch)
 
     def teardown(self, stage='test'):
-
         self.logger.log_hyperparams(
                 {**self.hparams},
                 self.latest_metrics
@@ -680,7 +681,7 @@ if __name__ =='__main__':
     import hydra
     import importlib
     from hydra.utils import instantiate, get_class, call
-    import hydra_main
+    import old.hydra_main as hydra_main
     import lit_model_augstate
 
     importlib.reload(lit_model_augstate)
