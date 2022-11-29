@@ -11,7 +11,10 @@ from hydra.utils import get_class, instantiate, call
 from omegaconf import OmegaConf
 import hydra_config
 import numpy as np
+import print_log
 
+log = print_log.get_logger(__name__)
+    
 def get_profiler():
     from pytorch_lightning.profiler import PyTorchProfiler
     print( torch.profiler.ProfilerActivity.CPU,)
@@ -97,7 +100,7 @@ class FourDVarNetHydraRunner:
         :param ckpt_path: (Optional) Checkpoint path to load
         :return: lightning module
         """
-        print('get_model: ', ckpt_path)
+        log.info('get_model: {}'.format(ckpt_path))
         if ckpt_path:
             mod = self.lit_cls.load_from_checkpoint(ckpt_path,
                                                     hparam=self.cfg,
@@ -172,13 +175,13 @@ class FourDVarNetHydraRunner:
 
         num_gpus = gpus if isinstance(gpus, (int, float)) else  len(gpus) if hasattr(gpus, '__len__') else 0
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
-        trainer_kwargs_final = {**dict(num_nodes=num_nodes, gpus=gpus, logger=self.logger, strategy=accelerator, auto_select_gpus=(num_gpus * num_nodes) > 0,
-                             callbacks=[checkpoint_callback, lr_monitor]),  **trainer_kwargs}
-        print(trainer_kwargs)
-        print(trainer_kwargs_final)
+        trainer_kwargs_final = {**dict(num_nodes=num_nodes, gpus=gpus, logger=self.logger, auto_select_gpus=(num_gpus * num_nodes) > 0,
+                             callbacks=[checkpoint_callback, lr_monitor]),  **trainer_kwargs} # strategy=accelerator
+
         trainer = pl.Trainer(**trainer_kwargs_final)
         trainer.fit(mod, self.dataloaders['train'], self.dataloaders['val'])
         return mod, trainer
+        
 
     def test(self, ckpt_path=None, dataloader="test", _mod=None, _trainer=None, **trainer_kwargs):
         """
@@ -187,15 +190,14 @@ class FourDVarNetHydraRunner:
         :param dataloader: Dataloader on which to run the test Checkpoint from which to resume
         :param trainer_kwargs: (Optional)
         """
-
         if _trainer is not None:
-            _trainer.test(mod, dataloaders=self.dataloaders[dataloader])
+            _trainer.test(_mod, test_dataloaders=self.dataloaders[dataloader])
             return
 
         mod = _mod or self._get_model(ckpt_path=ckpt_path)
 
         trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs)
-        trainer.test(mod, dataloaders=self.dataloaders[dataloader])
+        trainer.test(mod, test_dataloaders=self.dataloaders[dataloader])
         return mod
 
     def profile(self):
@@ -229,18 +231,21 @@ class FourDVarNetHydraRunner:
 def _main(cfg):
     print(OmegaConf.to_yaml(cfg))
     pl.seed_everything(seed=cfg.get('seed', None))
+    log.info('instantiating datamodule : {}'.format(cfg.datamodule._target_) )
     dm = instantiate(cfg.datamodule)
     if cfg.get('callbacks') is not None:
+        log.info('instantiating callbacks : {}'.format(cfg.callbacks._target_) )
         callbacks = [instantiate(cb_cfg) for cb_cfg in cfg.callbacks]
     else:
         callbacks=[]
 
     if cfg.get('logger') is not None:
-        print('instantiating logger')
+        log.info('instantiating logger : {}'.format(cfg.logger._target_) )
         print(OmegaConf.to_yaml(cfg.logger))
         logger = instantiate(cfg.logger)
     else:
         logger=True
+    log.info('instantiating lit model : {}'.format(cfg.lit_mod_cls) )
     lit_mod_cls = get_class(cfg.lit_mod_cls)
     runner = FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls, callbacks=callbacks, logger=logger)
     call(cfg.entrypoint, self=runner)

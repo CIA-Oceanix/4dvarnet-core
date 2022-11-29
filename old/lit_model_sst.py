@@ -1,5 +1,5 @@
 from models import *
-from lit_model import LitModel
+from old.lit_model import LitModel
 
 class LitModelWithSST(LitModel):
 

@@ -1,0 +1,47 @@
+# @package _global_
+
+xp_name: xp_oi
+params:
+  files_cfg:
+    oi_path: ${file_paths.oi_swot_4nadir}
+    oi_var: ssh_mod
+    obs_mask_path: ${file_paths.pseudo_obs}
+    obs_mask_var: ssh_mod
+    gt_path: ${file_paths.natl_ssh_daily}
+    gt_var: ssh
+  model: 4dvarnet_OI
+  dT: 29           # profondeur temporelle en jours
+  patch_weight:
+    crop:
+      time: 3
+  k_n_grad: 3
+  n_grad: 5
+  val_diag_freq: 250 #5 
+  padding_mode: reflect
+  alpha_mse_ssh: 50. # loss
+  alpha_mse_gssh: 1000.
+  norm_obs: l2
+  norm_prior: l2
+  shape_state:
+    - ${datamodule.slice_win.time}
+    - ${datamodule.slice_win.lon}
+    - ${datamodule.slice_win.lat}
+  shape_data:
+    - ${datamodule.slice_win.time}
+    - ${datamodule.slice_win.lon}
+    - ${datamodule.slice_win.lat}
+  save_outputs_path: ${oc.select:entrypoint.save_outputs_path, null}
+
+lit_mod_cls: lit_model_AT.LitModelOI
+datamodule:
+  resize_factor: 4
+
+defaults:
+  - /xp/base_xp
+  - /splits/dc_boost_swot@datamodule
+  - /xp/baseline/aug/without_aug_state
+  - /xp/baseline/dl/d240_p240x5_s240x1
+  - /xp/baseline/sst/without_sst
+  - /xp/baseline/loss/map
+  - /xp/baseline/train_strat/const_lr_ngrad_5_3cas
+  - _self_ 

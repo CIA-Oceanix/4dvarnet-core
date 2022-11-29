@@ -1,0 +1,3 @@
+natl_ssh_daily: /work/scratch/trebouta/4dvarnet/NATL60-CJM165_NATL_ssh_y2013.1y.nc
+pseudo_obs: /work/scratch/trebouta/4dvarnet/dataset_nadir_0d_swot.nc
+oi_swot_4nadir: /work/scratch/trebouta/4dvarnet/ssh_NATL60_swot_4nadir.nc

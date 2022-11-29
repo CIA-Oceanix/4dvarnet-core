@@ -1,3 +1,7 @@
-_target_: hydra_main.FourDVarNetHydraRunner.test
-ckpt_path: ???
+_target_: train_test_4dvar_AT.FourDVarNetHydraRunner.test
+date_training: 2022-11-22-08-32-53
+ckpt_file: modelCalSLAInterpGF-epoch=107-val_loss=3.1068
 
+#ne pas modifier
+ckpt_path: /home/qt/trebouta/4dvarnet-main/dashboard/${xp_name}/${entrypoint.date_training}/version_0/checkpoints/${entrypoint.ckpt_file}.ckpt
+#save_outputs_path: /work/scratch/trebouta/4dvarnet/logs/${xp_name}/${entrypoint.date_training}
