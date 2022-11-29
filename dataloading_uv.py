@@ -754,7 +754,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
 
     def setup(self, stage=None):
     
-        ais_dataset_train = torch.load("/home/simon/Bureau/gulf_stream/:/ais_dataset_gulf_stream")[:,:1]
+        ais_dataset_train = torch.load("/gpfsscratch/rech/yrf/uyi52hq/ais_dataset_gulf_stream")[:,:1]
         ### Add border (20 px)
         border_x = torch.zeros(ais_dataset_train.size()[0],ais_dataset_train.size()[1],ais_dataset_train.size()[2], 20,200)
         border_y = torch.zeros(ais_dataset_train.size()[0],ais_dataset_train.size()[1],ais_dataset_train.size()[2], 240,20)
@@ -927,40 +927,40 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         	count_val += 1
  	
  	
-        count_test = 0
+        count_val = 0
         for sl in self.test_slices:
         
         	list_dataset_test.append(
-        	 FourDVarNetDataset(
-                dim_range={**self.dim_range, **{'time': sl}},
-                strides=self.strides,
-                slice_win=self.slice_win,
-                oi_path=self.oi_path,
-                oi_var=self.oi_var,
-                oi_decode=self.oi_decode,
-                obs_mask_path=self.obs_mask_path,
-                obs_mask_var=self.obs_mask_var,
-                obs_mask_decode=self.obs_mask_decode,
-                gt_path=self.gt_path,
-                gt_var=self.gt_var,
-                gt_decode=self.gt_decode,
-                sst_path=self.sst_path,
-                sst_var=self.sst_var,
-                sst_decode=self.sst_decode,
-                u_path=self.u_path,
-                u_var=self.u_var,
-                v_path=self.v_path,
-                v_var=self.v_var,
-                uv_decode=self.uv_decode,
-                resolution=self.resolution,
-                resize_factor=self.resize_factor,
-                aug_train_data=self.aug_train_data,
-                compute=self.compute,
-                pp=self.pp,
+        	FourDVarNetDataset(
+                    dim_range={**self.dim_range, **{'time': sl}},
+                    strides=self.strides,
+                    slice_win=self.slice_win,
+                    oi_path=self.oi_path,
+                    oi_var=self.oi_var,
+                    oi_decode=self.oi_decode,
+                    obs_mask_path=self.obs_mask_path,
+                    obs_mask_var=self.obs_mask_var,
+                    obs_mask_decode=self.obs_mask_decode,
+                    gt_path=self.gt_path,
+                    gt_var=self.gt_var,
+                    gt_decode=self.gt_decode,
+                    sst_path=self.sst_path,
+                    sst_var=self.sst_var,
+                    sst_decode=self.sst_decode,
+                    u_path=self.u_path,
+                    u_var=self.u_var,
+                    v_path=self.v_path,
+                    v_var=self.v_var,
+                    uv_decode=self.uv_decode,
+                    resolution=self.resolution,
+                    resize_factor=self.resize_factor,
+                    compute=self.compute,
+                    use_auto_padding=self.use_auto_padding,
+                    pp=self.pp,
                 ais_datas = self.ais_dataset_train,
-                ais_index = count_test
+                ais_index = count_val
             ))
-        	count_test += 1
+        	count_val += 1
  	
  	
  	
