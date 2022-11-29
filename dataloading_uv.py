@@ -435,7 +435,7 @@ class FourDVarNetDataset(Dataset):
             _obs_mask_item = self.obs_mask_ds[pitem]
             obs_mask_item = ~np.isnan(_obs_mask_item)
             #_obs_item = np.where(obs_mask_item, _gt_item, np.full_like(_gt_item,np.nan))
-            _obs_item = np.where(obs_mask_item, _gt_item.transpose(2,0,1), np.full_like(_gt_item,np.nan).transpose(2,0,1))
+            _obs_item = np.where(obs_mask_item, _gt_item.transpose(0,1,2), np.full_like(_gt_item,np.nan).transpose(0,1,2))
         _oi_item = pp(np.where(
             np.abs(_oi_item) < 10,
             _oi_item,
