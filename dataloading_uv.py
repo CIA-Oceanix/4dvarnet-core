@@ -474,8 +474,8 @@ class FourDVarNetDataset(Dataset):
 	
 	###todo modifier juste essai
         #print("ligne 476 dataloader", ais_dat.size(), u_item.shape) 
-        ais_dat[:,0,1] = torch.from_numpy(u_item.transpose(2,0,1))
-        ais_dat[:,0,2] = torch.from_numpy(v_item.transpose(2,0,1))
+        ais_dat[:,0,1] = torch.from_numpy(u_item.transpose(0,1,2))
+        ais_dat[:,0,2] = torch.from_numpy(v_item.transpose(0,1,2))
 	
 	
         if self.sst_ds == None:
@@ -490,7 +490,7 @@ class FourDVarNetDataset(Dataset):
             else:
                 #print("oi item shape : ", oi_item.shape)
                 print(oi_item.shape, obs_mask_item.shape,obs_item.shape,gt_item.shape,sst_item.shape,u_item.shape,v_item.shape,lat_item.shape)
-                return oi_item.transpose(2,0,1), obs_mask_item, obs_item, gt_item.transpose(2,0,1), sst_item.transpose(2,0,1), u_item.transpose(2,0,1), v_item.transpose(2,0,1), lat_item, lon_item,ais_dat 
+                return oi_item, obs_mask_item, obs_item, gt_item, sst_item, u_item, v_item, lat_item, lon_item,ais_dat 
 
 
 class FourDVarNetDataModule(pl.LightningDataModule):
