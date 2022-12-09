@@ -62,7 +62,7 @@ class LitModel(pl.LightningModule):
 
         # SPDE-based model
         self.model_spde = NN_4DVar_spde.Solver_Grad_4DVarNN(
-                Phi_r_spde(self.shapeData, pow=hparam.pow, diff_only=True,
+                Phi_r_spde(self.shapeData, pow=hparam.pow,
                       given_parameters=True,
                       nc=xr.open_dataset(hparam.files_cfg.spde_params_path)),
                 Model_H(self.shapeData[0]),
@@ -352,7 +352,7 @@ class LitModel(pl.LightningModule):
             dy_new=list()
             for i in range(n_b):
                 # prior regularization
-                xtQ = torch.sparse.mm(Q[i],
+                xtQ = sp_mm(Q[i],
                                      torch.reshape(torch.permute(outputs[i],(0,2,1)),(n_t*n_x*n_y,1))
                                     )
                 xtQx_ = torch.matmul(torch.reshape(torch.permute(outputs[i],(0,2,1)),(1,n_t*n_x*n_y)),
@@ -364,7 +364,7 @@ class LitModel(pl.LightningModule):
                 dyi = torch.index_select(torch.flatten(dy[i]), 0, id_obs).type(torch.FloatTensor).to(device)
                 nb_obs = len(dyi)
                 inv_R = 1e3*sparse_eye(nb_obs).type(torch.FloatTensor).to(device)
-                iRdy = torch.sparse.mm(inv_R,torch.reshape(dyi,(nb_obs,1)))
+                iRdy = sp_mm(inv_R,torch.reshape(dyi,(nb_obs,1)))
                 dyTiRdy = torch.matmul(torch.reshape(dyi,(1,nb_obs)),iRdy)
                 dy_new.append(dyTiRdy[0,0])
             dy = torch.stack(dy_new)

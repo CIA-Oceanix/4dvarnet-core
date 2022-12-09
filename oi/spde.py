@@ -152,8 +152,9 @@ def DiffOperator(Nx, Ny, dx, dy, m, H, kappa):
     else:
         ## Tous les voisins
         k = torch.cat((k1, k2, k3, k4, k5),dim=1)
-    return(torch.sparse.FloatTensor(k[0:2].long(), k[2], torch.Size([nbNodes,nbNodes])))
-    #return torch.sparse_coo_tensor(k[0:2].long(), k[2], torch.Size([nbNodes,nbNodes]))
+        
+    res = torch.sparse.FloatTensor(k[0:2].long(), k[2], torch.Size([nbNodes,nbNodes])).to(device) 
+    return res
 
 def DiffOperator_Isotropic(Nx, Ny, dx, dy, kappa):
 # kappa is a scalar

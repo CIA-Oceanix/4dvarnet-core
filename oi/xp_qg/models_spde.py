@@ -37,66 +37,6 @@ def sparse_repeat(size,n1,n2):
     """
     return torch.sparse.FloatTensor(size*n1,size*n2).to(device)
 
-class encode_param_CNN(torch.nn.Module):
-
-    def __init__(self,shape_data,dim_ae):
-        super(encode_param_CNN, self).__init__()
-        self.n_t, self.n_y, self.n_x  = shape_data
-
-        # Conv2D layers
-        self.pool1 = torch.nn.MaxPool2d(2, 2)
-        self.conv1   = torch.nn.Conv2d(self.n_t,dim_ae,(3,3),padding=1,bias=False)
-        self.pool2 = torch.nn.MaxPool2d(2, 2)
-        self.conv2   = torch.nn.Conv2d(dim_ae,2*dim_ae,(3,3),padding=1,bias=False)
-        self.pool3 = torch.nn.MaxPool2d(4, 4)
-        self.conv3   = torch.nn.Conv2d(2*dim_ae,7*self.n_t,(3,3),padding=1,bias=False)
-        self.conv_t1 = torch.nn.ConvTranspose2d(7*self.n_t, 7*self.n_t, 5, stride=4)
-        self.conv_t2 = torch.nn.ConvTranspose2d(7*self.n_t, 7*self.n_t, 2, stride=2)
-        self.conv_t3 = torch.nn.ConvTranspose2d(7*self.n_t, 7*self.n_t, 2, stride=2)
-
-    def forward(self, x):
-        # input shape (b,t,y,x) --> output shape (b,7*t,y,x)
-        x = self.pool1(x)
-        x = F.relu(self.conv1(x))
-        x = self.pool2(x)
-        x = F.relu(self.conv2(x))
-        x = self.pool3(x)
-        x = F.relu(self.conv3(x))
-        x = F.relu(self.conv_t1(x))
-        x = F.relu(self.conv_t2(x))
-        x = self.conv_t3(x)
-        return x
-
-class encode_param_CNN_diff(torch.nn.Module):
-
-    def __init__(self,shape_data,dim_ae):
-        super(encode_param_CNN_diff, self).__init__()
-        self.n_t, self.n_y, self.n_x  = shape_data
-
-        # Conv2D layers
-        self.pool1 = torch.nn.MaxPool2d(2, 2)
-        self.conv1   = torch.nn.Conv2d(self.n_t,dim_ae,(3,3),padding=1,bias=False)
-        self.pool2 = torch.nn.MaxPool2d(2, 2)
-        self.conv2   = torch.nn.Conv2d(dim_ae,2*dim_ae,(3,3),padding=1,bias=False)
-        self.pool3 = torch.nn.MaxPool2d(4, 4)
-        self.conv3   = torch.nn.Conv2d(2*dim_ae,3,(3,3),padding=1,bias=False)
-        self.conv_t1 = torch.nn.ConvTranspose2d(3, 3, 5, stride=4)
-        self.conv_t2 = torch.nn.ConvTranspose2d(3, 3, 2, stride=2)
-        self.conv_t3 = torch.nn.ConvTranspose2d(3, 3, 2, stride=2)
-
-    def forward(self, x):
-        # input shape (b,t,y,x) --> output shape (b,7*t,y,x)
-        x = self.pool1(x)
-        x = F.relu(self.conv1(x))
-        x = self.pool2(x)
-        x = F.relu(self.conv2(x))
-        x = self.pool3(x)
-        x = F.relu(self.conv3(x))
-        x = F.relu(self.conv_t1(x))
-        x = F.relu(self.conv_t2(x))
-        x = self.conv_t3(x)
-        return x
-
 class encode_param_CNN_adv(torch.nn.Module):
 
     def __init__(self,shape_data,dim_ae):
@@ -127,84 +67,6 @@ class encode_param_CNN_adv(torch.nn.Module):
         x = self.conv_t3(x)
         return x
 
-class decode_param_CNN(torch.nn.Module):
-
-    def __init__(self, shape_data):
-        super(decode_param_CNN, self).__init__()
-        self.n_t, self.n_y, self.n_x  = shape_data
-
-    def forward(self, params):
-        n_b = params.shape[0]
-        # Compute Kappa value
-        indices = torch.tensor(range(0,self.n_t)).to(device)
-        kappa = torch.index_select(params, 1, indices)
-        kappa = F.softplus(kappa,10)
-        # Compute m advection vector
-        indices = torch.tensor(range(self.n_t,2*self.n_t)).to(device)
-        m1 = torch.index_select(params, 1, indices)
-        indices = torch.tensor(range(2*self.n_t,3*self.n_t)).to(device)
-        m2 = torch.index_select(params, 1, indices)
-        m = torch.stack([m1,m2],dim=1)
-        # Compute H diffusion tensor
-        indices = torch.tensor(range(3*self.n_t,4*self.n_t)).to(device)
-        gamma = torch.index_select(params, 1, indices)
-        gamma = F.softplus(gamma,10)
-        gamma = torch.reshape(gamma.permute(0,2,3,1),(n_b,self.n_t*self.n_y*self.n_x))
-        indices = torch.tensor(range(4*self.n_t,5*self.n_t)).to(device)
-        vx = torch.index_select(params, 1, indices)
-        vx = torch.reshape(vx.permute(0,2,3,1),(n_b,self.n_t*self.n_y*self.n_x))
-        indices = torch.tensor(range(5*self.n_t,6*self.n_t)).to(device)
-        vy = torch.index_select(params, 1, indices)
-        vy = torch.reshape(vy.permute(0,2,3,1),(n_b,self.n_t*self.n_y*self.n_x))
-        vxy     = torch.stack([vx,vy],dim=2)
-        vxyT    = torch.permute(vxy,(0,2,1))
-        H       = torch.einsum('ij,bk->bijk',torch.eye(2).to(device),gamma)+\
-                  torch.einsum('bki,bjk->bijk',vxy,vxyT)
-        # Compute tau value
-        indices = torch.tensor(range(6*self.n_t,7*self.n_t)).to(device)
-        tau = torch.index_select(params, 1, indices)
-        tau = F.softplus(tau,10)
-
-        # reshape 
-        kappa = torch.reshape(kappa,(n_b,1,self.n_y*self.n_x,self.n_t))
-        m = torch.reshape(m,(n_b,2,self.n_y*self.n_x,self.n_t))
-        H = torch.reshape(H,(n_b,2,2,self.n_y*self.n_x,self.n_t))
-        tau = torch.reshape(tau,(n_b,1,self.n_y*self.n_x,self.n_t))
-        #H = torch.permute(H,(0,1,2,5,3,4))
-
-        # kappa has shape (b,t,y,x)
-        # m has shape (b,2,t,y,x)
-        # H has shape (b,2,2,t,y,x)
-        # tau has shape (b,t,y,x)
-        return kappa.float(), m.float(), H.float(), tau.float()
-
-class decode_param_CNN_diff(torch.nn.Module):
-
-    def __init__(self, shape_data):
-        super(decode_param_CNN_diff, self).__init__()
-        self.n_t, self.n_y, self.n_x  = shape_data
-
-    def forward(self, params):
-        n_b = params.shape[0]
-
-        # Compute H diffusion tensor
-        gamma   = params[:,0,:,:]
-        gamma   = torch.reshape(gamma,(n_b,self.n_x*self.n_y))
-        gamma   = F.softplus(gamma,0.5)
-        vx      = params[:,1,:,:]
-        vx      = torch.reshape(vx,(n_b,self.n_x*self.n_y))
-        vy      = params[:,2,:,:]
-        vy      = torch.reshape(vy,(n_b,self.n_x*self.n_y))
-        vxy     = torch.stack([vx,vy],dim=2)
-        vxyT    = torch.permute(vxy,(0,2,1))
-        H       = torch.einsum('ij,bk->bijk',torch.eye(2).to(device),gamma)+\
-                  torch.einsum('bki,bjk->bijk',vxy,vxyT)
-        # reshape
-        H = torch.reshape(H,(n_b,2,2,self.n_x*self.n_y))
-
-        # H has shape (n_b,2,2,Nx*Ny)
-        return H.float()
-
 class decode_param_CNN_adv(torch.nn.Module):
 
     def __init__(self, shape_data):
@@ -229,7 +91,8 @@ class decode_param_CNN_adv(torch.nn.Module):
 
 class Prior_SPDE(torch.nn.Module):
 
-    def __init__(self,shape_data, pow=1):
+    def __init__(self,shape_data, pow=1, spde_type="adv"):
+
         super(Prior_SPDE, self).__init__()
         self.n_t, self.n_y, self.n_x = shape_data
         self.dx, self.dy, self.dt = [1,1,1]
@@ -239,71 +102,144 @@ class Prior_SPDE(torch.nn.Module):
         self.pow = pow
         self.alpha  = 2*self.pow
         self.nu = int(self.alpha -1)
+        self.spde_type = spde_type
 
-    def create_Q(self,kappa,m,H,tau):
+    def create_Q(self,
+                 kappa,
+                 m,
+                 H,
+                 tau,
+                 colored_noise=False,
+                 store_block_diag=False):
 
         n_b = m.shape[0]
-        Q = list()
-        tau = torch.transpose(torch.stack(self.nb_nodes*[torch.stack(self.n_t*[torch.tensor(tau)])]),0,1)
-        for batch in range(n_b):
-            inv_M = list()   # linear model evolution matrix
-            B = list()
-            for k in range(self.n_t-1):
-                A = DiffOperator(self.n_x,self.n_y,self.dx,self.dy,m[batch,:,:,k+1],None,kappa)
-                A=(1./2)*(A+A.t())
-                if self.pow>1:
-                    B_ = pow_diff_operator(A.to(device),self.pow,sparse=True)
-                else:
-                    B_ = A
-                B.append(B_)
-                inv_M.append(self.Id+self.dt*B_)
 
+        # set regularization variance term to appropriate size
+        if torch.is_tensor(tau):
+            torch.full(tau.size(),1.)
+            tau = torch.squeeze(tau,dim=1)
+        else:
+            tau = torch.stack(n_b*\
+                              [torch.stack(self.nb_nodes*\
+                                          [torch.stack(self.n_t*[torch.tensor(tau)])]\
+                                          )]\
+                              ).to(device)
+            
+        # initialize Qs (noise precision matrix)
+        if colored_noise==False:
+            Qs = sparse_eye(self.nb_nodes) 
+        else:
+            Qs = sparse_eye(self.nb_nodes) 
+        
+        # initialize outputs    
+        Q = list()
+        if store_block_diag==True:
+            block_diag=list()
+                 
+        for batch in range(n_b):
+
+            # Build model evolution and noise effects operator
+            inv_M = list() # linear model evolution matrix (inverse)
+            inv_S = list() # T*Tt with T the noise effect matrix (inverse) 
+            for k in range(self.n_t):
+                if self.spde_type=="adv_diff":
+                    A = DiffOperator(self.n_x,self.n_y,self.dx,self.dy,
+                                         m[batch,:,:,k],
+                                         H[batch,:,:,:,k],
+                                         kappa[batch,:,:,k])
+                elif self.spde_type=="diff":
+                    A = DiffOperator(self.n_x,self.n_y,self.dx,self.dy,
+                                     None,
+                                     H[batch],
+                                     kappa)
+                elif self.spde_type=="adv":
+                    A = DiffOperator(self.n_x,self.n_y,self.dx,self.dy,
+                                     m[batch,:,:,k],
+                                     None,
+                                     kappa)
+                else:
+                    A = DiffOperator_Isotropic(self.n_x,self.n_y,self.dx,self.dy,
+                                     kappa)
+                if self.pow>1:
+                    B = pow_diff_operator(A.to(device),self.pow,sparse=True)
+                else:
+                    B = A
+                
+                # initialize Q0 = P0^-1 = cov(x0)
+                if k==0:
+                    Q0 = (self.dx*self.dy)*spspmm(B.t(),B)
+                    Q0 = (1./2)*(Q0+Q0.t()) + 5e-2*sparse_eye(self.nb_nodes)
+                else:
+                    inverse_M = self.Id+self.dt*B
+                    inverse_S = spspmm(spspmm(inverse_M.t(),Qs),inverse_M)
+                    inverse_S = (1./2)*(inverse_S+inverse_S.t())
+                    inv_M.append(inverse_M)
+                    inv_S.append(inverse_S)
+         
+            if store_block_diag==True:
+                l = list(inv_S)
+                l.insert(0,Q0)
+                block_diag.append(l)
+                
             # Build the global precision matrix
-            Q0 = spspmm(sparse_eye(self.nb_nodes,1./((tau[0]**2)*self.dt)),
-                        (self.dx*self.dy)*spspmm(B[0].t(),B[0]))
             # first line
-            QR = spspmm(sparse_eye(self.nb_nodes,1./((tau[1]**2)*self.dt)),
-                        (self.dx*self.dy)*self.Id) # case of right-hand side white noise
-            QR = self.Id
-            Q0 = spspmm(B[0].t(),B[0])
+            inv_tau = sparse_eye(self.nb_nodes,1./(tau[batch,:,1]*np.sqrt(self.dt)))
+            Qs_tilde = spspmm(spspmm(inv_tau.t(),Qs),inv_tau)
             Qg = torch.hstack([Q0+self.Id,
-                               -1.*spspmm(inv_M[0],QR),
+                               -1.*spspmm(Qs_tilde,inv_M[0]),
                                sparse_repeat(self.nb_nodes,1,self.n_t-2)])
             # loop
             for i in np.arange(1,self.n_t-1):
-                QR1 = spspmm(sparse_eye(self.nb_nodes,1./((tau[i-1]**2)*self.dt)),
-                        (self.dx*self.dy)*self.Id)
-                QR2 = spspmm(sparse_eye(self.nb_nodes,1./((tau[i]**2)*self.dt)),
-                        (self.dx*self.dy)*self.Id)
-                QR1 = self.Id
-                QR2 = self.Id
+                inv_tau_1 = sparse_eye(self.nb_nodes,1./(tau[batch,:,i]*np.sqrt(self.dt)))
+                Qs_tilde1 = spspmm(spspmm(inv_tau_1.t(),Qs),inv_tau_1)
+                inv_tau_2 = sparse_eye(self.nb_nodes,1./(tau[batch,:,i+1]*np.sqrt(self.dt)))
+                Qs_tilde2 = spspmm(spspmm(inv_tau_2.t(),Qs),inv_tau_2)               
                 Qg_ = torch.hstack([sparse_repeat(self.nb_nodes,1,i-1),
-                                  -1.*spspmm(inv_M[i-1],QR1),
-                                  spspmm(spspmm(inv_M[i-1],inv_M[i-1])+self.Id,QR1),
-                                  -1.*spspmm(inv_M[i],QR2),
+                                  -1.*spspmm(inv_M[i-1].t(),Qs_tilde1),
+                                  spspmm(spspmm(inv_M[i-1].t(),Qs_tilde1),inv_M[i-1])+Qs_tilde1,
+                                  -1.*spspmm(Qs_tilde2,inv_M[i]),
                                   sparse_repeat(self.nb_nodes,1,self.n_t-4-(i-2))])
                 Qg  = torch.vstack([Qg,Qg_])
             # last line
-            QR = spspmm(sparse_eye(self.nb_nodes,1./((tau[self.n_t-2]**2)*self.dt)),
-                        (self.dx*self.dy)*self.Id)
-            QR = self.Id
+            inv_tau = sparse_eye(self.nb_nodes,1./(tau[batch,:,self.n_t-1]*np.sqrt(self.dt)))
+            Qs_tilde = spspmm(spspmm(inv_tau.t(),Qs),inv_tau)
             Qg_ = torch.hstack([sparse_repeat(self.nb_nodes,1,self.n_t-2),
-                              -1.*spspmm(inv_M[self.n_t-2],QR),
-                              spspmm(spspmm(inv_M[self.n_t-2],inv_M[self.n_t-2]),QR)])
+                              -1.*spspmm(inv_M[self.n_t-2].t(),Qs_tilde),
+                              spspmm(spspmm(inv_M[self.n_t-2].t(),Qs_tilde),inv_M[self.n_t-2])])
             Qg  = torch.vstack([Qg,Qg_])
-            # enforce poistive definiteness
+            # enforce positive definiteness
             Qg = (1./2)*(Qg+Qg.t()) + 5e-2*sparse_eye(self.n_t*self.nb_nodes)
             # add batch
             Q.append(Qg)
+            
         Q = torch.stack(Q)
-        return Q
+        
+        if store_block_diag==True:
+            # Q has size #batch*(nt*nbnodes)*(nt*nbnodes)
+            # block_diag is list of size #batch
+            return Q, block_diag
+        else:
+            return Q
 
     def square_root(self, mat):
         S = torch.transpose(cholesky_sparse.apply(mat.cpu()),0,1).to(device)
         return S
 
-    def forward(self, kappa, m, H, tau, square_root=False):  
-        Q = self.create_Q(kappa, m, H, tau)
+    def forward(self,
+                kappa,
+                m, 
+                H, 
+                tau, 
+                square_root=False,
+                store_block_diag=False):  
+
+        if store_block_diag==False:
+            Q = self.create_Q(kappa, m, H, tau,
+                          store_block_diag=store_block_diag)
+        else:
+            Q, block_diag = self.create_Q(kappa, m, H, tau,
+                            store_block_diag=store_block_diag)
+        
         if square_root==True:
             op = list()
             for i in range(len(Q)):
@@ -314,18 +250,26 @@ class Prior_SPDE(torch.nn.Module):
                 #phi = sparse_eye(self.nb_nodes*self.n_t)-S
                 op.append(phi)
             #op = torch.stack(op)
-            return op
+            if store_block_diag==False:
+                return op
+            else:
+                return op, block_diag
         else:
-            return Q
+            if store_block_diag==False:
+                return Q
+            else:
+                return Q, block_diag
 
 class Phi_r(torch.nn.Module):
 
-    def __init__(self, shape_data, pow=1, square_root=False):
+    def __init__(self, shape_data, pow=1, spde_type="adv",
+                 square_root=False):
         super().__init__()
+        self.spde_type = spde_type
         self.pow = pow
         self.encoder = encode_param_CNN_adv(shape_data,10)
         self.decoder = decode_param_CNN_adv(shape_data)
-        self.operator_spde = Prior_SPDE(shape_data,pow=self.pow)
+        self.operator_spde = Prior_SPDE(shape_data,pow=self.pow,spde_type=self.spde_type)
         self.square_root = square_root
 
     def forward(self, x):
@@ -361,6 +305,53 @@ class Phi_r(torch.nn.Module):
         x = torch.stack(x_new)
         m = torch.reshape(m,(n_b,2,n_x,n_y,n_t))
         return x, [kappa,m,H,tau]
+
+class Phi_r3(torch.nn.Module):
+    def __init__(self, shape_data, pow=2):
+        super().__init__()
+        self.pow = pow
+        self.operator_spde = Prior_SPDE(shape_data,pow=self.pow)
+        # SPDE diffusion parameters
+        self.nb_nodes = np.prod(shape_data[1:])
+        self.n_t, self.n_x, self.n_y = shape_data
+
+    # true OI solver 
+    def forward(self, x, obs, mask, kappa, m, H):
+        x_new = list()
+        n_b, n_t, n_y, n_x = x.shape
+        # define prior precision matrix
+        op = self.operator_spde(.33, m, None, 1.)
+        for i in range(n_b):
+            # define sparse observation operator
+            row = []
+            col = []
+            idx = 0
+            for k in range(self.n_t):
+                idD = torch.where(torch.flatten(torch.transpose(mask[i,k,:,:],0,1))!=0.)[0]
+                if len(idD)>0:
+                    row.extend( (idx + np.arange(0,len(idD))).tolist() )
+                    col.extend( ((k*self.nb_nodes)+idD).tolist() )
+                    idx = idx + len(idD)
+            val = np.ones(len(row))
+            nb_obs = len(torch.where(torch.flatten(mask[i])!=0.)[0])
+            opH = torch.sparse.FloatTensor(torch.LongTensor([row,col]),
+                                         torch.FloatTensor(val),
+                                         torch.Size([nb_obs,self.n_t*self.nb_nodes])).to(device)
+            inv_R = 1e3*sparse_eye(nb_obs)
+            Qxx = op[i] + \
+                  spspmm(spspmm(torch.transpose(opH,0,1),inv_R),opH)
+            Qxy = -1.*spspmm(torch.transpose(opH,0,1),inv_R)
+            # Cholesky inverse of Qg+Ht*inv(R)*H for k=0..Nt
+            Lxx = None
+            Lxx = cholesky_sparse.apply(Qxx.cpu(),True)
+            # START SPDE-based conditional simulations)
+            #xa = SPDE_spatiotemporal_kriging(Qxx, Lxx, Qxy, obs[i], mask[i], sparse=True, torch_sparse_solve=False)
+            xa = SPDE_spatiotemporal_kriging(Qxx, Lxx, Qxy.to_dense(), obs[i], mask[i], sparse=False, torch_sparse_solve=False)
+            x_new.append(xa)
+        x = torch.stack(x_new)
+        x = torch.permute(torch.reshape(x,(n_b,self.n_t,self.n_x,self.n_y)),(0,1,3,2))
+        m = torch.reshape(m,(n_b,2,n_x,n_y,n_t))
+        return x, [m]
 
 class Model_H(torch.nn.Module):
     def __init__(self, shape_data):

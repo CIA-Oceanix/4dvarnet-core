@@ -9,7 +9,7 @@ dependencies:
   - python=3.9
   - pip=21.1
   - cudatoolkit=11.3
-  - pytorch=1.11
+  - pytorch=1.12
   - torchvision=0.11.1
   - scikit-learn=0.24.2
   - scikit-sparse

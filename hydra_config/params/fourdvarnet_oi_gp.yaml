@@ -66,5 +66,6 @@ automatic_optimization: true
 ckpt_name: model_gp-{epoch:02d}-{val_loss:.2f}
 norm_obs: l2
 norm_prior: l2
-diff_only: true
+spde_type: diff
 pow: 1
+grad_clip_val: 0.001

@@ -560,7 +560,7 @@ class Solver_Grad_4DVarNN(nn.Module):
             dyi = torch.index_select(torch.flatten(dy[i]), 0, id_obs).type(torch.FloatTensor).to(device)
             nb_obs = len(dyi)
             inv_R = 1e3*sparse_eye(nb_obs).type(torch.FloatTensor).to(device)
-            iRdy = torch.sparse.mm(inv_R,torch.reshape(dyi,(nb_obs,1)))
+            iRdy = sp_mm(inv_R,torch.reshape(dyi,(nb_obs,1)))
             dyTiRdy = torch.matmul(torch.reshape(dyi,(1,nb_obs)),iRdy)
             dy_new.append(dyTiRdy[0,0])
         dy = torch.stack(dy_new)
@@ -569,7 +569,7 @@ class Solver_Grad_4DVarNN(nn.Module):
         xtQx = list()
         for i in range(n_b):
         # prior regularization
-            xtQ = torch.sparse.mm(Q,
+            xtQ = sp_mm(Q,
                                   torch.reshape(torch.permute(x[i],(0,2,1)),(n_t*n_x*n_y,1))
                                 )
             xtQx_ = torch.matmul(torch.reshape(torch.permute(x[i],(0,2,1)),(1,n_t*n_x*n_y)),

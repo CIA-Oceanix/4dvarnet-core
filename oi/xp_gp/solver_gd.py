@@ -435,7 +435,7 @@ class Gradient_Solver(nn.Module):
             dyi = torch.index_select(torch.flatten(dy[i]), 0, id_obs).type(torch.FloatTensor).to(device)
             nb_obs = len(dyi)
             inv_R = 1e3*sparse_eye(nb_obs).type(torch.FloatTensor).to(device)
-            iRdy = torch.sparse.mm(inv_R,torch.reshape(dyi,(nb_obs,1)))
+            iRdy = sp_mm(inv_R,torch.reshape(dyi,(nb_obs,1)))
             dyTiRdy = torch.matmul(torch.reshape(dyi,(1,nb_obs)),iRdy)
             dy_new.append(dyTiRdy[0,0])
         dy = torch.stack(dy_new)

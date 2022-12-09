@@ -1,4 +1,5 @@
 from oi.xp_gp.models_spde import *
+from oi.LBFGS.LBFGS import FullBatchLBFGS
 from math import sqrt
 import xarray as xr
 
@@ -41,16 +42,17 @@ class LitModel(pl.LightningModule):
         self.mean_Tr = kwargs['mean_Tr']
         self.mean_Tt = kwargs['mean_Tt']
 
-        self.diff_only = self.hparams.diff_only
-
+        self.spde_type = self.hparams.spde_type
+        self.pow = hparam.pow
         # use OI or for metrics or not
         self.use_oi = self.hparams.oi if hasattr(self.hparams, 'oi') else False
 
         self.estim_parameters = self.hparams.estim_parameters
         self.spde_params_path = hparam.files_cfg.spde_params_path
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r(self.shapeData,pow=hparam.pow,diff_only=self.diff_only,
+                Phi_r(self.shapeData,pow=hparam.pow,
                       given_parameters=not self.estim_parameters,
+                      #given_parameters=True,
                       nc=xr.open_dataset(hparam.files_cfg.spde_params_path)),
                 Model_H(self.shapeData[0]),
                 NN_4DVar.model_GradUpdateLSTM(self.shapeData, self.hparams.UsePriodicBoundary,
@@ -101,10 +103,14 @@ class LitModel(pl.LightningModule):
 
     def configure_optimizers(self):
 
-        optimizer = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
-                                {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
-                                {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]}
-                                ], lr=0.)
+        optimizer = optim.Adam([#{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                                #{'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                                {'params': self.model.phi_r.encoder.parameters(), 'lr': self.hparams.lr_update[0]}
+                                ])
+
+        #optimizer = FullBatchLBFGS(self.model.parameters())
+
+
         return optimizer
 
     def on_epoch_start(self):
@@ -207,25 +213,15 @@ class LitModel(pl.LightningModule):
         pred = torch.cat([chunk['preds'] for chunk in outputs]).numpy()
         simu = torch.cat([chunk['simulations'] for chunk in outputs]).numpy()
         
-        if self.diff_only==False:
-            kappa = torch.cat([(chunk['params'])[0].detach().cpu() for chunk in outputs]).numpy()
-            m = torch.cat([(chunk['params'])[1].detach().cpu() for chunk in outputs]).numpy()
-            H = torch.cat([(chunk['params'])[2].detach().cpu() for chunk in outputs]).numpy()           
-        else:
-            kappa = 1./3
-            m = None
-            H = torch.cat([(chunk['params'])[2].detach().cpu() for chunk in outputs]).numpy()
+        kappa = 1./3
+        m = None
+        H = torch.cat([(chunk['params'])[2].detach().cpu() for chunk in outputs]).numpy()
         param = [kappa, m, H]
 
         gt = np.moveaxis(reshape(gt),1,3)
         obs = np.moveaxis(reshape(obs),1,3)
         pred = np.moveaxis(reshape(pred),1,3)
         simu = np.moveaxis(reshape(simu),1,3)
-
-        cmp_loss = torch.cat([(chunk['cmp_loss']).detach().cpu() for chunk in outputs]).numpy()
-        # save lossOI and lossMSE as netcdf
-        path_save = self.logger.log_dir + '/loss.nc'
-        save_loss(path_save,cmp_loss)
 
         # keep only points of the original domain
         iX = np.where( (self.lon_ext>=self.xmin) & (self.lon_ext<=self.xmax) )[0]
@@ -289,30 +285,11 @@ class LitModel(pl.LightningModule):
         self.test_figs['snr'] = snr_fig
         self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
         # reshape parameters
-        if self.diff_only==False:
-            kappa, m, H  = param
-            kappa = np.transpose(kappa,(0,4,3,2,1))
-            kappa = einops.rearrange(kappa,
-                '(t_idx lat_idx lon_idx dim1) win_time win_lat win_lon win_dim1 -> t_idx win_time (lat_idx win_lat) (lon_idx win_lon) (dim1 win_dim1)',
-                dim1=1,
-                t_idx=ds_size['time'],
-                lat_idx=ds_size['lat'],
-                lon_idx=ds_size['lon'],
-                )
-            kappa = np.transpose(kappa,(0,4,2,3,1))
-            # m
-            m = np.transpose(m,(0,4,3,2,1))
-            m = einops.rearrange(m,
-                '(t_idx lat_idx lon_idx dim1) win_time win_lat win_lon win_dim1 -> t_idx win_time (lat_idx win_lat) (lon_idx win_lon) (dim1 win_dim1)',
-                dim1=1,
-                t_idx=ds_size['time'],
-                lat_idx=ds_size['lat'],
-                lon_idx=ds_size['lon'],
-                )
-            m = np.transpose(m,(0,4,2,3,1))
-            # H
-            H = np.transpose(H,(0,5,4,3,1,2))
-            H = einops.rearrange(H,
+        kappa, m, H  = param
+        # reshape parameters H
+        H = np.transpose(H,(0,4,3,1,2))
+        H = np.expand_dims(H,axis=1)
+        H = einops.rearrange(H,
                 '(t_idx lat_idx lon_idx dim1 dim2) win_time win_lat win_lon win_dim1 win_dim2-> t_idx win_time (lat_idx win_lat) (lon_idx win_lon) (dim1 win_dim1) (dim2 win_dim2)',
                 dim1=1,
                 dim2=1,
@@ -320,34 +297,19 @@ class LitModel(pl.LightningModule):
                 lat_idx=ds_size['lat'],
                 lon_idx=ds_size['lon'],
                 )
-            H = np.transpose(H,(0,4,5,2,3,1))
-            # save NetCDF
-            path_save1 = self.logger.log_dir + '/maps.nc'
-            save_netcdf(gt,obs,pred,pred,pred,pred,[kappa, m, H],
+        H = np.squeeze(H)
+        H = np.transpose(H,(0,3,4,1,2))
+        # save NetCDF
+        path_save1 = self.logger.log_dir + '/maps.nc'
+        save_netcdf(gt,obs,pred,pred,pred,pred,[H],
                     self.lon,self.lat,path_save1,
                     time=self.time['time_test'],
                     time_units='days since 2012-10-01 00:00:00')
-        else:
-            kappa, m, H  = param
-            # reshape parameters H
-            H = np.transpose(H,(0,4,3,1,2))
-            H = np.expand_dims(H,axis=1)
-            H = einops.rearrange(H,
-                '(t_idx lat_idx lon_idx dim1 dim2) win_time win_lat win_lon win_dim1 win_dim2-> t_idx win_time (lat_idx win_lat) (lon_idx win_lon) (dim1 win_dim1) (dim2 win_dim2)',
-                dim1=1,
-                dim2=1,
-                t_idx=ds_size['time'],
-                lat_idx=ds_size['lat'],
-                lon_idx=ds_size['lon'],
-                )
-            H = np.squeeze(H)
-            H = np.transpose(H,(0,3,4,1,2))
-            # save NetCDF
-            path_save1 = self.logger.log_dir + '/maps.nc'
-            save_netcdf(gt,obs,pred,pred,pred,pred,[H],
-                    self.lon,self.lat,path_save1,
-                    time=self.time['time_test'],
-                    time_units='days since 2012-10-01 00:00:00')
+
+        cmp_loss = torch.cat([(chunk['cmp_loss']).detach().cpu() for chunk in outputs]).numpy()
+        # save lossOI and lossMSE as netcdf
+        path_save = self.logger.log_dir + '/loss.nc'
+        save_loss(path_save,cmp_loss)
 
     def compute_loss(self, batch, phase):
 
@@ -370,11 +332,17 @@ class LitModel(pl.LightningModule):
         inputs_init = inputs_obs
         inputs_missing = inputs_obs
 
+        inputs_init = targets_gt
+        inputs_missing = targets_gt
+        inputs_mask =  torch.ones_like(targets_gt)
+
         # gradient norm field
         g_targets_gt = self.gradient_img(targets_gt)
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
+        #with torch.set_grad_enabled(True), torch.autograd.detect_anomaly():
         with torch.set_grad_enabled(True):
             inputs_init = torch.autograd.Variable(inputs_init, requires_grad=True)
+            '''
             outputs, cmp_loss, hidden_new, cell_new, normgrad, params = self.model(targets_gt,
                                                                          inputs_init,
                                                                          inputs_missing,
@@ -382,27 +350,30 @@ class LitModel(pl.LightningModule):
                                                                          targets_oi,
                                                                          estim_parameters=True)
             #outputs, params = self.model(inputs_init, inputs_missing, inputs_mask,.33,None,None)
+            '''
+            outputs = targets_gt
+            params = self.model.phi_r.encoder(outputs)
+            H = self.model.phi_r.decoder(params)
+
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
 
             n_b = outputs.shape[0]
+            cmp_loss = torch.hstack([torch.ones(n_b,1), torch.ones(n_b,1) ])
             n_x = outputs.shape[3]
             n_y = outputs.shape[2]
+            H = torch.reshape(H,(n_b,2,2,n_x,n_y))
+            params = [.33,None,H,1.]
+
             nb_nodes = n_x*n_y
             n_t = outputs.shape[1]
             dx = 1
             dy = 1
             dt = 1
-            if self.diff_only==True:
-                H = torch.reshape(params[2],(len(outputs),2,2,n_x*n_y))
-                m = None
-                kappa = 1./3
-                tau = 1.
-            else:
-                kappa = torch.reshape(params[0],(len(outputs),1,n_x*n_y,n_t))
-                m = torch.reshape(params[1],(len(outputs),2,n_x*n_y,n_t))
-                H = torch.reshape(params[2],(len(outputs),2,2,n_x*n_y,n_t))
-                tau = torch.reshape(params[3],(len(outputs),1,n_x*n_y,n_t))
+            H = torch.reshape(params[2],(len(outputs),2,2,n_x*n_y))
+            m = None
+            kappa = 1./3
+            tau = 1.
 
             # run n_batches*simulation
             I = sparse_eye(n_x*n_y)
@@ -415,13 +386,8 @@ class LitModel(pl.LightningModule):
                 for ibatch in range(len(outputs)):
                     x_simu_ = []
                     for i in range(n_t):
-                        if self.diff_only==True:
-                            A = DiffOperator(n_x,n_y,dx,dy,None,H[ibatch],kappa)
-                        else:
-                            A = DiffOperator(n_x,n_y,dx,dy,m[ibatch,:,:,i],
-                                                       H[ibatch,:,:,:,i],
-                                                       kappa[ibatch,:,:,i])
-                        M = I+pow_diff_operator(A,1)
+                        A = DiffOperator(n_x,n_y,dx,dy,None,H[ibatch],kappa)
+                        M = I+pow_diff_operator(A,self.pow)
                         x_simu_ = self.run_simulation(i,M,x_simu_,dx,dy,dt,n_init_run=10)
                     x_simu_ = torch.stack(x_simu_,dim=0)
                     x_simu_ = torch.reshape(x_simu_,outputs.shape[1:])
@@ -444,12 +410,16 @@ class LitModel(pl.LightningModule):
 
             g_outputs = self.gradient_img(outputs)
             # Mahanalobis distance
-            Q = self.model.phi_r.operator_spde(kappa, m, H, tau, square_root=False)
-            Q.requires_grad=True
+            Q, block_diag = self.model.phi_r.operator_spde(kappa,
+                                                               m, 
+                                                               H,
+                                                               tau, 
+                                                               square_root=False,
+                                                               store_block_diag=True)
             xtQx = list()
             for i in range(n_b):
-                xtQ = torch.sparse.mm(Q[i],
-                                     torch.reshape(torch.permute(outputs[i],(0,2,1)),(n_t*n_x*n_y,1))
+                xtQ = sp_mm(Q[i],
+                             torch.reshape(torch.permute(outputs[i],(0,2,1)),(n_t*n_x*n_y,1))
                                     )
                 xtQx_ = torch.matmul(torch.reshape(torch.permute(outputs[i],(0,2,1)),(1,n_t*n_x*n_y)),
                                   xtQ
@@ -459,6 +429,22 @@ class LitModel(pl.LightningModule):
             # reconstruction losses
             loss_All = NN_4DVar.compute_WeightedLoss((outputs - targets_gt), self.w_loss)
             loss_GAll = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_gt, self.w_loss)
+
+            # OI loss
+            dy = self.model.model_H(outputs,inputs_missing,inputs_mask)
+            dy_new=list()
+            for i in range(n_b):
+                # observation term
+                id_obs = torch.where(torch.flatten(inputs_mask[i])!=0.)[0]
+                dyi = torch.index_select(torch.flatten(dy[i]), 0, id_obs).type(torch.FloatTensor).to(device)
+                nb_obs = len(dyi)
+                inv_R = 1e3*sparse_eye(nb_obs).type(torch.FloatTensor).to(device)
+                iRdy = sp_mm(inv_R,torch.reshape(dyi,(nb_obs,1)))
+                dyTiRdy = torch.matmul(torch.reshape(dyi,(1,nb_obs)),iRdy)
+                dy_new.append(dyTiRdy[0,0])
+            dy = torch.stack(dy_new)
+            dx = torch.stack(xtQx)
+            loss_OI = torch.nanmean(dy+dx)
 
             # supervised loss (vs OI)
             if self.use_oi:
@@ -470,71 +456,47 @@ class LitModel(pl.LightningModule):
                 loss = self.hparams.alpha_mse_ssh * loss_All #+ self.hparams.alpha_mse_gssh * loss_GAll
 
             # log-likelihood loss
+            '''
+            #try a simu with Q
+            x = np.linalg.solve(np.linalg.cholesky(Q[i].detach().cpu().to_dense().numpy()).T,
+                                torch.randn(50000).numpy())
+            x = np.reshape(x,(5,100,100))
+            print(x.shape)
+            import matplotlib.pyplot as plt
+            plt.imshow(x[2])
+            plt.show()
+            '''
             if self.loss_type=="ml_loss":
                 det_Q = list()
                 for i in range(n_b):
-                    index = Q[i].coalesce().indices()
-                    value = Q[i].coalesce().values()
-                    m = Q[i].size()[0]
-                    k = Q[i].size()[1]
-                    coalesced =True
-                    Qi = SparseTensor(row=index[0], col=index[1], value=value,
-                                      sparse_sizes=(m, k), is_sorted=not coalesced)
-                    # extract the inv_P0 from global precision matrix (GPM) Q 
-                    idx = torch.tensor(np.arange(0,nb_nodes)).to(device)
-                    jdx = torch.tensor(np.arange(0,nb_nodes)).to(device)
-                    iP0 = torch_sparse.index_select(torch_sparse.index_select(Qi,0,idx),1,jdx)
-                    row, col, value = iP0.coo()
-                    index = torch.stack([row, col], dim=0)
-                    value = value
-                    inv_P0 = torch.sparse.FloatTensor(index.long(), value,
-                                       torch.Size([nb_nodes,nb_nodes])).to(device)-sparse_eye(nb_nodes)
-                    #log_det = 2*torch.sum(torch.log(torch.diagonal(cholesky_sparse.apply(inv_P0.cpu()).to_dense(),0)))
-                    log_det = 2*torch.sum(torch.log(torch.diagonal(torch.cholesky(inv_P0.to_dense()),0)))
-                    for i in range(n_t-1):
-                        idx = torch.tensor(np.arange((nb_nodes*(i)),(nb_nodes*(i+1)))).to(device)
-                        jdx = torch.tensor(np.arange((nb_nodes*(i+1)),(nb_nodes*(i+2)))).to(device)
-                        inv_Ti = torch_sparse.index_select(torch_sparse.index_select(Qi,0,idx),1,jdx)
-                        row, col, value = inv_Ti.coo()
-                        index = torch.stack([row, col], dim=0)
-                        value = -1.*value
-                        inv_Ti = torch.sparse.FloatTensor(index.long(), value, torch.Size([nb_nodes,nb_nodes])).to(device)
-                        inv_Si = spspmm(inv_Ti,inv_Ti.t())
-                        #log_inv_Si = 2*torch.sum(torch.log(torch.diagonal(cholesky_sparse.apply(inv_Si.cpu()).to_dense(),0)))
-                        log_inv_Si = 2*torch.sum(torch.log(torch.diagonal(torch.cholesky(inv_Si.to_dense()),0)))
-                        log_det += log_inv_Si
+                    log_det = 0.
+                    for j in range(0,len(block_diag[i])):
+                        log_det_block =  2*torch.sum(\
+                                            torch.log(\
+                                             torch.diagonal(\
+                                            torch.cholesky(block_diag[i][j].to_dense()),
+                                            0)\
+                                           )\
+                                          )
+                        log_det += log_det_block
+                    #print(log_det*1e-4)
+                    #print(np.linalg.slogdet(Q[i].detach().cpu().to_dense().numpy()))
+                    #print('end')
                     det_Q.append(log_det)
                 # Mahanalobis distance
                 MD = list()
                 for i in range(n_b):
-                    MD_ = torch.sparse.mm(Q[i],torch.reshape(torch.permute(targets_gt[i],(0,2,1)),(n_t*n_x*n_y,1)))
+                    MD_ = sp_mm(Q[i],torch.reshape(torch.permute(targets_gt[i],(0,2,1)),(n_t*n_x*n_y,1)))
                     MD_ = torch.matmul(torch.reshape(torch.permute(targets_gt[i],(0,2,1)),(1,n_t*n_x*n_y)),MD_)
-                MD.append(MD_[0,0])
+                    MD.append(MD_[0,0])
                 # Negative log-likelihood
-                log_det = torch.nanmean( torch.stack(det_Q) )
-                MD = torch.nanmean( torch.stack(MD) )
-                #print(log_det)
-                #print(MD)
-                loss_NLL = -1.*(log_det - MD)
+                log_det = torch.stack(det_Q) 
+                MD = torch.stack(MD)
+                loss_NLL = torch.nanmean(-1.*(log_det - MD))
                 # mixed MSE & NLL
-                loss = loss_NLL*(1e-4) #+ 10*loss_All
-                print(loss)
-
-            # OI loss
-            dy = self.model.model_H(outputs,inputs_missing,inputs_mask)
-            dy_new=list()
-            for i in range(n_b):
-                # observation term
-                id_obs = torch.where(torch.flatten(inputs_mask[i])!=0.)[0]
-                dyi = torch.index_select(torch.flatten(dy[i]), 0, id_obs).type(torch.FloatTensor).to(device)
-                nb_obs = len(dyi)
-                inv_R = 1e3*sparse_eye(nb_obs).type(torch.FloatTensor).to(device)
-                iRdy = torch.sparse.mm(inv_R,torch.reshape(dyi,(nb_obs,1)))
-                dyTiRdy = torch.matmul(torch.reshape(dyi,(1,nb_obs)),iRdy)
-                dy_new.append(dyTiRdy[0,0])
-            dy = torch.stack(dy_new)
-            dx = torch.stack(xtQx)
-            loss_OI = torch.nanmean(dy+dx)
+                loss = loss_NLL*(1e-4) #+ 10*loss_All # (ou loss OI ?)
+                #loss.backward()
+                #print(loss)
 
             if self.loss_type=="oi_loss":
                 loss = loss_OI
@@ -544,8 +506,8 @@ class LitModel(pl.LightningModule):
                 nc = xr.open_dataset(self.spde_params_path)
                 #nb_nodes = np.prod(shape_data[1:])
                 H11_gt = torch.transpose(torch.Tensor(nc.H11.values),0,1).to(device)
-                H12_gt = torch.transpose(torch.Tensor(nc.H12.values),0,1).to(device)
-                H22_gt = torch.transpose(torch.Tensor(nc.H22.values),0,1).to(device)
+                H12_gt = torch.transpose(torch.Tensor(nc.H22.values),0,1).to(device)
+                H22_gt = torch.transpose(torch.Tensor(nc.H12.values),0,1).to(device)
                 H11_gt = (torch.unsqueeze(H11_gt,dim=0)).expand(2,100,100)
                 H12_gt = (torch.unsqueeze(H12_gt,dim=0)).expand(2,100,100)
                 H22_gt = (torch.unsqueeze(H22_gt,dim=0)).expand(2,100,100)
@@ -555,8 +517,7 @@ class LitModel(pl.LightningModule):
                 loss_H11 = torch.nanmean((H11_gt-H11_predict)**2)
                 loss_H12 = torch.nanmean((H12_gt-H12_predict)**2)
                 loss_H22 = torch.nanmean((H22_gt-H22_predict)**2)
-                #loss = loss_H11
-                loss = loss_H22
+                loss = loss_H11+loss_H22+loss_H12
 
             if self.loss_type=="mseoi_loss":
                 loss = loss_mseoi

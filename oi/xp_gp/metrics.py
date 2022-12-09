@@ -279,9 +279,9 @@ def save_NetCDF2(gt,obs,oi,pred,var_f,var_a,param,lon,lat,
                            'var_f'   : (('time','lat','lon','daw'),var_f),
                            'var_a'   : (('time','lat','lon','daw'),var_a),
                            'oi'  : (('time','lat','lon','daw'),oi),
-                           'H11': (('lat','lon'),param[0][0,0,0,:,:]),
-                           'H12': (('lat','lon'),param[0][0,0,1,:,:]),
-                           'H22': (('lat','lon'),param[0][0,1,1,:,:])},
+                           'H11': (('time','lat','lon'),param[0][:,0,0,:,:]),
+                           'H12': (('time','lat','lon'),param[0][:,0,1,:,:]),
+                           'H22': (('time','lat','lon'),param[0][:,1,1,:,:])},
                 coords={'lon': lon,'lat': lat,
                         'time': range(len(time)), 'daw': range(gt.shape[3])})
     else:

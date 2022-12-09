@@ -41,9 +41,9 @@ class LitModel(pl.LightningModule):
         self.mean_Tr = kwargs['mean_Tr']
         self.mean_Tt = kwargs['mean_Tt']
 
-        self.spde_type = self.hparams.spde_type
-
         self.estim_parameters = self.hparams.estim_parameters
+
+        self.spde_type = self.hparams.spde_type
 
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(self.shapeData,pow=hparam.pow),
@@ -289,7 +289,12 @@ class LitModel(pl.LightningModule):
 
             g_outputs = self.gradient_img(outputs)
             # Mahanalobis distance
-            Q = self.model.phi_r.operator_spde(kappa, m, H, tau, square_root=False)
+            Q, block_diag = self.model.phi_r.operator_spde(kappa,
+                                                               m, 
+                                                               H,
+                                                               tau, 
+                                                               square_root=False,
+                                                               store_block_diag=True)
             Q.requires_grad=True
             xtQx = list()
             for i in range(n_b):
@@ -304,61 +309,6 @@ class LitModel(pl.LightningModule):
             # reconstruction losses
             loss_All = NN_4DVar.compute_WeightedLoss((outputs - targets_gt), self.w_loss)
             loss_GAll = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_gt, self.w_loss)
-
-            # mse loss
-            if self.loss_type=="mse_loss":
-                loss = self.hparams.alpha_mse_ssh * loss_All #+ self.hparams.alpha_mse_gssh * loss_GAll
-
-            # log-likelihood loss
-            if self.loss_type=="ml_loss":
-                det_Q = list()
-                for i in range(n_b):
-                    index = Q[i].coalesce().indices()
-                    value = Q[i].coalesce().values()
-                    m = Q[i].size()[0]
-                    k = Q[i].size()[1]
-                    coalesced =True
-                    Qi = SparseTensor(row=index[0], col=index[1], value=value,
-                                      sparse_sizes=(m, k), is_sorted=not coalesced)
-                    # extract the inv_P0 from global precision matrix (GPM) Q 
-                    idx = torch.tensor(np.arange(0,nb_nodes)).to(device)
-                    jdx = torch.tensor(np.arange(0,nb_nodes)).to(device)
-                    iP0 = torch_sparse.index_select(torch_sparse.index_select(Qi,0,idx),1,jdx)
-                    row, col, value = iP0.coo()
-                    index = torch.stack([row, col], dim=0)
-                    value = value
-                    inv_P0 = torch.sparse.FloatTensor(index.long(), value,
-                                       torch.Size([nb_nodes,nb_nodes])).to(device)-sparse_eye(nb_nodes)
-                    #log_det = 2*torch.sum(torch.log(torch.diagonal(cholesky_sparse.apply(inv_P0.cpu()).to_dense(),0)))
-                    log_det = 2*torch.sum(torch.log(torch.diagonal(torch.cholesky(inv_P0.to_dense()),0)))
-                    for i in range(n_t-1):
-                        idx = torch.tensor(np.arange((nb_nodes*(i)),(nb_nodes*(i+1)))).to(device)
-                        jdx = torch.tensor(np.arange((nb_nodes*(i+1)),(nb_nodes*(i+2)))).to(device)
-                        inv_Ti = torch_sparse.index_select(torch_sparse.index_select(Qi,0,idx),1,jdx)
-                        row, col, value = inv_Ti.coo()
-                        index = torch.stack([row, col], dim=0)
-                        value = -1.*value
-                        inv_Ti = torch.sparse.FloatTensor(index.long(), value, torch.Size([nb_nodes,nb_nodes])).to(device)
-                        inv_Si = spspmm(inv_Ti,inv_Ti.t())
-                        #log_inv_Si = 2*torch.sum(torch.log(torch.diagonal(cholesky_sparse.apply(inv_Si.cpu()).to_dense(),0)))
-                        log_inv_Si = 2*torch.sum(torch.log(torch.diagonal(torch.cholesky(inv_Si.to_dense()),0)))
-                        log_det += log_inv_Si
-                    det_Q.append(log_det)
-                # Mahanalobis distance
-                MD = list()
-                for i in range(n_b):
-                    MD_ = torch.sparse.mm(Q[i],torch.reshape(torch.permute(targets_gt[i],(0,2,1)),(n_t*n_x*n_y,1)))
-                    MD_ = torch.matmul(torch.reshape(torch.permute(targets_gt[i],(0,2,1)),(1,n_t*n_x*n_y)),MD_)
-                MD.append(MD_[0,0])
-                # Negative log-likelihood
-                log_det = torch.nanmean( torch.stack(det_Q) )
-                MD = torch.nanmean( torch.stack(MD) )
-                #print(log_det)
-                #print(MD)
-                loss_NLL = -1.*(log_det - MD)
-                # mixed MSE & NLL
-                loss = loss_NLL*(1e-4) #+ 10*loss_All
-                print(loss)
 
             # OI loss
             dy = self.model.model_H(outputs,inputs_missing,inputs_mask)
@@ -375,6 +325,44 @@ class LitModel(pl.LightningModule):
             dy = torch.stack(dy_new)
             dx = torch.stack(xtQx)
             loss_OI = torch.nanmean(dy+dx)
+
+            # mse loss
+            if self.loss_type=="mse_loss":
+                loss = self.hparams.alpha_mse_ssh * loss_All #+ self.hparams.alpha_mse_gssh * loss_GAll
+
+            # log-likelihood loss
+            if self.loss_type=="ml_loss":
+                det_Q = list()
+                for i in range(n_b):
+                    log_det = 0.
+                    for j in range(0,len(block_diag[i])):
+                        log_det += 2*torch.sum(\
+                                     torch.log(\
+                                      torch.diagonal(\
+                                       torch.cholesky(block_diag[i][j].to_dense()),
+                                      0)\
+                                     )\
+                                    )
+                    det_Q.append(log_det)
+                # Mahanalobis distance
+                MD = list()
+                for i in range(n_b):
+                    MD_ = torch.sparse.mm(Q[i],torch.reshape(torch.permute(targets_gt[i],(0,2,1)),(n_t*n_x*n_y,1)))
+                    MD_ = torch.matmul(torch.reshape(torch.permute(targets_gt[i],(0,2,1)),(1,n_t*n_x*n_y)),MD_)
+                    targets_gt_ = torch.full(targets_gt[i].size(),1.).to(device)
+                    MD_ = torch.sparse.mm(Q[i],torch.reshape(torch.permute(targets_gt_,(0,2,1)),(n_t*n_x*n_y,1)))
+                    MD_ = torch.matmul(torch.reshape(torch.permute(targets_gt_,(0,2,1)),(1,n_t*n_x*n_y)),MD_)
+                MD.append(MD_[0,0])
+                # Negative log-likelihood
+                log_det = torch.nanmean( torch.stack(det_Q) )
+                MD = torch.nanmean( torch.stack(MD) )
+                #print(log_det)
+                #print(MD)
+                loss_NLL = -1.*(log_det - MD)
+                # mixed MSE & NLL
+                loss = -1.*loss_NLL*(1e-4)# + 10*loss_All # (ou loss OI ?)
+                loss = torch.nanmean(MD)
+                print(loss)
 
             if self.loss_type=="oi_loss":
                 loss = loss_OI

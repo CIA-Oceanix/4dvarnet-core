@@ -3,11 +3,30 @@ xp_name: oi_gp_spde_wlp_diff_loss
 
 datamodule:
   resize_factor: 1
+  test_slices:
+    - _target_: builtins.slice
+      _args_: ['2013-01-03', '2013-01-12']
+  train_slices:
+    - _target_: builtins.slice
+      _args_: ['2013-02-07', '2013-03-07']
+#      _args_: ['2013-02-07', '2013-02-13']
 
 params:
+  grad_clip_val: 0
   estim_parameters: true
   loss_type: diffusion_loss
   n_grad: 20
+  iter_update:
+    - 0
+    - 25
+    - 50
+    - 100
+    - 200
+  lr_update:
+    - 0.01
+    - 0.001
+    - 0.001
+    - 0.001
 
 defaults:
   - /params_gp@params: gp_diff_pow_2

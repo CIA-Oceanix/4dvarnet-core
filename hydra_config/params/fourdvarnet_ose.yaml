@@ -11,6 +11,7 @@ files_cfg:
   sst_path: ${file_paths.sst_ose_osse_path}
   sst_var: sst
   sst_decode: false
+  c2_path: ${file_paths.c2_path}
 iter_update:
   - 0
   - 20
@@ -41,7 +42,7 @@ lr_update:
   - 1.0e-07 
 k_batch: 1
 n_grad: 5 
-dT: 5
+dT: 29
 dx: 1
 W: 200 
 resize_factor: 1

@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from torch import nn
 import torch.nn.functional as F
+from oi.scipy_sparse_tools import *
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def sparse_eye(size, val = torch.tensor(1.0)):
@@ -448,7 +449,7 @@ class Solver_Grad_4DVarNN(nn.Module):
             dyi = torch.index_select(torch.flatten(dy[i]), 0, id_obs).type(torch.FloatTensor).to(device)
             nb_obs = len(dyi)
             inv_R = 1e3*sparse_eye(nb_obs).type(torch.FloatTensor).to(device)
-            iRdy = torch.sparse.mm(inv_R,torch.reshape(dyi,(nb_obs,1)))
+            iRdy = sp_mm(inv_R,torch.reshape(dyi,(nb_obs,1)))
             dyTiRdy = torch.matmul(torch.reshape(dyi,(1,nb_obs)),iRdy)
             dy_new.append(dyTiRdy[0,0])
         dy = torch.stack(dy_new)

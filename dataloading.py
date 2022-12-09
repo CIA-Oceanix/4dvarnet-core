@@ -395,6 +395,7 @@ class FourDVarNetDataset(Dataset):
         obs_item = np.where(~np.isnan(_obs_item), _obs_item, np.zeros_like(_obs_item))
 
         # remove patches from data
+        '''
         supervised = False
         if supervised==False:
             n_patch = 10
@@ -409,6 +410,7 @@ class FourDVarNetDataset(Dataset):
                 gt_item[i,ix,iy] = 0.
                 obs_item[i,~ix,~iy] = 0.
                 obs_mask_item[i,~ix,~iy] = 0.
+        '''
 
         if self.sst_ds == None:
             return oi_item, obs_mask_item, obs_item, gt_item

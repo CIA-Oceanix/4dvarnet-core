@@ -12,9 +12,20 @@ datamodule:
 #      _args_: ['2012-10-01', '2012-11-20']
 
 params:
+  grad_clip_val: 0.001
   estim_parameters: true
   loss_type: ml_loss
-  n_grad: 20
+#  n_grad: 20
+  iter_update:
+    - 0
+    - 25
+    - 50
+    - 100
+  lr_update:
+    - 0.001
+    - 0.0001
+    - 0.0001
+    - 0.00001
 
 defaults:
   - /params_gp@params: gp_diff_pow_2

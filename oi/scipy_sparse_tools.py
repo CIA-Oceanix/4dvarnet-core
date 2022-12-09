@@ -9,6 +9,8 @@ from torch_sparse.tensor import SparseTensor
 from torch_sparse.convert import to_scipy
 from torch_sparse.convert import from_torch_sparse
 from torch_sparse.matmul import matmul as matmul2
+from torch_sparse import spmm
+from torch_sparse import spspmm as spsp_mm
 from torch.autograd import Function
 from torch.utils.dlpack import to_dlpack
 from torch.utils.dlpack import from_dlpack
@@ -16,6 +18,35 @@ import torch_sparse
 import torch
 from oi.chol_sp_diff import chol_rev
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+def sp_mm(A,B):
+    indexA = A.coalesce().indices()
+    valueA = A.coalesce().values()
+    m = A.size()[0]
+    n = A.size()[1]
+    res = spmm(indexA, valueA, m, n, B).to(device)
+    '''
+    v1
+    m = B.size()[0]
+    n = B.size()[1]
+    k = A.size()[0]
+    row = torch.arange(m)
+    col = torch.full((m,), 0)
+    index = torch.stack([row, col], dim=0).to(device)
+    val = torch.flatten(B).to(device)
+    B = torch.sparse.FloatTensor(index.long(), val, torch.Size([m,n])).to(device)
+    res = torch.sparse.mm(A,B)
+    val = res.coalesce().values()
+    res = torch.unsqueeze(val,dim=1).to(device)
+    '''
+    '''
+    v2
+    res = torch.zeros((m,1)).to(device)
+    for i in range(m):
+        idx = torch.where(indexA[0]==i)
+        res[i,0] = valueA[idx] @ B[indexA[1][idx],0]         
+    '''
+    return res
 
 def spspmm(A,B):
     """Matrix product of two sparse tensors. Both input sparse matrices need to
@@ -33,12 +64,10 @@ def spspmm(A,B):
             input sparse matrices. (default: :obj:`False`)
     :rtype: (:class:`LongTensor`, :class:`Tensor`)
     """
-    """
-    indexA = A.detach().cpu().coalesce().indices()
-    valueA = A.detach().cpu().coalesce().values()
-    indexB = B.detach().cpu().coalesce().indices()
-    valueB = B.detach().cpu().coalesce().values()
-    """
+    res = torch.sparse.mm(A,B)
+    res = res.coalesce()
+    '''
+    v1
     indexA = A.coalesce().indices()
     valueA = A.coalesce().values()
     indexB = B.coalesce().indices()
@@ -46,9 +75,11 @@ def spspmm(A,B):
     m = A.size()[0]
     k = A.size()[1]
     n = B.size()[1]
-
+    res = spsp_mm(indexA,valueA,indexB,valueB,m,k,n, coalesced=True)
+    '''
+    '''
+    v2
     coalesced =True
-
     A2 = SparseTensor(row=indexA[0], col=indexA[1], value=valueA,
                      sparse_sizes=(m, k), is_sorted=not coalesced)
     B2 = SparseTensor(row=indexB[0], col=indexB[1], value=valueB,
@@ -58,8 +89,16 @@ def spspmm(A,B):
     row, col, value = C.coo()
     indexC = torch.stack([row, col], dim=0)
     valueC = value
-
-    return torch.sparse.FloatTensor(indexC.long(), valueC, torch.Size([m,n])).to(device)
+    res = torch.sparse.FloatTensor(indexC.long(), valueC, torch.Size([m,n])).to(device)
+    res.requires_grad = True
+    '''
+    '''
+    res = torch.sparse.FloatTensor(res[0],
+                                   res[1],
+                                   torch.Size([m,n])).to(device)
+    res.requires_grad = True
+    '''
+    return res
 
 # cast torch_sparse COO matrix to scipy sparse csc matrix
 def sparse_torch2scipy(A):

@@ -232,6 +232,7 @@ class LitModelAugstate(pl.LightningModule):
 
     def training_epoch_end(self, outputs):
         best_ckpt_path = self.trainer.checkpoint_callback.best_model_path
+        '''
         if len(best_ckpt_path) > 0:
             def should_reload_ckpt(losses):
                 diffs = losses.diff()
@@ -247,7 +248,7 @@ class LitModelAugstate(pl.LightningModule):
                 print('reloading', best_ckpt_path)
                 ckpt = torch.load(best_ckpt_path)
                 self.load_state_dict(ckpt['state_dict'])
-
+        '''
 
 
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):

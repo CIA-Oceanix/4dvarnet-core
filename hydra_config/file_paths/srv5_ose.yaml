@@ -10,10 +10,11 @@ obs_mask_osse_nad_path: /gpfsstore/rech/yrf/commun/NATL60/NATL/data_new/dataset_
 obs_mask_ose_nad_path: /users/local/m19beauc/data/ose/GULFSTREAM/training/dataset_nadir_0d.nc
 gt_ose_osse_path: /users/local/m19beauc/data/ose/GULFSTREAM/training/ref_ssh_OSE_OSSE.nc
 sst_ose_osse_path: /users/local/m19beauc/data/ose/GULFSTREAM/training/ref_sst_OSE_OSSE.nc
-gt_osse_path: /gpfsstore/rech/yrf/commun/NATL60/NATL/ref_new/NATL60-CJM165_NATL_ssh_y2013.1y.nc
+gt_osse_path: /users/local/m19beauc/data/ref/NATL60-CJM165_GULFSTREAM_ssh_y2013.1y.nc
 sst_osse_path:  /gpfsstore/rech/yrf/commun/NATL60/NATL/ref_new/NATL60-CJM165_NATL_sst_y2013.1y.nc
 gt_ose_path: /users/local/m19beauc/data/ose/GULFSTREAM/training/dataset_nadir_0d.nc
 sst_ose_path: /users/local/m19beauc/data/ose/GULFSTREAM/training/sst_CMEMS.nc
+c2_path: /users/local/m19beauc/4dvarnet-core/ose/eval_notebooks/inputs/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc
 
 
 
