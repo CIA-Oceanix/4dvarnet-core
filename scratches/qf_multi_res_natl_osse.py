@@ -4,7 +4,12 @@ import metrics
 import holoviews as hv
 import panel as pn
 pn.pane.Matplotlib.tight = True
-hv.extension('matplotlib')
+try:
+    hv.extension('matplotlib')
+except:
+    pass
+finally:
+    pass
 import scipy.ndimage as ndi
 import scipy.interpolate
 import matplotlib.pyplot as plt
@@ -265,6 +270,36 @@ def fix_time(da):
     da['time'] =  pd.to_datetime('2012-10-01') + pd.to_timedelta(da.time, 's')
     return da
         
+def sample_nadirs_from_simu(nadirs, simu, nadirs_start_time=pd.to_datetime('2012-10-01')):
+    binning = pyinterp.Binning2D(pyinterp.Axis(simu.lon.values), pyinterp.Axis(simu.lat.values))
+    grid_day_dses = []
+    for i in tqdm(range(len(simu.time))):
+        binning.clear()
+        for nad in nadirs:
+            try:
+                nad_chunk=nadirs[nad].sel(time=str((nadirs_start_time + pd.to_timedelta(f'{i}D')).date()))
+            except KeyError as e:
+                print(e)
+                continue
+            if nad_chunk.dims['time'] == 0:
+                continue
+            nad_red = (
+                simu.isel(time=i).drop('time').interp(
+                    # time=t.broadcast_like(nad_chunk.ssh_model),
+                    lat=nad_chunk.lat.broadcast_like(nad_chunk.ssh_model),
+                    lon=nad_chunk.lon.broadcast_like(nad_chunk.ssh_model) - 360,
+                )
+            )
+            binning.push(nad_red.lon.values, nad_red.lat.values, nad_red.values)
+
+        grid_day_dses.append(xr.Dataset(
+               data_vars={'ssh': (('time', 'lat', 'lon'), binning.variable('mean').T[None, ...])},
+               coords={'time': [simu.time[i].values], 'lat': np.array(binning.y), 'lon': np.array(binning.x)}
+            ).astype('float32', casting='same_kind')
+        )
+
+    return xr.concat(grid_day_dses, dim='time')
+
 def run2():
     try:
 
@@ -278,17 +313,17 @@ def run2():
 
         natl_dses = {
             'natl20': natl.sel(bigger_domain).ssh.load(),
-            'natl20_g1': degrade(natl.sel(bigger_domain).ssh, sig=1, subsamp=1, interp="cubic").load(),
-            'natl20_g3':degrade(natl.sel(bigger_domain).ssh, sig=3, subsamp=1, interp="cubic").load(),
-            'natl20_g5':degrade(natl.sel(bigger_domain).ssh, sig=5, subsamp=1, interp="cubic").load(),
-            'natl20_g8':degrade(natl.sel(bigger_domain).ssh, sig=8, subsamp=1, interp="cubic").load(),
+            # 'natl20_g1': degrade(natl.sel(bigger_domain).ssh, sig=1, subsamp=1, interp="cubic").load(),
+            # 'natl20_g3':degrade(natl.sel(bigger_domain).ssh, sig=3, subsamp=1, interp="cubic").load(),
+            # 'natl20_g5':degrade(natl.sel(bigger_domain).ssh, sig=5, subsamp=1, interp="cubic").load(),
+            # 'natl20_g8':degrade(natl.sel(bigger_domain).ssh, sig=8, subsamp=1, interp="cubic").load(),
         }
 
         compo_natl_dses = {
-                'natl20_g1_90': natl_dses['natl20']*0.1 + natl_dses['natl20_g1']*0.9,
-                'natl20_g3_90': natl_dses['natl20']*0.1 + natl_dses['natl20_g3']*0.9,
-                'natl20_g5_90': natl_dses['natl20']*0.1 + natl_dses['natl20_g5']*0.9,
-                'natl20_g8_90': natl_dses['natl20']*0.1 + natl_dses['natl20_g8']*0.9,
+                # 'natl20_g1_90': natl_dses['natl20']*0.1 + natl_dses['natl20_g1']*0.9,
+                # 'natl20_g3_90': natl_dses['natl20']*0.1 + natl_dses['natl20_g3']*0.9,
+                # 'natl20_g5_90': natl_dses['natl20']*0.1 + natl_dses['natl20_g5']*0.9,
+                # 'natl20_g8_90': natl_dses['natl20']*0.1 + natl_dses['natl20_g8']*0.9,
         }
 
         orca = xr.open_dataset('../sla-data-registry/eORCA025/eORCA025_North_Atlantic_sossheig_y2013.nc').load()
@@ -326,36 +361,6 @@ def run2():
             )
             for nad in ['tpn', 'en', 'j1', 'g2', 'swot']}
         
-        def sample_nadirs_from_simu(nadirs, simu, nadirs_start_time=pd.to_datetime('2012-10-01')):
-            binning = pyinterp.Binning2D(pyinterp.Axis(simu.lon.values), pyinterp.Axis(simu.lat.values))
-            grid_day_dses = []
-            for i in tqdm(range(len(simu.time))):
-                binning.clear()
-                for nad in nadirs:
-                    try:
-                        nad_chunk=nadirs[nad].sel(time=str((nadirs_start_time + pd.to_timedelta(f'{i}D')).date()))
-                    except KeyError as e:
-                        print(e)
-                        continue
-                    if nad_chunk.dims['time'] == 0:
-                        continue
-                    nad_red = (
-                        simu.isel(time=i).drop('time').interp(
-                            # time=t.broadcast_like(nad_chunk.ssh_model),
-                            lat=nad_chunk.lat.broadcast_like(nad_chunk.ssh_model),
-                            lon=nad_chunk.lon.broadcast_like(nad_chunk.ssh_model) - 360,
-                        )
-                    )
-                    binning.push(nad_red.lon.values, nad_red.lat.values, nad_red.values)
-
-                grid_day_dses.append(xr.Dataset(
-                       data_vars={'ssh': (('time', 'lat', 'lon'), binning.variable('mean').T[None, ...])},
-                       coords={'time': [simu.time[i].values], 'lat': np.array(binning.y), 'lon': np.array(binning.x)}
-                    ).astype('float32', casting='same_kind')
-                )
-
-            return xr.concat(grid_day_dses, dim='time')
-
         obses_ds = {}
         for k, ds in all_dses.items():
             print(k)
@@ -614,7 +619,6 @@ def find_good_down_sampling():
         grad_ds = xr.DataArray( np.sqrt(gradx[0].to_tuple()[0]**2 + grady[0].to_tuple()[0]**2), dom_da.coords)
         len(mpcalc.gradient(dom_da))
         dom_da.assign_attrs(unit='m').metpy.quantify()
-        mpcalc.absolute_vorticity(*)
         grad_ds.data
         psds = dict(
             psd_geo = psd_fn(np.sqrt(geoy**2 + geox**2).metpy.dequantify()).mean('time'),
@@ -877,9 +881,80 @@ def fmt_orca25():
     finally:
         return locals()
 
+def fmt_enatl():
+    try:
+        # 2009-11-14 -> 2010-03-21
+        tgt_grid = xr.open_dataset('../sla-data-registry/qdata/natl20.nc')
+
+        (tgt_grid.ssh - tgt_grid.nadir_obs).pipe(np.abs).pipe(np.nanmean)
+        nadirs = {
+            nad: swath_calib.utils.get_nadir_slice(
+                f'../sla-data-registry/sensor_zarr/zarr/nadir/{nad}',
+                lat_min=31,
+                lat_max=45,
+                lon_min=293,
+                lon_max=307,
+            )
+            for nad in ['tpn', 'en', 'j1', 'g2', 'swot']}
+
+        blb0 = []
+        for f in tqdm(list(Path('../sla-data-registry/enatl60').glob('*BLB0*'))):
+            samp = xr.open_dataset(f)
+            samp=samp.mean('time_counter', keepdims=True).assign_coords(time_counter=[samp.time_counter.mean().values]).coarsen(x=3, y=3, boundary='trim').mean()
+            regridded = interp_unstruct_to_grid(samp.sossheig, tgt_grid.ssh)
+            blb0.append(regridded)
+        
+        bods = xr.concat(blb0, 'time_counter').rename(time_counter='time')
+        bods_obs_ds = (sample_nadirs_from_simu(nadirs, bods)).ssh
+
+        ds = xr.Dataset(dict(ssh=(bods.dims, bods.values), nadir_obs=(bods_obs_ds.dims, bods_obs_ds.values)), coords=bods.coords).load()
+        ds = ds.sortby('time')
+        ds.to_netcdf(f'../sla-data-registry/qdata/enatl_wo_tide.nc')
+
+        blbt = []
+        for f in tqdm(list(Path('../sla-data-registry/enatl60').glob('*BLBT*'))):
+            samp = xr.open_dataset(f)
+            samp=samp.mean('time_counter', keepdims=True).assign_coords(time_counter=[samp.time_counter.mean().values]).coarsen(x=3, y=3, boundary='trim').mean()
+            regridded = interp_unstruct_to_grid(samp.sossheig, tgt_grid.ssh)
+            blbt.append(regridded)
+
+        btds = xr.concat(blbt, 'time_counter').rename(time_counter='time')
+        btds_obs_ds = ( sample_nadirs_from_simu(nadirs, btds)).ssh
+
+
+        ds = xr.Dataset(dict(ssh=(btds.dims, btds.values), nadir_obs=(btds_obs_ds.dims, btds_obs_ds.values)), coords=btds.coords).load()
+        ds = ds.sortby('time')
+        ds.to_netcdf(f'../sla-data-registry/qdata/enatl_w_tide.nc')
+        
+    except Exception as e:
+        print(traceback.format_exc()) 
+    finally:
+        return locals()
+
+def fmt_duacs_emul():
+    try:
+
+        ose_oi_path= '/raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/training/ssh_alg_h2g_j2g_j2n_j3_s3a_duacs.nc'
+        ose_obs_mask_path= '/raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/training/dataset_nadir_0d.nc'
+        tgt_grid = xr.open_dataset('../sla-data-registry/qdata/natl20.nc')
+        obs_ds = xr.open_dataset(ose_obs_mask_path)
+        oi_ds = xr.open_dataset(ose_oi_path)
+
+        obs = obs_ds.sel(lat=tgt_grid.lat, lon=tgt_grid.lon, method='nearest').ssh
+        tgt = oi_ds.sel(lat=tgt_grid.lat, lon=tgt_grid.lon, method='nearest').ssh
+
+        ds = xr.Dataset(dict(ssh=(tgt.dims, tgt.values), nadir_obs=(obs.dims, obs.values)), coords=tgt.coords)
+        ds.to_netcdf(f'../sla-data-registry/qdata/duacs_emul_ose.nc')
+        ds.close()
+    except Exception as e:
+        print(traceback.format_exc()) 
+    finally:
+        return locals()
+
 def main():
     try:
-        fn = run1
+        # fn = run1
+        fn = fmt_enatl
 
         locals().update(fn())
     except Exception as e:

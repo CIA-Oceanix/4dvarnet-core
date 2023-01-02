@@ -70,20 +70,20 @@ hv.output(images, holomap='mp4', fps=3)
 
 plt.cm.get_cmap("RdYlBu")
 
-def get_grid_fig(to_plot_ds):
-clims = Clim(to_plot_ds)
-hv_layout = hv.Layout([
-    hv.Dataset(
-        to_plot_ds, ['lon', 'lat'], var
-    ).to(
-        hv.QuadMesh, kdims=['lon', 'lat']
-    ).relabel(
-        f'{var}'
-    ).options(
-        colorbar=True,
-        cmap='PiYG',
-        clim=clims[var],
-        aspect=2
-    )
-    for var in to_plot_ds
-]).cols(2)
+# def get_grid_fig(to_plot_ds):
+# clims = Clim(to_plot_ds)
+# hv_layout = hv.Layout([
+#     hv.Dataset(
+#         to_plot_ds, ['lon', 'lat'], var
+#     ).to(
+#         hv.QuadMesh, kdims=['lon', 'lat']
+#     ).relabel(
+#         f'{var}'
+#     ).options(
+#         colorbar=True,
+#         cmap='PiYG',
+#         clim=clims[var],
+#         aspect=2
+#     )
+#     for var in to_plot_ds
+# ]).cols(2)

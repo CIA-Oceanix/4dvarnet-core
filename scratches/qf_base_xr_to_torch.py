@@ -28,7 +28,7 @@ class XrDataset(torch.utils.data.Dataset):
     """
     def __init__(
             self, da, patch_dims, domain_limits=None, strides=None,
-            check_full_scan=False, check_dim_order=False,
+            check_full_scan=True, check_dim_order=True,
             postpro_fn=None
             ):
         """

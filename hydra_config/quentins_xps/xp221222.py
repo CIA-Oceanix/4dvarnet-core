@@ -1,14 +1,12 @@
 from hydra.core.config_store import ConfigStore
-import numpy as np
 from omegaconf import OmegaConf
 from pathlib import Path
 from itertools import product
 
 cs = ConfigStore.instance()
 
-BASE_DEFAULTS = [
-]
-XP=28
+BASE_DEFAULTS = []
+XP=29
 
 cs.store(name='0', node={'aug_train_data': False}, group='aug_data', package='datamodule')
 cs.store(name='1', node={'aug_train_data': True}, group='aug_data', package='datamodule')
@@ -26,8 +24,8 @@ aug = {
 cs.store(name='2', node={'resize_factor': 2}, group='down_samp', package='datamodule')
 cs.store(name='1', node={'resize_factor': 1}, group='down_samp', package='datamodule')
 resize = {
-    'ds2': '/down_samp/2',
-    # 'ds1': '/down_samp/1',
+    # 'ds2': '/down_samp/2',
+    'ds1': '/down_samp/1',
 }
 
 cs.store(name='29_8', node={
@@ -59,9 +57,9 @@ data = {k: {'params': {'files_cfg': dict(
 
 for k, sp in[
     ('natl20', '/splits/q_osse_to_osse_natl@datamodule'),
+    ('orca25', '/splits/q_osse_to_osse_orca@datamodule'),
     ('glo12_free', '/splits/q_osse_to_osse_glorys@datamodule'),
     ('glo12_rea', '/splits/q_osse_to_osse_glorys@datamodule'),
-    ('orca25', '/splits/q_osse_to_osse_orca@datamodule'),
     ('enatl_w_tide', '/splits/q_osse_to_osse_enatl@datamodule'),
     ('enatl_wo_tide', '/splits/q_osse_to_osse_enatl@datamodule'),
     ('duacs_emul_ose', '/splits/q_osse_to_osse_duacs_emul@datamodule'),

@@ -98,8 +98,8 @@ class SmoothSwathDataset(torch.utils.data.Dataset):
         # pp_ds = ((sw_res_data[all_vars + ['xb']] - mean) / std).assign(contiguous_chunk=sw_res_data.contiguous_chunk).astype(np.float32)
         pp_ds = sw_res_data[all_vars + ['xb']].assign(contiguous_chunk=sw_data_w_aug.contiguous_chunk).astype(np.float32)
 
-        min_timestep = 500
         self.stats  = mean, std
+        min_timestep = 500
         self.chunks = list(
                 pp_ds.groupby('contiguous_chunk').count()
                 .isel(nC=0).pipe(lambda ds: ds.isel(contiguous_chunk=ds[pp_vars[0]] > min_timestep))

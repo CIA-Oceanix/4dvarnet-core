@@ -16,6 +16,7 @@ from hydra.utils import instantiate, get_class, call
 import runner as runner_mod
 import lit_model_augstate
 
+import metpy.calc as mpcalc
 importlib.reload(lit_model_augstate)
 from utils import get_cfg, get_dm, get_model
 from omegaconf import OmegaConf
@@ -24,14 +25,15 @@ import hydra_config
 
 fp = "dgx_ifremer"
 
+cfg_set = []
 # cfg_n, ckpt = 'qxp23_no_sst_swot_w_oi_aug3_ds2_dT29_13', 'results/xp23/qxp23_no_sst_swot_w_oi_aug3_ds2_dT29_13/version_2/checkpoints/modelCalSLAInterpGF-epoch=173-val_loss=2.5762.ckpt'
 cfg_n, ckpt = 'qxp22_5nad_aug3_ds1', 'results/xp22/qxp22_5nad_aug3_ds1/version_0/checkpoints/lx691_lt406_mu959.ckpt'
-
+cfg_set.append((cfg_n, ckpt))
 
 ### SOTA OSE 122km 0.877 km
-# cfg_n, ckpt = 'qxp23_no_sst_5nad_aug3_ds2_dT29_8', 'results/xp23/qxp23_no_sst_5nad_aug3_ds2_dT29_8/version_1/checkpoints/modelCalSLAInterpGF-epoch=344-val_loss=4.5537.ckpt'
+cfg_n, ckpt = 'qxp23_no_sst_5nad_aug3_ds2_dT29_8', 'results/xp23/qxp23_no_sst_5nad_aug3_ds2_dT29_8/version_1/checkpoints/modelCalSLAInterpGF-epoch=344-val_loss=4.5537.ckpt'
+cfg_set.append((cfg_n, ckpt))
 
-cfg_set = []
 # cfg_n, ckpt = 'qxp26_no_sst_natl1_14D_aug1_ds2_dT29_8', 'results/xp26/qxp26_no_sst_natl1_14D_aug1_ds2_dT29_8/version_0/checkpoints/modelCalSLAInterpGF-epoch=189-val_loss=0.3319.ckpt'
 # cfg_set.append((cfg_n, ckpt))
 # cfg_n, ckpt = 'qxp26_no_sst_natl1_1D_aug1_ds2_dT29_8', 'results/xp26/qxp26_no_sst_natl1_1D_aug1_ds2_dT29_8/version_0/checkpoints/modelCalSLAInterpGF-epoch=189-val_loss=0.5823.ckpt'
@@ -51,6 +53,7 @@ vort = lambda da: mpcalc.vorticity(*mpcalc.geostrophic_wind(da.assign_attrs(unit
 geo_energy = lambda da:np.hypot(*mpcalc.geostrophic_wind(da)).metpy.dequantify()
 
 def get_best_ckpt(xp_dir, version=None):
+    print(xp_dir)
     if version is None:
         version_dir = max(xp_dir.glob('version_*'), key=lambda d: int(str(d).split('_')[-1]))
     else:
@@ -67,10 +70,18 @@ def get_best_ckpt(xp_dir, version=None):
 
 
 cfg_set = []
-for xp_dir in list(Path('results/xp27').glob('*ds2*')):
+for xp_dir in list(Path('results/xp28').glob('*ds2*')):
     cfg_n, ckpt = get_best_ckpt(xp_dir)
+    # print(xp_dir, ckpt)
     cfg_set.append((cfg_n, ckpt))
     
+cfg_set = []
+for xp_dir in list(Path('results/xp29').glob('*ds1*')):
+    cfg_n, ckpt = get_best_ckpt(xp_dir)
+    # print(xp_dir, ckpt)
+    cfg_set.append((cfg_n, ckpt))
+
+
 ose = [
     # 'params.files_cfg.oi_path=${file_paths.ose_oi_path}',
     # 'params.files_cfg.oi_path=${file_paths.oi_ose_nad_path}',
@@ -182,14 +193,14 @@ def run_test(cfg_n, ckpt):
     return mod, cfg, dm_osse, dm
 
 
-# for cfg_n, ckpt in cfg_set:
-#     print(cfg_n, ckpt)
-#     mod, cfg, dm_osse, dm = run_test(cfg_n, ckpt)
+for cfg_n, ckpt in cfg_set:
+    print(cfg_n, ckpt)
+    mod, cfg, dm_osse, dm = run_test(cfg_n, ckpt)
 
 # mod, cfg, dm_osse, dm = run_test(cfg_n, ckpt)
 # self = mod
 # animate_maps(self.x_gt, self.obs_inp, self.x_oi, self.x_rec, self.test_lon, self.test_lat, 'animation.mp4')
-# 1/0
+1/0
 
 def anim(test_xr_ds, deriv=None,  dvars=['ssh_1_14D', 'ssh_1_1D', 'ssh_025_1D', 'ref']):
     def sobel(da):
@@ -241,10 +252,24 @@ def anim(test_xr_ds, deriv=None,  dvars=['ssh_1_14D', 'ssh_1_1D', 'ssh_025_1D', 
 # pred = anim(mod.test_xr_ds.assign(time= lambda ds: ds.time - ds.time.min()), deriv=deriv, dvars=['pred'])
 # hv.output(simu + pred, holomap='gif', fps=3, dpi=125)
 # 1/0
+
 import sys
+sys.path.append('4dvarnet-core')
+sys.path.append('4dvarnet-core/ose/eval_notebooks')
 sys.path.append('ose/eval_notebooks')
 import eval_4dvarnet_test_OSSE
-import importlib
+
+import xarray as xr
+
+oi = xr.open_dataset(
+    '/raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/training/ssh_alg_h2g_j2g_j2n_j3_s3a_duacs.nc',
+).ssh
+ds = xr.open_dataset('/raid/localscratch/qfebvre/4dvarnet-starter/outputs/2022-12-02/15-19-18/ose_ssh_rec.nc').assign(
+        gt=lambda d: d.rec_ssh, pred=lambda d: d.rec_ssh, oi=lambda d: oi.sel(d.coords), obs_inp=lambda d: d.rec_ssh
+).sel(time=slice('2017-01-01', '2017-12-31'))
+eval_4dvarnet_test_OSSE.metrics_ose(ds, 'sla-data-registry/data_OSE/along_track/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc')
+
+# import importlib
 
 # mod.test_xr_ds
 # importlib.reload(eval_4dvarnet_test_OSSE)
@@ -257,35 +282,45 @@ cfg = get_cfg(
 ])
 
 ose_metrics ={}
+sorted(list(Path('test_logs').glob('qxp29*/**/test.nc')), key=lambda p: p.stat().st_mtime)
+for p,c in zip(sorted(list(Path('test_logs').glob('qxp29*/**/test.nc')), key=lambda p: p.stat().st_mtime), cfg_set):
+    print(p,c)
+    # continue
+    out = eval_4dvarnet_test_OSSE.metrics_ose(
+            xr.open_dataset(p), cfg.file_paths.ose_test_along_track)
+    ose_metrics[p] = out['Leaderboard']
 
-for p in list(Path('test_logs').glob('**/test.nc')):
-    print(p)
-    # ose_metrics[p] = eval_4dvarnet_test_OSSE.metrics_ose(
-    #         xr.open_dataset(p), cfg.file_paths.ose_test_along_track)['Leaderboard']
+ose_metrics_df = pd.DataFrame([
+    {'path': k, 'cfg': c[0], 'xp': str(k).split('/')[1], **v.loc[1].to_dict()}
+    for (k,v),c in zip(ose_metrics.items(), cfg_set)])
 
-# ose_metrics_df = pd.DataFrame([
-#     {'path': k, 'xp': str(k).split('/')[1], **v.loc[1].to_dict()}
-#     for k,v in ose_metrics.items()])
-
+ose_metrics_df.columns
+print(ose_metrics_df.to_markdown())
+print(ose_metrics_df[['cfg','µ(RMSE) ', 'σ(RMSE)', 'λx (km)']].to_markdown())
+1/0
+# ose_metrics_df.to_csv('tmp/ose_metrics_df0102.csv')
+# ose_metrics_df.to_csv('tmp/ose_metrics_df1221.csv')
 # ose_metrics_df.to_csv('tmp/ose_metrics_df0411.csv')
-ose_metrics_df = pd.read_csv('tmp/ose_metrics_df0411.csv')
+ose_metrics_df = pd.read_csv('tmp/ose_metrics_df1221.csv')
 
 training_data = {}
 domain = {'lat': slice(33, 43), 'lon':slice(-65,-55)}
-for xp in ose_metrics_df.xp:
+for xp in ose_metrics_df.cfg:
     cfg = get_cfg(xp, overrides=[ f'file_paths={fp}'],)
     training_data[xp] = xr.open_dataset(cfg.params.files_cfg.gt_path)[cfg.params.files_cfg.gt_var].sel(domain)
 
 
-# for training_data_path in list(Path('results/xp27').glob('**/test.nc')):
-#     training_data[str(training_data_path).split('/')[2][13:]] = xr.open_dataset(training_data_path)
+
+for training_data_path,c in zip(sorted(list(Path('.').glob('version_*/**/test.nc'))), cfg_set):
+    print(training_data_path)
+    training_data[c[0]] = xr.open_dataset(training_data_path).pred
 
 
-testing_data = {}
-for testing_data_path in list(Path('test_logs').glob('**/test.nc')):
-    testing_data[str(testing_data_path).split('/')[1][13:]] = xr.open_dataset(testing_data_path)
+# testing_data = {}
+# for testing_data_path in list(Path('test_logs').glob('**/test.nc')):
+#     testing_data[str(testing_data_path).split('/')[1][13:]] = xr.open_dataset(testing_data_path)
 
-list(testing_data.keys())
+# list(testing_data.keys())
 
 def reset_time(ds):
     ds = ds.copy()
@@ -293,12 +328,11 @@ def reset_time(ds):
     return ds
 import numpy as np
 
-np.round
 
 def reset_latlon(ds):
     ds = ds.copy()
-    ds['lat'] = np.round((ds.lat - ds.lat.min()).astype(np.float32), decimals=2)
-    ds['lon'] = np.round((ds.lon - ds.lon.min()).astype(np.float32), decimals=2)
+    ds['lat'] = np.arange(34, 44, 0.05)
+    ds['lon'] = np.arange(-65, -55, 0.05)
     return ds
 
 
@@ -315,71 +349,70 @@ def remove_nan(da):
         pyinterp.backends.xarray.Grid3D(da))[1]
     return da
 
-training_ds = xr.Dataset({k: v.pipe(reset_time) for k, v in training_data.items()}).load()
-training_ds.load().map(remove_nan).map(vort).to_array().isel(time=0).plot.pcolormesh(col='variable', col_wrap=4)
+training_ds = xr.Dataset({k: v.pipe(reset_time).pipe(reset_latlon).load().pipe(remove_nan).pipe(vort) for k, v in training_data.items()}).load()
+# training_ds.load().map(remove_nan).map(vort).to_array().isel(time=0).plot.pcolormesh(col='variable', col_wrap=4)
 
-(training_ds[
-    sorted([ k for k in training_ds if ('0_g' not in k) and ('ds2' in k)])
-]
- .isel(time=slice(0, 120, 30)).load().map(remove_nan).map(vort).to_array().plot.pcolormesh(col='variable', row='time', figsize=(15,12)))
+# (training_ds[
+#     sorted([ k for k in training_ds if ('0_g' not in k) and ('ds2' in k)])
+# ]
+#  .isel(time=slice(0, 120, 30)).load().map(remove_nan).map(vort).to_array().plot.pcolormesh(col='variable', row='time', figsize=(15,12)))
 
-testing_ds = xr.Dataset({k: v.pred.pipe(reset_time) for k, v in testing_data.items()})
-(testing_ds[
-    sorted([ k for k in testing_ds if ('0_g' not in k) and ('ds1' in k)])
-    # sorted([ k for k in testing_ds if ('90' not in k) and ('ds1' in k) and ('natl' in k)])
-    ]
- .isel(time=slice(0, 120, 30)).load().map(remove_nan).map(geo_energy).to_array().plot.pcolormesh(col='variable', row='time', figsize=(15,12)))
+# testing_ds = xr.Dataset({k: v.pred.pipe(reset_time) for k, v in testing_data.items()})
+# (testing_ds[
+#     sorted([ k for k in testing_ds if ('0_g' not in k) and ('ds1' in k)])
+#     # sorted([ k for k in testing_ds if ('90' not in k) and ('ds1' in k) and ('natl' in k)])
+#     ]
+#  .isel(time=slice(0, 120, 30)).load().map(remove_nan).map(geo_energy).to_array().plot.pcolormesh(col='variable', row='time', figsize=(15,12)))
 
-pred = anim(testing_ds.isel(time=slice(100, 150,2)).map(remove_nan), dvars=sorted([ k for k in testing_ds if ('0_g' not in k) and ('ds2' in k)]), deriv='grad')
-hv.output(pred, holomap='gif', fps=2, dpi=125)
+# pred = anim(testing_ds.isel(time=slice(100, 150,2)).map(remove_nan), dvars=sorted([ k for k in testing_ds if ('0_g' not in k) and ('ds2' in k)]), deriv='grad')
+# hv.output(pred, holomap='gif', fps=2, dpi=125)
 
-# locals().update(eval_4dvarnet_test_OSSE.metrics_ose(mod.test_xr_ds, cfg.file_paths.ose_test_along_track))
-
+# # locals().update(eval_4dvarnet_test_OSSE.metrics_ose(mod.test_xr_ds, cfg.file_paths.ose_test_along_track))
 
 import xrft
-psd_fn = lambda da: xrft.isotropic_power_spectrum(, dim=('lat', 'lon'), truncate=True, window='hann', spacing_tol=0.01)
-tpds = testing_ds[sorted([ k for k in testing_ds if ('0_g' not in k) and ('ds2' in k)])].map(remove_nan).map(vort)
-np.isnan(tpds.map(remove_nan).to_array()).sum(['lat', 'lon'])
-tpds.lon.values
-# tpds = testing_ds.load().map(remove_nan).map(vort)
+tpds = training_ds
+
+psd_fn = lambda da: xrft.isotropic_power_spectrum(
+        da, dim=('lat', 'lon'), truncate=True, window='hann')
 psds_ds = tpds.isel(time=np.isfinite(tpds.to_array()).all(['variable','lat', 'lon'])).map(lambda da: psd_fn(da).mean('time'))
-list(psds_ds)
-psds_ds[sorted([ k for k in psds_ds if ('0_g' not in k) and ('ds2' in k)])].to_array().plot.line(
-        x='freq_r',
-        hue='variable',
-        xscale='log',
-        yscale='log',
-        figsize=(10,6)
-)
 
-psds_ds[sorted([ k for k in psds_ds if
-                # ('90' not in k)
-                ('90'  in k)
-                and ('ds1' in k) and ('natl' in k) or ('natl20_aug2_ds1' in k)
-         or ('natl' not in k)
-        ])].to_array().plot.line(
-        x='freq_r',
-        hue='variable',
-        xscale='log',
-        yscale='log',
-        figsize=(10,6)
-)
+# list(psds_ds)
+# psds_ds[sorted([ k for k in psds_ds if ('0_g' not in k) and ('ds2' in k)])].to_array().plot.line(
+#         x='freq_r',
+#         hue='variable',
+#         xscale='log',
+#         yscale='log',
+#         figsize=(10,6)
+# )
 
-psds_ds[[ k for k in psds_ds if ('90' in k) and ('ds1' in k) and ('natl' in k) or ('natl20_aug2_ds1' in k)]].to_array().plot.line(
-        x='freq_r',
-        hue='variable',
-        xscale='log',
-        yscale='log',
-        figsize=(10,6)
-)
+# psds_ds[sorted([ k for k in psds_ds if
+#                 # ('90' not in k)
+#                 ('90'  in k)
+#                 and ('ds1' in k) and ('natl' in k) or ('natl20_aug2_ds1' in k)
+#          or ('natl' not in k)
+#         ])].to_array().plot.line(
+#         x='freq_r',
+#         hue='variable',
+#         xscale='log',
+#         yscale='log',
+#         figsize=(10,6)
+# )
 
-psds_ds[[ k for k in psds_ds if (('90' in k) or ('natl20_g' not in k)) and ('ds1' in k) ]].to_array().plot.line(
-        x='freq_r',
-        hue='variable',
-        xscale='log',
-        yscale='log',
-        figsize=(10,6)
-)
+# psds_ds[[ k for k in psds_ds if ('90' in k) and ('ds1' in k) and ('natl' in k) or ('natl20_aug2_ds1' in k)]].to_array().plot.line(
+#         x='freq_r',
+#         hue='variable',
+#         xscale='log',
+#         yscale='log',
+#         figsize=(10,6)
+# )
+
+# psds_ds[[ k for k in psds_ds if (('90' in k) or ('natl20_g' not in k)) and ('ds1' in k) ]].to_array().plot.line(
+#         x='freq_r',
+#         hue='variable',
+#         xscale='log',
+#         yscale='log',
+#         figsize=(10,6)
+# )
 
 weighted_scale = (
 
@@ -389,28 +422,29 @@ fmt_ws = (100*weighted_scale).to_array().to_dataframe(name='scale (km)').sort_va
 print(fmt_ws.to_markdown())
 
 
-simu = ['natl20', 'glo12_free', 'glo12_rea', 'orca25']
-natl_filt = ['natl20', 'natl20_g1', 'natl20_g3', 'natl20_g5', 'natl20_g5', 'natl20_g8']
-natl_filt_bis = ['natl20', 'natl20_g1_90', 'natl20_g3_90', 'natl20_g5_90', 'natl20_g8_90']
-df =(
-        ose_metrics_df
-    .loc[lambda df: df.xp.map(lambda s: 'ds2' in s)]
-    .assign(data=lambda df: df.xp.map(lambda x:'_'.join(x[13:].split('_')[:-4])))
-    # .loc[lambda df: df.data.map(lambda x: '90' in x or '_g' not in x)]
-    # .loc[lambda df: df.data.isin(simu)]
-    .loc[lambda df: df.data.isin(natl_filt)]
-    # .loc[lambda df: df.data.isin(natl_filt_bis)]
-    .assign(**{'λx (km)': lambda df: df['λx (km)'].map(float)})
-    .assign(**{'µ(RMSE) ': lambda df: df['µ(RMSE) '].map(float)})
-    .set_index('xp').sort_values(by='λx (km)').join(fmt_ws)
-) 
-plot_kwargs = {'x': 'scale (km)', 'y': 'λx (km)', 'label': 'data'}
-# plot_kwargs = {'x': 'scale (km)', 'y': 'µ(RMSE) ', 'label': 'data'}
-ax = (
-    df.plot(**plot_kwargs , kind='scatter')
-)
-df[list(plot_kwargs.values())].apply(lambda row: ax.text(*row),axis=1);
+# simu = ['natl20', 'glo12_free', 'glo12_rea', 'orca25']
+# natl_filt = ['natl20', 'natl20_g1', 'natl20_g3', 'natl20_g5', 'natl20_g5', 'natl20_g8']
+# natl_filt_bis = ['natl20', 'natl20_g1_90', 'natl20_g3_90', 'natl20_g5_90', 'natl20_g8_90']
+# df =(
+#         ose_metrics_df
+#     .loc[lambda df: df.xp.map(lambda s: 'ds2' in s)]
+#     .assign(data=lambda df: df.xp.map(lambda x:'_'.join(x[13:].split('_')[:-4])))
+#     # .loc[lambda df: df.data.map(lambda x: '90' in x or '_g' not in x)]
+#     # .loc[lambda df: df.data.isin(simu)]
+#     .loc[lambda df: df.data.isin(natl_filt)]
+#     # .loc[lambda df: df.data.isin(natl_filt_bis)]
+#     .assign(**{'λx (km)': lambda df: df['λx (km)'].map(float)})
+#     .assign(**{'µ(RMSE) ': lambda df: df['µ(RMSE) '].map(float)})
+#     .set_index('xp').sort_values(by='λx (km)').join(fmt_ws)
+# ) 
+# plot_kwargs = {'x': 'scale (km)', 'y': 'λx (km)', 'label': 'data'}
+# # plot_kwargs = {'x': 'scale (km)', 'y': 'µ(RMSE) ', 'label': 'data'}
+# ax = (
+#     df.plot(**plot_kwargs , kind='scatter')
+# )
+# df[list(plot_kwargs.values())].apply(lambda row: ax.text(*row),axis=1);
 
+# oi = xr.open_dataset(cfg.file_paths.oi_ose_osse_nad_path)
 # print(
 #     Leaderboard
 #     .set_index('Method')
