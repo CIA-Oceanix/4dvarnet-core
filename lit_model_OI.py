@@ -36,9 +36,6 @@ class LitModelOI(LitModelAugstate):
             '4dvarnet_OI': get_4dvarnet_OI,
              }
 
-    def __init__(self, *args, **kwargs):
-         super().__init__(*args, **kwargs)
-
     def configure_optimizers(self):
         opt = torch.optim.Adam
         if hasattr(self.hparams, 'opt'):
@@ -133,6 +130,7 @@ class LitModelOI(LitModelAugstate):
         self.logger.log_metrics(md, step=self.current_epoch)
 
     def get_init_state(self, batch, state=(None,)):
+        """ Create state state for the compute loss function. """
         if state[0] is not None:
             return state[0]
 
@@ -140,6 +138,12 @@ class LitModelOI(LitModelAugstate):
 
         init_state = inputs_Mask * inputs_obs
         return init_state
+
+    def get_obs_state(self, batch):
+        """ Create obs state for the compute loss function. """
+        _, inputs_Mask, inputs_obs, _ = batch
+        obs = inputs_Mask * inputs_obs
+        return obs
 
     def compute_loss(self, batch, phase, state_init=(None,)):
 
@@ -162,7 +166,7 @@ class LitModelOI(LitModelAugstate):
 
         state = self.get_init_state(batch, state_init)
 
-        obs = inputs_Mask * inputs_obs
+        obs = self.get_obs_state(batch)
         new_masks =  inputs_Mask
 
         # gradient norm field
