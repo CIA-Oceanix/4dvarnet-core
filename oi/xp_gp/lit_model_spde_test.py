@@ -342,6 +342,7 @@ class LitModel(pl.LightningModule):
         #with torch.set_grad_enabled(True), torch.autograd.detect_anomaly():
         with torch.set_grad_enabled(True):
             inputs_init = torch.autograd.Variable(inputs_init, requires_grad=True)
+            '''
             outputs, cmp_loss, hidden_new, cell_new, normgrad, params = self.model(targets_gt,
                                                                          inputs_init,
                                                                          inputs_missing,
@@ -349,13 +350,20 @@ class LitModel(pl.LightningModule):
                                                                          targets_oi,
                                                                          estim_parameters=True)
             #outputs, params = self.model(inputs_init, inputs_missing, inputs_mask,.33,None,None)
+            '''
+            outputs = targets_gt
+            params = self.model.phi_r.encoder(outputs)
+            H = self.model.phi_r.decoder(params)
 
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
 
             n_b = outputs.shape[0]
+            cmp_loss = torch.hstack([torch.ones(n_b,1), torch.ones(n_b,1) ])
             n_x = outputs.shape[3]
             n_y = outputs.shape[2]
+            H = torch.reshape(H,(n_b,2,2,n_x,n_y))
+            params = [.33,None,H,1.]
 
             nb_nodes = n_x*n_y
             n_t = outputs.shape[1]
@@ -471,6 +479,9 @@ class LitModel(pl.LightningModule):
                                            )\
                                           )
                         log_det += log_det_block
+                    #print(log_det*1e-4)
+                    #print(np.linalg.slogdet(Q[i].detach().cpu().to_dense().numpy()))
+                    #print('end')
                     det_Q.append(log_det)
                 # Mahanalobis distance
                 MD = list()

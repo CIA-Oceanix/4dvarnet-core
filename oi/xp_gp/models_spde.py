@@ -71,10 +71,20 @@ class encode_param_CNN_diff(torch.nn.Module):
 
 class encode_param_CNN_diff_Fourier(torch.nn.Module):
 
-    def __init__(self,shape_data,dim_ae):
+    def __init__(self,shape_data,dim_ae,n_freq=1):
         super(encode_param_CNN_diff_Fourier, self).__init__()
         self.n_t, self.n_y, self.n_x  = shape_data
-        
+        self.n_freq = n_freq
+        N = np.arange(1,self.n_freq+1)
+        Z = np.arange(-1*(self.n_freq),(self.n_freq+1))
+        # {0}*N
+        zero = np.array([0])
+        zero_N = np.array(np.meshgrid(0,N)).T.reshape(-1, 2)
+        # N*Z
+        N_Z = np.array(np.meshgrid(N,Z)).T.reshape(-1, 2)
+        self.kl = np.vstack((zero_N,N_Z))
+        self.n_params = (self.kl.shape[0]*4)+2+2 # + zero frequencies + gamma + beta
+
         # Conv2D layers
         self.pool1 = torch.nn.AvgPool2d(2, 2)
         self.conv1   = torch.nn.Conv2d(self.n_t,dim_ae,(3,3),padding=1,bias=False)
@@ -83,7 +93,7 @@ class encode_param_CNN_diff_Fourier(torch.nn.Module):
         self.pool3 = torch.nn.AvgPool2d(4, 4)
         self.conv3   = torch.nn.Conv2d(2*dim_ae,4*dim_ae,(3,3),padding=1,bias=False)
         self.fc1 = torch.nn.Linear(4*dim_ae*(self.n_y//16)*(self.n_x//16), 128)
-        self.fc2 = torch.nn.Linear(128, 19)
+        self.fc2 = torch.nn.Linear(128, self.n_params)
 
     def forward(self, x):
         # input shape (b,t,y,x) --> output shape (b,7*t,y,x)
@@ -111,13 +121,15 @@ class decode_param_CNN_diff(torch.nn.Module):
         gamma   = params[:,0,:,:]
         gamma   = torch.reshape(gamma,(n_b,self.n_x*self.n_y))
         gamma   = F.relu(gamma)+1e-3
+        gamma = torch.ones_like(gamma)
+        gamma.requires_grad = True
         vx      = params[:,1,:,:]
         vx      = torch.reshape(vx,(n_b,self.n_x*self.n_y))
         vy      = params[:,2,:,:]
         vy      = torch.reshape(vy,(n_b,self.n_x*self.n_y))
         vxy     = torch.stack([vx,vy],dim=2)
         vxyT    = torch.permute(vxy,(0,2,1))
-        H       = torch.einsum('ij,bk->bijk',torch.eye(2).to(device),gamma)+\
+        H       = torch.einsum('ij,bk->bijk',torch.eye(2).to(device),gamma)+25*\
                   torch.einsum('bki,bjk->bijk',vxy,vxyT)
         # reshape
         H = torch.reshape(H,(n_b,2,2,self.n_x*self.n_y))
@@ -133,12 +145,22 @@ class decode_param_CNN_diff(torch.nn.Module):
 
 class decode_param_CNN_diff_Fourier(torch.nn.Module):
 
-    def __init__(self, shape_data):
+    def __init__(self, shape_data, n_freq=1):
         super(decode_param_CNN_diff_Fourier, self).__init__()
         self.n_t, self.n_y, self.n_x  = shape_data
         self.A = 100.
         self.B = 100.
-              
+        self.n_freq = n_freq
+        N = np.arange(1,self.n_freq+1)
+        Z = np.arange(-1*(self.n_freq),(self.n_freq+1))
+        # {0}*N
+        zero = np.array([0])
+        zero_N = np.array(np.meshgrid(0,N)).T.reshape(-1, 2)
+        # N*Z
+        N_Z = np.array(np.meshgrid(N,Z)).T.reshape(-1, 2)
+        self.kl = np.vstack((zero_N,N_Z))
+        self.n_params = (self.kl.shape[0]*4)+2+2
+
         def fxy(x,y):
             resolution = 10
             return( ((2*resolution)/np.pi)*( (3/4)*np.sin(2*np.pi*x/(5*resolution))) + (1/4)*np.sin(2*np.pi*y/(5*resolution) ))
@@ -154,9 +176,9 @@ class decode_param_CNN_diff_Fourier(torch.nn.Module):
             y2_ = np.sin(angle)*x1_+np.cos(angle)*y1_
             return np.c_[x2_,y2_]
         self.u = torch.tensor(np.transpose(np.reshape(np.array(rotate_vector(u_,v_,-np.pi/2)[:,0],),(self.n_x,self.n_y)))).to(device)
-        self.v = torch.tensor(np.transpose(np.reshape(np.array(rotate_vector(u_,v_,-np.pi/2)[:,1]),(self.n_x,self.n_y)))).to(device)
+        self.v = torch.tensor(np.transpose(np.reshape(np.array(rotate_vector(u_,v_,-np.pi/2)[:,1],),(self.n_x,self.n_y)))).to(device)
         self.u = torch.tensor(np.reshape(np.array(rotate_vector(u_,v_,-np.pi/2)[:,0],),(self.n_x,self.n_y))).to(device)
-        self.v = torch.tensor(np.reshape(np.array(rotate_vector(u_,v_,-np.pi/2)[:,1]),(self.n_x,self.n_y))).to(device)
+        self.v = torch.tensor(np.reshape(np.array(rotate_vector(u_,v_,-np.pi/2)[:,1],),(self.n_x,self.n_y))).to(device)
 
     def forward(self, params):
         n_b = params.shape[0]
@@ -166,24 +188,27 @@ class decode_param_CNN_diff_Fourier(torch.nn.Module):
         grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
 
         gamma = params[:,0]
+        beta = params[:,1]
+        gamma = torch.ones_like(gamma)
+        beta = 25*torch.ones_like(beta)
+        gamma.requires_grad=True
+        beta.requires_grad=True
         pi = torch.acos(torch.zeros(1)).item() * 2
-        n_params = 4
-        kl = np.array([[0,1],[1,-1],[1,0],[1,1]])       
-             
+            
         # init v_x and v_y
         vx = 0
         vy = 0
-        for i in range(0,n_params):
-            start = (i*n_params)+3
-            k = kl[i,0]
-            l = kl[i,1]
+        for i in range(0,self.kl.shape[0]):
+            start = (i*4)+4
+            k = self.kl[i,0]
+            l = self.kl[i,1]
             vx += torch.einsum('b,ij->bij',params[:,start],torch.cos(2*pi*((k*grid_x/self.A)+(l*grid_y/self.B))))
             vx += torch.einsum('b,ij->bij',params[:,start+1],torch.sin(2*pi*((k*grid_x/self.A)+(l*grid_y/self.B))))
             vy += torch.einsum('b,ij->bij',params[:,start+2],torch.cos(2*pi*((k*grid_x/self.A)+(l*grid_y/self.B))))
             vy += torch.einsum('b,ij->bij',params[:,start+3],torch.sin(2*pi*((k*grid_x/self.A)+(l*grid_y/self.B))))
         for b in range(n_b):   
-            vx[b] += params[b,1]
-            vy[b] += params[b,2]
+            vx[b] += params[b,2]
+            vy[b] += params[b,3]
         #vx = torch.stack(n_b*[self.u],dim=0)
         #vy = torch.stack(n_b*[self.v],dim=0)
         vx = torch.reshape(vx,(n_b,self.n_x*self.n_y))
@@ -191,8 +216,8 @@ class decode_param_CNN_diff_Fourier(torch.nn.Module):
         vxy = torch.stack([vx,vy],dim=2)
         vxyT = torch.permute(vxy,(0,2,1))
         H  = torch.einsum('ij,bk->bijk',torch.eye(2).to(device),
-                                        torch.unsqueeze(gamma,dim=1).expand(n_b,self.n_x*self.n_y))+25*\
-             torch.einsum('bki,bjk->bijk',vxy,vxyT)
+                                        torch.unsqueeze(gamma,dim=1).expand(n_b,self.n_x*self.n_y))+\
+             torch.einsum('b,bijk->bijk',beta,torch.einsum('bki,bjk->bijk',vxy,vxyT))
         # reshape
         H = torch.reshape(H,(n_b,2,2,self.n_x*self.n_y)).to(device)
         # H has shape (n_b,2,2,Nx*Ny)
@@ -434,10 +459,10 @@ class Phi_r(torch.nn.Module):
         super().__init__()
         self.spde_type = spde_type
         self.pow = pow
-        #self.encoder = encode_param_CNN_diff_Fourier(shape_data,10)
-        #self.decoder = decode_param_CNN_diff_Fourier(shape_data)
-        self.encoder = encode_param_CNN_diff(shape_data,10)
-        self.decoder = decode_param_CNN_diff(shape_data)
+        self.encoder = encode_param_CNN_diff_Fourier(shape_data,10,1)
+        self.decoder = decode_param_CNN_diff_Fourier(shape_data,1)
+        #self.encoder = encode_param_CNN_diff(shape_data,10)
+        #self.decoder = decode_param_CNN_diff(shape_data)
         self.operator_spde = Prior_SPDE(shape_data,pow=self.pow,spde_type=self.spde_type)
         self.square_root = square_root
         self.given_parameters = given_parameters

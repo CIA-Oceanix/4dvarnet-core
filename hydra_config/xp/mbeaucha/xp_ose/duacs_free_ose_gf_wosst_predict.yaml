@@ -41,13 +41,13 @@ params:
     - ${datamodule.slice_win.lon}
     - ${datamodule.slice_win.lat}
 
-lit_mod_cls: ose.lit_model_OI.LitModelOI_predict
+lit_mod_cls: ose.lit_model_OI_predict.LitModelOI_predict
 datamodule:
   _target_: ose.dataloading_predict.FourDVarNetDataModule
   #predict_slices: ${splits.test_slices}
   predict_slices:
     - _target_: builtins.slice
-      _args_: ['2016-12-29', '2017-02-01']
+      _args_: ['2016-12-19', '2017-02-12']
   analog_slices: 
     - _target_: builtins.slice
       _args_: ['2012-10-01', '2013-09-30']

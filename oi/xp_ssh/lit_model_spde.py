@@ -453,10 +453,9 @@ class LitModel(pl.LightningModule):
                                                                tau, 
                                                                square_root=False,
                                                                store_block_diag=True)
-            Q.requires_grad=True
             xtQx = list()
             for i in range(n_b):
-                xtQ = torch.sparse.mm(Q[i],
+                xtQ = sp_mm(Q[i],
                                      torch.reshape(torch.permute(outputs[i],(0,2,1)),(n_t*n_x*n_y,1))
                                     )
                 xtQx_ = torch.matmul(torch.reshape(torch.permute(outputs[i],(0,2,1)),(1,n_t*n_x*n_y)),
@@ -477,7 +476,7 @@ class LitModel(pl.LightningModule):
                 dyi = torch.index_select(torch.flatten(dy[i]), 0, id_obs).type(torch.FloatTensor).to(device)
                 nb_obs = len(dyi)
                 inv_R = 1e3*sparse_eye(nb_obs).type(torch.FloatTensor).to(device)
-                iRdy = torch.sparse.mm(inv_R,torch.reshape(dyi,(nb_obs,1)))
+                iRdy = sp_mm(inv_R,torch.reshape(dyi,(nb_obs,1)))
                 dyTiRdy = torch.matmul(torch.reshape(dyi,(1,nb_obs)),iRdy)
                 dy_new.append(dyTiRdy[0,0])
             dy = torch.stack(dy_new)
@@ -487,39 +486,36 @@ class LitModel(pl.LightningModule):
             # mse loss
             if self.loss_type=="mse_loss":
                 loss = self.hparams.alpha_mse_ssh * loss_All #+ self.hparams.alpha_mse_gssh * loss_GAll
-            # log-likelihood loss
+
             if self.loss_type=="ml_loss":
                 det_Q = list()
                 for i in range(n_b):
                     log_det = 0.
                     for j in range(0,len(block_diag[i])):
-                        log_det += 2*torch.sum(\
-                                     torch.log(\
-                                      torch.diagonal(\
-                                       torch.cholesky(block_diag[i][j].to_dense()),
-                                      0)\
-                                     )\
-                                    )
+                        log_det_block =  2*torch.sum(\
+                                            torch.log(\
+                                             torch.diagonal(\
+                                            torch.cholesky(block_diag[i][j].to_dense()),
+                                            0)\
+                                           )\
+                                          )
+                        log_det += log_det_block
+                    #print(log_det*1e-4)
+                    #print(np.linalg.slogdet(Q[i].detach().cpu().to_dense().numpy()))
+                    #print('end')
                     det_Q.append(log_det)
                 # Mahanalobis distance
                 MD = list()
                 for i in range(n_b):
-                    MD_ = torch.sparse.mm(Q[i],torch.reshape(torch.permute(targets_gt[i],(0,2,1)),(n_t*n_x*n_y,1)))
+                    MD_ = sp_mm(Q[i],torch.reshape(torch.permute(targets_gt[i],(0,2,1)),(n_t*n_x*n_y,1)))
                     MD_ = torch.matmul(torch.reshape(torch.permute(targets_gt[i],(0,2,1)),(1,n_t*n_x*n_y)),MD_)
-                    targets_gt_ = torch.full(targets_gt[i].size(),1.).to(device)
-                    MD_ = torch.sparse.mm(Q[i],torch.reshape(torch.permute(targets_gt_,(0,2,1)),(n_t*n_x*n_y,1)))
-                    MD_ = torch.matmul(torch.reshape(torch.permute(targets_gt_,(0,2,1)),(1,n_t*n_x*n_y)),MD_)
-                MD.append(MD_[0,0])
+                    MD.append(MD_[0,0])
                 # Negative log-likelihood
-                log_det = torch.nanmean( torch.stack(det_Q) )
-                MD = torch.nanmean( torch.stack(MD) )
-                #print(log_det)
-                #print(MD)
-                loss_NLL = -1.*(log_det - MD)
+                log_det = torch.stack(det_Q) 
+                MD = torch.stack(MD)
+                loss_NLL = torch.nanmean(-1.*(log_det - MD))
                 # mixed MSE & NLL
-                loss = -1.*loss_NLL*(1e-4)# + 10*loss_All # (ou loss OI ?)
-                loss = torch.nanmean(MD)
-                print(loss)
+                loss = loss_NLL*(1e-4) #+ 10*loss_All # (ou loss OI ?)
 
             if self.loss_type=="oi_loss":
                 loss = loss_OI

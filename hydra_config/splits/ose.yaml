@@ -1,10 +1,10 @@
 train_slices:
   - _target_: builtins.slice
-    _args_: ['2016-12-30', '2018-01-02']
+    _args_: ['2016-12-19', '2018-01-12']
 test_slices:
   - _target_: builtins.slice
-#    _args_: ['2016-12-29', '2018-01-03']
-    _args_: ['2016-12-29', '2017-02-15']
+    _args_: ['2016-12-19', '2018-01-12']
+#    _args_: ['2016-12-29', '2017-02-15']
 val_slices:
   - _target_: builtins.slice
     _args_: ['2017-03-01', '2017-04-01']

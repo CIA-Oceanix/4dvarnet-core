@@ -441,7 +441,7 @@ class FourDVarNetDataset(Dataset):
         X = np.nan_to_num(self.binning.variable('mean').flatten().reshape(1, -1))
         self.binning.clear()
         # create query (get item)
-        dist_knn, index_knn = self.tree.query(X, k=20)
+        dist_knn, index_knn = self.tree.query(X, k=100)
         # retrieve the analogs
         _analog_item = np.stack( [ pp(self.analog_ds[item]) for item in index_knn[0] ], axis=0)
         #_analog_item = np.stack( [ pp(self.analog_ds[item]) for item in np.random.randint(0,length_analog-1,50) ], axis=0)

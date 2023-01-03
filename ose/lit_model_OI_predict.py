@@ -20,12 +20,12 @@ import metrics
 from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps_oi, animate_maps, get_psd_score
 from models import Model_H, Phi_r_OI, Gradient_img
 # additional import for OSE metrics
-from eval_notebooks.src.mod_inout import *
-from eval_notebooks.src.mod_interp import *
-from eval_notebooks.src.mod_stats import *
-from eval_notebooks.src.mod_spectral import *
-from eval_notebooks.src.mod_plot import *
-from eval_notebooks.src.utils import *
+from ose.src.mod_inout import *
+from ose.src.mod_interp import *
+from ose.src.mod_stats import *
+from ose.src.mod_spectral import *
+from ose.src.mod_plot import *
+from ose.src.utils import *
 
 from lit_model_OI import LitModelOI
 
@@ -38,7 +38,7 @@ def get_4dvarnet_OI(hparams):
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
-class LitModelOI(LitModelOI):
+class LitModelOI_predict(LitModelOI):
     MODELS = {
             '4dvarnet_OI': get_4dvarnet_OI,
              }
@@ -70,7 +70,7 @@ class LitModelOI(LitModelOI):
                                            time_max=self.time_max)
          self.c2_delta_t = 0.9434  # s
          self.c2_velocity = 6.77   # km/s
-         self.c2_delta_x = velocity * delta_t
+         self.c2_delta_x = self.c2_velocity * self.c2_delta_t
          self.c2_lenght_scale = 1000 # km
 
 
