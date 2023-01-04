@@ -1,27 +1,16 @@
-# 4dvarnet-core
-Core implementation of the 4DVarNet architecture 
+# 4DVarNet code for the reconstruction of SSH fields from SST-SSH synergies
+Associated preprints: [https://arxiv.org/abs/2006.03653](https://arxiv.org/abs/2207.01372)
 
-## Principles and on-going developments
-Discussed in this [HackMd file](https://hackmd.io/@maxbeauchamp/ryVfI3rdu)
+# Installation and prerequisite:
+See instructions available at [https://github.com/CIA-Oceanix/4dvarnet-core/Readme.md](https://github.com/CIA-Oceanix/4dvarnet-core/Readme.md)
 
-## Installation
-### Prerequisite
-- git
-- conda
+# Trained models and associated SSH reconstruction results:
+See [https://doi.org/10.5281/zenodo.7429391](https://doi.org/10.5281/zenodo.7429391)
 
-### Instructions
-- Clone repo:
-`git clone https://github.com/CIA-Oceanix/4dvarnet-core.git`
+# Visualisation of the results
+See notebook_visu_4DvarNet_SLANATL60_SST.ipynb
 
-- Install environment
-```
-conda create -n 4dvarnet mamba pytorch=1.11 torchvision cudatoolkit=11.3 -c conda-forge -c pytorch
-conda activate 4dvarnet
-mamba install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
-mamba env update -f environment.yaml
-```
-
-### Download the data
+### OSSE data
 The data is available at
 ```
 # obs
@@ -40,38 +29,10 @@ https://s3.eu-central-1.wasabisys.com/melody/NATL/ref/NATL60-CJM165_NATL_sst_y20
 ```
 
 
-### Run
-```
-python main.py
-```
-
-## Contribution workflow
-- [Install the project](#installation)
-- create a feature branch:
-`git checkout -b <my-feature-branch>`
-- Code your contribution ...
-- Review and commmit your contributions 
-```
-git add -p
-git commit -m "<A clear message>"
-```
-- Check that you are up to date with the common version 
-```
-git pull --rebase origin main
-```
-
-- Push your branch
-```
-git push origin <my-feature-branch>
-```
-- Create a merge request of your branch to main https://github.com/CIA-Oceanix/4dvarnet-core/pulls 
-- Ask a 4dvarnet team member to review and merge your code
-
 ## Preprints and Software License
-Associated preprints: https://arxiv.org/abs/2006.03653
 License: CECILL-C license
 
-Copyright IMT Atlantique/OceaniX, contributor(s) : M.M. Amar, M. Beauchamp, R. Fablet, Q. Febvre (IMT Atlantique), B. Carpentier (CLS) 21/03/2020
+Copyright IMT Atlantique/OceaniX, contributor(s) : R. Fablet, Q. Febvre (IMT Atlantique) 01/12/2022
 
 Contact person: ronan.fablet@imt-atlantique.fr
 This software is a computer program whose purpose is to apply deep learning
