@@ -1,16 +1,16 @@
-# 4DVarNet code for the reconstruction of SSH fields from SST-SSH synergies
+## 4DVarNet code for the reconstruction of SSH fields from SST-SSH synergies
 Associated preprints: [https://arxiv.org/abs/2006.03653](https://arxiv.org/abs/2207.01372)
 
-# Installation and prerequisite:
+## Installation and prerequisite:
 See instructions available at [https://github.com/CIA-Oceanix/4dvarnet-core/Readme.md](https://github.com/CIA-Oceanix/4dvarnet-core/Readme.md)
 
-# Trained models and associated SSH reconstruction results:
+## Trained models and associated SSH reconstruction results:
 See [https://doi.org/10.5281/zenodo.7429391](https://doi.org/10.5281/zenodo.7429391)
 
-# Visualisation of the results
+## Visualisation of the results
 See notebook_visu_4DvarNet_SLANATL60_SST.ipynb
 
-### OSSE data
+## OSSE data
 The data is available at
 ```
 # obs
@@ -28,6 +28,8 @@ https://s3.eu-central-1.wasabisys.com/melody/NATL/ref/NATL60-CJM165_NATL_ssh_y20
 https://s3.eu-central-1.wasabisys.com/melody/NATL/ref/NATL60-CJM165_NATL_sst_y2013.1y.nc
 ```
 
+## Running 4dvarnet code
+See [README.md](https://github.com/CIA-Oceanix/4dvarnet-core/blob/4dvarnet-mm-tgrs/hydra_config/README.md)
 
 ## Preprints and Software License
 License: CECILL-C license
