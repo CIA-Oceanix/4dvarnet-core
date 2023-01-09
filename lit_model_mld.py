@@ -923,7 +923,7 @@ class LitModelMLD(pl.LightningModule):
         if hasattr(self.hparams, 'opt'):
             opt = lambda p: hydra.utils.call(self.hparams.opt, p)
         if self.model_name == '4dvarnet':
-            if self.model_sampling_uv is not None :
+            if self.model_sampling_mld is not None :
                 optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                     {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                     {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
@@ -938,7 +938,7 @@ class LitModelMLD(pl.LightningModule):
                     ])
             return optimizer
         elif self.model_name == '4dvarnet_sst':
-            if self.model_sampling_uv is not None :
+            if self.model_sampling_mld is not None :
                 optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                     {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                     {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
@@ -1935,7 +1935,7 @@ class LitModelMLD(pl.LightningModule):
                         
             loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
             
-            if self.model_sampling_uv is not None :
+            if self.model_sampling_mld is not None :
                 loss_l1_sampling_mld = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) *  torch.mean( w_sampling_mld )
                 loss_l1_sampling_mld = torch.nn.functional.relu( loss_l1_sampling_mld - self.hparams.thr_l1_sampling_mld )
                 loss_l0_sampling_mld = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean( mask_sampling_mld ) 
@@ -1952,7 +1952,7 @@ class LitModelMLD(pl.LightningModule):
             loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
             
             # sampling loss
-            if self.model_sampling_uv is not None :
+            if self.model_sampling_mld is not None :
                 loss += self.hparams.alpha_sampling_mld * loss_l1_sampling_mld
 
             if flag_display_loss :
