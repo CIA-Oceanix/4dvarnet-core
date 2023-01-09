@@ -1921,8 +1921,8 @@ class LitModelMLD(pl.LightningModule):
             else:
                 outputs = self.model.phi_r( obs * new_masks )
                                 
-                outputs_mld = outputs[:, 1*self.hparams.dT:2*self.hparams.dT, :, :]
-                outputs = outputs[:, 0:self.hparams.dT, :, :]
+                outputs_mld = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
+                outputs = outputs[:, 0:self.hparams.dT, :, :] + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
 
                 outputsSLR = None
                 outputsSLRHR = None #0. * outputs
