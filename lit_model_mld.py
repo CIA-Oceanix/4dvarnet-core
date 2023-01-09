@@ -1747,7 +1747,7 @@ class LitModelMLD(pl.LightningModule):
 
         return targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, mld_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y
     
-    def get_obs_and_mask(self,targets_OI,inputs_Mask,inputs_obs,sst_gt,mld_gt_wo_nan):
+    def get_obs_and_mask(self,targets_OI,inputs_Mask,inputs_obs,sst_gt,mld_gt_wo_nan,mask_mld):
                 
         if self.model_sampling_mld is not None :
             w_sampling_mld = self.model_sampling_mld( sst_gt )
@@ -1755,13 +1755,16 @@ class LitModelMLD(pl.LightningModule):
             
             #mask_sampling_uv = torch.bernoulli( w_sampling_uv )
             mask_sampling_mld = 1. - torch.nn.functional.threshold( 1.0 - w_sampling_mld , 0.9 , 0.)
+            mask_sampling_mld = 1. - torch.relu( 1. - mask_sampling_mld - mask_mld )
             obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI) , mld_gt_wo_nan ) ,dim=1)
             
             #print('%f '%( float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean(w_sampling_uv)) )
         else:
-            mask_sampling_mld = torch.zeros_like(mld_gt_wo_nan)
+            mask_sampling_mld = mask_mld #torch.zeros_like(mld_gt_wo_nan)
             w_sampling_mld = None
-            obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI), 0. * targets_OI ) ,dim=1)
+            obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI), mld_gt_wo_nan ) ,dim=1)
+
+
             
         new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, mask_sampling_mld) , dim=1)
 
@@ -1902,8 +1905,7 @@ class LitModelMLD(pl.LightningModule):
         state = self.get_init_state(_batch, state_init)
 
         # obs and mask data
-        obs,new_masks,w_sampling_mld,mask_sampling_mld = self.get_obs_and_mask(targets_OI,inputs_Mask,inputs_obs,sst_gt,mld_gt_wo_nan)
-        mask_sampling_mld = 1. - torch.relu( 1. - mask_sampling_mld - mask_mld )
+        obs,new_masks,w_sampling_mld,mask_sampling_mld = self.get_obs_and_mask(targets_OI,inputs_Mask,inputs_obs,sst_gt,mld_gt_wo_nan,mask_mld)
         print('.... MLD observation rate =  %f '%(torch.sum(mask_sampling_mld) / (mask_sampling_mld.size(0)*mask_sampling_mld.size(1)*mask_sampling_mld.size(2)*mask_sampling_mld.size(3)) ))
 
         # run forward_model
