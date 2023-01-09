@@ -895,6 +895,11 @@ class LitModelMLD(pl.LightningModule):
         state_init = [None]
         out=None
         
+        # generate random binary mask
+        # for ML measurements
+        mask_obs_mld = torch.bernoulli( 0.1 * torch.ones_like(batch[0]) )
+        print('.... MLD observation rate =  %f '%(torch.sum(mask_obs_mld) / (mask_obs_mld.size(0)*mask_obs_mld.size(1)*mask_obs_mld.size(2)*mask_obs_mld.size(3)) ))
+        
         #print('.... ngrad = %d -- %d '%(self.model.n_grad,self.hparams.n_fourdvar_iter))
         
         for _k in range(self.hparams.n_fourdvar_iter):
@@ -904,9 +909,9 @@ class LitModelMLD(pl.LightningModule):
                 self.model.model_Grad.iter = 1. * _k *  self.model.n_grad
                         
             if ( phase == 'test' ) & ( self.use_sst ):
-                _loss, out, state, _metrics,sst_feat = self.compute_loss(batch, phase=phase, state_init=state_init)
+                _loss, out, state, _metrics,sst_feat = self.compute_loss(batch, mask_obs_mld, phase=phase, state_init=state_init)
             else:
-                _loss, out, state, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
+                _loss, out, state, _metrics = self.compute_loss(batch, mask_obs_mld, phase=phase, state_init=state_init)
             
             if self.hparams.n_grad > 0 :
                 state_init = [None if s is None else s.detach() for s in state]
@@ -1868,7 +1873,7 @@ class LitModelMLD(pl.LightningModule):
 
         return loss_All,loss_GAll,loss_mld
 
-    def compute_loss(self, batch, phase, state_init=(None,)):
+    def compute_loss(self, batch, mask_mld, phase, state_init=(None,)):
         
         _batch = self.pre_process_batch(batch)
         targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, mld_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y = _batch
@@ -1898,6 +1903,8 @@ class LitModelMLD(pl.LightningModule):
 
         # obs and mask data
         obs,new_masks,w_sampling_mld,mask_sampling_mld = self.get_obs_and_mask(targets_OI,inputs_Mask,inputs_obs,sst_gt,mld_gt_wo_nan)
+        mask_sampling_mld = 1. - torch.relu( 1. - mask_sampling_mld - mask_mld )
+        print('.... MLD observation rate =  %f '%(torch.sum(mask_sampling_mld) / (mask_sampling_mld.size(0)*mask_sampling_mld.size(1)*mask_sampling_mld.size(2)*mask_sampling_mld.size(3)) ))
 
         # run forward_model
         with torch.set_grad_enabled(True):
