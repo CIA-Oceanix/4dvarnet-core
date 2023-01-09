@@ -1442,7 +1442,7 @@ class LitModelMLD(pl.LightningModule):
         var_mse_pred_vs_oi = 100. * ( 1. - mse_metrics_pred['mse'] / mse_metrics_oi['mse'] )
         var_mse_grad_pred_vs_oi = 100. * ( 1. - mse_metrics_pred['mseGrad'] / mse_metrics_oi['mseGrad'] )
 
-        var_mse_mld_vs_var_tr = 100. * ( 1. -  mse_metrics_pred_mld['mse'] / np.var(self.test_xr_ds.mld_gt) )
+        var_mse_mld_vs_var_tt = 100. * ( 1. -  mse_metrics_pred_mld['mse'] / np.var(self.test_xr_ds.mld_gt) )
         var_mse_mld_vs_var_tr = 100. * ( 1. -  mse_metrics_pred_mld['mse'] / self.var_tr_mld )
                 
         mse_metrics_lap_oi = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.oi,sig_lap=self.sig_filter_laplacian)
