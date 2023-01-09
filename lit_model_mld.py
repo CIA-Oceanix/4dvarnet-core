@@ -1735,9 +1735,9 @@ class LitModelMLD(pl.LightningModule):
         lat_rad = torch.deg2rad(lat)
         lon_rad = torch.deg2rad(lon)
             
-        if self.use_lat_lon_in_obs_model  == True :
-            self.model.model_H.lat_rad = lat_rad
-            self.model.model_H.lon_rad = lon_rad
+        #if self.use_lat_lon_in_obs_model  == True :
+        #    self.model.model_H.lat_rad = lat_rad
+        #    self.model.model_H.lon_rad = lon_rad
 
         return targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, mld_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y
     
