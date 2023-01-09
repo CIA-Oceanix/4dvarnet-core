@@ -16,7 +16,7 @@ params:
   phi_param: 'unet1'#
   ckpt_name: 'modelMLDwSSTGF-v2-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
   use_sst_obs: False #  True # 
-  use_sst_state: False # True # 
+  use_sst_state: True # False # 
   patch_weight:
     _target_: lit_model_mld.get_cropped_hanning_mask
     patch_size: ${datamodule.slice_win}
