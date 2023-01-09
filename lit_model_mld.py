@@ -1906,7 +1906,7 @@ class LitModelMLD(pl.LightningModule):
 
         # obs and mask data
         obs,new_masks,w_sampling_mld,mask_sampling_mld = self.get_obs_and_mask(targets_OI,inputs_Mask,inputs_obs,sst_gt,mld_gt_wo_nan,mask_mld)
-        print('.... MLD observation rate =  %f '%(torch.sum(mask_sampling_mld) / (mask_sampling_mld.size(0)*mask_sampling_mld.size(1)*mask_sampling_mld.size(2)*mask_sampling_mld.size(3)) ))
+        print('.... # MLD observation =  %d '%(torch.sum(mask_sampling_mld) ))
 
         # run forward_model
         with torch.set_grad_enabled(True):
