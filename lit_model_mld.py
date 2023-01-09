@@ -1913,6 +1913,10 @@ class LitModelMLD(pl.LightningModule):
             if self.hparams.n_grad > 0 :                
                 outputs, outputs_mld, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad = self.run_model(state, obs, new_masks,state_init,
                                                                                                                          lat_rad,lon_rad,phase)
+                # projection losses
+                loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss(targets_OI,targets_GT_wo_nan, sst_gt,
+                                                                              mld_gt_wo_nan,outputs, 
+                                                                              outputsSLR, outputsSLRHR,phase)
                         
             else:
                 outputs = self.model.phi_r( obs * new_masks )
@@ -1926,10 +1930,10 @@ class LitModelMLD(pl.LightningModule):
                 cell_new = None # . * outputs
                 normgrad = 0. 
 
-            # projection losses
-            loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss(targets_OI,targets_GT_wo_nan, sst_gt,
-                                                                          mld_gt_wo_nan,outputs, 
-                                                                          outputsSLR, outputsSLRHR,phase)
+                loss_AE = 0.
+                loss_AE_GT = 0.
+                loss_SR = 0.
+                loss_LR = 0.
 
             # re-interpolate at full-resolution field during test/val epoch
             if ( (phase == 'val') or (phase == 'test') ) and (self.scale_dwscaling > 1.0) :
