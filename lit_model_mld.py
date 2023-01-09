@@ -489,7 +489,6 @@ def get_4dvarnet_sst(hparams):
                             hparams.dim_grad_solver, hparams.dropout),
                         hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
         elif hparams.sst_model == 'nolinear-tanh-bn' :
-            print('...... residual_wrt_geo_velocities = %d'%hparams.residual_wrt_geo_velocities,flush=True)
             return NN_4DVar.Solver_Grad_4DVarNN(
                         Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                             hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
