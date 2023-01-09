@@ -42,8 +42,8 @@ datamodule:
 defaults:
   - /xp/ronan/base_xp_mld
   - /splits/dc_boost_swot@datamodule
-  - /xp/xp_aug/aug/with_aug_state_mld
-#  - /xp/xp_aug/aug/with_mm_aug_state_uv
+#  - /xp/xp_aug/aug/with_aug_state_mld
+  - /xp/xp_aug/aug/with_mm_aug_state_mld
   - /xp/xp_aug/dl/d240_p240x5_s240x1
   - /xp/xp_aug/sst/with_sst
   - /xp/xp_aug/loss/map
