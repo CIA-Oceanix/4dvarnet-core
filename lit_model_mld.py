@@ -1027,7 +1027,7 @@ class LitModelMLD(pl.LightningModule):
         # self.log("tr_n_nobs", train_batch[1].sum().item(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log("tr_loss", loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log("tr_mse", metrics[-1]['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("tr_mse_uv", metrics[-1]['mse_uv'] , on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_mse_mld", metrics[-1]['mse_mld'] , on_step=False, on_epoch=True, prog_bar=True)
         #self.log("tr_l0_samp", metrics[-1]['l0_samp'] , on_step=False, on_epoch=True, prog_bar=True)
         self.log("tr_l1_samp", metrics[-1]['l1_samp'] , on_step=False, on_epoch=True, prog_bar=True)
         #self.log("tr_mseG", metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
@@ -1886,7 +1886,7 @@ class LitModelMLD(pl.LightningModule):
                         ('mseGrad', 0.),
                         ('meanGrad', 1.),
                         ('mseOI', 0.),
-                        ('mse_uv', 0.),
+                        ('mse_mld', 0.),
                         ('mseGOI', 0.),
                         ('l0_samp', 0.),
                         ('l1_samp', 0.)])
