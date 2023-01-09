@@ -1441,7 +1441,9 @@ class LitModelMLD(pl.LightningModule):
         
         var_mse_pred_vs_oi = 100. * ( 1. - mse_metrics_pred['mse'] / mse_metrics_oi['mse'] )
         var_mse_grad_pred_vs_oi = 100. * ( 1. - mse_metrics_pred['mseGrad'] / mse_metrics_oi['mseGrad'] )
-        var_mse_mld = 100. * ( 1. -  mse_metrics_pred_mld['mse'] / np.var(self.test_xr_ds.mld_gt) )
+
+        var_mse_mld_vs_var_tr = 100. * ( 1. -  mse_metrics_pred_mld['mse'] / np.var(self.test_xr_ds.mld_gt) )
+        var_mse_mld_vs_var_tr = 100. * ( 1. -  mse_metrics_pred_mld['mse'] / self.var_tr_mld )
                 
         mse_metrics_lap_oi = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.oi,sig_lap=self.sig_filter_laplacian)
         mse_metrics_lap_pred = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.pred,sig_lap=self.sig_filter_laplacian)        
@@ -1453,8 +1455,6 @@ class LitModelMLD(pl.LightningModule):
 
         var_mse_pred_lap = 100. * (1. - mse_metrics_lap_pred['mse'] / mse_metrics_lap_pred['var_lap'] )
         var_mse_oi_lap = 100. * (1. - mse_metrics_lap_oi['mse'] / mse_metrics_lap_pred['var_lap'] )
-
-
 
         md = {
             f'{log_pref}_spatial_res': float(spatial_res_model),
@@ -1470,7 +1470,8 @@ class LitModelMLD(pl.LightningModule):
             f'{log_pref}_var_mse_grad_vs_oi': float(var_mse_grad_pred_vs_oi),
             f'{log_pref}_var_mse_lap_pred': float(var_mse_pred_lap),
             f'{log_pref}_var_mse_lap_oi': float(var_mse_oi_lap),
-            f'{log_pref}_var_mse_mld': float(var_mse_mld),
+            f'{log_pref}_var_mse_mld_vs_tr': float(var_mse_mld_vs_var_tr),
+            f'{log_pref}_var_mse_mld_vs_tt': float(var_mse_mld_vs_var_tt),
         }
         print(pd.DataFrame([md]).T.to_markdown())
         return md
