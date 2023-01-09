@@ -1755,7 +1755,7 @@ class LitModelMLD(pl.LightningModule):
         else:
             mask_sampling_mld = torch.zeros_like(mld_gt_wo_nan)
             w_sampling_mld = None
-            obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI), 0. * targets_OI ,  0. * targets_OI ) ,dim=1)
+            obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI), 0. * targets_OI ) ,dim=1)
             
         new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, mask_sampling_mld) , dim=1)
 
