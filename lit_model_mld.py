@@ -897,7 +897,7 @@ class LitModelMLD(pl.LightningModule):
         
         # generate random binary mask
         # for ML measurements
-        mask_obs_mld = 0. * torch.bernoulli( 2e-7 * torch.ones_like(batch[0]) )
+        mask_obs_mld = torch.bernoulli( 2e-6 * torch.ones_like(batch[0]) )
         #print('.... MLD observation rate =  %f '%(torch.sum(mask_obs_mld) / (mask_obs_mld.size(0)*mask_obs_mld.size(1)*mask_obs_mld.size(2)*mask_obs_mld.size(3)) ))
         
         #print('.... ngrad = %d -- %d '%(self.model.n_grad,self.hparams.n_fourdvar_iter))
@@ -1763,8 +1763,6 @@ class LitModelMLD(pl.LightningModule):
             mask_sampling_mld = mask_mld #torch.zeros_like(mld_gt_wo_nan)
             w_sampling_mld = None
             obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI), mld_gt_wo_nan ) ,dim=1)
-
-
             
         new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, mask_sampling_mld) , dim=1)
 
