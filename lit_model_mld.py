@@ -772,7 +772,7 @@ class LitModelMLD(pl.LightningModule):
 
 
            
-        self.learning_sampling_mld = self.hparams.learning_sampling_uv if hasattr(self.hparams, 'learning_sampling_mld') else 'no_sammpling_learning'
+        self.learning_sampling_mld = self.hparams.learning_sampling_mld if hasattr(self.hparams, 'learning_sampling_mld') else 'no_sammpling_learning'
         self.nb_feat_sampling_operator = self.hparams.nb_feat_sampling_operator if hasattr(self.hparams, 'nb_feat_sampling_operator') else -1.
         if self.nb_feat_sampling_operator > 0 :
             if self.hparams.sampling_model == 'sampling-from-sst':
@@ -856,7 +856,7 @@ class LitModelMLD(pl.LightningModule):
         if self.scale_dwscaling_sst > 1. :
             suffix_chkpt = suffix_chkpt+'-dws-sst%02d'%int(self.scale_dwscaling_sst)
             
-        if self.model_sampling_uv is not None:
+        if self.model_sampling_mld is not None:
             suffix_chkpt = suffix_chkpt+'-sampling_sst_%d_%03d'%(self.hparams.nb_feat_sampling_operator,int(100*self.hparams.thr_l1_sampling_uv))
         
         if self.hparams.n_grad > 0 :
