@@ -263,11 +263,9 @@ class FourDVarNetDataset(Dataset):
         sst_path=None,
         sst_var=None,
         sst_decode=True,
-        u_path=None,
-        v_path=None,
-        u_var=None,
-        v_var=None,
-        uv_decode=True,
+        mld_path=None,
+        mld_var=None,
+        mld_decode=True,
         resolution=1/20,
         resize_factor=1,
         use_auto_padding=False,
@@ -326,37 +324,22 @@ class FourDVarNetDataset(Dataset):
             print('.... Data augmentation : %d/%d'%(len(self.perm),_len))
             
             
-        if u_var is not None:
-            self.u_ds = XrDataset(
-                u_path, u_var,
+        if mld_var is not None:
+            self.mld_ds = XrDataset(
+                mld_path, mld_var,
                 slice_win=slice_win,
                 resolution=resolution,
                 dim_range=dim_range,
                 strides=strides,
-                decode=uv_decode,
+                decode=mld_decode,
                 resize_factor=resize_factor,
                 compute=compute,
                 auto_padding=use_auto_padding,
                 interp_na=True,
             )
         else:
-            self.u_ds = None
+            self.mld_ds = None
 
-        if v_var is not None:
-            self.v_ds = XrDataset(
-                v_path, v_var,
-                slice_win=slice_win,
-                resolution=resolution,
-                dim_range=dim_range,
-                strides=strides,
-                decode=uv_decode,
-                resize_factor=resize_factor,
-                compute=compute,
-                auto_padding=use_auto_padding,
-                interp_na=True,
-            )
-        else:
-            self.v_ds = None
 
         if sst_var is not None:
             self.sst_ds = XrDataset(
@@ -377,12 +360,12 @@ class FourDVarNetDataset(Dataset):
 
         self.norm_stats = (0, 1)
         self.norm_stats_sst = (0, 1)
-        self.norm_stats_uv = (0, 1)
+        self.norm_stats_mld = (0, 1)
 
-    def set_norm_stats(self, stats, stats_sst=None,stats_uv=None):
+    def set_norm_stats(self, stats, stats_sst=None,stats_mld=None):
         self.norm_stats = stats
         self.norm_stats_sst = stats_sst
-        self.norm_stats_uv = stats_uv
+        self.norm_stats_mld = stats_mld
 
     def __len__(self):
         length = min(len(self.oi_ds), len(self.gt_ds), len(self.obs_mask_ds))
@@ -452,28 +435,22 @@ class FourDVarNetDataset(Dataset):
             _sst_item = pp_sst(self.sst_ds[item % length])
             sst_item = np.where(~np.isnan(_sst_item), _sst_item, 0.)
 
-            if self.u_ds == None:    
+            if self.mld_ds == None:    
                 return oi_item, obs_mask_item, obs_item, gt_item, sst_item
             else:
-                pp_uv = self.get_pp(self.norm_stats_uv)
+                pp_mld = self.get_pp(self.norm_stats_mld)
                 
-                _u_item = pp_uv(self.u_ds[item % length])
-                u_item = np.where(~np.isnan(_u_item), _u_item, 0.)
+                _mld_item = pp_mld(self.mld_ds[item % length])
+                mld_item = np.where(~np.isnan(_mld_item), _mld_item, 0.)
+                  
                 
-                _v_item = pp_uv(self.v_ds[item % length])
-                v_item = np.where(~np.isnan(_v_item), _v_item, 0.)
-    
-                
-                if 1*1 :
-                    with self.gt_ds.get_coords():
-                        _item_coords = self.gt_ds[item % length]
+                with self.gt_ds.get_coords():
+                    _item_coords = self.gt_ds[item % length]
 
-                        lat_item = np.float32( _item_coords['lat'] )
-                        lon_item = np.float32( _item_coords['lon'] )
+                    lat_item = np.float32( _item_coords['lat'] )
+                    lon_item = np.float32( _item_coords['lon'] )
 
-                    return oi_item, obs_mask_item, obs_item, gt_item, sst_item, u_item, v_item, lat_item, lon_item
-                else:          
-                    return oi_item, obs_mask_item, obs_item, gt_item, sst_item, u_item, v_item
+                return oi_item, obs_mask_item, obs_item, gt_item, sst_item, mld_item, lat_item, lon_item
 
 class FourDVarNetDataModule(pl.LightningDataModule):
     def __init__(
@@ -496,11 +473,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             sst_path=None,
             sst_var=None,
             sst_decode=True,
-            u_path=None,
-            u_var=None,
-            v_path=None,
-            v_var=None,
-            uv_decode=True,
+            mld_path=None,
+            mld_var=None,
+            mld_decode=True,
             resize_factor=1,
             aug_train_data=0,
             resolution="1/20",
@@ -535,11 +510,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.sst_path = sst_path
         self.sst_var = sst_var
         self.sst_decode = sst_decode
-        self.u_path = u_path
-        self.u_var = u_var
-        self.v_path = v_path
-        self.v_var = v_var
-        self.uv_decode = uv_decode
+        self.mld_path = mld_path
+        self.mld_var = mld_var
+        self.mld_decode = mld_decode
 
         self.pp=pp
         self.resize_factor = resize_factor
@@ -573,18 +546,17 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             std_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').std())
             
             print('..... sst data = %f -- %f'%(mean_sst,std_sst) )
-            if self.u_var == None:
+            if self.mld_var == None:
 
                 return [mean, std], [mean_sst, std_sst]
             else:
                 print('... Use (U,V) data')
-                mean_uv = 0.
-                var_u = float(xr.concat([_ds.u_ds.ds[_ds.u_ds.var]**2 for _ds in ds.datasets], dim='time').mean())
-                var_v = float(xr.concat([_ds.v_ds.ds[_ds.v_ds.var]**2 for _ds in ds.datasets], dim='time').mean())
+                mean_mld = float(xr.concat([_ds.mld_ds.ds[_ds.mld_ds.var] for _ds in ds.datasets], dim='time').mean())
+                var_mld = float(xr.concat([_ds.mld_ds.ds[_ds.mld_ds.var]**2 for _ds in ds.datasets], dim='time').mean())
                 
-                std_uv = np.sqrt(var_u + var_v)
+                std_mld = np.sqrt(var_mld)
 
-                return [mean, std], [mean_sst, std_sst], [mean_uv, std_uv]
+                return [mean, std], [mean_sst, std_sst], [mean_mld, std_mld]
 
     def min_max(self, ds):
         M = -np.inf
@@ -598,20 +570,16 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             print('... Use SST data')
             m_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').min())
             M_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').max())
-            if self.u_var == None:
+            if self.mld_var == None:
     
                 return [m, M-m], [m_sst, M_sst-m_sst]
             else:
                 print('... Use (U,V) data')
-                m_u = float(xr.concat([_ds.u_ds.ds[_ds.u_ds.var] for _ds in ds.datasets], dim='time').min())
-                M_u = float(xr.concat([_ds.u_ds.ds[_ds.u_ds.var] for _ds in ds.datasets], dim='time').max())
-                m_v = float(xr.concat([_ds.v_ds.ds[_ds.v_ds.var] for _ds in ds.datasets], dim='time').min())
-                M_v = float(xr.concat([_ds.v_ds.ds[_ds.v_ds.var] for _ds in ds.datasets], dim='time').max())
+                m_mld = float(xr.concat([_ds.mld_ds.ds[_ds.mld_ds.var] for _ds in ds.datasets], dim='time').min())
+                M_mld = float(xr.concat([_ds.mld_ds.ds[_ds.mld_ds.var] for _ds in ds.datasets], dim='time').max())
 
-                m_uv = np.min([m_u,m_v])                
-                M_uv = np.max([M_u,M_v])                
 
-                return [m, M-m], [m_sst, M_sst-m_sst], [m_uv, M_uv-m_uv]
+                return [m, M-m], [m_sst, M_sst-m_sst], [m_mld, M_mld-m_mld]
 
     def compute_norm_stats(self, ds):
         if self.pp == 'std':
@@ -636,8 +604,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             
             # get fields
             ssh = _ds.gt_ds.ds[_ds.gt_ds.var]
-            u  = _ds.u_ds.ds[_ds.u_ds.var]
-            v  = _ds.v_ds.ds[_ds.v_ds.var]
+            u  = _ds.mld_ds.ds[_ds.mld_ds.var]
  
             #print( u.shape )
             #print( ssh.shape )
@@ -703,9 +670,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
 
         return 1.,alpha_dy_u/alpha_dx_v,alpha_dx_v
 
-    def set_norm_stats(self, ds, ns, ns_sst=None,ns_uv=None):
+    def set_norm_stats(self, ds, ns, ns_sst=None,ns_mld=None):
         for _ds in ds.datasets:
-            _ds.set_norm_stats(ns, ns_sst, ns_uv)
+            _ds.set_norm_stats(ns, ns_sst, ns_mld)
 
     def get_domain_bounds(self, ds):
         min_lon = round(np.min(np.concatenate([_ds.gt_ds.ds['lon'].values for _ds in ds.datasets])), 2)
@@ -744,11 +711,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 sst_path=self.sst_path,
                 sst_var=self.sst_var,
                 sst_decode=self.sst_decode,
-                u_path=self.u_path,
-                u_var=self.u_var,
-                v_path=self.v_path,
-                v_var=self.v_var,
-                uv_decode=self.uv_decode,
+                mld_path=self.mld_path,
+                mld_var=self.mld_var,
+                mld_decode=self.mld_decode,
                 resolution=self.resolution,
                 resize_factor=self.resize_factor,
                 aug_train_data=self.aug_train_data,
@@ -775,11 +740,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     sst_path=self.sst_path,
                     sst_var=self.sst_var,
                     sst_decode=self.sst_decode,
-                    u_path=self.u_path,
-                    u_var=self.u_var,
-                    v_path=self.v_path,
-                    v_var=self.v_var,
-                    uv_decode=self.uv_decode,
+                    mld_path=self.mld_path,
+                    mld_var=self.mld_var,
+                    mld_decode=self.mld_decode,
                     resolution=self.resolution,
                     resize_factor=self.resize_factor,
                     compute=self.compute,
@@ -796,23 +759,19 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             self.set_norm_stats(self.val_ds, self.norm_stats)
             self.set_norm_stats(self.test_ds, self.norm_stats)
         else:
-            if self.u_var is None:
+            if self.mld_var is None:
                 self.norm_stats, self.norm_stats_sst = self.compute_norm_stats(self.train_ds)
                 self.set_norm_stats(self.train_ds, self.norm_stats, self.norm_stats_sst)
                 self.set_norm_stats(self.val_ds, self.norm_stats, self.norm_stats_sst)
                 self.set_norm_stats(self.test_ds, self.norm_stats, self.norm_stats_sst)
             else:
-                self.norm_stats, self.norm_stats_sst, self.norm_stats_uv = self.compute_norm_stats(self.train_ds)
-                self.set_norm_stats(self.train_ds, self.norm_stats, self.norm_stats_sst, self.norm_stats_uv)
-                self.set_norm_stats(self.val_ds, self.norm_stats, self.norm_stats_sst, self.norm_stats_uv)
-                self.set_norm_stats(self.test_ds, self.norm_stats, self.norm_stats_sst, self.norm_stats_uv)
-
-            #self.alpha_dx,self.alpha_dy,self.alpha_uv_geo = self.compute_scaling_uv_geo(self.train_ds)
+                self.norm_stats, self.norm_stats_sst, self.norm_stats_mld = self.compute_norm_stats(self.train_ds)
+                self.set_norm_stats(self.train_ds, self.norm_stats, self.norm_stats_sst, self.norm_stats_mld)
+                self.set_norm_stats(self.val_ds, self.norm_stats, self.norm_stats_sst, self.norm_stats_mld)
+                self.set_norm_stats(self.test_ds, self.norm_stats, self.norm_stats_sst, self.norm_stats_mld)
         
         self.bounding_box = self.get_domain_bounds(self.train_ds)
         self.ds_size = self.get_domain_split()
-    #def get_scaling_ssh_uv(self):
-    #    return self.alpha_dx,self.alpha_dy,self.alpha_uv_geo
     
     def train_dataloader(self):
         return DataLoader(self.train_ds, **{**dict(shuffle=True), **self.dl_kwargs})
@@ -868,8 +827,8 @@ if __name__ == '__main__':
     ds = dl.dataset.datasets[0]
     len(ds.perm)
     batch= next(iter(dl))
-    oi, msk, obs, gt, sst_gt, u_gt,v_gt = ds[2]
-    oi_, msk_, obs_, gt_, sst_gt_, u_gt_,v_gt_ = ds[2+ len(ds.perm)]
+    oi, msk, obs, gt, sst_gt, mld_gt = ds[2]
+    oi_, msk_, obs_, gt_, sst_gt_, mld_gt_ = ds[2+ len(ds.perm)]
     import matplotlib.pyplot as plt
     ds.sst_ds.ds.isel(time=0).sst.plot()
     p = lambda t: plt.imshow(t[0])

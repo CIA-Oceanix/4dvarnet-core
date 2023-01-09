@@ -19,7 +19,7 @@ from scipy import stats
 import solver as NN_4DVar
 import metrics
 
-from metrics import save_netcdf,save_netcdf_with_obs,save_netcdf_uv, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
+from metrics import save_netcdf,save_netcdf_with_obs,save_netcdf_mld, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
 from models import Model_H, Model_HwithSST, Model_HwithSSTBN,Phi_r, ModelLR, Gradient_img, Model_HwithSSTBN_nolin_tanh, Model_HwithSST_nolin_tanh, Model_HwithSSTBNandAtt
 from models import Model_HwithSSTBNAtt_nolin_tanh
 
@@ -490,23 +490,6 @@ def get_4dvarnet_sst(hparams):
                         hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
         elif hparams.sst_model == 'nolinear-tanh-bn' :
             print('...... residual_wrt_geo_velocities = %d'%hparams.residual_wrt_geo_velocities,flush=True)
-            if ( hparams.residual_wrt_geo_velocities == 3 ) or ( hparams.residual_wrt_geo_velocities == 4 ): 
-                return NN_4DVar.Solver_Grad_4DVarNN(
-                            Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
-                                hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
-                            Model_HwithSSTBN_nolin_tanh_withlatlon(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat),
-                            NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
-                                hparams.dim_grad_solver, hparams.dropout),
-                            hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
-            else:
-                return NN_4DVar.Solver_Grad_4DVarNN(
-                            Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
-                                hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
-                            Model_HwithSSTBN_nolin_tanh(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat),
-                            NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
-                                hparams.dim_grad_solver, hparams.dropout),
-                            hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
-            
             return NN_4DVar.Solver_Grad_4DVarNN(
                         Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                             hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
@@ -514,38 +497,6 @@ def get_4dvarnet_sst(hparams):
                         NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                             hparams.dim_grad_solver, hparams.dropout),
                         hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
-        elif hparams.sst_model == 'nolinear-tanh' :
-            return NN_4DVar.Solver_Grad_4DVarNN(
-                        Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
-                            hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
-                        Model_HwithSST_nolin_tanh(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat),
-                        NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
-                            hparams.dim_grad_solver, hparams.dropout),
-                        hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
-        elif hparams.sst_model == 'linear':
-            return NN_4DVar.Solver_Grad_4DVarNN(
-                            Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
-                                hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
-                            Model_HwithSST(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat),
-                            NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
-                                hparams.dim_grad_solver, hparams.dropout),
-                            hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
-        elif hparams.sst_model == 'linear-bn-att':
-            return NN_4DVar.Solver_Grad_4DVarNN(
-                            Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
-                                hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
-                            Model_HwithSSTBNandAtt(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat),
-                            NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
-                                hparams.dim_grad_solver, hparams.dropout),
-                            hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
-        elif hparams.sst_model == 'nolinear-tanh-bn-att':
-            return NN_4DVar.Solver_Grad_4DVarNN(
-                            Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
-                                hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
-                            Model_HwithSSTBNAtt_nolin_tanh(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat),
-                            NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
-                                hparams.dim_grad_solver, hparams.dropout),
-                            hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
     else:
        return get_4dvarnet(hparams)
@@ -731,142 +682,8 @@ class Div_uv_with_lat_lon_scaling(torch.nn.Module):
         return div
 
 ############################################ Lightning Module #######################################################################
-class Model_HwithSSTBN_nolin_tanh_withlatlon(torch.nn.Module):
-    def __init__(self,shape_data, dT=5,dim=5,width_kernel=3,padding_mode='reflect',type_wgeo=3):
-        super(Model_HwithSSTBN_nolin_tanh_withlatlon, self).__init__()
 
-        self.dim_obs = 2
-        self.dim_obs_channel = np.array([shape_data, dim])
-
-        #print('..... # im obs sst : %d'%dim)
-        self.w_kernel = width_kernel
-
-        self.bn_feat = torch.nn.BatchNorm2d(self.dim_obs_channel[1],track_running_stats=False)
-
-        self.var_tr_uv = 1.
-        self.dT = dT
-        self.aug_state = False
-        self.type_w_geo = type_wgeo
-        
-        self.type_geo_obs = 0
-        if self.type_geo_obs == 1:
-            dim_state = 4*self.dT#4*self.dT
-        elif self.type_geo_obs == 2:
-            dim_state = 6*self.dT#4*self.dT
-        else:            
-            dim_state = 10*self.dT#4*self.dT
-
-        self.convx11 = torch.nn.Conv2d(dim_state, 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
-        self.convx12 = torch.nn.Conv2d(2*self.dim_obs_channel[1], self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
-        self.convx21 = torch.nn.Conv2d(self.dim_obs_channel[1], 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
-        self.convx22 = torch.nn.Conv2d(2*self.dim_obs_channel[1], self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
-
-
-        self.convy11 = torch.nn.Conv2d(dT, 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
-        self.convy12 = torch.nn.Conv2d(2*self.dim_obs_channel[1], self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
-        self.convy21 = torch.nn.Conv2d(self.dim_obs_channel[1], 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
-        self.convy22 = torch.nn.Conv2d(2*self.dim_obs_channel[1], self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
-
-        self.conv_m = torch.nn.Conv2d(dT, self.dim_obs_channel[1], (3, 3), padding=1, bias=True,padding_mode=padding_mode)
-        self.sigmoid = torch.nn.Sigmoid()  # torch.nn.Softmax(dim=1)
-        
-        self.lat_rad = None
-        self.lon_rad = None
-        self.compute_derivativeswith_lon_lat = Torch_compute_derivatives_with_lon_lat(dT=dT)
-        self.aug_state = False
-        
-    def compute_geo_factor(self,outputs, lat_rad, lon_rad,sigma=0.):
-        return self.compute_derivativeswith_lon_lat.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.)
-
-    def extract_sst_feature(self,y1):
-        y1     = self.convy12( torch.tanh( self.convy11(y1) ) )
-        y_feat = self.bn_feat( self.convy22( torch.tanh( self.convy21( torch.tanh(y1) ) ) ) )
-       
-        return y_feat
-        
-    def extract_state_feature(self,x):
-        # ssh component
-        #print('..... obs model with lat/lon')
-        
-        if self.aug_state :
-            xbar_ssh = x[:, :self.dT, :, :] 
-            dx_ssh = x[:, 2*self.dT:3*self.dT, :, :]
-            x_u = x[:, 3*self.dT:4*self.dT, :, :]
-            x_v = x[:, 4*self.dT:5*self.dT, :, :]
-        else:
-            xbar_ssh = x[:, :self.dT, :, :]
-            dx_ssh = x[:, self.dT:2*self.dT, :, :]
-            x_u = x[:, 2*self.dT:3*self.dT, :, :]
-            x_v = x[:, 3*self.dT:4*self.dT, :, :]
-
-        # geoostrophic factor
-        u_geo_factor, v_geo_factor = self.compute_geo_factor(xbar_ssh, self.lat_rad, self.lon_rad,sigma=0.) 
-
-        # latent component
-        if self.type_geo_obs == 1 :
-            x_ssh_u = u_geo_factor * (xbar_ssh+dx_ssh)
-            x_ssh_v = v_geo_factor * (xbar_ssh+dx_ssh)
-            x_u_u = u_geo_factor * x_u
-            #x_u_v = v_geo_factor * x_u
-            #x_v_u = u_geo_factor * x_v
-            x_v_v = v_geo_factor * x_v
-            x_all = torch.cat((x_ssh_u,x_ssh_v,x_u_u,x_v_v),dim=1)
-        elif self.type_geo_obs == 2 :
-            xbar_ssh_u = u_geo_factor * xbar_ssh
-            xbar_ssh_v = v_geo_factor * xbar_ssh
-
-            dx_ssh_u = u_geo_factor * dx_ssh
-            dx_ssh_v = v_geo_factor * dx_ssh
-            x_u_u = u_geo_factor * x_u
-            #x_u_v = v_geo_factor * x_u
-            #x_v_u = u_geo_factor * x_v
-            x_v_v = v_geo_factor * x_v
-        
-            x_all = torch.cat((xbar_ssh_u,xbar_ssh_v,dx_ssh_u,dx_ssh_v,x_u_u,x_v_v),dim=1)
-            
-        else:
-            xbar_ssh_u = u_geo_factor * xbar_ssh
-            xbar_ssh_v = v_geo_factor * xbar_ssh
-
-            dx_ssh_u = u_geo_factor * dx_ssh
-            dx_ssh_v = v_geo_factor * dx_ssh
-            x_u_u = u_geo_factor * x_u
-            #x_u_v = v_geo_factor * x_u
-            #x_v_u = u_geo_factor * x_v
-            x_v_v = v_geo_factor * x_v
-        
-            x_all = torch.cat((xbar_ssh,xbar_ssh_u,xbar_ssh_v,dx_ssh,dx_ssh_u,dx_ssh_v,x_u,x_u_u,x_v,x_v_v),dim=1)
-        
-        if 1*0 :
-            if self.aug_state :
-                if x.size(1) > 5*self.dT :
-                    x_all = torch.cat((x_all,x[:, 5*self.dT:, :, :]),dim=1)
-            else:
-                if x.size(1) > 4*self.dT :
-                    x_all = torch.cat((x_all,x[:, 4*self.dT:, :, :]),dim=1)
-        
-        #print('..... s_all_size')
-        #print(x_all.size())
-               
-        x1     = self.convx12( torch.tanh( self.convx11( x_all ) ) )
-        x_feat = self.bn_feat( self.convx22( torch.tanh( self.convx21( torch.tanh(x1) ) ) ) )
-        
-        return x_feat
-
-    def forward(self, x, y, mask):
-        dyout = (x - y[0]) * mask[0]
-
-        y1 = y[1] * mask[1]
-                
-        x_feat = self.extract_state_feature(x)
-        y_feat = self.extract_sst_feature(y1)
-        dyout1 = x_feat - y_feat
-
-        dyout1 = dyout1 * self.sigmoid(self.conv_m(mask[1]))
-
-        return [dyout, dyout1]
-
-class LitModelUV(pl.LightningModule):
+class LitModelMLD(pl.LightningModule):
 
     MODELS = {
             '4dvarnet': get_4dvarnet,
@@ -898,7 +715,7 @@ class LitModelUV(pl.LightningModule):
         self.var_Val = self.hparams.var_Val
         self.var_Tr = self.hparams.var_Tr
         self.var_Tt = self.hparams.var_Tt
-        self.var_tr_uv = self.hparams.var_tr_uv       
+        self.var_tr_mld = self.hparams.var_tr_mld      
         
         self.alpha_dx = 1.
         self.alpha_dy = 1.
@@ -921,12 +738,13 @@ class LitModelUV(pl.LightningModule):
 
         self.var_Val = self.hparams.var_Val
         self.var_Tr = self.hparams.var_Tr
-        self.var_tr_uv = self.hparams.var_tr_uv
+        self.var_tr_mld = self.hparams.var_tr_mld
         self.var_Tt = self.hparams.var_Tt
         self.mean_Val = self.hparams.mean_Val
         self.mean_Tr = self.hparams.mean_Tr
         self.mean_Tt = self.hparams.mean_Tt
-
+        self.mean_tr_mld = self.hparams.mean_tr_mld
+        
         # main model
         self.model_name = self.hparams.model if hasattr(self.hparams, 'model') else '4dvarnet'
         self.use_sst = self.hparams.sst if hasattr(self.hparams, 'sst') else False
@@ -953,22 +771,16 @@ class LitModelUV(pl.LightningModule):
 
 
 
-        self.residual_wrt_geo_velocities = self.hparams.residual_wrt_geo_velocities if hasattr(self.hparams, 'residual_wrt_geo_velocities') else 0
-        #if self.residual_wrt_geo_velocities > 0 :
-        #    self.type_div_train_loss = 1
-        self.use_lat_lon_in_obs_model = self.hparams.use_lat_lon_in_obs_model if hasattr(self.hparams, 'use_lat_lon_in_obs_model') else False
-        if ( self.residual_wrt_geo_velocities == 3 ) or ( self.residual_wrt_geo_velocities == 4 ):
-            self.use_lat_lon_in_obs_model = True
            
-        self.learning_sampling_uv = self.hparams.learning_sampling_uv if hasattr(self.hparams, 'learning_sampling_uv') else 'no_sammpling_learning'
+        self.learning_sampling_mld = self.hparams.learning_sampling_uv if hasattr(self.hparams, 'learning_sampling_mld') else 'no_sammpling_learning'
         self.nb_feat_sampling_operator = self.hparams.nb_feat_sampling_operator if hasattr(self.hparams, 'nb_feat_sampling_operator') else -1.
         if self.nb_feat_sampling_operator > 0 :
             if self.hparams.sampling_model == 'sampling-from-sst':
-                self.model_sampling_uv = ModelSamplingFromSST(self.hparams.dT,self.nb_feat_sampling_operator)
+                self.model_sampling_mld = ModelSamplingFromSST(self.hparams.dT,self.nb_feat_sampling_operator)
             else:
                 print('..... something is not expected with the sampling model')
         else:
-            self.model_sampling_uv = None
+            self.model_sampling_mld = None
                     
         if self.hparams.k_n_grad == 0 :
             self.hparams.n_fourdvar_iter = 1
@@ -979,10 +791,6 @@ class LitModelUV(pl.LightningModule):
         self.gradient_img = lambda t: torch.unbind(
                 self.grad_crop(2.*kornia.filters.spatial_gradient(t, normalized=True)), 2)
         
-        if ( self.residual_wrt_geo_velocities == 3 ) or ( self.residual_wrt_geo_velocities == 4 ):
-            self.model.model_H.aug_state = self.hparams.aug_state
-            self.model.model_H.var_tr_uv = self.var_tr_uv        
-
         b = self.hparams.apha_grad_descent_step if hasattr(self.hparams, 'apha_grad_descent_step') else 0.
         self.hparams.learn_fsgd_param = self.hparams.learn_fsgd_param if hasattr(self.hparams, 'learn_fsgd_param') else False
         
@@ -1060,20 +868,7 @@ class LitModelUV(pl.LightningModule):
             
             if self.use_sst_obs :
                 suffix_chkpt = suffix_chkpt+'-sstobs-'+self.hparams.sst_model+'_%02d'%(self.hparams.dim_obs_sst_feat)
-            
-            if self.residual_wrt_geo_velocities > 0  :
-                suffix_chkpt = suffix_chkpt+'-wgeo%d'%self.residual_wrt_geo_velocities
-            elif self.type_div_train_loss == 1 :
-                suffix_chkpt = suffix_chkpt+'-nowgeo'
-
-            if ( self.hparams.alpha_mse_strain == 0. ) | ( self.hparams.alpha_mse_div == 0. ) :
-                if ( self.hparams.alpha_mse_strain == 0. ) & ( self.hparams.alpha_mse_div == 0. ) :                    
-                    suffix_chkpt = suffix_chkpt+'-nodivstrain'
-                elif self.hparams.alpha_mse_strain == 0. :                    
-                    suffix_chkpt = suffix_chkpt+'-nostrain'
-                else :                    
-                    suffix_chkpt = suffix_chkpt+'-nodiv'
-                                            
+                                                        
             suffix_chkpt = suffix_chkpt+'-grad_%02d_%02d_%03d'%(self.hparams.n_grad,self.hparams.k_n_grad,self.hparams.dim_grad_solver)
             if self.model.model_Grad.asymptotic_term == True :
                 suffix_chkpt = suffix_chkpt+'+fsgd'
@@ -1087,13 +882,6 @@ class LitModelUV(pl.LightningModule):
                 suffix_chkpt = suffix_chkpt+'-DirectInv'
             suffix_chkpt = suffix_chkpt+'-dT%02d'%(self.hparams.dT)
                 
-            if ( self.hparams.alpha_mse_strain == 0. ) | ( self.hparams.alpha_mse_div == 0. ) :
-                if ( self.hparams.alpha_mse_strain == 0. ) & ( self.hparams.alpha_mse_div == 0. ) :                    
-                    suffix_chkpt = suffix_chkpt+'-nodivstrain'
-                elif self.hparams.alpha_mse_strain == 0. :                    
-                    suffix_chkpt = suffix_chkpt+'-nostrain'
-                else :                    
-                    suffix_chkpt = suffix_chkpt+'-nodiv'
         suffix_chkpt = suffix_chkpt+old_suffix
         
         return filename_chkpt.replace(old_suffix,suffix_chkpt)
@@ -1140,7 +928,7 @@ class LitModelUV(pl.LightningModule):
                     {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                     {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
                     {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
-                    {'params': self.model_sampling_uv.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                    {'params': self.model_sampling_mld.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                     ])
             else:
                 optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
@@ -1155,7 +943,7 @@ class LitModelUV(pl.LightningModule):
                     {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                     {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
                     {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
-                    {'params': self.model_sampling_uv.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                    {'params': self.model_sampling_mld.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                     ])
             else:
                 optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
@@ -1248,10 +1036,10 @@ class LitModelUV(pl.LightningModule):
 
     def diag_step(self, batch, batch_idx, log_pref='test'):
         if not self.use_sst:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt = batch
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, mld_gt = batch
         else:
             #targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt = batch
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, mld_gt, lat, lon = batch
            
         if ( self.use_sst ) :
           #losses, out, metrics = self(batch, phase='test')
@@ -1262,14 +1050,13 @@ class LitModelUV(pl.LightningModule):
         if loss is not None:
             self.log(f'{log_pref}_loss', loss)
             self.log(f'{log_pref}_mse', metrics[-1]["mse"] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
-            self.log(f'{log_pref}_mse_uv', metrics[-1]["mse_uv"] , on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{log_pref}_mse_mld', metrics[-1]["mse_mld"] , on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_l1_samp', metrics[-1]["l1_samp"] , on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_l0_samp', metrics[-1]["l0_samp"] , on_step=False, on_epoch=True, prog_bar=True)
             #self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
 
         out_pred = out[0]        
-        out_u = out[1]
-        out_v = out[2]
+        out_mld = out[1]
 
         #    out_pred = torch.nn.functional.interpolate(out_pred, scale_factor=self.scale_dwscaling, mode='bicubic')
         #    out_u = torch.nn.functional.interpolate(out_u, scale_factor=self.scale_dwscaling, mode='bicubic')
@@ -1280,23 +1067,19 @@ class LitModelUV(pl.LightningModule):
 
             return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                     'oi'    : (targets_OI.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                    'u_gt'    : (u_gt.detach().cpu() * np.sqrt(self.var_tr_uv)) ,
-                    'v_gt'    : (v_gt.detach().cpu() * np.sqrt(self.var_tr_uv)) ,
+                    'mld_gt'    : (mld_gt.detach().cpu() * np.sqrt(self.var_tr_mld) + self.mean_tr_mld ) ,
                     'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                     'pred' : (out_pred.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                    'pred_u' : (out_u.detach().cpu() * np.sqrt(self.var_tr_uv)) ,
-                    'pred_v' : (out_v.detach().cpu() * np.sqrt(self.var_tr_uv)) }
+                    'pred_mld' : (out_mld.detach().cpu() * np.sqrt(self.var_tr_mld) + self.mean_tr_mld) }
         else:
             
 
             return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                     'oi'    : (targets_OI.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                    'u_gt'    : (u_gt.detach().cpu() * np.sqrt(self.var_tr_uv)) ,
-                    'v_gt'    : (v_gt.detach().cpu() * np.sqrt(self.var_tr_uv)) ,
+                    'mld_gt'    : (mld_gt.detach().cpu() * np.sqrt(self.var_tr_mld) + self.mean_tr_mld) ,
                     'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                     'pred' : (out_pred.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                    'pred_u' : (out_u.detach().cpu() * np.sqrt(self.var_tr_uv)) ,
-                    'pred_v' : (out_v.detach().cpu() * np.sqrt(self.var_tr_uv)) ,
+                    'pred_mld' : (out_mld.detach().cpu() * np.sqrt(self.var_tr_mld)+ self.mean_tr_mld) ,
                     'sst_feat' : sst_feat.detach().cpu()}
 
     def test_step(self, test_batch, batch_idx):
@@ -1583,7 +1366,7 @@ class LitModelUV(pl.LightningModule):
                 .assign(mse_ratio=lambda df: df / df.loc[ref])
         )
 
-    def sla_uv_diag(self, t_idx=3, log_pref='test'):
+    def sla_mld_diag(self, t_idx=3, log_pref='test'):
         
         # bug likely due to conda config for cartopy to be chekced
         if 1*0 :
@@ -1612,14 +1395,6 @@ class LitModelUV(pl.LightningModule):
                 path_save0 = self.logger.log_dir + '/animation.mp4'
                 animate_maps(self.x_gt, self.obs_inp, self.x_oi, self.x_rec, self.lon, self.lat, path_save0)
             
-            # save NetCDF
-        # PENDING: replace hardcoded 60
-        # save_netcdf(saved_path1=path_save1, pred=self.x_rec,
-        #         lon=self.test_lon, lat=self.test_lat, time=self.test_dates, time_units=None)
-
-        # compute nRMSE
-        # np.sqrt(np.nanmean(((ref - np.nanmean(ref)) - (pred - np.nanmean(pred))) ** 2)) / np.nanstd(ref)
-
         nrmse_df = self.nrmse_fn('pred', 'oi', 'gt')
         mse_df = self.mse_fn('pred', 'oi', 'gt')
         nrmse_df.to_csv(self.logger.log_dir + '/nRMSE.txt')
@@ -1643,7 +1418,9 @@ class LitModelUV(pl.LightningModule):
         #else:
         #    psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred[2:42,:,:], self.test_xr_ds.gt[2:42,:,:])
         #    fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt[2:42,:,:], self.test_xr_ds.pred[2:42,:,:], self.test_xr_ds.oi[2:42,:,:], with_fig=True)
-        
+
+        psd_ds_mld, lamb_x_mld, lamb_t_mld = metrics.psd_based_scores(self.test_xr_ds.pred_mld, self.test_xr_ds.mld_gt)
+      
         self.test_figs['res'] = fig
         self.logger.experiment.add_figure(f'{log_pref} Spat. Resol', fig, global_step=self.current_epoch)
         #psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
@@ -1660,14 +1437,14 @@ class LitModelUV(pl.LightningModule):
         
         mse_metrics_pred = metrics.compute_metrics(self.test_xr_ds.gt, self.test_xr_ds.pred)
         mse_metrics_oi = metrics.compute_metrics(self.test_xr_ds.gt, self.test_xr_ds.oi)
+        mse_metrics_pred_mld = metrics.compute_metrics(self.test_xr_ds.mld_gt, self.test_xr_ds.pred_mld)
         
         var_mse_pred_vs_oi = 100. * ( 1. - mse_metrics_pred['mse'] / mse_metrics_oi['mse'] )
         var_mse_grad_pred_vs_oi = 100. * ( 1. - mse_metrics_pred['mseGrad'] / mse_metrics_oi['mseGrad'] )
-        
+        var_mse_mld = 100. * ( 1. -  mse_metrics_pred_mld['mse'] / np.var(self.test_xr_ds.mld_gt) )
+                
         mse_metrics_lap_oi = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.oi,sig_lap=self.sig_filter_laplacian)
         mse_metrics_lap_pred = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.pred,sig_lap=self.sig_filter_laplacian)        
-
-        mse_metrics_pred = metrics.compute_metrics(self.test_xr_ds.gt, self.test_xr_ds.pred)
 
         #dw_lap = 20
         
@@ -1677,183 +1454,15 @@ class LitModelUV(pl.LightningModule):
         var_mse_pred_lap = 100. * (1. - mse_metrics_lap_pred['mse'] / mse_metrics_lap_pred['var_lap'] )
         var_mse_oi_lap = 100. * (1. - mse_metrics_lap_oi['mse'] / mse_metrics_lap_pred['var_lap'] )
 
-        # MSE (U,V) fields
-        ## compute div/curl/strain metrics
-        def compute_var_exp(x,y,dw=0):
-            if dw == 0 :
-                mse = np.nanmean( (x-y)**2 )
-                var = np.nanvar( x )
-            else:
-                _x  = x[:,dw:x.shape[1]-dw,dw:x.shape[2]-dw]
-                _y  = y[:,dw:x.shape[1]-dw,dw:x.shape[2]-dw]
-                mse = np.nanmean( (_x-_y)**2 )
-                var = np.nanvar( _x )
-                
-            return 100. * ( 1. - mse / var )
 
-        def compute_metrics_SSC(u_gt,v_gt,u,v,dw = 2):
-            
-            if dw == 0 :
-                mse_uv = np.nanmean((u_gt - u) ** 2 + (v_gt - v) ** 2 )
-                var_uv = np.nanmean((u_gt) ** 2 + (v_gt) ** 2 )
-            else:
-                _u    = u[:,dw:u.shape[1]-dw,dw:u.shape[2]-dw]
-                _v    = v[:,dw:u.shape[1]-dw,dw:u.shape[2]-dw]
-                _u_gt = u_gt[:,dw:u.shape[1]-dw,dw:u.shape[2]-dw]
-                _v_gt = v_gt[:,dw:u.shape[1]-dw,dw:u.shape[2]-dw]
-                
-                mse_uv = np.nanmean((_u_gt - _u) ** 2 + (_v_gt - _v) ** 2 )
-                var_uv = np.nanmean((_u_gt) ** 2 + (_v_gt) ** 2 )
-            var_mse_uv = 100. * ( 1. - mse_uv / var_uv )
-        
-            psd_ds_u, lamb_x_u, lamb_t_u = metrics.psd_based_scores(u, u_gt)
-            psd_ds_v, lamb_x_v, lamb_t_v = metrics.psd_based_scores(v, v_gt)
-            
-            return var_mse_uv, lamb_x_u, lamb_t_u, lamb_x_v, lamb_t_v
-
-        # Metrics for SSC fields
-        alpha_uv_geo = 9.81 
-        lat_rad = np.radians(self.test_lat)
-        lon_rad = np.radians(self.test_lon)
-        
-        if 1*0 :    
-            lat_rad = lat_rad.reshape((1,1,lat_rad.hape[0],lat_rad.shape[1]))
-            lon_rad = lon_rad.reshape((1,1,lon_rad.hape[0],lon_rad.shape[1]))
-            lat_rad = lat_rad.repeat()
-            
-            
-            t_compute_geo_velocities =  Torch_compute_derivatives_with_lon_lat()
-            t_ssh = torch.Tensor(self.test_xr_ds.gt.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])        
-            t_ssh = t_ssh.view(-1,1,t_ssh.size(1),t_ssh.size(2))        
-            t_lat_rad = torch.Tensor( lat_rad )
-            t_lon_rad = torch.Tensor( lon_rad )
-            
-            t_u_geo_gt,t_v_geo_gt = t_compute_geo_velocities.compute_geo_velociites(t_ssh, t_lat_rad, t_lon_rad, sigma=0.)
-            u_geo_gt = t_u_geo_gt.numpy().squeeze()
-            v_geo_gt = t_v_geo_gt.numpy().squeeze()
-        
-        u_geo_gt,v_geo_gt = compute_uv_geo_with_coriolis(self.test_xr_ds.gt,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
-        u_geo_oi,v_geo_oi = compute_uv_geo_with_coriolis(self.test_xr_ds.oi,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
-        u_geo_rec,v_geo_rec = compute_uv_geo_with_coriolis(self.test_xr_ds.pred,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
-
-        dw_diag = 3
-        print('\n\n...... SSH-derived SSC metrics for true SSH')
-        var_mse_uv_ssh_gt, lamb_x_u_ssh_gt, lamb_t_u_ssh_gt, lamb_x_v_ssh_gt, lamb_t_v_ssh_gt = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , u_geo_gt , v_geo_gt  , dw = dw_diag)
-        print('\n\n...... SSH-derived SSC metrics for DUACS SSH')
-        var_mse_uv_ssh_oi, lamb_x_u_ssh_oi, lamb_t_u_ssh_oi, lamb_x_v_ssh_oi, lamb_t_v_ssh_oi = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , u_geo_oi , v_geo_oi  , dw = dw_diag)
-        print('\n\n...... SSH-derived SSC metrics for 4dVarNet SSH')
-        var_mse_uv_ssh_rec, lamb_x_u_ssh_rec, lamb_t_u_ssh_rec, lamb_x_v_ssh_rec, lamb_t_v_ssh_rec = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , u_geo_rec , v_geo_rec  , dw = dw_diag)
-        print('\n\n...... SSH-derived SSC metrics for 4dVarNet SSC')
-        var_mse_uv, lamb_x_u, lamb_t_u, lamb_x_v, lamb_t_v = compute_metrics_SSC( self.test_xr_ds.u_gt , self.test_xr_ds.v_gt , self.test_xr_ds.pred_u, self.test_xr_ds.pred_v  , dw = dw_diag)
-
-        print('.....')
-        print('.....')
-        print('..... Computation of div/curl/strain metrics  ')
-        sig_div_curl = self.sig_filter_div_diag
-
-        flag_heat_equation = False
-        
-        if flag_heat_equation :
-            iter_heat = 5
-            lam = self.sig_filter_div_diag
-            t_compute_div_curl_strain_with_lat_lon =  Torch_compute_derivatives_with_lon_lat()
-            def heat_equation(u,iter,lam):
-                t_u = torch.Tensor(u).view(-1,1,u.shape[1],u.shape[2]) 
-                f_u = t_compute_div_curl_strain_with_lat_lon.heat_equation(t_u,iter=iter,lam=lam)
-    
-                return f_u.detach().numpy().squeeze()
-            
-            f_u = heat_equation(self.test_xr_ds.u_gt.data,iter=iter_heat,lam=lam)
-            f_v = heat_equation(self.test_xr_ds.v_gt.data,iter=iter_heat,lam=lam)
-            div_gt,curl_gt,strain_gt = compute_div_curl_strain_with_lat_lon(f_u,f_v,lat_rad,lon_rad,sigma=0.)        
-        
-            f_u = heat_equation(self.test_xr_ds.pred_u.data,iter=iter_heat,lam=lam)
-            f_v = heat_equation(self.test_xr_ds.pred_v.data,iter=iter_heat,lam=lam)
-            div_uv_rec,curl_uv_rec,strain_uv_rec = compute_div_curl_strain_with_lat_lon(f_u,f_v,lat_rad,lon_rad,sigma=0.)
-        else :
-            div_gt,curl_gt,strain_gt = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.u_gt,self.test_xr_ds.v_gt,lat_rad,lon_rad,sigma=sig_div_curl)
-            div_uv_rec,curl_uv_rec,strain_uv_rec = compute_div_curl_strain_with_lat_lon(self.test_xr_ds.pred_u,self.test_xr_ds.pred_v,lat_rad,lon_rad,sigma=sig_div_curl)
- 
-        var_mse_div = compute_var_exp( div_gt, div_uv_rec , dw = dw_diag)
-        var_mse_curl = compute_var_exp( curl_gt, curl_uv_rec, dw = dw_diag)
-        var_mse_strain = compute_var_exp( strain_gt, strain_uv_rec, dw = dw_diag)
-        
-        if 1*0 :
-            t_u = torch.Tensor(self.test_xr_ds.pred_u.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
-            t_v = torch.Tensor(self.test_xr_ds.pred_v.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
-            
-            t_u = t_u.view(-1,1,t_u.size(1),t_u.size(2))
-            t_v = t_v.view(-1,1,t_v.size(1),t_v.size(2))
-            
-            t_lat_rad = torch.Tensor( lat_rad )
-            t_lon_rad = torch.Tensor( lon_rad )
-    
-            t_compute_div_curl_strain_with_lat_lon =  Torch_compute_derivatives_with_lon_lat()
-            t_div,t_curl,t_strain = t_compute_div_curl_strain_with_lat_lon.compute_div_curl_strain(t_u,t_v,t_lat_rad,t_lon_rad,sigma=sig_div_curl)
-            
-            div_uv_rec_ = t_div.numpy().squeeze()
-            curl_uv_rec_ = t_curl.numpy().squeeze()
-            strain_uv_rec_ = t_strain.numpy().squeeze()
-                
-            t_u = torch.Tensor(self.test_xr_ds.u_gt.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])
-            t_v = torch.Tensor(self.test_xr_ds.v_gt.data)#.view(-1,1,self.test_xr_ds.pred_u.shape[1],self.test_xr_ds.pred_u.shape[2])            
-            t_u = t_u.view(-1,1,t_u.size(1),t_u.size(2))
-            t_v = t_v.view(-1,1,t_v.size(1),t_v.size(2))
-
-            t_compute_div_curl_strain_with_lat_lon =  Torch_compute_derivatives_with_lon_lat()
-            t_div,t_curl,t_strain = t_compute_div_curl_strain_with_lat_lon.compute_div_curl_strain(t_u,t_v,t_lat_rad,t_lon_rad,sigma=sig_div_curl)
-            
-            div_gt_ = t_div.numpy().squeeze()
-            curl_gt_ = t_curl.numpy().squeeze()
-            strain_gt_ = t_strain.numpy().squeeze()
-
-            var_mse_div_ = compute_var_exp( div_gt_, div_uv_rec_, dw = dw_diag)
-            var_mse_curl_ = compute_var_exp( curl_gt_, curl_uv_rec_, dw = dw_diag)
-            var_mse_strain_ = compute_var_exp( strain_gt_, strain_uv_rec_, dw = dw_diag)
-    
-            print('.... div %.2f -- %.2f -- %.2f'%(var_mse_div_,var_mse_div,compute_var_exp( div_uv_rec, div_uv_rec_)) )
-            print('.... strain %.2f -- %.2f -- %.2f'%(var_mse_strain_,var_mse_strain,compute_var_exp( strain_uv_rec, strain_uv_rec_)))
-            print('.... curl %.2f -- %.2f -- %.2f'%(var_mse_curl_,var_mse_curl,compute_var_exp( curl_uv_rec, curl_uv_rec_)))
-
-        if sig_div_curl > 0. :
-            f_ssh_gt = gaussian_filter(self.test_xr_ds.gt, sigma=sig_div_curl)
-            f_ssh_oi = gaussian_filter(self.test_xr_ds.oi, sigma=4.*sig_div_curl)
-            f_ssh_rec = gaussian_filter(self.test_xr_ds.pred, sigma=sig_div_curl)
-            
-        else:
-            f_ssh_gt = self.test_xr_ds.gt
-            f_ssh_oi = self.test_xr_ds.oi
-            f_ssh_rec = self.test_xr_ds.pred
-            
-        f_u_geo_gt,f_v_geo_gt = compute_uv_geo_with_coriolis(f_ssh_gt,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
-        f_u_geo_oi,f_v_geo_oi = compute_uv_geo_with_coriolis(f_ssh_oi,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
-        f_u_geo_rec,f_v_geo_rec = compute_uv_geo_with_coriolis(f_ssh_rec,lat_rad,lon_rad,alpha_uv_geo = alpha_uv_geo,sigma=0.)
-
-        div_geo_gt,curl_geo_gt,strain_geo_gt = compute_div_curl_strain_with_lat_lon(f_u_geo_gt,f_v_geo_gt,lat_rad,lon_rad,sigma=0.)
-        div_geo_oi,curl_geo_oi,strain_geo_oi = compute_div_curl_strain_with_lat_lon(f_u_geo_oi,f_v_geo_oi,lat_rad,lon_rad,sigma=0.)
-        div_geo_rec,curl_geo_rec,strain_geo_rec = compute_div_curl_strain_with_lat_lon(f_u_geo_rec,f_v_geo_rec,lat_rad,lon_rad,sigma=0.)
-
-        var_mse_div_ssh_gt = compute_var_exp( div_gt, div_geo_gt , dw = dw_diag)
-        var_mse_curl_ssh_gt = compute_var_exp( curl_gt, curl_geo_gt , dw = dw_diag)
-        var_mse_strain_ssh_gt = compute_var_exp( strain_gt, strain_geo_gt , dw = dw_diag)
-
-        var_mse_div_ssh_oi = compute_var_exp( div_gt, div_geo_oi , dw = dw_diag)
-        var_mse_curl_ssh_oi = compute_var_exp( curl_gt, curl_geo_oi , dw = dw_diag)
-        var_mse_strain_ssh_oi = compute_var_exp( strain_gt, strain_geo_oi , dw = dw_diag)
-
-        var_mse_div_ssh_rec = compute_var_exp( div_gt, div_geo_rec , dw = dw_diag)
-        var_mse_curl_ssh_rec = compute_var_exp( curl_gt, curl_geo_rec , dw = dw_diag)
-        var_mse_strain_ssh_rec = compute_var_exp( strain_gt, strain_geo_rec , dw = dw_diag)
 
         md = {
             f'{log_pref}_spatial_res': float(spatial_res_model),
             f'{log_pref}_spatial_res_imp': float(spatial_res_model / spatial_res_oi),
             f'{log_pref}_lambda_x': lamb_x,
             f'{log_pref}_lambda_t': lamb_t,
-            f'{log_pref}_lambda_x_u': lamb_x_u,
-            f'{log_pref}_lambda_t_u': lamb_t_u,
-            f'{log_pref}_lambda_x_v': lamb_x_v,
-            f'{log_pref}_lambda_t_v': lamb_t_v,
+            f'{log_pref}_lambda_x_u': lamb_x_mld,
+            f'{log_pref}_lambda_t_u': lamb_t_mld,
             f'{log_pref}_mu': mu,
             f'{log_pref}_sigma': sig,
             **mdf.to_dict(),
@@ -1861,22 +1470,7 @@ class LitModelUV(pl.LightningModule):
             f'{log_pref}_var_mse_grad_vs_oi': float(var_mse_grad_pred_vs_oi),
             f'{log_pref}_var_mse_lap_pred': float(var_mse_pred_lap),
             f'{log_pref}_var_mse_lap_oi': float(var_mse_oi_lap),
-            f'{log_pref}_var_mse_uv_gt': float(var_mse_uv_ssh_gt),
-            f'{log_pref}_var_mse_uv_oi': float(var_mse_uv_ssh_oi),
-            f'{log_pref}_var_mse_uv_pred': float(var_mse_uv_ssh_rec),
-            f'{log_pref}_var_mse_uv': float(var_mse_uv),
-            f'{log_pref}_var_mse_div_ssh_gt': float(var_mse_div_ssh_gt),            
-            f'{log_pref}_var_mse_div_oi': float(var_mse_div_ssh_oi),            
-            f'{log_pref}_var_mse_div_pred': float(var_mse_div_ssh_rec),            
-            f'{log_pref}_var_mse_div': float(var_mse_div),            
-            f'{log_pref}_var_mse_strain_ssh_gt': float(var_mse_strain_ssh_gt),            
-            f'{log_pref}_var_mse_strain_oi': float(var_mse_strain_ssh_oi),            
-            f'{log_pref}_var_mse_strain_pred': float(var_mse_strain_ssh_rec),            
-            f'{log_pref}_var_mse_strain': float(var_mse_strain),            
-            f'{log_pref}_var_mse_curl_ssh_gt': float(var_mse_curl_ssh_gt),            
-            f'{log_pref}_var_mse_curl_oi': float(var_mse_curl_ssh_oi),            
-            f'{log_pref}_var_mse_curl_pred': float(var_mse_curl_ssh_rec),            
-            f'{log_pref}_var_mse_curl': float(var_mse_curl),            
+            f'{log_pref}_var_mse_mld': float(var_mse_mld),
         }
         print(pd.DataFrame([md]).T.to_markdown())
         return md
@@ -1909,10 +1503,8 @@ class LitModelUV(pl.LightningModule):
         self.x_oi = self.test_xr_ds.oi.data#[2:42,:,:]
         self.x_rec = self.test_xr_ds.pred.data#[2:42,:,:]
         
-        self.u_gt = self.test_xr_ds.u_gt.data
-        self.v_gt = self.test_xr_ds.v_gt.data
-        self.u_rec = self.test_xr_ds.pred_u.data#[2:42,:,:]
-        self.v_rec = self.test_xr_ds.pred_v.data#[2:42,:,:]
+        self.alpha_dxmld_gt = self.test_xr_ds.mld_gt.data
+        self.mld_rec = self.test_xr_ds.pred_mld.data#[2:42,:,:]
 
         self.x_rec_ssh = self.x_rec
 
@@ -1931,7 +1523,7 @@ class LitModelUV(pl.LightningModule):
         self.test_lon = self.test_coords['lon'].data
         self.test_dates = self.test_coords['time'].data#[2:42]
 
-        md = self.sla_uv_diag(t_idx=3, log_pref=log_pref)
+        md = self.sla_mld_diag(t_idx=3, log_pref=log_pref)
         
         #alpha_uv_geo = 9.81 
         #lat_rad = np.radians(self.test_lat)
@@ -1950,61 +1542,19 @@ class LitModelUV(pl.LightningModule):
         if self.save_rec_netcdf == True :
             #path_save1 = self.logger.log_dir + f'/test_res_all.nc'
             path_save1 = self.hparams.path_save_netcdf.replace('.ckpt','_res_4dvarnet_all.nc')
-            if True : #not self.use_sst :
-                print('... Save nc file with all results : '+path_save1)
-                #print(self.test_dates)
-                save_netcdf_uv(saved_path1=path_save1, 
-                                        gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh, 
-                                        u_gt=self.u_gt, v_gt=self.v_gt, 
-                                        u_pred=self.u_rec, v_pred=self.v_rec,
-                                        #curl_gt=curl_gt,strain_gt=strain_gt,
-                                        #curl_pred=curl_uv_rec,strain_pred=strain_uv_rec,
-                                        sst_feat=self.x_sst_feat_ssh[:,0,:,:].reshape(self.x_sst_feat_ssh.shape[0],1,self.x_sst_feat_ssh.shape[2],self.x_sst_feat_ssh.shape[3]),
-                                        
-                                        
-                                        lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
+            print('... Save nc file with all results : '+path_save1)
+            #print(self.test_dates)
+            save_netcdf_mld(saved_path1=path_save1, 
+                                    gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh, 
+                                    mld_gt=self.u_gt, 
+                                    mld_pred=self.u_rec, 
+                                    #curl_gt=curl_gt,strain_gt=strain_gt,
+                                    #curl_pred=curl_uv_rec,strain_pred=strain_uv_rec,
+                                    sst_feat=self.x_sst_feat_ssh[:,0,:,:].reshape(self.x_sst_feat_ssh.shape[0],1,self.x_sst_feat_ssh.shape[2],self.x_sst_feat_ssh.shape[3]),
+                                    
+                                    
+                                    lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
 
-                #save_netcdf_with_obs(saved_path1=path_save1, gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh,
-                #         lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
-            else:
-                def extract_seq(out,key,dw=20):
-                    seq = torch.cat([chunk[key] for chunk in outputs]).numpy()
-                    seq = seq[:,:,dw:seq.shape[2]-dw,dw:seq.shape[2]-dw]
-                    
-                    return seq
-                
-                self.x_sst_feat_ssh = extract_seq(outputs,'sst_feat',dw=20)                        
-    
-                self.x_gt = extract_seq(outputs,'gt',dw=20)
-                self.x_gt = self.x_gt[:,int(self.hparams.dT/2),:,:]
-    
-                self.obs_inp = extract_seq(outputs,'obs_inp',dw=20)
-                self.obs_inp = self.obs_inp[:,int(self.hparams.dT/2),:,:]
-    
-                self.x_oi = extract_seq(outputs,'oi',dw=20)
-                self.x_oi = self.x_oi[:,int(self.hparams.dT/2),:,:]
-    
-                self.x_rec = extract_seq(outputs,'pred',dw=20)
-                self.x_rec = self.x_rec[:,int(self.hparams.dT/2),:,:]
-                self.x_rec_ssh = self.x_rec
-                        
-                if 1*0:
-                    self.x_gt = self.x_gt[2:42,:,:]
-                    self.obs_inp = self.obs_inp[2:42,:,:]
-                    self.x_oi = self.x_oi[2:42,:,:]
-                    self.x_rec = self.x_rec[2:42,:,:]
-                    self.x_rec_ssh = self.x_rec[2:42,:,:]
-
-                print('... Save nc file with all results : '+path_save1)
-                print( self.x_rec.shape )
-                print( self.v_rec.shape )
-                print( self.x_sst_feat_ssh.shape )
-                save_netcdf_uv(saved_path1=path_save1, 
-                                        gt=self.x_gt, obs = self.obs_inp , oi= self.x_oi, pred=self.x_rec_ssh, 
-                                        u_gt=self.u_gt, v_gt=self.v_gt, 
-                                        u_pred=self.u_rec, v_pred=self.v_rec,
-                                        sst_feat=self.x_sst_feat_ssh,
-                                        lon=self.test_lon, lat=self.test_lat, time=self.test_dates)#, time_units=None)
 
 
     def teardown(self, stage='test'):
@@ -2022,27 +1572,25 @@ class LitModelUV(pl.LightningModule):
         #    targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt = batch
         #else:
         #    #targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt = batch
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, mld_gt, lat, lon = batch
         
-        targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon, gx, gy = batch
+        targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, mld_gt, lat, lon, gx, gy = batch
 
         if mask_sampling is not None :
-            init_u = mask_sampling * u_gt
-            init_v = mask_sampling * v_gt
+            init_mld = mask_sampling * mld_gt
         else:
-            init_u = torch.zeros_like(targets_GT)
-            init_v = torch.zeros_like(targets_GT)
+            init_mld = torch.zeros_like(targets_GT)
             
         if self.aug_state :
             init_state = torch.cat((targets_OI,
                                     inputs_Mask * (inputs_obs - targets_OI),
                                     inputs_Mask * (inputs_obs - targets_OI),
-                                    init_u,init_v),
+                                    init_mld),
                                    dim=1)
         else:
             init_state = torch.cat((targets_OI,
                                     inputs_Mask * (inputs_obs - targets_OI),
-                                    init_u,init_v),
+                                    init_mld),
                                    dim=1)
 
         if self.use_sst_state :
@@ -2054,15 +1602,26 @@ class LitModelUV(pl.LightningModule):
     def loss_ae(self, state_out):
         return torch.mean((self.model.phi_r(state_out) - state_out) ** 2)
 
-    def sla_loss(self, gt, out):
-        g_outputs_x, g_outputs_y = self.gradient_img(out)
-        g_gt_x, g_gt_y = self.gradient_img(gt)
-
+    def sla_loss(self, gt, out, lat_rad = None , lon_rad = None):
+        
         loss = NN_4DVar.compute_spatio_temp_weighted_loss((out - gt), self.patch_weight)
-        loss_grad = (
-                NN_4DVar.compute_spatio_temp_weighted_loss(g_outputs_x - g_gt_x, self.grad_crop(self.patch_weight))
-            +    NN_4DVar.compute_spatio_temp_weighted_loss(g_outputs_y - g_gt_y, self.grad_crop(self.patch_weight))
-        )
+        if lat_rad == None :
+            g_outputs_x, g_outputs_y = self.gradient_img(out)
+            g_gt_x, g_gt_y = self.gradient_img(gt)
+    
+            loss_grad = (
+                    NN_4DVar.compute_spatio_temp_weighted_loss(g_outputs_x - g_gt_x, self.grad_crop(self.patch_weight))
+                +    NN_4DVar.compute_spatio_temp_weighted_loss(g_outputs_y - g_gt_y, self.grad_crop(self.patch_weight))
+            )
+
+        else:
+            u_geo_gt, v_geo_gt =  self.compute_uv_from_ssh(gt, lat_rad, lon_rad,sigma=0.)
+            u_geo_pred, v_geo_pred =  self.compute_uv_from_ssh(out, lat_rad, lon_rad,sigma=0.)
+
+            loss_grad = (
+                    NN_4DVar.compute_spatio_temp_weighted_loss(u_geo_gt - u_geo_pred, self.grad_crop(self.patch_weight))
+                +   NN_4DVar.compute_spatio_temp_weighted_loss(v_geo_gt - v_geo_pred, self.grad_crop(self.patch_weight))
+            )
 
         return loss, loss_grad
     
@@ -2093,11 +1652,8 @@ class LitModelUV(pl.LightningModule):
     def strain_loss(self, gt, out):
         return NN_4DVar.compute_spatio_temp_weighted_loss(1.e4 * (out - gt ), self.patch_weight)        
  
-    def uv_loss(self, gt, out):
-        loss = NN_4DVar.compute_spatio_temp_weighted_loss((out[0] - gt[0]), self.patch_weight)
-        loss = loss + NN_4DVar.compute_spatio_temp_weighted_loss((out[1] - gt[1]), self.patch_weight)
-
-        return loss
+    def mld_loss(self, gt, out):
+        return NN_4DVar.compute_spatio_temp_weighted_loss((out - gt), self.patch_weight)
 
     def reg_loss(self, y_gt, oi, out, out_lr, out_lrhr):
         l_ae = self.loss_ae(out_lrhr)
@@ -2113,23 +1669,20 @@ class LitModelUV(pl.LightningModule):
     def dwn_sample_batch(self,batch,scale = 1. ):
         if scale > 1. :          
             if not self.use_sst:
-                targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
+                targets_OI, inputs_Mask, inputs_obs, targets_GT, mld_gt, lat, lon = batch
             else:
-                targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
+                targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, ml_gt, lat, lon = batch
     
                 targets_OI = torch.nn.functional.avg_pool2d(targets_OI, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
                 targets_GT = torch.nn.functional.avg_pool2d(targets_GT, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
-                u_gt = torch.nn.functional.avg_pool2d(u_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
-                v_gt = torch.nn.functional.avg_pool2d(v_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
+                mld_gt = torch.nn.functional.avg_pool2d(mld_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
                 if self.use_sst:
                     sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_dwscaling),int(self.scale_dwscaling)))
                 
                 targets_GT = targets_GT.detach()
                 sst_gt = sst_gt.detach()
-                u_gt = u_gt.detach()
-                v_gt = v_gt.detach()
-                
-                
+                mld_gt = mld_gt.detach()
+                                
                 inputs_Mask = inputs_Mask.detach()
                 inputs_obs = inputs_obs.detach()
                 
@@ -2147,9 +1700,9 @@ class LitModelUV(pl.LightningModule):
             
             
             if not self.use_sst:
-                return targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon
+                return targets_OI, inputs_Mask, inputs_obs, targets_GT, mld_gt, lat, lon
             else:
-                return targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon
+                return targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, mld_gt, lat, lon
         else:
             return batch
 
@@ -2161,17 +1714,16 @@ class LitModelUV(pl.LightningModule):
             _batch = batch
             
         if not self.use_sst:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = _batch
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, mld_gt, lat, lon = _batch
         else:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = _batch
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, mld_gt, lat, lon = _batch
 
         if self.scale_dwscaling_sst > 1 :
             sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
             sst_gt = torch.nn.functional.interpolate(sst_gt, scale_factor=self.scale_dwscaling_sst, mode='bicubic')
             
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
-        u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
-        v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
+        mld_gt_wo_nan = mld_gt.where(~mld_gt.isnan(), torch.zeros_like(mld_gt) )
         
         if not self.use_sst:
             sst_gt = None
@@ -2187,25 +1739,25 @@ class LitModelUV(pl.LightningModule):
             self.model.model_H.lat_rad = lat_rad
             self.model.model_H.lon_rad = lon_rad
 
-        return targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y
+        return targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, mld_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y
     
-    def get_obs_and_mask(self,targets_OI,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan):
+    def get_obs_and_mask(self,targets_OI,inputs_Mask,inputs_obs,sst_gt,mld_gt_wo_nan):
                 
-        if self.model_sampling_uv is not None :
-            w_sampling_uv = self.model_sampling_uv( sst_gt )
-            w_sampling_uv = w_sampling_uv[1]
+        if self.model_sampling_mld is not None :
+            w_sampling_mld = self.model_sampling_mld( sst_gt )
+            w_sampling_mld = w_sampling_mld[1]
             
             #mask_sampling_uv = torch.bernoulli( w_sampling_uv )
-            mask_sampling_uv = 1. - torch.nn.functional.threshold( 1.0 - w_sampling_uv , 0.9 , 0.)
-            obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI) , u_gt_wo_nan , v_gt_wo_nan ) ,dim=1)
+            mask_sampling_mld = 1. - torch.nn.functional.threshold( 1.0 - w_sampling_mld , 0.9 , 0.)
+            obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI) , mld_gt_wo_nan ) ,dim=1)
             
             #print('%f '%( float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean(w_sampling_uv)) )
         else:
-            mask_sampling_uv = torch.zeros_like(u_gt_wo_nan)
+            mask_sampling_uv = torch.zeros_like(mld_gt_wo_nan)
             w_sampling_uv = None
             obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI), 0. * targets_OI ,  0. * targets_OI ) ,dim=1)
             
-        new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, mask_sampling_uv, mask_sampling_uv) , dim=1)
+        new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask, mask_sampling_mld) , dim=1)
 
         if self.aug_state :
             obs = torch.cat( (obs, 0. * targets_OI,) ,dim=1)
@@ -2233,37 +1785,15 @@ class LitModelUV(pl.LightningModule):
         outputsSLR = outputs[:, 0:self.hparams.dT, :, :]
         if self.aug_state :
             outputs = outputsSLR + outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
-            outputs_u = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
-            outputs_v = outputsSLRHR[:, 4*self.hparams.dT:5*self.hparams.dT, :, :]
+            outputs_mld = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
         else:
             outputs = outputsSLR + outputsSLRHR[:, self.hparams.dT:2*self.hparams.dT, :, :]
-            outputs_u = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
-            outputs_v = outputsSLRHR[:, 3*self.hparams.dT:4*self.hparams.dT, :, :]
-
-        # U,V prediction
-        if ( self.residual_wrt_geo_velocities == 1 ) or (self.residual_wrt_geo_velocities == 3):            
-            # denormalize ssh
-            u_geo_rec , v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
-
-            alpha_uv_geo = 0.05
-            outputs_u = alpha_uv_geo * outputs_u + u_geo_rec
-            outputs_v = alpha_uv_geo * outputs_v + v_geo_rec
-            
-        elif ( self.residual_wrt_geo_velocities == 2 ) or ( self.residual_wrt_geo_velocities == 4 ): 
-            # denormalize ssh
-            u_geo_rec, v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
-            #u_geo_gt, v_geo_gt = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
-
-            u_geo_factor, v_geo_factor = self.compute_geo_factor(outputs, lat_rad, lon_rad,sigma=0.) 
-
-            alpha_uv_geo = 0.05
-            outputs_u = alpha_uv_geo * u_geo_factor * outputs_u
-            outputs_v = alpha_uv_geo * v_geo_factor * outputs_v
+            outputs_mld = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
 
         
-        return outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad
+        return outputs, outputs_mld, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad
 
-    def compute_reg_loss(self,targets_OI,targets_GT_wo_nan, u_gt_wo_nan, sst_gt, v_gt_wo_nan,outputs, outputsSLR, outputsSLRHR,phase):
+    def compute_reg_loss(self,targets_OI,targets_GT_wo_nan, mld_gt_wo_nan, sst_gt ,outputs, outputsSLR, outputsSLRHR,phase):
         
         if (phase == 'val') or (phase == 'test'):
             self.patch_weight = self.patch_weight_train
@@ -2275,7 +1805,7 @@ class LitModelUV(pl.LightningModule):
             if self.aug_state :
                 yGT = torch.cat((yGT, targets_GT_wo_nan - outputsSLR), dim=1)
                                                             
-            yGT = torch.cat((yGT, u_gt_wo_nan, v_gt_wo_nan), dim=1)
+            yGT = torch.cat((yGT, mld_gt_wo_nan ), dim=1)
 
             if self.use_sst_state :
                 yGT = torch.cat((yGT,sst_gt), dim=1)
@@ -2292,32 +1822,30 @@ class LitModelUV(pl.LightningModule):
         return loss_AE, loss_AE_GT, loss_SR, loss_LR
 
 
-    def reinterpolate_outputs(self,outputs,outputs_u,outputs_v,batch):
+    def reinterpolate_outputs(self,outputs,outputs_mld,batch):
         
         if not self.use_sst:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, u_gt, v_gt, lat, lon = batch
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, mld_gt, lat, lon = batch
             sst_gt = None
         else:
-            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt, lat, lon = batch
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, mld_gt, lat, lon = batch
 
         lat_rad = torch.deg2rad(lat)
         lon_rad = torch.deg2rad(lon)
 
         outputs = torch.nn.functional.interpolate(outputs, scale_factor=self.scale_dwscaling, mode='bicubic')
-        outputs_u = torch.nn.functional.interpolate(outputs_u, scale_factor=self.scale_dwscaling, mode='bicubic')
-        outputs_v = torch.nn.functional.interpolate(outputs_v, scale_factor=self.scale_dwscaling, mode='bicubic')
+        outputs_mld = torch.nn.functional.interpolate(outputs_mld, scale_factor=self.scale_dwscaling, mode='bicubic')
 
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
-        u_gt_wo_nan = u_gt.where(~u_gt.isnan(), torch.zeros_like(u_gt) )
-        v_gt_wo_nan = v_gt.where(~v_gt.isnan(), torch.zeros_like(u_gt) )
+        mld_gt_wo_nan = mld_gt.where(~mld_gt.isnan(), torch.zeros_like(mld_gt) )
         
         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
 
         self.patch_weight = self.patch_weight_diag
         
-        return targets_OI,targets_GT_wo_nan,sst_gt,u_gt_wo_nan,v_gt_wo_nan,lat_rad,lon_rad,outputs,outputs_u,outputs_v,g_targets_GT_x,g_targets_GT_y
+        return targets_OI,targets_GT_wo_nan,sst_gt,mld_gt_wo_nan,lat_rad,lon_rad,outputs,outputs_mld,g_targets_GT_x,g_targets_GT_y
 
-    def compute_rec_loss(self,targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,outputs,outputs_u,outputs_v,lat_rad,lon_rad,phase):
+    def compute_rec_loss(self,targets_GT_wo_nan,mld_gt_wo_nan,outputs,outputs_mld,lat_rad,lon_rad,phase):
         flag_display_loss = False
 
         # median filter
@@ -2327,56 +1855,22 @@ class LitModelUV(pl.LightningModule):
     
         # MSE loss for ssh and (u,v) components
         loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
-        loss_uv = self.uv_loss( [outputs_u,outputs_v], [u_gt_wo_nan,v_gt_wo_nan])                
+        loss_mld = self.mld_loss( outputs_mld, mld_gt_wo_nan)                
 
-        # MSE for SSH-derived (u,v) fields
-        # denormalize ssh
-        u_geo_rec , v_geo_rec = self.compute_uv_from_ssh(outputs, lat_rad, lon_rad,sigma=0.) 
-        u_geo_gt  , v_geo_gt  = self.compute_uv_from_ssh(targets_GT_wo_nan, lat_rad, lon_rad,sigma=0.) 
-                                
-        loss_uv_geo = self.uv_loss( [u_geo_rec,v_geo_rec], [u_geo_gt,v_geo_gt])
-            #loss_GAll = ( self.hparams.alpha_mse_uv_geo / self.hparams.alpha_mse_gssh )  * loss_uv_geo
-            #if flag_display_loss :
-            #    print('..  loss uv geo = %e' % ( self.hparams.alpha_mse_uv_geo * loss_uv_geo ) )                     
-            #    print('..  loss gssh = %e' % (self.hparams.alpha_mse_gssh * loss_GAll) )                     
-
-        if self.type_div_train_loss == 0 :
-            div_rec = self.compute_div(outputs_u,outputs_v)
-            div_gt =  self.compute_div(u_gt_wo_nan,v_gt_wo_nan)
-            
-            loss_div = self.div_loss( div_rec , div_gt )
-            loss_strain = 0.
-            if flag_display_loss :
-                print('\n..  loss div = %e' % (self.hparams.alpha_mse_div *loss_div) )                     
-        else:                                                                        
-            if ( (phase == 'val') or (phase == 'test') ) :
-                div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
-                div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div_diag )
-                                        
-            else:
-                div_gt,curl_gt,strain_gt    = self.compute_div_curl_strain(u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad , sigma = self.sig_filter_div )
-                div_rec,curl_rec,strain_rec = self.compute_div_curl_strain(outputs_u, outputs_v, lat_rad, lon_rad , sigma = self.sig_filter_div )
-                
-            loss_div = self.div_loss( div_rec , div_gt )
-            loss_strain = self.strain_loss( strain_rec , strain_gt )
-            
-            if flag_display_loss :
-                print('\n..  loss div = %e' % (self.hparams.alpha_mse_div *loss_div) )                     
-                print('..  loss strain = %e' % (self.hparams.alpha_mse_strain *loss_strain) )
                         
 
         if flag_display_loss :
             print('..  loss ssh = %e' % (self.hparams.alpha_mse_ssh * loss_All) )                     
             print('..  loss gssh = %e' % (self.hparams.alpha_mse_gssh * loss_GAll) )                     
-            print('..  loss uv = %e' % (self.hparams.alpha_mse_uv * loss_uv) )                     
+            print('..  loss mld = %e' % (self.hparams.alpha_mse_mld * loss_mld) )                     
 
 
-        return loss_All,loss_GAll,loss_uv,loss_uv_geo,loss_div,loss_strain 
+        return loss_All,loss_GAll,loss_mld
 
     def compute_loss(self, batch, phase, state_init=(None,)):
         
         _batch = self.pre_process_batch(batch)
-        targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, u_gt_wo_nan, v_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y = _batch
+        targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, mld_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y = _batch
         
         
         #targets_OI, inputs_Mask, targets_GT = batch
@@ -2402,21 +1896,20 @@ class LitModelUV(pl.LightningModule):
         state = self.get_init_state(_batch, state_init)
 
         # obs and mask data
-        obs,new_masks,w_sampling_uv,mask_sampling_uv = self.get_obs_and_mask(targets_OI,inputs_Mask,inputs_obs,sst_gt,u_gt_wo_nan,v_gt_wo_nan)
+        obs,new_masks,w_sampling_mld,mask_sampling_mld = self.get_obs_and_mask(targets_OI,inputs_Mask,inputs_obs,sst_gt,mld_gt_wo_nan)
 
         # run forward_model
         with torch.set_grad_enabled(True):
             flag_display_loss = False#True
             
             if self.hparams.n_grad > 0 :                
-                outputs, outputs_u, outputs_v, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad = self.run_model(state, obs, new_masks,state_init,
+                outputs, outputs_mld, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad = self.run_model(state, obs, new_masks,state_init,
                                                                                                                          lat_rad,lon_rad,phase)
                         
             else:
                 outputs = self.model.phi_r(obs)
                                 
-                outputs_u = outputs[:, 1*self.hparams.dT:2*self.hparams.dT, :, :]
-                outputs_v = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
+                outputs_mld = outputs[:, 1*self.hparams.dT:2*self.hparams.dT, :, :]
                 outputs = outputs[:, 0:self.hparams.dT, :, :]
 
                 outputsSLR = None
@@ -2427,47 +1920,40 @@ class LitModelUV(pl.LightningModule):
 
             # projection losses
             loss_AE, loss_AE_GT, loss_SR, loss_LR = self.compute_reg_loss(targets_OI,targets_GT_wo_nan, sst_gt,
-                                                                          u_gt_wo_nan, v_gt_wo_nan,outputs, 
+                                                                          mld_gt_wo_nan,outputs, 
                                                                           outputsSLR, outputsSLRHR,phase)
 
             # re-interpolate at full-resolution field during test/val epoch
             if ( (phase == 'val') or (phase == 'test') ) and (self.scale_dwscaling > 1.0) :
-                _t = self.reinterpolate_outputs(outputs,outputs_u,outputs_v,batch)
-                targets_OI,targets_GT_wo_nan,sst_gt,u_gt_wo_nan,v_gt_wo_nan,lat_rad,lon_rad,outputs,outputs_u,outputs_v,g_targets_GT_x,g_targets_GT_y = _t 
+                _t = self.reinterpolate_outputs(outputs,outputs_mld,batch)
+                targets_OI,targets_GT_wo_nan,sst_gt,mld_gt_wo_nan,lat_rad,lon_rad,outputs,outputs_mld,g_targets_GT_x,g_targets_GT_y = _t 
                                                               
             # reconstruction losses
-            loss_All,loss_GAll,loss_uv,loss_uv_geo,loss_div,loss_strain = self.compute_rec_loss(targets_GT_wo_nan,u_gt_wo_nan,v_gt_wo_nan,
-                                                                                    outputs,outputs_u,outputs_v,
-                                                                                    lat_rad,lon_rad,phase)
-            
-            
+            loss_All,loss_GAll,loss_mld = self.compute_rec_loss(targets_GT_wo_nan,mld_gt_wo_nan,
+                                                                outputs,outputs_mld,
+                                                                lat_rad,lon_rad,phase)
+                        
             loss_OI, loss_GOI = self.sla_loss(targets_OI, targets_GT_wo_nan)
             
             if self.model_sampling_uv is not None :
-                loss_l1_sampling_uv = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) *  torch.mean( w_sampling_uv )
-                loss_l1_sampling_uv = torch.nn.functional.relu( loss_l1_sampling_uv - self.hparams.thr_l1_sampling_uv )
-                loss_l0_sampling_uv = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean( mask_sampling_uv ) 
+                loss_l1_sampling_mld = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) *  torch.mean( w_sampling_mld )
+                loss_l1_sampling_mld = torch.nn.functional.relu( loss_l1_sampling_mld - self.hparams.thr_l1_sampling_mld )
+                loss_l0_sampling_mld = float( self.hparams.dT / (self.hparams.dT - int(self.hparams.dT/2))) * torch.mean( mask_sampling_mld ) 
 
             ######################################
             # Computation of total loss
             # reconstruction loss
             loss = self.hparams.alpha_mse_ssh * loss_All 
             loss += self.hparams.alpha_mse_gssh * loss_GAll
-            loss += self.hparams.alpha_mse_uv * loss_uv
-            loss += self.hparams.alpha_mse_uv_geo * loss_uv_geo
-            
-            if self.hparams.alpha_mse_div > 0. :
-                loss += self.hparams.alpha_mse_div * loss_div
-            if self.hparams.alpha_mse_strain > 0. :
-                loss += self.hparams.alpha_mse_strain *loss_strain
-               
+            loss += self.hparams.alpha_mse_mld * loss_mld
+                           
             # regularization loss
             loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
             loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
             
             # sampling loss
             if self.model_sampling_uv is not None :
-                loss += self.hparams.alpha_sampling_uv * loss_l1_sampling_uv
+                loss += self.hparams.alpha_sampling_mld * loss_l1_sampling_mld
 
             if flag_display_loss :
                 print('..  loss = %e' %loss )                     
@@ -2479,19 +1965,19 @@ class LitModelUV(pl.LightningModule):
                     torch.hypot(g_targets_GT_x, g_targets_GT_y) , self.grad_crop(self.patch_weight))
             mse = loss_All.detach()
             mseGrad = loss_GAll.detach()
-            mse_uv = loss_uv.detach()
+            mse_mld = loss_mld.detach()
 
             mse_div = loss_div.detach()
-            if self.model_sampling_uv is not None :
-                l1_samp = loss_l1_sampling_uv.detach()
-                l0_samp = loss_l0_sampling_uv.detach()
+            if self.model_sampling_mld is not None :
+                l1_samp = loss_l1_sampling_mld.detach()
+                l0_samp = loss_l0_sampling_mld.detach()
             else:
                 l0_samp = 0. * mse
                 l1_samp = 0. * mse
                 
             metrics = dict([
                 ('mse', mse),
-                ('mse_uv', mse_uv),
+                ('mse_mld', mse_mld),
                 ('mse_div', mse_div),
                 ('mseGrad', mseGrad),
                 ('meanGrad', mean_GAll),
@@ -2512,15 +1998,15 @@ class LitModelUV(pl.LightningModule):
                     ssh_feat = torch.nn.functional.interpolate(ssh_feat, scale_factor=self.scale_dwscaling, mode='bicubic')
                 out_feat = torch.cat( (out_feat,ssh_feat) , dim=1)
                 
-            if self.model_sampling_uv is not None :
-                out_feat = torch.cat( (out_feat,w_sampling_uv) , dim=1)
+            if self.model_sampling_mld is not None :
+                out_feat = torch.cat( (out_feat,w_sampling_mld) , dim=1)
                     
-            return loss, [outputs,outputs_u,outputs_v], [outputsSLRHR, hidden_new, cell_new, normgrad], metrics, out_feat
+            return loss, [outputs,outputs_mld], [outputsSLRHR, hidden_new, cell_new, normgrad], metrics, out_feat
             
         else:
-            return loss, [outputs,outputs_u,outputs_v], [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
+            return loss, [outputs,outputs_mld], [outputsSLRHR, hidden_new, cell_new, normgrad], metrics
 
-class LitModelCycleLR(LitModelUV):
+class LitModelCycleLR(LitModelMLD):
     def configure_optimizers(self):
         opt = optim.Adam(self.parameters(), lr=1e-3)
         return {
