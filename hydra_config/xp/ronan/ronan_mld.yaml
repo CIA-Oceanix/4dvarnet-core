@@ -5,7 +5,7 @@ params:
   flag_update_training_config: False #  
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
   k_n_grad: 3
-  n_grad: 5
+  n_grad: 0
   apha_grad_descent_step: 0.
   learn_fsgd_param: false #true
   dT: 7
@@ -13,7 +13,7 @@ params:
   DimAE: 50
   dim_obs_sst_feat: 20
   dim_grad_solver: 150
-  phi_param: 'unet1'#'unet-std'#
+  phi_param: 'unet1'#
   ckpt_name: 'modelMLDwSSTGF-v2-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
   use_sst_obs: False #  True # 
   use_sst_state: False # True # 
