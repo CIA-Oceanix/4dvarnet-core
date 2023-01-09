@@ -1917,7 +1917,7 @@ class LitModelMLD(pl.LightningModule):
                                                                                                                          lat_rad,lon_rad,phase)
                         
             else:
-                outputs = self.model.phi_r(obs)
+                outputs = self.model.phi_r( obs * new_masks )
                                 
                 outputs_mld = outputs[:, 1*self.hparams.dT:2*self.hparams.dT, :, :]
                 outputs = outputs[:, 0:self.hparams.dT, :, :]
