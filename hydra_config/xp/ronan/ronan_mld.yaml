@@ -5,7 +5,7 @@ params:
   flag_update_training_config: False #  
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
   k_n_grad: 3
-  n_grad: 5
+  n_grad: 0
   apha_grad_descent_step: 0.
   learn_fsgd_param: false #true
   dT: 7
