@@ -1771,7 +1771,7 @@ class LitModelMLD(pl.LightningModule):
             new_masks = [ new_masks, torch.ones_like(sst_gt) ]
             obs = [ obs, sst_gt ]
         
-        return obs,new_masks,w_sampling_uv,mask_sampling_uv
+        return obs,new_masks,w_sampling_mld,mask_sampling_mld
 
     def run_model(self,state, obs, new_masks,state_init,lat_rad,lon_rad,phase):
         state = torch.autograd.Variable(state, requires_grad=True)
