@@ -15,8 +15,8 @@ params:
   dim_grad_solver: 150
   phi_param: 'unet1'#
   ckpt_name: 'modelMLDwSSTGF-v2-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
-  use_sst_obs: True # False #  
-  use_sst_state: False # True # 
+  use_sst_obs: False #  True # 
+  use_sst_state: True #  False # 
   patch_weight:
     _target_: lit_model_mld.get_cropped_hanning_mask
     patch_size: ${datamodule.slice_win}
@@ -24,7 +24,6 @@ params:
       time: 1
   val_diag_freq: 5 
   padding_mode: reflect
-  residual_wrt_geo_velocities: ?? #False #
   type_div_train_loss: 1
   alpha_mse_ssh: 10. # loss
   alpha_mse_gssh: 100. #1000.
@@ -42,8 +41,8 @@ datamodule:
 defaults:
   - /xp/ronan/base_xp_mld
   - /splits/dc_boost_swot@datamodule
-  - /xp/xp_aug/aug/with_aug_state_mld
-#  - /xp/xp_aug/aug/with_mm_aug_state_mld
+#  - /xp/xp_aug/aug/with_aug_state_mld
+  - /xp/xp_aug/aug/with_mm_aug_state_mld
   - /xp/xp_aug/dl/d240_p240x5_s240x1
   - /xp/xp_aug/sst/with_sst
   - /xp/xp_aug/loss/map
