@@ -898,7 +898,7 @@ class LitModelMLD(pl.LightningModule):
         # for ML measurements
         mask_obs_mld = torch.bernoulli( 5e-4 * torch.ones_like(batch[0]) )
         #print('.... MLD observation rate =  %f '%(torch.sum(mask_obs_mld) / (mask_obs_mld.size(0)*mask_obs_mld.size(1)*mask_obs_mld.size(2)*mask_obs_mld.size(3)) ))
-        print('.... # MLD observations =  %d '%(torch.sum(mask_obs_mld) )) 
+        #print('.... # MLD observations =  %d '%(torch.sum(mask_obs_mld) )) 
         
         #print('.... ngrad = %d -- %d '%(self.model.n_grad,self.hparams.n_fourdvar_iter))
         

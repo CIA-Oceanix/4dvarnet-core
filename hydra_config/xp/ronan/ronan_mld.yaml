@@ -25,8 +25,8 @@ params:
   val_diag_freq: 5 
   padding_mode: reflect
   type_div_train_loss: 1
-  alpha_mse_ssh: 10. # loss
-  alpha_mse_gssh: 100. #1000.
+  alpha_mse_ssh: 5. # loss
+  alpha_mse_gssh: 0. #1000.
   alpha_mse_mld: 1.
   norm_obs: l2
   norm_prior: l2
