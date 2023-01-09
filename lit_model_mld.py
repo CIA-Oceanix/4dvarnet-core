@@ -1967,7 +1967,6 @@ class LitModelMLD(pl.LightningModule):
             mseGrad = loss_GAll.detach()
             mse_mld = loss_mld.detach()
 
-            mse_div = loss_div.detach()
             if self.model_sampling_mld is not None :
                 l1_samp = loss_l1_sampling_mld.detach()
                 l0_samp = loss_l0_sampling_mld.detach()
@@ -1978,7 +1977,6 @@ class LitModelMLD(pl.LightningModule):
             metrics = dict([
                 ('mse', mse),
                 ('mse_mld', mse_mld),
-                ('mse_div', mse_div),
                 ('mseGrad', mseGrad),
                 ('meanGrad', mean_GAll),
                 ('mseOI', loss_OI.detach()),
