@@ -10,7 +10,7 @@ params:
     gt_path: ${file_paths.natl_ssh_daily}
     gt_var: ssh
     mld_path: ${file_paths.natl_mld_daily}
-    mld_var: u
+    mld_var: mld
     #u_path: ${file_paths.natl_u_daily}
     #u_var: u
     #v_path: ${file_paths.natl_v_daily}
