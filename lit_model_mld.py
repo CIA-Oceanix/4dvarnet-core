@@ -1948,7 +1948,7 @@ class LitModelMLD(pl.LightningModule):
                         
             else:
                 
-                z_location = torch.concatenate( (torch.cos(lat_rad) , torch.cos(lon_rad)) , dim = 1)
+                z_location = torch.cat( (torch.cos(lat_rad) , torch.cos(lon_rad)) , dim = 1)
                 print( z_location.size() )
                 
                 outputs = self.model.phi_r( [obs * new_masks,z_location] )

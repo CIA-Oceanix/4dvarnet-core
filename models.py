@@ -162,7 +162,7 @@ class Phi_r_with_z(torch.nn.Module):
         
         z_cond = self.conv3( torch.relu( self.conv1( z ) ) )
         
-        x = self.encoder(torch.concatenate((x,z_cond),dim=1))
+        x = self.encoder(torch.cat((x,z_cond),dim=1))
         #x = self.decoder(x)        
         return x
 
