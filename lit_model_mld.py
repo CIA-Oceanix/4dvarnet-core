@@ -735,8 +735,6 @@ class LitModelMLD(pl.LightningModule):
         self.patch_weight_diag = torch.nn.Parameter(
                 torch.from_numpy(call(self.hparams.patch_weight)), requires_grad=False)
 
-        print( self.patch_weight_train.size() )
-
         self.var_Val = self.hparams.var_Val
         self.var_Tr = self.hparams.var_Tr
         self.var_tr_mld = self.hparams.var_tr_mld
@@ -758,6 +756,10 @@ class LitModelMLD(pl.LightningModule):
         self.sig_filter_div = self.hparams.sig_filter_div if hasattr(self.hparams, 'sig_filter_div') else 1.0
         self.sig_filter_div_diag = self.hparams.sig_filter_div_diag if hasattr(self.hparams, 'sig_filter_div_diag') else self.hparams.sig_filter_div
         self.hparams.alpha_mse_strain = self.hparams.alpha_mse_strain if hasattr(self.hparams, 'alpha_mse_strain') else 0.
+
+        self.sampling_rate_mld_obs = self.hparams.sampling_rate_mld_obs if hasattr(self.hparams, 'sampling_rate_mld_obs') else 0.
+        if self.sampling_rate_mld_obs > 0.:
+            print('.... Mean number of MLD observations for each pacth: %d'%self.sampling_rate_mld_obs* torch.numel(self.patch_weight_diag) )
 
         self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 1
         
@@ -898,7 +900,7 @@ class LitModelMLD(pl.LightningModule):
         
         # generate random binary mask
         # for ML measurements
-        mask_obs_mld = torch.bernoulli( 5e-3 * torch.ones_like(batch[0]) )
+        mask_obs_mld = torch.bernoulli( self.sampling_rate_mld_obs * torch.ones_like(batch[0]) )
         #print('.... MLD observation rate =  %f '%(torch.sum(mask_obs_mld) / (mask_obs_mld.size(0)*mask_obs_mld.size(1)*mask_obs_mld.size(2)*mask_obs_mld.size(3)) ))
         #print('.... # MLD observations =  %d '%(torch.sum(mask_obs_mld) )) 
         

@@ -32,8 +32,9 @@ params:
   norm_prior: l2
   sampling_model: 'sampling-from-sst'
   nb_feat_sampling_operator: 0
-  alpha_sampling_uv: 10.
-  thr_l1_sampling_uv: 0.10
+  sampling_rate_mld_obs: ??
+  alpha_sampling_mld: 10.
+  thr_l1_sampling_mld: 0.10
   scale_dwscaling_sst: 1.
 datamodule:
   aug_train_data: True 
