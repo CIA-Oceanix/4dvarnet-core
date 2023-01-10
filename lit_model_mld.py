@@ -1955,8 +1955,8 @@ class LitModelMLD(pl.LightningModule):
                 grid_lon = grid_lon.repeat(1,1,targets_OI.size(2),1)
                         
                 z_location = torch.cat( (torch.cos(grid_lat) , torch.cos(grid_lon)) , dim = 1)
-                self.model.phi_r.z = 0. * z_location            
-                outputs = self.model.phi_r( obs * new_masks )
+                self.model.phi_r.z = z_location            
+                outputs = self.model.phi_r( 0. * obs * new_masks )
                                 
                 outputs_mld = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
                 outputs = outputs[:, 0:self.hparams.dT, :, :] + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
