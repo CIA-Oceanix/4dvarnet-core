@@ -1948,16 +1948,13 @@ class LitModelMLD(pl.LightningModule):
                         
             else:
                 
-                print( lat_rad.size() )
                 # Lon/lat patches
                 grid_lat = lat_rad.view(targets_OI.size(0),1,targets_OI.size(2),1)
                 grid_lat = grid_lat.repeat(1,1,1,targets_OI.size(3))
                 grid_lon = lon_rad.view(targets_OI.size(0),1,1,targets_OI.size(3))
                 grid_lon = grid_lon.repeat(1,1,targets_OI.size(2),1)
                         
-                z_location = torch.cat( (torch.cos(grid_lat) , torch.cos(grid_lon)) , dim = 1)
-                print( z_location.size() )
-                
+                z_location = torch.cat( (torch.cos(grid_lat) , torch.cos(grid_lon)) , dim = 1)                
                 outputs = self.model.phi_r( [obs * new_masks,z_location] )
                                 
                 outputs_mld = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
