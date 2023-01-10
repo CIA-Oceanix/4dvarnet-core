@@ -137,6 +137,36 @@ class Phi_r(torch.nn.Module):
         return x
 
 
+class Phi_r_with_z(torch.nn.Module):
+    def __init__(self, shape_data,shape_z,shape_z_out, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic=False,phi_param='unet1'):
+        super().__init__()
+        print(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic)
+        self.stochastic = False#stochastic
+        
+        if phi_param == 'unet-std' :
+            self.encoder = unet.UNet4(shape_data+shape_z_out,shape_data,False)            
+        else :
+            self.encoder = Encoder(shape_data+shape_z_out, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
+            
+        self.conv1 = torch.nn.Conv2d(shape_z, 8, (3, 3), padding=1, bias=True)
+        self.conv2 = torch.nn.Conv2d(8,16, (3, 3), padding=1, bias=True)
+        self.conv3 = torch.nn.Conv2d(8, shape_z_out, (3, 3), padding=1, bias=True)
+
+        #self.encoder = Encoder(shape_data, 2*shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
+        self.decoder = Decoder()
+ 
+    def forward(self, x_):
+        
+        x = x_[0]
+        z = x_[1]
+        
+        z_cond = self.conv3( torch.relu( self.conv1( z ) ) )
+        
+        x = self.encoder(torch.concatenate((x,z_cond),dim=1))
+        #x = self.decoder(x)        
+        return x
+
+
 class Encoder_OI(torch.nn.Module):
     def __init__(self, dim_inp, dim_out, dim_ae, dw, dw2, ss, nb_blocks, rateDropout=0.):
         super().__init__()

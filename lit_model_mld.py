@@ -20,7 +20,7 @@ import solver as NN_4DVar
 import metrics
 
 from metrics import save_netcdf,save_netcdf_with_obs,save_netcdf_mld, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
-from models import Model_H, Model_HwithSST, Model_HwithSSTBN,Phi_r, ModelLR, Gradient_img, Model_HwithSSTBN_nolin_tanh, Model_HwithSST_nolin_tanh, Model_HwithSSTBNandAtt
+from models import Model_H, Model_HwithSST, Model_HwithSSTBN,Phi_r,Phi_r_with_z, ModelLR, Gradient_img, Model_HwithSSTBN_nolin_tanh, Model_HwithSST_nolin_tanh, Model_HwithSSTBNandAtt
 from models import Model_HwithSSTBNAtt_nolin_tanh
 
 
@@ -467,6 +467,10 @@ if 1*0 :
         return np.sqrt( ( dv_dx + du_dy ) **2 +  (du_dx - dv_dy) **2 )
 
 
+
+
+
+
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
@@ -482,7 +486,7 @@ def get_4dvarnet_sst(hparams):
     if hparams.use_sst_obs : 
         if hparams.sst_model == 'linear-bn' :
             return NN_4DVar.Solver_Grad_4DVarNN(
-                        Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                        Phi_r_with_z(hparams.shape_state[0], 2, 4, hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                             hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
                         Model_HwithSSTBN(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat),
                         NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
@@ -490,7 +494,7 @@ def get_4dvarnet_sst(hparams):
                         hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
         elif hparams.sst_model == 'nolinear-tanh-bn' :
             return NN_4DVar.Solver_Grad_4DVarNN(
-                        Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                        Phi_r_with_z(hparams.shape_state[0], 2, 4, hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                             hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
                         Model_HwithSSTBN_nolin_tanh(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat),
                         NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
@@ -914,10 +918,10 @@ class LitModelMLD(pl.LightningModule):
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, mld_gt, lat, lon = batch
 
-        mean_mld_batch = torch.mean( torch.mean( torch.mean(  mld_gt , dim = 3) , dim = 2) , dim = 1 )
-        mean_mld_batch = mean_mld_batch.view(-1,1,1,1)
-        mean_mld_batch = mean_mld_batch.repeat(1,mld_gt.size(1),mld_gt.size(2),mld_gt.size(3))
-        mld_gt = mld_gt - mean_mld_batch
+        #mean_mld_batch = torch.mean( torch.mean( torch.mean(  mld_gt , dim = 3) , dim = 2) , dim = 1 )
+        #mean_mld_batch = mean_mld_batch.view(-1,1,1,1)
+        #mean_mld_batch = mean_mld_batch.repeat(1,mld_gt.size(1),mld_gt.size(2),mld_gt.size(3))
+        #mld_gt = mld_gt - mean_mld_batch
         
         for _k in range(self.hparams.n_fourdvar_iter):
             
@@ -935,7 +939,7 @@ class LitModelMLD(pl.LightningModule):
             losses.append(_loss)
             metrics.append(_metrics)
             
-        out[1] = out[1] + mean_mld_batch
+        #out[1] = out[1] + mean_mld_batch
 
         if ( phase == 'test' ) & ( self.use_sst ):
             return losses, out, metrics, sst_feat
@@ -1943,7 +1947,11 @@ class LitModelMLD(pl.LightningModule):
                                                                               outputsSLR, outputsSLRHR,phase)
                         
             else:
-                outputs = self.model.phi_r( obs * new_masks )
+                
+                z_location = torch.concatenate( (torch.cos(lat_rad) , torch.cos(lon_rad)) , dim = 1)
+                print( z_location.size() )
+                
+                outputs = self.model.phi_r( [obs * new_masks,z_location] )
                                 
                 outputs_mld = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
                 outputs = outputs[:, 0:self.hparams.dT, :, :] + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
