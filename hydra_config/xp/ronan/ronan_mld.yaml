@@ -8,7 +8,7 @@ params:
   n_grad: 0
   apha_grad_descent_step: 0.
   learn_fsgd_param: false #true
-  dT: 21
+  dT: ??
   scale_dwscaling : 1.
   DimAE: 50
   dim_obs_sst_feat: 20
@@ -38,7 +38,7 @@ params:
   scale_dwscaling_sst: 1.
 datamodule:
   aug_train_data: True 
-  resize_factor: 1
+  resize_factor: ??
 defaults:
   - /xp/ronan/base_xp_mld
   - /splits/dc_boost_swot@datamodule
