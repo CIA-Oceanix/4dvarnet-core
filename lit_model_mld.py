@@ -1948,6 +1948,8 @@ class LitModelMLD(pl.LightningModule):
                         
             else:
                 
+                print( lat_rad.size() )
+                
                 z_location = torch.cat( (torch.cos(lat_rad) , torch.cos(lon_rad)) , dim = 1)
                 print( z_location.size() )
                 
