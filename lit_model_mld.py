@@ -735,6 +735,8 @@ class LitModelMLD(pl.LightningModule):
         self.patch_weight_diag = torch.nn.Parameter(
                 torch.from_numpy(call(self.hparams.patch_weight)), requires_grad=False)
 
+        print( self.patch_weight_train.size() )
+
         self.var_Val = self.hparams.var_Val
         self.var_Tr = self.hparams.var_Tr
         self.var_tr_mld = self.hparams.var_tr_mld
@@ -1855,6 +1857,9 @@ class LitModelMLD(pl.LightningModule):
     def compute_rec_loss(self,targets_GT_wo_nan,mld_gt_wo_nan,outputs,outputs_mld,lat_rad,lon_rad,phase):
         flag_display_loss = False
 
+        if (phase == 'val') or (phase == 'test'):
+            self.patch_weight = self.patch_weight_train
+
         # median filter
         if self.median_filter_width > 1:
             outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
@@ -1938,7 +1943,7 @@ class LitModelMLD(pl.LightningModule):
             # re-interpolate at full-resolution field during test/val epoch
             print(outputs_mld.size())
             print(outputs.size())
-            print( self.patch_weight.size(), flush=True )
+            print( self.patch_weight, flush=True )
             
             if ( (phase == 'val') or (phase == 'test') ) and (self.scale_dwscaling > 1.0) :
                 _t = self.reinterpolate_outputs(outputs,outputs_mld,batch)
