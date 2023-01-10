@@ -3,8 +3,6 @@ import os
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import ModelCheckpoint
-
-
 import hydra
 import pandas as pd
 from datetime import datetime, timedelta
@@ -86,7 +84,7 @@ class FourDVarNetHydraRunner:
         self.var_tr_mld = datamodule.norm_stats_mld[1]**2
         self.mean_tr_mld = datamodule.norm_stats_mld[0]
         
-        print('... Mean MLD features: %.3f -- %.3f'%(self.mean_tr_mld,self.var_tr_mld))
+        #print('... Mean MLD features: %.3f -- %.3f'%(self.mean_tr_mld,np.sqrt(self.var_tr_mld)))
 
     def run(self, ckpt_path=None, dataloader="test", **trainer_kwargs):
         """
