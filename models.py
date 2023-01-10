@@ -159,7 +159,7 @@ class Phi_r_with_z(torch.nn.Module):
     
     def forward(self, x):
         
-        z_cond = self.conv3( torch.relu( self.conv1( self.bn_z( self.z ) ) ) )
+        z_cond = self.conv3( torch.tanh( self.conv1( self.bn_z( self.z ) ) ) )
         
         x = self.encoder(torch.cat((x,z_cond),dim=1))
         #x = self.decoder(x)        
