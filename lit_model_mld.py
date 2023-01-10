@@ -1940,11 +1940,7 @@ class LitModelMLD(pl.LightningModule):
                 loss_SR = 0.
                 loss_LR = 0.
 
-            # re-interpolate at full-resolution field during test/val epoch
-            print(outputs_mld.size())
-            print(outputs.size())
-            print( self.patch_weight, flush=True )
-            
+            # re-interpolate at full-resolution field during test/val epoch            
             if ( (phase == 'val') or (phase == 'test') ) and (self.scale_dwscaling > 1.0) :
                 _t = self.reinterpolate_outputs(outputs,outputs_mld,batch)
                 targets_OI,targets_GT_wo_nan,sst_gt,mld_gt_wo_nan,lat_rad,lon_rad,outputs,outputs_mld,g_targets_GT_x,g_targets_GT_y = _t 
