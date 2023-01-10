@@ -907,6 +907,18 @@ class LitModelMLD(pl.LightningModule):
         
         #print('.... ngrad = %d -- %d '%(self.model.n_grad,self.hparams.n_fourdvar_iter))
         
+        
+        # remove mean MLD values
+        if not self.use_sst:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, mld_gt, lat, lon = batch
+        else:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, mld_gt, lat, lon = batch
+
+        mean_mld_batch = torch.mean( mld_gt , dim = 0 , keepdim = True  )
+        mean_mld_batch = mean_mld_batch.repeat(1,mld_gt.size(1),mld_gt.size(2),mld_gt.size(3))
+        print( mean_mld_batch.size() )
+        mld_gt = mld_gt - mean_mld_batch
+        
         for _k in range(self.hparams.n_fourdvar_iter):
             
             if self.model.model_Grad.asymptotic_term == True :
@@ -923,6 +935,8 @@ class LitModelMLD(pl.LightningModule):
             losses.append(_loss)
             metrics.append(_metrics)
             
+        out[1] = out[1] + mean_mld_batch
+
         if ( phase == 'test' ) & ( self.use_sst ):
             return losses, out, metrics, sst_feat
         else:    
