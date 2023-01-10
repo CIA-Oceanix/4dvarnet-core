@@ -154,13 +154,12 @@ class Phi_r_with_z(torch.nn.Module):
 
         #self.encoder = Encoder(shape_data, 2*shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
         self.decoder = Decoder()
- 
-    def forward(self, x_):
+        self.z = None
+        self.bn_z = torch.nn.BatchNorm2d(2,track_running_stats=True)
+    
+    def forward(self, x):
         
-        x = x_[0]
-        z = x_[1]
-        
-        z_cond = self.conv3( torch.relu( self.conv1( z ) ) )
+        z_cond = self.conv3( torch.relu( self.conv1( self.bn_z( self.z ) ) ) )
         
         x = self.encoder(torch.cat((x,z_cond),dim=1))
         #x = self.decoder(x)        
