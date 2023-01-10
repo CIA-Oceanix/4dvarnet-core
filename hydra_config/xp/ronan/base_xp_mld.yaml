@@ -76,7 +76,7 @@ datamodule:
   aug_train_data: 0
   resolution: 1/20
   dl_kwargs:
-    batch_size: 2
+    batch_size: ??
     num_workers: 2
 logger:
   _target_: pytorch_lightning.loggers.TensorBoardLogger

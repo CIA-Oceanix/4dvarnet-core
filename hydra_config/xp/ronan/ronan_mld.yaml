@@ -40,6 +40,8 @@ params:
 datamodule:
   aug_train_data: True 
   resize_factor: ??
+  dl_kwargs:
+    batch_size: ??
 defaults:
   - /xp/ronan/base_xp_mld
   - /splits/dc_boost_swot@datamodule
