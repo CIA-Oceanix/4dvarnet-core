@@ -473,7 +473,7 @@ if 1*0 :
 
 def get_4dvarnet(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                Phi_r_with_z(hparams.shape_state[0], 2, 4, hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                     hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
                 Model_H(hparams.shape_state[0]),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
