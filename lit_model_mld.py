@@ -915,7 +915,7 @@ class LitModelMLD(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, mld_gt, lat, lon = batch
 
         mean_mld_batch = torch.mean( mld_gt , dim = 0 , keepdim = True  )
-        mean_mld_batch = mean_mld_batch.repeat(1,mld_gt.size(1),mld_gt.size(2),mld_gt.size(3))
+        #mean_mld_batch = mean_mld_batch.repeat(1,mld_gt.size(1),mld_gt.size(2),mld_gt.size(3))
         print( mean_mld_batch.size() )
         mld_gt = mld_gt - mean_mld_batch
         
