@@ -6,7 +6,7 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_99/checkpoints/modelMLDwSSTGF-v2-unet1_050-augdata-obsmld_10-resize02-DirectInv-wSST-dT21-epoch=174-val_loss=0.1507.ckpt'
 params:
   flag_update_training_config: False #  
-  mld_model: ?? #'nolinear-mld'#'nolinear-tanh-bn'#''linear-bn'#'linear' #
+  mld_model: 'nolinear-mld'#'nolinear-tanh-bn'#''linear-bn'#'linear' #
   k_n_grad: 3
   n_grad: ??
   apha_grad_descent_step: 0.
