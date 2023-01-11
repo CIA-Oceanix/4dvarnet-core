@@ -154,7 +154,7 @@ class Phi_r_with_z(torch.nn.Module):
 
         self.conv4 = torch.nn.Conv2d(shape_data, 32, (3, 3), padding=1, bias=True)
         self.pool_dense = torch.nn.AvgPool2d(120)
-        self.dense1 = torch.nn.Linear(32,shape_data*60*60)        
+        self.dense1 = torch.nn.Linear(shape_data,shape_data*60*60)        
         
         #self.encoder = Encoder(shape_data, 2*shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
         self.decoder = Decoder()
@@ -166,9 +166,12 @@ class Phi_r_with_z(torch.nn.Module):
         z_cond = self.conv3( torch.relu( self.conv1( self.bn_z( self.z ) ) ) )
         x = self.encoder(torch.cat((x,z_cond),dim=1))
         
-        dense_out = self.pool_dense( x )
-        dense_out = self.dense1( torch.flatten(dense_out) )
+        dense_out = self.pool_dense( torch.relu(self.conv4(x)) )
+        print(dense_out.size() )
+        
+        dense_out = self.dense1( torch.flatten( dense_out) )
         dense_out = dense_out.view(-1,1,60,60)
+        print(dense_out.size() )
         dense_out = torch.nn.functional.interpolate(dense_out, scale_factor=2, mode='bicubic')
         
         x = x + dense_out
