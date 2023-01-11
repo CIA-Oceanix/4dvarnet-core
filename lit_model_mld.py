@@ -1883,8 +1883,6 @@ class LitModelMLD(pl.LightningModule):
         if self.use_sst_obs :
             if self.hparams.mld_model == 'nolinear-mld' :
                 obs_mld = torch.cat((targets_OI,sst_gt),dim=1)
-                print('yyyyyy')
-                print(obs_mld.size(),flush=True)
             else:
                 obs_mld = sst_gt
                 
