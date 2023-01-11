@@ -538,7 +538,7 @@ if 1*0 :
 
 
 def get_4dvarnet(hparams):
-    if hparams.mld_model == 'nolinear-mld-v2' :
+    if hparams.phi_param == 'unet-mld-mm' :
         return NN_4DVar.Solver_Grad_4DVarNN(
                     Phi_r_with_z_v2(hparams.shape_state[0], hparams.dT,2, 4, hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                         hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
@@ -1575,7 +1575,8 @@ class LitModelMLD(pl.LightningModule):
         var_mse_mld_vs_var_tr = 100. * ( 1. -  mse_metrics_pred_mld['mse'] / self.var_tr_mld )
         std_pred_mld = np.sqrt( mse_metrics_pred_mld['mse']  )
         bias_pred_mld = mse_metrics_pred_mld['bias']
-                
+        rmse_mld_vs_mean_tt = np.sqrt( mse_metrics_pred_mld['mse'] ) / np.mean(self.test_xr_ds.mld_gt)
+        
         mse_metrics_lap_oi = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.oi,sig_lap=self.sig_filter_laplacian)
         mse_metrics_lap_pred = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.pred,sig_lap=self.sig_filter_laplacian)        
 
@@ -1609,6 +1610,7 @@ class LitModelMLD(pl.LightningModule):
             f'{log_pref}_corr_coef_mld': float(corr_coef_mld),
             f'{log_pref}_var_mse_mld_vs_tr': float(var_mse_mld_vs_var_tr),
             f'{log_pref}_var_mse_mld_vs_tt': float(var_mse_mld_vs_var_tt),
+            f'{log_pref}_rmse_mld_vs_mean_tt': float(rmse_mld_vs_mean_tt),
         }
         print(pd.DataFrame([md]).T.to_markdown())
         return md
