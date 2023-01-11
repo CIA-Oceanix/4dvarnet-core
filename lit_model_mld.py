@@ -937,7 +937,7 @@ class LitModelMLD(pl.LightningModule):
         suffix_chkpt = '-'+self.hparams.phi_param+'_%03d-augdata'%self.hparams.DimAE+'-obsmld_%0d'%self.hparams.num_mld_obs
         
         if self.hparams.resize_factor > 1. :
-            suffix_chkpt = '-resize%02d'%self.hparams.resize_factor
+            suffix_chkpt = suffix_chkpt+'-resize%02d'%self.hparams.resize_factor
                    
         if self.scale_dwscaling > 1.0 :
             suffix_chkpt = suffix_chkpt+'-dws%02d'%int(self.scale_dwscaling)
