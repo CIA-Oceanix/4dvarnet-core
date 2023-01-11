@@ -152,10 +152,14 @@ class Phi_r_with_z(torch.nn.Module):
         self.conv2 = torch.nn.Conv2d(8,16, (3, 3), padding=1, bias=True)
         self.conv3 = torch.nn.Conv2d(8, shape_z_out, (3, 3), padding=1, bias=True)
 
-        self.conv4 = torch.nn.Conv2d(shape_data, 32, (3, 3), padding=1, bias=True)
-        self.pool_dense = torch.nn.AvgPool2d(120)
-        self.dense1 = torch.nn.Linear(shape_data,shape_data*60*60)        
         
+        self.shape_data = shape_data
+        self.glob_feat_dim = 32
+
+        self.conv4 = torch.nn.Conv2d(shape_data, self.glob_feat_dim, (3, 3), padding=1, bias=True)
+        self.pool_dense = torch.nn.AvgPool2d(120)
+        self.dense1 = torch.nn.Linear(self.glob_feat_dim,shape_data*60*60)        
+
         #self.encoder = Encoder(shape_data, 2*shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
         self.decoder = Decoder()
         self.z = None
@@ -169,8 +173,8 @@ class Phi_r_with_z(torch.nn.Module):
         dense_out = self.pool_dense( torch.relu(self.conv4(x)) )
         print(dense_out.size() )
         
-        dense_out = self.dense1( torch.flatten( dense_out) )
-        dense_out = dense_out.view(-1,1,60,60)
+        dense_out = self.dense1( dense_out.view(-1,self.glob_feat_dim) )
+        dense_out = dense_out.view(-1,self.shape_data,60,60)
         print(dense_out.size() )
         dense_out = torch.nn.functional.interpolate(dense_out, scale_factor=2, mode='bicubic')
         
