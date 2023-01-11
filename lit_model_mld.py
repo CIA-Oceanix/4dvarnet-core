@@ -1924,8 +1924,8 @@ class LitModelMLD(pl.LightningModule):
         if self.hparams.remove_climatology == True :
             mean_mld_batch = torch.mean(  mld_gt_wo_nan , dim = 1 )
             mean_mld_batch = mean_mld_batch.view(-1,1,mld_gt_wo_nan.size(2),mld_gt_wo_nan.size(3))
-            mean_mld_batch = torch.nn.functional.avg_pool2d(mean_mld_batch, (10,10))
-            mean_mld_batch = torch.nn.functional.interpolate(mean_mld_batch, scale_factor=10, mode='bicubic')
+            mean_mld_batch = torch.nn.functional.avg_pool2d(mean_mld_batch, (self.hparams.climatology_spatial_pooling,self.hparams.climatology_spatial_pooling))
+            mean_mld_batch = torch.nn.functional.interpolate(mean_mld_batch, scale_factor=self.hparams.climatology_spatial_pooling, mode='bicubic')
             mean_mld_batch = mean_mld_batch.repeat(1,mld_gt_wo_nan.size(1),1,1)
             
             mld_gt_wo_nan = mld_gt_wo_nan - mean_mld_batch
@@ -1995,7 +1995,7 @@ class LitModelMLD(pl.LightningModule):
                 loss_LR = 0.
 
             if self.hparams.remove_climatology == True :                
-                outputs_mld = outputs_mld + mean_mld_batch
+                outputs_mld = (1. - self.hparams.use_only_climatology) * outputs_mld + mean_mld_batch
                 mld_gt_wo_nan = mld_gt_wo_nan + mean_mld_batch
 
             # re-interpolate at full-resolution field during test/val epoch            
