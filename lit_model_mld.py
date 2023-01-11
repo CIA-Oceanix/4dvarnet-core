@@ -1923,6 +1923,7 @@ class LitModelMLD(pl.LightningModule):
         
         if self.hparams.remove_climatology == True :
             mean_mld_batch = torch.mean(  mld_gt_wo_nan , dim = 1 )
+            mean_mld_batch = mean_mld_batch.view(-1,1,mld_gt_wo_nan.size(2),mld_gt_wo_nan.size(3))
             mean_mld_batch = torch.nn.functional.avg_pool2d(mean_mld_batch, (4,4))
             mean_mld_batch = torch.nn.functional.interpolate(mean_mld_batch, scale_factor=4, mode='bicubic')
             mean_mld_batch = mean_mld_batch.repeat(1,mld_gt_wo_nan.size(1),1,1)
