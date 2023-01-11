@@ -1881,7 +1881,6 @@ class LitModelMLD(pl.LightningModule):
             new_masks = torch.cat( (new_masks, torch.ones_like(inputs_Mask)), dim=1)
 
         if self.use_sst_obs :
-            print('xxxxxx')
             if self.hparams.mld_model == 'nolinear-mld' :
                 obs_mld = torch.cat((targets_OI,sst_gt),dim=1)
                 print('yyyyyy')
@@ -2146,7 +2145,7 @@ class LitModelMLD(pl.LightningModule):
             
             if self.use_sst_obs :
                 #sst_feat = self.model.model_H.conv21( inputs_SST )
-                out_feat = torch.cat( (out_feat,self.model.model_H.extract_sst_feature( sst_gt )) , dim = 1 )
+                out_feat = torch.cat( (out_feat,self.model.model_H.extract_sst_feature( obs[1] )) , dim = 1 )
                 ssh_feat = self.model.model_H.extract_state_feature( outputsSLRHR )
                 
                 if self.scale_dwscaling > 1 :
