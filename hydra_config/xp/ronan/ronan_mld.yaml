@@ -4,7 +4,7 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_86/checkpoints/modelMLDwSSTGF-v2-resize02-DirectInv-wSST-dT21-epoch=09-val_loss=0.1391.ckpt'
 params:
   flag_update_training_config: False #  
-  mld_model: 'nolinear-mld'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
+  mld_model: ??#'nolinear-mld'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
   k_n_grad: 3
   n_grad: 5
   apha_grad_descent_step: 0.
@@ -12,7 +12,7 @@ params:
   dT: ??
   scale_dwscaling : 1.
   DimAE: 50
-  dim_obs_sst_feat: 20
+  dim_obs_sst_feat: 5
   dim_grad_solver: 150
   phi_param: 'unet1'# 'unet-std'#'
   ckpt_name: 'modelMLDwSSTGF-v2-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
