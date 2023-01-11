@@ -38,9 +38,9 @@ params:
   thr_l1_sampling_mld: 0.10
   scale_dwscaling_sst: 1.
   scale_dwscaling_mld: 1.
-  remove_climatology: true
+  remove_climatology: false
   climatology_spatial_pooling: 40
-  use_only_climatology: ??
+  use_only_climatology: 0.
   resize_factor: ${datamodule.resize_factor}
 datamodule:
   aug_train_data: True 
