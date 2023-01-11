@@ -1475,12 +1475,14 @@ class LitModelMLD(pl.LightningModule):
 
         var_mse_mld_vs_var_tt = 100. * ( 1. -  mse_metrics_pred_mld['mse'] / np.var(self.test_xr_ds.mld_gt) )
         var_mse_mld_vs_var_tr = 100. * ( 1. -  mse_metrics_pred_mld['mse'] / self.var_tr_mld )
+        std_pred_mld = np.sqrt( mse_metrics_pred_mld['mse']  )
+        bias_pred_mld = mse_metrics_pred_mld['bias']
                 
         mse_metrics_lap_oi = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.oi,sig_lap=self.sig_filter_laplacian)
         mse_metrics_lap_pred = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.pred,sig_lap=self.sig_filter_laplacian)        
 
-        #dw_lap = 20
-        
+
+        #dw_lap = 20        
         #mse_metrics_lap_oi = metrics.compute_laplacian_metrics(self.test_xr_ds.gt[:,dw_lap:self.test_xr_ds.gt.shape[1]-dw_lap,dw_lap:self.test_xr_ds.gt.shape[2]-dw_lap],self.test_xr_ds.oi[:,dw_lap:self.test_xr_ds.gt.shape[1]-dw_lap,dw_lap:self.test_xr_ds.gt.shape[2]-dw_lap],sig_lap=sig_lap)
         #mse_metrics_lap_pred = metrics.compute_laplacian_metrics(self.test_xr_ds.gt[:,dw_lap:self.test_xr_ds.gt.shape[1]-dw_lap,dw_lap:self.test_xr_ds.gt.shape[2]-dw_lap],self.test_xr_ds.pred[:,dw_lap:self.test_xr_ds.gt.shape[1]-dw_lap,dw_lap:self.test_xr_ds.gt.shape[2]-dw_lap],sig_lap=sig_lap)        
 
@@ -1503,6 +1505,8 @@ class LitModelMLD(pl.LightningModule):
             f'{log_pref}_var_mse_grad_vs_oi': float(var_mse_grad_pred_vs_oi),
             f'{log_pref}_var_mse_lap_pred': float(var_mse_pred_lap),
             f'{log_pref}_var_mse_lap_oi': float(var_mse_oi_lap),
+            f'{log_pref}_bias_mld': float(bias_pred_mld),
+            f'{log_pref}_std_mld': float(std_pred_mld),
             f'{log_pref}_var_mse_mld_vs_tr': float(var_mse_mld_vs_var_tr),
             f'{log_pref}_var_mse_mld_vs_tt': float(var_mse_mld_vs_var_tt),
         }

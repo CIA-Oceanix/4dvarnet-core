@@ -743,6 +743,8 @@ def compute_metrics(x_test, x_rec):
     # MSE
     mse = np.mean((x_test - x_rec) ** 2)
 
+    bias = np.mean((x_test - x_rec))
+
     # MSE for gradient
     gx_rec = np.gradient(x_rec, axis=[1, 2])
     gx_rec = np.sqrt(gx_rec[0] ** 2 + gx_rec[1] ** 2)
@@ -753,7 +755,7 @@ def compute_metrics(x_test, x_rec):
     gmse = np.mean((gx_test - gx_rec) ** 2)
     ng = np.mean((gx_rec) ** 2)
 
-    return {'mse': mse, 'mseGrad': gmse, 'meanGrad': ng}
+    return {'mse': mse, 'mseGrad': gmse, 'meanGrad': ng, 'bias': bias}
 
 from scipy.ndimage import gaussian_filter
 
