@@ -8,7 +8,7 @@ params:
   flag_update_training_config: False #  
   mld_model: 'nolinear-mld'#'nolinear-tanh-bn'#''linear-bn'#'linear' #
   k_n_grad: 3
-  n_grad: 5
+  n_grad: 0
   apha_grad_descent_step: 0.
   learn_fsgd_param: false #true
   dT: ??
@@ -17,8 +17,8 @@ params:
   dim_obs_sst_feat: 5
   dim_grad_solver: 150
   phi_param: ??#'unet-mld-mm'#unet1'# 'unet-std'#'
-  ckpt_name: 'modelMLDwSSTGF-v2-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
-  use_sst_obs: True # False #  
+  ckpt_name: 'modelMLDwSSTGF-wo_clim-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
+  use_sst_obs: False # True #  
   use_sst_state: True # False #  
   patch_weight:
     _target_: lit_model_mld.get_cropped_hanning_mask
@@ -40,8 +40,8 @@ params:
   thr_l1_sampling_mld: 0.10
   scale_dwscaling_sst: 1.
   scale_dwscaling_mld: 1.
-  remove_climatology: false
-  climatology_spatial_pooling: 40
+  remove_climatology: true #false
+  climatology_spatial_pooling: 120
   use_only_climatology: 0.
   resize_factor: ${datamodule.resize_factor}
 datamodule:
