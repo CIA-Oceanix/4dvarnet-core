@@ -1490,6 +1490,7 @@ class LitModelMLD(pl.LightningModule):
         var_mse_oi_lap = 100. * (1. - mse_metrics_lap_oi['mse'] / mse_metrics_lap_pred['var_lap'] )
 
         print('.... MLD std: (tr) %.3f -- (test) %.3f '%(np.sqrt(self.var_tr_mld),np.sqrt(np.var(self.test_xr_ds.mld_gt))))
+        print('.... Mean MLD (test): %.3f '%( np.mean(self.test_xr_ds.mld_gt) ))
 
         md = {
             f'{log_pref}_spatial_res': float(spatial_res_model),
