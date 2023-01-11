@@ -2143,7 +2143,7 @@ class LitModelMLD(pl.LightningModule):
         if ( (phase == 'val') or (phase == 'test') ) & ( self.use_sst == True ) :
             out_feat = sst_gt[:,int(self.hparams.dT/2),:,:].view(-1,1,sst_gt.size(2),sst_gt.size(3))
             
-            if self.use_sst_obs :
+            if False : #self.use_sst_obs :
                 #sst_feat = self.model.model_H.conv21( inputs_SST )
                 #out_feat = torch.cat( (out_feat,self.model.model_H.extract_sst_feature( obs[1] )) , dim = 1 )
                 ssh_feat = self.model.model_H.extract_state_feature( outputsSLRHR )
