@@ -198,17 +198,17 @@ class Phi_r_with_z_v2(torch.nn.Module):
 
         
         self.mod_mld_1 = torch.nn.Sequential(
-                                torch.nn.Conv2d(shape_data+shape_z_out,16,3,padding=1),
+                                torch.nn.Conv2d(shape_data,16,3,padding=1),
                                 torch.nn.ReLU(),
                                 torch.nn.Conv2d(16,dT,3,padding=1),
                                 )
         self.mod_mld_2 = torch.nn.Sequential(
-                                torch.nn.Conv2d(shape_data+shape_z_out,16,3,padding=1),
+                                torch.nn.Conv2d(shape_data,16,3,padding=1),
                                 torch.nn.ReLU(),
                                 torch.nn.Conv2d(16,dT,3,padding=1),
                                 )
         self.mod_mld_3 = torch.nn.Sequential(
-                                torch.nn.Conv2d(shape_data+shape_z_out,16,3,padding=1),
+                                torch.nn.Conv2d(shape_data,16,3,padding=1),
                                 torch.nn.ReLU(),
                                 torch.nn.Conv2d(16,dT,3,padding=1),
                                 )
