@@ -552,10 +552,15 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 return [mean, std], [mean_sst, std_sst]
             else:
                 print('... Use MLD data')
-                mean_mld = float(xr.concat([_ds.mld_ds.ds[_ds.mld_ds.var] for _ds in ds.datasets], dim='time').mean())
-                var_mld = float(xr.concat([_ds.mld_ds.ds[_ds.mld_ds.var]**2 for _ds in ds.datasets], dim='time').mean())
+                if 1*0 :
+                    mean_mld = float(xr.concat([_ds.mld_ds.ds[_ds.mld_ds.var] for _ds in ds.datasets], dim='time').mean())
+                    var_mld = float(xr.concat([_ds.mld_ds.ds[_ds.mld_ds.var]**2 for _ds in ds.datasets], dim='time').mean())
                 
-                std_mld = np.sqrt(var_mld)
+                    std_mld = np.sqrt(var_mld)
+                else:
+                    mean_mld = 0.               
+                    std_mld = 200.
+                
                 print('..... MLD data = %f -- %f'%(mean_mld,std_mld) )
 
                 return [mean, std], [mean_sst, std_sst], [mean_mld, std_mld]
