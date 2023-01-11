@@ -237,7 +237,7 @@ class Phi_r_with_z_v2(torch.nn.Module):
         w3 = torch.exp( self.mod_mld_3( x ) )
         sw = w1 + w2 + w3
         
-        out_mld = ( 0.1 * w1  + 0.8 * w2 + 1.5* w3 ) / sw
+        out_mld = ( -3 * w1  + 0. * w2 + 3. * w3 ) / sw
         
         x = torch.cat( (x[:,:3*self.dT,:,:],x[:,3*self.dT:4*self.dT,:,:]+out_mld,x[:,4*self.dT:,:,:]),dim=1)
         #dense_out = self.pool_dense( torch.relu(self.conv4(x)) )
