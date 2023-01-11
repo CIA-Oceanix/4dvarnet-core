@@ -2,6 +2,7 @@
 entrypoint:
    weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_86/checkpoints/modelMLDwSSTGF-v2-resize02-DirectInv-wSST-dT21-epoch=09-val_loss=0.1391.ckpt'
+   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_93/checkpoints/modelMLDwSSTGF-v2-resize02-augstate-dT21-mmstate-augstate-dT21-sstobs-nolinear-mld_05-grad_05_03_150-epoch=19-val_loss=0.1186.ckpt'
 params:
   flag_update_training_config: False #  
   mld_model: ??#'nolinear-mld'#'nolinear-tanh-bn'#''linear-bn'#'linear' #
