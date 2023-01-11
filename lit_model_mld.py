@@ -21,7 +21,7 @@ import metrics
 
 from metrics import save_netcdf,save_netcdf_with_obs,save_netcdf_mld, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, get_psd_score
 from models import Model_H, Model_HwithSST, Model_HwithSSTBN,Phi_r,Phi_r_with_z, ModelLR, Gradient_img, Model_HwithSSTBN_nolin_tanh, Model_HwithSST_nolin_tanh, Model_HwithSSTBNandAtt
-from models import Model_HwithSSTBNAtt_nolin_tanh
+from models import Model_HwithSSTBNAtt_nolin_tanh,Phi_r_with_z_v2
 
 
 from scipy import ndimage
@@ -569,6 +569,15 @@ def get_4dvarnet_sst(hparams):
         elif hparams.mld_model == 'nolinear-mld' :
             return NN_4DVar.Solver_Grad_4DVarNN(
                         Phi_r_with_z(hparams.shape_state[0], 2, 4, hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                            hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
+                        Model_HMLDwithSSTBN_nolin_tanh(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat),
+                        NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+                            hparams.dim_grad_solver, hparams.dropout),
+                        hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+
+        elif hparams.mld_model == 'nolinear-mld-v2' :
+            return NN_4DVar.Solver_Grad_4DVarNN(
+                        Phi_r_with_z_v2(hparams.shape_state[0], hparams.dT,2, 4, hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                             hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
                         Model_HMLDwithSSTBN_nolin_tanh(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat),
                         NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
@@ -2064,8 +2073,11 @@ class LitModelMLD(pl.LightningModule):
                 
                 outputs = self.model.phi_r( obs * new_masks )
                                 
-                outputs_mld = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
+                outputs_mld = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]                
+                
                 outputs = outputs[:, 0:self.hparams.dT, :, :] + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
+
+                
 
                 outputsSLR = None
                 outputsSLRHR = None #0. * outputs

@@ -181,6 +181,77 @@ class Phi_r_with_z(torch.nn.Module):
         #x = self.decoder(x)        
         return x
 
+class Phi_r_with_z_v2(torch.nn.Module):
+    def __init__(self, shape_data,dT,shape_z,shape_z_out, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic=False,phi_param='unet1'):
+        super().__init__()
+        print(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic)
+        self.stochastic = False#stochastic
+        
+        if phi_param == 'unet-std' :
+            self.encoder = unet.UNet4(shape_data+shape_z_out,shape_data,False)            
+        else :
+            self.encoder = Encoder(shape_data+shape_z_out, shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
+            
+        self.conv1 = torch.nn.Conv2d(shape_z, 8, (3, 3), padding=1, bias=True)
+        self.conv2 = torch.nn.Conv2d(8,16, (3, 3), padding=1, bias=True)
+        self.conv3 = torch.nn.Conv2d(8, shape_z_out, (3, 3), padding=1, bias=True)
+
+        
+        self.mod_mld_1 = torch.nn.Sequential(
+                                torch.nn.Conv2d(shape_data+shape_z_out,16,3,padding=1),
+                                torch.nn.ReLU(),
+                                torch.nn.Conv2d(16,dT,3,padding=1),
+                                )
+        self.mod_mld_2 = torch.nn.Sequential(
+                                torch.nn.Conv2d(shape_data+shape_z_out,16,3,padding=1),
+                                torch.nn.ReLU(),
+                                torch.nn.Conv2d(16,dT,3,padding=1),
+                                )
+        self.mod_mld_3 = torch.nn.Sequential(
+                                torch.nn.Conv2d(shape_data+shape_z_out,16,3,padding=1),
+                                torch.nn.ReLU(),
+                                torch.nn.Conv2d(16,dT,3,padding=1),
+                                )
+
+        self.shape_data = shape_data
+        self.glob_feat_dim = 32
+        self.dT = dT
+
+        self.conv4 = torch.nn.Conv2d(shape_data, self.glob_feat_dim, (3, 3), padding=1, bias=True)
+        self.pool_dense = torch.nn.AvgPool2d(120)
+        self.dense1 = torch.nn.Linear(self.glob_feat_dim,shape_data*30*30)        
+
+        #self.encoder = Encoder(shape_data, 2*shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
+        self.decoder = Decoder()
+        self.z = None
+        self.bn_z = torch.nn.BatchNorm2d(2,track_running_stats=True)
+    
+    def forward(self, x):
+        
+        z_cond = self.conv3( torch.relu( self.conv1( self.bn_z( self.z ) ) ) )
+        x = self.encoder(torch.cat((x,z_cond),dim=1))
+        
+        
+        w1 = torch.exp( self.mod_mld_1( x ) )
+        w2 = torch.exp( self.mod_mld_2( x ) )
+        w3 = torch.exp( self.mod_mld_3( x ) )
+        sw = w1 + w2 + w3
+        
+        out_mld = ( 0.1 * w1  + 0.8 * w2 + 1.5* w3 ) / sw
+        
+        x = torch.cat( (x[:,:3*self.dT,:,:],x[:,3*self.dT:4*self.dT,:,:]+out_mld,x[:,4*self.dT:,:,:]),dim=1)
+        #dense_out = self.pool_dense( torch.relu(self.conv4(x)) )
+        
+        #dense_out = self.dense1( dense_out.view(-1,self.glob_feat_dim) )
+        #dense_out = dense_out.view(-1,self.shape_data,30,30)
+        #dense_out = torch.nn.functional.interpolate(dense_out, scale_factor=4, mode='bicubic')
+        
+        
+        
+        #x = x + dense_out
+        
+        #x = self.decoder(x)        
+        return x
 
 class Encoder_OI(torch.nn.Module):
     def __init__(self, dim_inp, dim_out, dim_ae, dw, dw2, ss, nb_blocks, rateDropout=0.):
