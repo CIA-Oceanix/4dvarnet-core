@@ -1471,12 +1471,10 @@ class LitModelMLD(pl.LightningModule):
         mse_metrics_pred_mld = metrics.compute_metrics(self.test_xr_ds.mld_gt, self.test_xr_ds.pred_mld)
         
         def compute_r_coef(pred,gt):
-            print( pred )
-            print( pred.flatten().shape )
-            print( gt.flatten().shape )            
-            
-            return np.corrcoef(gt.flatten(), pred.flatten() )
-        r_coef_mld =  compute_r_coef(self.test_xr_ds.mld_gt.to_numpy(), self.test_xr_ds.pred_mld.to_numpy() )
+             
+            print( np.corrcoef(gt.flatten(), pred.flatten() ) )
+            return np.corrcoef(gt.flatten(), pred.flatten() )[0,1]
+        r2_coef_mld =  compute_r_coef(self.test_xr_ds.mld_gt.to_numpy(), self.test_xr_ds.pred_mld.to_numpy() )
         
         var_mse_pred_vs_oi = 100. * ( 1. - mse_metrics_pred['mse'] / mse_metrics_oi['mse'] )
         var_mse_grad_pred_vs_oi = 100. * ( 1. - mse_metrics_pred['mseGrad'] / mse_metrics_oi['mseGrad'] )
@@ -1516,7 +1514,7 @@ class LitModelMLD(pl.LightningModule):
             f'{log_pref}_var_mse_lap_oi': float(var_mse_oi_lap),
             f'{log_pref}_bias_mld': float(bias_pred_mld),
             f'{log_pref}_std_mld': float(std_pred_mld),
-            f'{log_pref}_r_coef_mld': float(r_coef_mld),
+            f'{log_pref}_r_coef_mld': float(r2_coef_mld),
             f'{log_pref}_var_mse_mld_vs_tr': float(var_mse_mld_vs_var_tr),
             f'{log_pref}_var_mse_mld_vs_tt': float(var_mse_mld_vs_var_tt),
         }
