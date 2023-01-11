@@ -743,7 +743,7 @@ def compute_metrics(x_test, x_rec):
     # MSE
     mse = np.mean((x_test - x_rec) ** 2)
 
-    bias = np.mean((x_test - x_rec))
+    bias = np.mean((x_rec - x_test))
 
     # MSE for gradient
     gx_rec = np.gradient(x_rec, axis=[1, 2])
