@@ -763,7 +763,9 @@ class LitModelMLD(pl.LightningModule):
         self.sig_filter_div_diag = self.hparams.sig_filter_div_diag if hasattr(self.hparams, 'sig_filter_div_diag') else self.hparams.sig_filter_div
         self.hparams.alpha_mse_strain = self.hparams.alpha_mse_strain if hasattr(self.hparams, 'alpha_mse_strain') else 0.
 
-        self.sampling_rate_mld_obs = self.hparams.sampling_rate_mld_obs if hasattr(self.hparams, 'sampling_rate_mld_obs') else 0.
+        self.num_mld_obs = self.hparams.num_mld_obs if hasattr(self.hparams, 'num_mld_obs') else 0.
+        self.sampling_rate_mld_obs = self.num_mld_obs / torch.numel(self.patch_weight_diag)
+               
         if self.sampling_rate_mld_obs > 0.:
             print('.... Random sampling rate for MLD obs: %f'%self.sampling_rate_mld_obs)
             print('.... Mean number of MLD observations for each pacth: %d'% (self.sampling_rate_mld_obs * torch.numel(self.patch_weight_diag)) )
