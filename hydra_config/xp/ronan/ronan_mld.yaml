@@ -1,6 +1,7 @@
 # @package _global_
 entrypoint:
    weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/'
+   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_58/modelMLDwSSTGF-v2-resize02-DirectInv-wSST-dT21-epoch=18-val_loss=0.1180.ckpt'
 params:
   flag_update_training_config: False #  
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
