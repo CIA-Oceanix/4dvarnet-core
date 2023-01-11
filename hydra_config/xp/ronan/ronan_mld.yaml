@@ -23,7 +23,7 @@ params:
     patch_size: ${datamodule.slice_win}
     crop:
       time: 1
-  val_diag_freq: 5 
+  val_diag_freq: 2 
   padding_mode: reflect
   type_div_train_loss: 1
   alpha_mse_ssh: ?? #1. # loss
