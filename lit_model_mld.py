@@ -934,7 +934,7 @@ class LitModelMLD(pl.LightningModule):
         
         old_suffix = '-{epoch:02d}-{val_loss:.4f}'
 
-        suffix_chkpt = '-'+self.hparams.phi_param+'_%03d-augdata'%self.hparams.DimAE
+        suffix_chkpt = '-'+self.hparams.phi_param+'_%03d-augdata'%self.hparams.DimAE+'-obsmld_%0d'%self.hparams.num_mld_obs
         
         if self.hparams.resize_factor > 1. :
             suffix_chkpt = '-resize%02d'%self.hparams.resize_factor
