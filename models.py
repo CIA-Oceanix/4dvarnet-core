@@ -171,11 +171,9 @@ class Phi_r_with_z(torch.nn.Module):
         x = self.encoder(torch.cat((x,z_cond),dim=1))
         
         dense_out = self.pool_dense( torch.relu(self.conv4(x)) )
-        print(dense_out.size() )
         
         dense_out = self.dense1( dense_out.view(-1,self.glob_feat_dim) )
         dense_out = dense_out.view(-1,self.shape_data,60,60)
-        print(dense_out.size() )
         dense_out = torch.nn.functional.interpolate(dense_out, scale_factor=2, mode='bicubic')
         
         x = x + dense_out
