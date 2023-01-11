@@ -922,11 +922,6 @@ class LitModelMLD(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT, mld_gt, lat, lon = batch
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, mld_gt, lat, lon = batch
-
-        #mean_mld_batch = torch.mean( torch.mean( torch.mean(  mld_gt , dim = 3) , dim = 2) , dim = 1 )
-        #mean_mld_batch = mean_mld_batch.view(-1,1,1,1)
-        #mean_mld_batch = mean_mld_batch.repeat(1,mld_gt.size(1),mld_gt.size(2),mld_gt.size(3))
-        #mld_gt = mld_gt - mean_mld_batch
         
         for _k in range(self.hparams.n_fourdvar_iter):
             
@@ -1923,6 +1918,13 @@ class LitModelMLD(pl.LightningModule):
         _batch = self.pre_process_batch(batch)
         targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, mld_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y = _batch
         
+        if self.remove_climatology == True :
+            mean_mld_batch = torch.mean(  mld_gt_wo_nan , dim = 1 )
+            mean_mld_batch = torch.nn.functional.avg_pool2d(mean_mld_batch, (4,4))
+            mean_mld_batch = torch.nn.functional.interpolate(mean_mld_batch, scale_factor=4, mode='bicubic')
+            mean_mld_batch = mean_mld_batch.repeat(1,mld_gt_wo_nan.size(1),1,1)
+            
+            mld_gt_wo_nan = mld_gt_wo_nan - mean_mld_batch
         
         #targets_OI, inputs_Mask, targets_GT = batch
         # handle patch with no observation
@@ -1988,6 +1990,10 @@ class LitModelMLD(pl.LightningModule):
                 loss_SR = 0.
                 loss_LR = 0.
 
+            if self.remove_climatology == True :                
+                outputs_mld = outputs_mld + mean_mld_batch
+                mld_gt_wo_nan = mld_gt_wo_nan + mean_mld_batch
+
             # re-interpolate at full-resolution field during test/val epoch            
             if ( (phase == 'val') or (phase == 'test') ) and (self.scale_dwscaling > 1.0) :
                 _t = self.reinterpolate_outputs(outputs,outputs_mld,batch)
@@ -1996,7 +2002,6 @@ class LitModelMLD(pl.LightningModule):
             if self.scale_dwscaling_mld > 1 :
                 mld_gt_wo_nan = torch.nn.functional.avg_pool2d(mld_gt_wo_nan, (int(self.scale_dwscaling_mld),int(self.scale_dwscaling_mld)))
                 mld_gt_wo_nan = torch.nn.functional.interpolate(mld_gt_wo_nan, scale_factor=self.scale_dwscaling_mld, mode='bicubic')
-
                                                              
             # reconstruction losses
             loss_All,loss_GAll,loss_mld = self.compute_rec_loss(targets_GT_wo_nan,mld_gt_wo_nan,
