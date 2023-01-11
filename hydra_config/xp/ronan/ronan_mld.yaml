@@ -37,6 +37,7 @@ params:
   alpha_sampling_mld: 10.
   thr_l1_sampling_mld: 0.10
   scale_dwscaling_sst: 1.
+  scale_dwscaling_mld: 2.
   resize_factor: ${datamodule.resize_factor}
 datamodule:
   aug_train_data: True 
