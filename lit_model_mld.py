@@ -39,7 +39,8 @@ class Model_HMLDwithSSTBN_nolin_tanh(torch.nn.Module):
 
         self.bn_feat = torch.nn.BatchNorm2d(self.dim_obs_channel[1],track_running_stats=False)
 
-        self.convx11 = torch.nn.Conv2d(shape_data, 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+        #self.convx11 = torch.nn.Conv2d(shape_data, 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+        self.convx11 = torch.nn.Conv2d(dT, 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
         self.convx12 = torch.nn.Conv2d(2*self.dim_obs_channel[1], self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
         self.convx21 = torch.nn.Conv2d(self.dim_obs_channel[1], 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
         self.convx22 = torch.nn.Conv2d(2*self.dim_obs_channel[1], self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
@@ -51,6 +52,7 @@ class Model_HMLDwithSSTBN_nolin_tanh(torch.nn.Module):
         self.convy22 = torch.nn.Conv2d(2*self.dim_obs_channel[1], self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
 
         self.spatial_pooling = torch.nn.AvgPool2d((20, 20))
+        self.aug_state = False
 
         #self.conv_m = torch.nn.Conv2d(2*dT, self.dim_obs_channel[1], (3, 3), padding=1, bias=True,padding_mode=padding_mode)
         #self.sigmoid = torch.nn.Sigmoid()  # torch.nn.Softmax(dim=1)
@@ -63,7 +65,13 @@ class Model_HMLDwithSSTBN_nolin_tanh(torch.nn.Module):
         return y_feat
         
     def extract_state_feature(self,x):
-        x1     = self.convx12( torch.tanh( self.convx11(x) ) )
+        
+        if self.aug_state == False :
+            x_mld = x[:,2*self.hparams.dT:3*self.hparams.dT,:,:]
+        else:
+            x_mld = x[:,3*self.hparams.dT:4*self.hparams.dT,:,:]
+           
+        x1     = self.convx12( torch.tanh( self.convx11(x_mld) ) )
         x_feat = self.spatial_pooling( self.convx22( torch.tanh( self.convx21( torch.tanh(x1) ) ) ) )
         #x_feat = self.bn_feat( self.convx22( torch.tanh( self.convx21( torch.tanh(x1) ) ) ) )
         
