@@ -1474,6 +1474,8 @@ class LitModelMLD(pl.LightningModule):
         mse_metrics_pred = metrics.compute_metrics(self.test_xr_ds.gt, self.test_xr_ds.pred)
         mse_metrics_oi = metrics.compute_metrics(self.test_xr_ds.gt, self.test_xr_ds.oi)
         mse_metrics_pred_mld = metrics.compute_metrics(self.test_xr_ds.mld_gt, self.test_xr_ds.pred_mld)
+        r_coef_mld = np.corrcoef(self.test_xr_ds.mld_gt.flatten(), self.test_xr_ds.pred_mld.flatten())
+        
         
         var_mse_pred_vs_oi = 100. * ( 1. - mse_metrics_pred['mse'] / mse_metrics_oi['mse'] )
         var_mse_grad_pred_vs_oi = 100. * ( 1. - mse_metrics_pred['mseGrad'] / mse_metrics_oi['mseGrad'] )
@@ -1502,8 +1504,8 @@ class LitModelMLD(pl.LightningModule):
             f'{log_pref}_spatial_res_imp': float(spatial_res_model / spatial_res_oi),
             f'{log_pref}_lambda_x': lamb_x,
             f'{log_pref}_lambda_t': lamb_t,
-            f'{log_pref}_lambda_x_u': lamb_x_mld,
-            f'{log_pref}_lambda_t_u': lamb_t_mld,
+            f'{log_pref}_lambda_x_mld': lamb_x_mld,
+            f'{log_pref}_lambda_t_mld': lamb_t_mld,
             f'{log_pref}_mu': mu,
             f'{log_pref}_sigma': sig,
             **mdf.to_dict(),
@@ -1513,6 +1515,7 @@ class LitModelMLD(pl.LightningModule):
             f'{log_pref}_var_mse_lap_oi': float(var_mse_oi_lap),
             f'{log_pref}_bias_mld': float(bias_pred_mld),
             f'{log_pref}_std_mld': float(std_pred_mld),
+            f'{log_pref}_r_coef_mld': float(r_coef_mld),
             f'{log_pref}_var_mse_mld_vs_tr': float(var_mse_mld_vs_var_tr),
             f'{log_pref}_var_mse_mld_vs_tt': float(var_mse_mld_vs_var_tt),
         }
@@ -1766,10 +1769,6 @@ class LitModelMLD(pl.LightningModule):
             sst_gt = torch.nn.functional.avg_pool2d(sst_gt, (int(self.scale_dwscaling_sst),int(self.scale_dwscaling_sst)))
             sst_gt = torch.nn.functional.interpolate(sst_gt, scale_factor=self.scale_dwscaling_sst, mode='bicubic')
         
-        if self.scale_dwscaling_mld > 1 :
-            mld_gt = torch.nn.functional.avg_pool2d(mld_gt, (int(self.scale_dwscaling_mld),int(self.scale_dwscaling_mld)))
-            mld_gt = torch.nn.functional.interpolate(mld_gt, scale_factor=self.scale_dwscaling_mld, mode='bicubic')
-
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), targets_OI)
         mld_gt_wo_nan = mld_gt.where(~mld_gt.isnan(), torch.zeros_like(mld_gt) )
         
@@ -1993,7 +1992,12 @@ class LitModelMLD(pl.LightningModule):
             if ( (phase == 'val') or (phase == 'test') ) and (self.scale_dwscaling > 1.0) :
                 _t = self.reinterpolate_outputs(outputs,outputs_mld,batch)
                 targets_OI,targets_GT_wo_nan,sst_gt,mld_gt_wo_nan,lat_rad,lon_rad,outputs,outputs_mld,g_targets_GT_x,g_targets_GT_y = _t 
-                                                              
+ 
+            if self.scale_dwscaling_mld > 1 :
+                mld_gt_wo_nan = torch.nn.functional.avg_pool2d(mld_gt_wo_nan, (int(self.scale_dwscaling_mld),int(self.scale_dwscaling_mld)))
+                mld_gt_wo_nan = torch.nn.functional.interpolate(mld_gt_wo_nan, scale_factor=self.scale_dwscaling_mld, mode='bicubic')
+
+                                                             
             # reconstruction losses
             loss_All,loss_GAll,loss_mld = self.compute_rec_loss(targets_GT_wo_nan,mld_gt_wo_nan,
                                                                 outputs,outputs_mld,
