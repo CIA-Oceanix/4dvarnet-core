@@ -1469,7 +1469,7 @@ class LitModelMLD(pl.LightningModule):
         mse_metrics_pred = metrics.compute_metrics(self.test_xr_ds.gt, self.test_xr_ds.pred)
         mse_metrics_oi = metrics.compute_metrics(self.test_xr_ds.gt, self.test_xr_ds.oi)
         mse_metrics_pred_mld = metrics.compute_metrics(self.test_xr_ds.mld_gt, self.test_xr_ds.pred_mld)
-        r_coef_mld = np.corrcoef(self.test_xr_ds.mld_gt.flatten(), self.test_xr_ds.pred_mld.flatten())
+        r_coef_mld = np.corrcoef(self.test_xr_ds.mld_gt[:], self.test_xr_ds.pred_mld[:])
         
         
         var_mse_pred_vs_oi = 100. * ( 1. - mse_metrics_pred['mse'] / mse_metrics_oi['mse'] )
@@ -1918,7 +1918,7 @@ class LitModelMLD(pl.LightningModule):
         _batch = self.pre_process_batch(batch)
         targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, mld_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y = _batch
         
-        if self.remove_climatology == True :
+        if self.hparams.remove_climatology == True :
             mean_mld_batch = torch.mean(  mld_gt_wo_nan , dim = 1 )
             mean_mld_batch = torch.nn.functional.avg_pool2d(mean_mld_batch, (4,4))
             mean_mld_batch = torch.nn.functional.interpolate(mean_mld_batch, scale_factor=4, mode='bicubic')
@@ -1990,7 +1990,7 @@ class LitModelMLD(pl.LightningModule):
                 loss_SR = 0.
                 loss_LR = 0.
 
-            if self.remove_climatology == True :                
+            if self.hparams.remove_climatology == True :                
                 outputs_mld = outputs_mld + mean_mld_batch
                 mld_gt_wo_nan = mld_gt_wo_nan + mean_mld_batch
 
