@@ -1962,6 +1962,15 @@ class LitModelMLD(pl.LightningModule):
         with torch.set_grad_enabled(True):
             flag_display_loss = False#True
             
+            # Lon/lat conditioning for phi
+            grid_lat = lat_rad.view(targets_OI.size(0),1,targets_OI.size(2),1)
+            grid_lat = grid_lat.repeat(1,1,1,targets_OI.size(3))
+            grid_lon = lon_rad.view(targets_OI.size(0),1,1,targets_OI.size(3))
+            grid_lon = grid_lon.repeat(1,1,targets_OI.size(2),1)
+                    
+            z_location = torch.cat( (torch.cos(grid_lat) , torch.cos(grid_lon)) , dim = 1)
+            self.model.phi_r.z = z_location            
+
             if self.hparams.n_grad > 0 :                
                 outputs, outputs_mld, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad = self.run_model(state, obs, new_masks,state_init,
                                                                                                                          lat_rad,lon_rad,phase)
@@ -1972,14 +1981,6 @@ class LitModelMLD(pl.LightningModule):
                         
             else:
                 
-                # Lon/lat patches
-                grid_lat = lat_rad.view(targets_OI.size(0),1,targets_OI.size(2),1)
-                grid_lat = grid_lat.repeat(1,1,1,targets_OI.size(3))
-                grid_lon = lon_rad.view(targets_OI.size(0),1,1,targets_OI.size(3))
-                grid_lon = grid_lon.repeat(1,1,targets_OI.size(2),1)
-                        
-                z_location = torch.cat( (torch.cos(grid_lat) , torch.cos(grid_lon)) , dim = 1)
-                self.model.phi_r.z = z_location            
                 outputs = self.model.phi_r( obs * new_masks )
                                 
                 outputs_mld = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
