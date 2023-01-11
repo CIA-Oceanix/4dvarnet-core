@@ -27,6 +27,63 @@ from models import Model_HwithSSTBNAtt_nolin_tanh
 from scipy import ndimage
 from scipy.ndimage import gaussian_filter
 
+class Model_HMLDwithSSTBN_nolin_tanh(torch.nn.Module):
+    def __init__(self,shape_data, dT=5,dim=5,width_kernel=3,padding_mode='reflect'):
+        super(Model_HwithSSTBN_nolin_tanh, self).__init__()
+
+        self.dim_obs = 2
+        self.dim_obs_channel = np.array([shape_data, dim])
+
+        #print('..... # im obs sst : %d'%dim)
+        self.w_kernel = width_kernel
+
+        self.bn_feat = torch.nn.BatchNorm2d(self.dim_obs_channel[1],track_running_stats=False)
+
+        self.convx11 = torch.nn.Conv2d(shape_data, 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+        self.convx12 = torch.nn.Conv2d(2*self.dim_obs_channel[1], self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+        self.convx21 = torch.nn.Conv2d(self.dim_obs_channel[1], 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+        self.convx22 = torch.nn.Conv2d(2*self.dim_obs_channel[1], self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+
+
+        self.convy11 = torch.nn.Conv2d(2*dT, 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+        self.convy12 = torch.nn.Conv2d(2*self.dim_obs_channel[1], self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+        self.convy21 = torch.nn.Conv2d(self.dim_obs_channel[1], 2*self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+        self.convy22 = torch.nn.Conv2d(2*self.dim_obs_channel[1], self.dim_obs_channel[1], (3, 3), padding=1, bias=False,padding_mode=padding_mode)
+
+        self.spatial_pooling = torch.nn.AvgPool2d((20, 20))
+
+        self.conv_m = torch.nn.Conv2d(dT, self.dim_obs_channel[1], (3, 3), padding=1, bias=True,padding_mode=padding_mode)
+        self.sigmoid = torch.nn.Sigmoid()  # torch.nn.Softmax(dim=1)
+
+    def extract_sst_feature(self,y1):
+        y1     = self.convy12( torch.tanh( self.convy11(y1) ) )
+        #y_feat = self.bn_feat( self.convy22( torch.tanh( self.convy21( torch.tanh(y1) ) ) ) )
+        y_feat = self.spatial_pooling( self.convy22( torch.tanh( self.convy21( torch.tanh(y1) ) ) ) )
+       
+        return y_feat
+        
+    def extract_state_feature(self,x):
+        x1     = self.convx12( torch.tanh( self.convx11(x) ) )
+        x_feat = self.spatial_pooling( self.convx22( torch.tanh( self.convx21( torch.tanh(x1) ) ) ) )
+        #x_feat = self.bn_feat( self.convx22( torch.tanh( self.convx21( torch.tanh(x1) ) ) ) )
+        
+        return x_feat
+
+
+    def forward(self, x, y, mask):
+        dyout = (x - y[0]) * mask[0]
+
+        y1 = y[1] * mask[1]
+                
+        x_feat = self.extract_state_feature(x)
+        y_feat = self.extract_sst_feature(y1)
+        dyout1 = x_feat - y_feat
+
+        dyout1 = dyout1 * self.sigmoid(self.conv_m(mask[1]))
+
+        return [dyout, dyout1]
+
+
 def compute_coriolis_force(lat,flag_mean_coriolis=False):
     omega = 7.2921e-5 # rad/s
     f = 2 * omega * np.sin(lat)
@@ -484,7 +541,7 @@ def get_4dvarnet(hparams):
 def get_4dvarnet_sst(hparams):
     print('...... Set mdoel %d'%hparams.use_sst_obs,flush=True)
     if hparams.use_sst_obs : 
-        if hparams.sst_model == 'linear-bn' :
+        if hparams.mld_model == 'linear-bn' :
             return NN_4DVar.Solver_Grad_4DVarNN(
                         Phi_r_with_z(hparams.shape_state[0], 2, 4, hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                             hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
@@ -492,11 +549,19 @@ def get_4dvarnet_sst(hparams):
                         NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                             hparams.dim_grad_solver, hparams.dropout),
                         hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
-        elif hparams.sst_model == 'nolinear-tanh-bn' :
+        elif hparams.mld_model == 'nolinear-tanh-bn' :
             return NN_4DVar.Solver_Grad_4DVarNN(
                         Phi_r_with_z(hparams.shape_state[0], 2, 4, hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
                             hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
                         Model_HwithSSTBN_nolin_tanh(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat),
+                        NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+                            hparams.dim_grad_solver, hparams.dropout),
+                        hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+        elif hparams.mld_model == 'nolinear-mld' :
+            return NN_4DVar.Solver_Grad_4DVarNN(
+                        Phi_r_with_z(hparams.shape_state[0], 2, 4, hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                            hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic, hparams.phi_param),
+                        Model_HMLDwithSSTBN_nolin_tanh(hparams.shape_state[0], dT=hparams.dT,dim=hparams.dim_obs_sst_feat),
                         NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                             hparams.dim_grad_solver, hparams.dropout),
                         hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
@@ -882,7 +947,7 @@ class LitModelMLD(pl.LightningModule):
                 suffix_chkpt = suffix_chkpt+'-mmstate-augstate-dT%02d'%(self.hparams.dT)
             
             if self.use_sst_obs :
-                suffix_chkpt = suffix_chkpt+'-sstobs-'+self.hparams.sst_model+'_%02d'%(self.hparams.dim_obs_sst_feat)
+                suffix_chkpt = suffix_chkpt+'-sstobs-'+self.hparams.mld_model+'_%02d'%(self.hparams.dim_obs_sst_feat)
                                                         
             suffix_chkpt = suffix_chkpt+'-grad_%02d_%02d_%03d'%(self.hparams.n_grad,self.hparams.k_n_grad,self.hparams.dim_grad_solver)
             if self.model.model_Grad.asymptotic_term == True :
@@ -1816,8 +1881,12 @@ class LitModelMLD(pl.LightningModule):
             new_masks = torch.cat( (new_masks, torch.ones_like(inputs_Mask)), dim=1)
 
         if self.use_sst_obs :
-            new_masks = [ new_masks, torch.ones_like(sst_gt) ]
-            obs = [ obs, sst_gt ]
+            if self.hparams.mld_model == 'nolinear-mld' :
+                obs_mld = torch.cat((targets_OI,sst_gt),dim=1)
+            else:
+                obs_mld = sst_gt
+            new_masks = [ new_masks, torch.ones_like(obs_mld) ]
+            obs = [ obs, obs_mld ]
         
         return obs,new_masks,w_sampling_mld,mask_sampling_mld
 
@@ -1837,7 +1906,6 @@ class LitModelMLD(pl.LightningModule):
         else:
             outputs = outputsSLR + outputsSLRHR[:, self.hparams.dT:2*self.hparams.dT, :, :]
             outputs_mld = outputsSLRHR[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]
-
         
         return outputs, outputs_mld, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad
 
