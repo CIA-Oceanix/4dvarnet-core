@@ -1881,10 +1881,14 @@ class LitModelMLD(pl.LightningModule):
             new_masks = torch.cat( (new_masks, torch.ones_like(inputs_Mask)), dim=1)
 
         if self.use_sst_obs :
+            print('xxxxxx')
             if self.hparams.mld_model == 'nolinear-mld' :
                 obs_mld = torch.cat((targets_OI,sst_gt),dim=1)
+                print('yyyyyy')
+                print(obs_mld.size(),flush=True)
             else:
                 obs_mld = sst_gt
+                
             new_masks = [ new_masks, torch.ones_like(obs_mld) ]
             obs = [ obs, obs_mld ]
         
@@ -2039,7 +2043,10 @@ class LitModelMLD(pl.LightningModule):
             z_location = torch.cat( (torch.cos(grid_lat) , torch.cos(grid_lon)) , dim = 1)
             self.model.phi_r.z = z_location            
 
-            if self.hparams.n_grad > 0 :                
+            if self.hparams.n_grad > 0 :
+
+
+                                
                 outputs, outputs_mld, outputsSLRHR, outputsSLR, hidden_new, cell_new, normgrad = self.run_model(state, obs, new_masks,state_init,
                                                                                                                          lat_rad,lon_rad,phase)
                 # projection losses
