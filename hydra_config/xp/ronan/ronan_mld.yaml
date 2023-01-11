@@ -1,7 +1,7 @@
 # @package _global_
 entrypoint:
    weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_58/checkpoints/modelMLDwSSTGF-v2-resize02-DirectInv-wSST-dT21-epoch=18-val_loss=0.1180.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_58/checkpoints/modelMLDwSSTGF-v2-resize02-DirectInv-wSST-dT21-epoch=18-val_loss=0.1180.ckpt'
 params:
   flag_update_training_config: False #  
   sst_model: 'nolinear-tanh-bn'#'nolinear-tanh-bn-att'#''linear-bn'#'linear' #
@@ -26,9 +26,9 @@ params:
   val_diag_freq: 5 
   padding_mode: reflect
   type_div_train_loss: 1
-  alpha_mse_ssh: ?? #1. # loss
-  alpha_mse_gssh: ?? #0. #1000.
-  alpha_mse_mld: ?? #1.
+  alpha_mse_ssh: 0. #1. # loss
+  alpha_mse_gssh: 0. #0. #1000.
+  alpha_mse_mld: 1. #1.
   norm_obs: l2
   norm_prior: l2
   sampling_model: 'sampling-from-sst'
@@ -37,7 +37,7 @@ params:
   alpha_sampling_mld: 10.
   thr_l1_sampling_mld: 0.10
   scale_dwscaling_sst: 1.
-  scale_dwscaling_mld: 2.
+  scale_dwscaling_mld: 1.
   resize_factor: ${datamodule.resize_factor}
 datamodule:
   aug_train_data: True 
