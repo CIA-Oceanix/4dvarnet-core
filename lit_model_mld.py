@@ -767,7 +767,7 @@ class LitModelMLD(pl.LightningModule):
         self.sampling_rate_mld_obs = self.num_mld_obs / torch.numel(self.patch_weight_diag)
                
         if self.sampling_rate_mld_obs > 0.:
-            print('.... Random sampling rate for MLD obs: %f'%self.sampling_rate_mld_obs)
+            print('.... Random sampling rate for MLD obs: %.2e'%self.sampling_rate_mld_obs)
             print('.... Mean number of MLD observations for each pacth: %d'% (self.sampling_rate_mld_obs * torch.numel(self.patch_weight_diag)) )
 
         self.type_div_train_loss = self.hparams.type_div_train_loss if hasattr(self.hparams, 'type_div_train_loss') else 1
