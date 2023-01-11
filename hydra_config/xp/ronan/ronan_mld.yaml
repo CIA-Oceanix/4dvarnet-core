@@ -6,7 +6,7 @@ params:
   flag_update_training_config: False #  
   mld_model: ??#'nolinear-mld'#'nolinear-tanh-bn'#''linear-bn'#'linear' #
   k_n_grad: 3
-  n_grad: 5
+  n_grad: 0
   apha_grad_descent_step: 0.
   learn_fsgd_param: false #true
   dT: ??
