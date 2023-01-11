@@ -1469,9 +1469,8 @@ class LitModelMLD(pl.LightningModule):
         mse_metrics_pred = metrics.compute_metrics(self.test_xr_ds.gt, self.test_xr_ds.pred)
         mse_metrics_oi = metrics.compute_metrics(self.test_xr_ds.gt, self.test_xr_ds.oi)
         mse_metrics_pred_mld = metrics.compute_metrics(self.test_xr_ds.mld_gt, self.test_xr_ds.pred_mld)
-        r_coef_mld = np.corrcoef(self.test_xr_ds.mld_gt[:], self.test_xr_ds.pred_mld[:])
-        
-        
+        r_coef_mld = np.corrcoef(self.test_xr_ds.mld_gt.as_numpy()[:], self.test_xr_ds.pred_mld.as_numpy()[:])
+                
         var_mse_pred_vs_oi = 100. * ( 1. - mse_metrics_pred['mse'] / mse_metrics_oi['mse'] )
         var_mse_grad_pred_vs_oi = 100. * ( 1. - mse_metrics_pred['mseGrad'] / mse_metrics_oi['mseGrad'] )
 
