@@ -52,8 +52,8 @@ class Model_HMLDwithSSTBN_nolin_tanh(torch.nn.Module):
 
         self.spatial_pooling = torch.nn.AvgPool2d((20, 20))
 
-        self.conv_m = torch.nn.Conv2d(dT, self.dim_obs_channel[1], (3, 3), padding=1, bias=True,padding_mode=padding_mode)
-        self.sigmoid = torch.nn.Sigmoid()  # torch.nn.Softmax(dim=1)
+        #self.conv_m = torch.nn.Conv2d(2*dT, self.dim_obs_channel[1], (3, 3), padding=1, bias=True,padding_mode=padding_mode)
+        #self.sigmoid = torch.nn.Sigmoid()  # torch.nn.Softmax(dim=1)
 
     def extract_sst_feature(self,y1):
         y1     = self.convy12( torch.tanh( self.convy11(y1) ) )
@@ -79,7 +79,7 @@ class Model_HMLDwithSSTBN_nolin_tanh(torch.nn.Module):
         y_feat = self.extract_sst_feature(y1)
         dyout1 = x_feat - y_feat
 
-        dyout1 = dyout1 * self.sigmoid(self.conv_m(mask[1]))
+        dyout1 = dyout1 #* self.sigmoid(self.conv_m(mask[1]))
 
         return [dyout, dyout1]
 
