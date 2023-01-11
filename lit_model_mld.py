@@ -2145,7 +2145,7 @@ class LitModelMLD(pl.LightningModule):
             
             if self.use_sst_obs :
                 #sst_feat = self.model.model_H.conv21( inputs_SST )
-                out_feat = torch.cat( (out_feat,self.model.model_H.extract_sst_feature( obs[1] )) , dim = 1 )
+                #out_feat = torch.cat( (out_feat,self.model.model_H.extract_sst_feature( obs[1] )) , dim = 1 )
                 ssh_feat = self.model.model_H.extract_state_feature( outputsSLRHR )
                 
                 if self.scale_dwscaling > 1 :
