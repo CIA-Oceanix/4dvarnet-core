@@ -23,7 +23,7 @@ params:
   use_sst_obs: False # True #  
   use_sst_state: True # False #  
   patch_weight:
-    _target_: lit_model_mld.get_cropped_hanning_mask#get_constant_crop #
+    _target_: lit_model_mld.get_cropped_hanning_mask #get_constant_crop #
     patch_size: ${datamodule.slice_win}
     crop:
       time: 1
