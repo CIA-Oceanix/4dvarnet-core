@@ -52,6 +52,7 @@ params:
   norm_prior: 'l1'
   patch_weight: ??? # dl
   median_filter_width: 1
+  use_log_mld: ${params.files_cfg.log_mld}
 lit_mod_cls: lit_model_mld.LitModelMLD
 datamodule:
   _target_: dataloading_mld.FourDVarNetDataModule
