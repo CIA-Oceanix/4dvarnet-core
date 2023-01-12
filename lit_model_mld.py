@@ -1584,8 +1584,8 @@ class LitModelMLD(pl.LightningModule):
             bias_pred_log_mld = mse_metrics_pred_log_mld['bias']
             rmse_log_mld_vs_mean_tt = np.sqrt( mse_metrics_pred_log_mld['mse'] ) / np.mean(self.test_xr_ds.mld_gt)
 
-            self.test_xr_ds.mld_gt.data = np.exp ( self.test_xr_ds.mld_gt.data )
-            self.test_xr_ds.pred_mld.data = np.exp ( self.test_xr_ds.pred_mld.data )
+            self.test_xr_ds.mld_gt.data = np.exp ( self.test_xr_ds.mld_gt.data ) - 10.
+            self.test_xr_ds.pred_mld.data = np.exp ( self.test_xr_ds.pred_mld.data ) - 10.
        
         print('... mean values : %.3f -- %.3f'%( np.nanmean(self.test_xr_ds.mld_gt.data) , np.nanmean(self.test_xr_ds.pred_mld.data) ))
 

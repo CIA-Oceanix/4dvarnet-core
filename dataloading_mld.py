@@ -443,11 +443,11 @@ class FourDVarNetDataset(Dataset):
                 pp_mld = self.get_pp(self.norm_stats_mld)
                 
                 _mld_item = self.mld_ds[item % length]
-                _mld_item = np.where(~np.isnan(_mld_item), _mld_item, 10.)
-                _mld_item = np.where( _mld_item > 10., _mld_item, 10.)
+                _mld_item = np.where(~np.isnan(_mld_item), _mld_item, 0.)
+                _mld_item = np.where( _mld_item > 0., _mld_item, 0.)
 
                 if self.mld_log == True :
-                    _mld_item = np.log( _mld_item )
+                    _mld_item = np.log( 10. + _mld_item )
                 
                 mld_item = pp_mld(_mld_item)
                     
@@ -563,8 +563,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 print('... Use MLD data')
                 if self.mld_log :
                     mld_min = 10.
-                    mean_mld = float(xr.concat([ np.log( np.maximum( _ds.mld_ds.ds[_ds.mld_ds.var] , mld_min) ) for _ds in ds.datasets], dim='time').mean())
-                    std_mld = float(xr.concat([np.log( np.maximum( _ds.mld_ds.ds[_ds.mld_ds.var] , mld_min) ) for _ds in ds.datasets], dim='time').std())                
+                    mean_mld = float(xr.concat([ np.log( mld_min + _ds.mld_ds.ds[_ds.mld_ds.var] ) for _ds in ds.datasets], dim='time').mean())
+                    std_mld = float(xr.concat([np.log( mld_min +  _ds.mld_ds.ds[_ds.mld_ds.var] ) for _ds in ds.datasets], dim='time').std())                
                     print('..... log-MLD data = %f -- %f'%(mean_mld,std_mld) )
                 else:
                     mean_mld = float(xr.concat([ _ds.mld_ds.ds[_ds.mld_ds.var] for _ds in ds.datasets], dim='time').mean())
