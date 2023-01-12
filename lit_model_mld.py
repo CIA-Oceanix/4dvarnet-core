@@ -1563,12 +1563,11 @@ class LitModelMLD(pl.LightningModule):
 
         def compute_corr_coef(pred,gt):             
             return np.corrcoef(gt.flatten(), pred.flatten() )[0,1]
-
         
         mse_metrics_pred = metrics.compute_metrics(self.test_xr_ds.gt, self.test_xr_ds.pred)
         mse_metrics_oi = metrics.compute_metrics(self.test_xr_ds.gt, self.test_xr_ds.oi)
 
-        if self.use_log_mld :
+        if False : #self.use_log_mld :
             mse_metrics_pred_log_mld = metrics.compute_metrics(self.test_xr_ds.mld_gt, self.test_xr_ds.pred_mld)
             
             corr_coef_log_mld =  compute_corr_coef(self.test_xr_ds.mld_gt.to_numpy(), self.test_xr_ds.pred_mld.to_numpy() )
@@ -1580,8 +1579,9 @@ class LitModelMLD(pl.LightningModule):
             rmse_log_mld_vs_mean_tt = np.sqrt( mse_metrics_pred_log_mld['mse'] ) / np.mean(self.test_xr_ds.mld_gt)
 
             self.test_xr_ds.mld_gt.data = np.log ( self.test_xr_ds.mld_gt.data )
-            self.test_xr_ds.mld_gt.data = np.log ( self.test_xr_ds.pred_mld.data )
+            self.test_xr_ds.pred_mld.data = np.log ( self.test_xr_ds.pred_mld.data )
        
+        print('... mean values : %.3f -- %.3f'%( np.nanmean(self.test_xr_ds.mld_gt.data) , np.nanmean(self.test_xr_ds.pred_mld.data) ))
 
         mse_metrics_pred_mld = metrics.compute_metrics(self.test_xr_ds.mld_gt, self.test_xr_ds.pred_mld)
         
@@ -1611,7 +1611,7 @@ class LitModelMLD(pl.LightningModule):
         print('.... MLD std: (tr) %.3f -- (test) %.3f '%(np.sqrt(self.var_tr_mld),np.sqrt(np.var(self.test_xr_ds.mld_gt))))
         print('.... Mean MLD (test): %.3f '%( np.mean(self.test_xr_ds.mld_gt) ))
 
-        if self.use_log_mld is not True:
+        if True : #self.use_log_mld is not True:
            md = {
                 f'{log_pref}_spatial_res': float(spatial_res_model),
                 f'{log_pref}_spatial_res_imp': float(spatial_res_model / spatial_res_oi),
