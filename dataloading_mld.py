@@ -265,6 +265,7 @@ class FourDVarNetDataset(Dataset):
         sst_decode=True,
         mld_path=None,
         mld_var=None,
+        mld_log=True,
         mld_decode=True,
         resolution=1/20,
         resize_factor=1,
@@ -279,6 +280,7 @@ class FourDVarNetDataset(Dataset):
         self.aug_train_data = aug_train_data
         self.return_coords = False
         self.pp=pp
+        self.mld_log=mld_log
 
         self.oi_ds = XrDataset(
             oi_path, oi_var,
@@ -442,8 +444,8 @@ class FourDVarNetDataset(Dataset):
                 
                 _mld_item = pp_mld(self.mld_ds[item % length])
                 mld_item = np.where(~np.isnan(_mld_item), _mld_item, 0.)
-                  
-                
+                if self.mld_log == True :
+                    mld_item = np.log( np.max( mld_item , 10. ))
                 with self.gt_ds.get_coords():
                     _item_coords = self.gt_ds[item % length]
 
@@ -475,6 +477,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             sst_decode=True,
             mld_path=None,
             mld_var=None,
+            mld_log=True,
             mld_decode=True,
             resize_factor=1,
             aug_train_data=0,
@@ -495,7 +498,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.slice_win = slice_win
         self.strides = strides
         self.dl_kwargs = {
-            **{'batch_size': 2, 'num_workers': 2, 'pin_memory': True},
+            **{'batch_size': 2, 'num_workers': 2, 'pin_memory': True,'log_mld':True},
             **(dl_kwargs or {})
         }
         self.oi_path = oi_path
@@ -513,6 +516,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.mld_path = mld_path
         self.mld_var = mld_var
         self.mld_decode = mld_decode
+        self.mld_log = mld_log
 
         self.pp=pp
         self.resize_factor = resize_factor
@@ -552,14 +556,15 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 return [mean, std], [mean_sst, std_sst]
             else:
                 print('... Use MLD data')
-                if 1*1 :
-                    mean_mld = float(xr.concat([_ds.mld_ds.ds[_ds.mld_ds.var] for _ds in ds.datasets], dim='time').mean())
-                    std_mld = float(xr.concat([_ds.mld_ds.ds[_ds.mld_ds.var] for _ds in ds.datasets], dim='time').std())                
+                if self.mld_log :
+                    mld_min = 10.
+                    mean_mld = float(xr.concat([ np.log( np.min( _ds.mld_ds.ds[_ds.mld_ds.var] , mld_min) ) for _ds in ds.datasets], dim='time').mean())
+                    std_mld = float(xr.concat([np.log( np.min( _ds.mld_ds.ds[_ds.mld_ds.var] , mld_min) ) for _ds in ds.datasets], dim='time').std())                
                 else:
-                    mean_mld = 0.               
-                    std_mld = 200.
+                    mean_mld = float(xr.concat([ _ds.mld_ds.ds[_ds.mld_ds.var] for _ds in ds.datasets], dim='time').mean())
+                    std_mld = float(xr.concat([ _ds.mld_ds.ds[_ds.mld_ds.var] for _ds in ds.datasets], dim='time').std())                
                 
-                print('..... MLD data = %f -- %f'%(mean_mld,std_mld) )
+                print('..... log-MLD data = %f -- %f'%(mean_mld,std_mld) )
 
                 return [mean, std], [mean_sst, std_sst], [mean_mld, std_mld]
 

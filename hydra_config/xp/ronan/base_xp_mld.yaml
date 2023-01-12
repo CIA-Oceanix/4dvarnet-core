@@ -11,6 +11,7 @@ params:
     gt_var: ssh
     mld_path: ${file_paths.natl_mld_daily}
     mld_var: mld
+    mld_log: true
     #u_path: ${file_paths.natl_u_daily}
     #u_var: u
     #v_path: ${file_paths.natl_v_daily}
@@ -68,7 +69,8 @@ datamodule:
   sst_path: ??? # sst
   sst_var: ???
   mld_path: ${params.files_cfg.mld_path}
-  mld_var: ${params.files_cfg.mld_var}    
+  mld_var: ${params.files_cfg.mld_var}  
+  mld_log: ${params.files_cfg.mld_log}   
   #u_path: ${params.files_cfg.u_path}
   #u_var: ${params.files_cfg.u_var}
   #v_path: ${file_paths.natl_v_daily}
