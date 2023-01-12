@@ -9,7 +9,7 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_137/checkpoints/modelMLDwSSTGF-wo_clim-unet1_050-augdata-logmld_10-resize02-DirectInv-wSST-dT21-epoch=30-val_loss=0.1200.ckpt'
 params:
   files_cfg:
-    mld_log: true
+    mld_log: false
   flag_update_training_config: False #  
   mld_model: 'nolinear-mld'#'nolinear-tanh-bn'#''linear-bn'#'linear' #
   k_n_grad: 3
