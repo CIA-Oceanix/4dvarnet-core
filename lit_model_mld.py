@@ -1769,14 +1769,9 @@ class LitModelMLD(pl.LightningModule):
         #    #targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, u_gt, v_gt = batch
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, mld_gt, lat, lon = batch
         
-        targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, mld_gt, lat, lon, gx, gy = batch
-
-        if mask_sampling is not None :
-            init_mld = mask_sampling * mld_gt
-            mean_obs_mld = torch.sum(  (mask_sampling * mld_gt ).view(mask_sampling.size(0),-1) , dim = 1 )
-            mean_obs_mld = mean_obs_mld / torch.sum(  mask_sampling.view(mask_sampling.size(0),-1) , dim = 1 )
-            init_mld = mean_obs_mld.view(-1,1,1,1).repeat(1,mask_sampling.size(1),mask_sampling.size(2),mask_sampling.size(3))
-        else:
+        targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt, init_mld, lat, lon, gx, gy = batch
+        
+        if init_mld is  None :
             init_mld = torch.zeros_like(targets_GT)
             
         if self.aug_state :
@@ -2146,7 +2141,7 @@ class LitModelMLD(pl.LightningModule):
                         
             else:
                 
-                outputs = self.model.phi_r( obs * new_masks )
+                outputs = self.model.phi_r( state )
                 #outputs = self.model.phi_r( torch.cat( (targets_OI,targets_GT_wo_nan,sst_gt,mask_mld*mld_gt_wo_nan+mean_obs_mld_field, 0. * mean_obs_mld_field) , dim=1) )
                              
                 #mean_obs_mld = torch.sum(  (mask_mld * mld_gt_wo_nan ).view(mask_mld.size(0),-1) , dim = 1 )
