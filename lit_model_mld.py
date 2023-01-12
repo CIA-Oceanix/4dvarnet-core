@@ -1611,7 +1611,7 @@ class LitModelMLD(pl.LightningModule):
         print('.... MLD std: (tr) %.3f -- (test) %.3f '%(np.sqrt(self.var_tr_mld),np.sqrt(np.var(self.test_xr_ds.mld_gt))))
         print('.... Mean MLD (test): %.3f '%( np.mean(self.test_xr_ds.mld_gt) ))
 
-        if self.log_mld :
+        if self.use_log_mld is not True:
            md = {
                 f'{log_pref}_spatial_res': float(spatial_res_model),
                 f'{log_pref}_spatial_res_imp': float(spatial_res_model / spatial_res_oi),
