@@ -2079,14 +2079,6 @@ class LitModelMLD(pl.LightningModule):
         _batch = self.pre_process_batch(batch)
         targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, mld_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y = _batch
         
-        if self.hparams.remove_climatology == True :
-            mean_mld_batch = torch.mean(  mld_gt_wo_nan , dim = 1 )
-            mean_mld_batch = mean_mld_batch.view(-1,1,mld_gt_wo_nan.size(2),mld_gt_wo_nan.size(3))
-            mean_mld_batch = torch.nn.functional.avg_pool2d(mean_mld_batch, (self.hparams.climatology_spatial_pooling,self.hparams.climatology_spatial_pooling))
-            mean_mld_batch = torch.nn.functional.interpolate(mean_mld_batch, scale_factor=self.hparams.climatology_spatial_pooling, mode='bicubic')
-            mean_mld_batch = mean_mld_batch.repeat(1,mld_gt_wo_nan.size(1),1,1)
-            
-            mld_gt_wo_nan = mld_gt_wo_nan - mean_mld_batch
         
         #targets_OI, inputs_Mask, targets_GT = batch
         # handle patch with no observation
@@ -2107,11 +2099,29 @@ class LitModelMLD(pl.LightningModule):
                         ('l1_samp', 0.)])
                     )
          
+        if self.hparams.remove_climatology == True :
+            mean_mld_batch = torch.mean(  mld_gt_wo_nan , dim = 1 )
+            mean_mld_batch = mean_mld_batch.view(-1,1,mld_gt_wo_nan.size(2),mld_gt_wo_nan.size(3))
+            mean_mld_batch = torch.nn.functional.avg_pool2d(mean_mld_batch, (self.hparams.climatology_spatial_pooling,self.hparams.climatology_spatial_pooling))
+            mean_mld_batch = torch.nn.functional.interpolate(mean_mld_batch, scale_factor=self.hparams.climatology_spatial_pooling, mode='bicubic')
+            mean_mld_batch = mean_mld_batch.repeat(1,mld_gt_wo_nan.size(1),1,1)
+            
+            mld_gt_wo_nan = mld_gt_wo_nan - mean_mld_batch
+  
+        mean_obs_mld = torch.sum(  (mask_mld * mld_gt_wo_nan ).view(mask_mld.size(0),-1) , dim = 1 )
+        mean_obs_mld = mean_obs_mld / torch.sum(  mask_mld.view(mask_mld.size(0),-1) , dim = 1 )
+        mean_obs_mld_field = mean_obs_mld.view(-1,1,1,1).repeat(1,mask_mld.size(1),mask_mld.size(2),mask_mld.size(3))
+
+        mld_gt_wo_nan = mld_gt_wo_nan - mean_obs_mld_field
+
+        _batch = targets_OI, inputs_Mask, inputs_obs, targets_GT_wo_nan, sst_gt, mld_gt_wo_nan, lat_rad, lon_rad, g_targets_GT_x, g_targets_GT_y
+
         # intial state
-        state = self.get_init_state(_batch, state_init,mask_mld)
+        state = self.get_init_state(_batch, state_init)
 
         # obs and mask data
-        obs,new_masks,w_sampling_mld,mask_sampling_mld = self.get_obs_and_mask(targets_OI,inputs_Mask,inputs_obs,sst_gt,mld_gt_wo_nan,mask_mld)
+        obs,new_masks,w_sampling_mld,mask_sampling_mld = self.get_obs_and_mask(targets_OI,inputs_Mask,inputs_obs,sst_gt,mld_gt_wo_nan,mask_mld)        
+        
         #print('.... # MLD observation =  %d '%(torch.sum(mask_sampling_mld) ))
 
         # run forward_model
@@ -2144,7 +2154,7 @@ class LitModelMLD(pl.LightningModule):
                 #print( mean_obs_mld )
                 #outputs_mld = mean_obs_mld.view(-1,1,1,1).repeat(1,mask_mld.size(1),mask_mld.size(2),mask_mld.size(3))
                                
-                outputs_mld = outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]                                
+                outputs_mld = mean_obs_mld + 0. * outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]                                
                 outputs = outputs[:, 0:self.hparams.dT, :, :] + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
 
                 
