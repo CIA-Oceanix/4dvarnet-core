@@ -838,6 +838,7 @@ class LitModelMLD(pl.LightningModule):
         self.mean_Tr = self.hparams.mean_Tr
         self.mean_Tt = self.hparams.mean_Tt
         self.mean_tr_mld = self.hparams.mean_tr_mld
+        self.log_mld = self.hparams.files_cfg.mld_log
         
         # main model
         self.model_name = self.hparams.model if hasattr(self.hparams, 'model') else '4dvarnet'
@@ -1558,14 +1559,31 @@ class LitModelMLD(pl.LightningModule):
             nrmse_df.rename(columns=lambda c: f'{log_pref}_{c}_glob').loc['pred'].T,
             mse_df.rename(columns=lambda c: f'{log_pref}_{c}_glob').loc['pred'].T,
         ])
+
+        def compute_corr_coef(pred,gt):             
+            return np.corrcoef(gt.flatten(), pred.flatten() )[0,1]
+
         
         mse_metrics_pred = metrics.compute_metrics(self.test_xr_ds.gt, self.test_xr_ds.pred)
         mse_metrics_oi = metrics.compute_metrics(self.test_xr_ds.gt, self.test_xr_ds.oi)
+
+        if self.log_mld :
+            mse_metrics_pred_log_mld = metrics.compute_metrics(self.test_xr_ds.mld_gt, self.test_xr_ds.pred_mld)
+            
+            corr_coef_log_mld =  compute_corr_coef(self.test_xr_ds.mld_gt.to_numpy(), self.test_xr_ds.pred_mld.to_numpy() )
+            
+            var_mse_log_mld_vs_var_tt = 100. * ( 1. -  mse_metrics_pred_log_mld['mse'] / np.var(self.test_xr_ds.mld_gt) )
+            var_mse_log_mld_vs_var_tr = 100. * ( 1. -  mse_metrics_pred_log_mld['mse'] / self.var_tr_mld )
+            std_pred_log_mld = np.sqrt( mse_metrics_pred_log_mld['mse']  )
+            bias_pred_log_mld = mse_metrics_pred_log_mld['bias']
+            rmse_log_mld_vs_mean_tt = np.sqrt( mse_metrics_pred_log_mld['mse'] ) / np.mean(self.test_xr_ds.mld_gt)
+
+        self.test_xr_ds.mld_gt = np.log ( self.test_xr_ds.mld_gt )
+        self.test_xr_ds.mld_gt = np.log ( self.test_xr_ds.pred_mld )
+       
+
         mse_metrics_pred_mld = metrics.compute_metrics(self.test_xr_ds.mld_gt, self.test_xr_ds.pred_mld)
         
-        def compute_corr_coef(pred,gt):
-             
-            return np.corrcoef(gt.flatten(), pred.flatten() )[0,1]
         corr_coef_mld =  compute_corr_coef(self.test_xr_ds.mld_gt.to_numpy(), self.test_xr_ds.pred_mld.to_numpy() )
         
         var_mse_pred_vs_oi = 100. * ( 1. - mse_metrics_pred['mse'] / mse_metrics_oi['mse'] )
@@ -1580,6 +1598,7 @@ class LitModelMLD(pl.LightningModule):
         mse_metrics_lap_oi = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.oi,sig_lap=self.sig_filter_laplacian)
         mse_metrics_lap_pred = metrics.compute_laplacian_metrics(self.test_xr_ds.gt,self.test_xr_ds.pred,sig_lap=self.sig_filter_laplacian)        
 
+            
 
         #dw_lap = 20        
         #mse_metrics_lap_oi = metrics.compute_laplacian_metrics(self.test_xr_ds.gt[:,dw_lap:self.test_xr_ds.gt.shape[1]-dw_lap,dw_lap:self.test_xr_ds.gt.shape[2]-dw_lap],self.test_xr_ds.oi[:,dw_lap:self.test_xr_ds.gt.shape[1]-dw_lap,dw_lap:self.test_xr_ds.gt.shape[2]-dw_lap],sig_lap=sig_lap)
@@ -1591,27 +1610,56 @@ class LitModelMLD(pl.LightningModule):
         print('.... MLD std: (tr) %.3f -- (test) %.3f '%(np.sqrt(self.var_tr_mld),np.sqrt(np.var(self.test_xr_ds.mld_gt))))
         print('.... Mean MLD (test): %.3f '%( np.mean(self.test_xr_ds.mld_gt) ))
 
-        md = {
-            f'{log_pref}_spatial_res': float(spatial_res_model),
-            f'{log_pref}_spatial_res_imp': float(spatial_res_model / spatial_res_oi),
-            f'{log_pref}_lambda_x': lamb_x,
-            f'{log_pref}_lambda_t': lamb_t,
-            f'{log_pref}_lambda_x_mld': lamb_x_mld,
-            f'{log_pref}_lambda_t_mld': lamb_t_mld,
-            f'{log_pref}_mu': mu,
-            f'{log_pref}_sigma': sig,
-            **mdf.to_dict(),
-            f'{log_pref}_var_mse_vs_oi': float(var_mse_pred_vs_oi),
-            f'{log_pref}_var_mse_grad_vs_oi': float(var_mse_grad_pred_vs_oi),
-            f'{log_pref}_var_mse_lap_pred': float(var_mse_pred_lap),
-            f'{log_pref}_var_mse_lap_oi': float(var_mse_oi_lap),
-            f'{log_pref}_bias_mld': float(bias_pred_mld),
-            f'{log_pref}_std_mld': float(std_pred_mld),
-            f'{log_pref}_corr_coef_mld': float(corr_coef_mld),
-            f'{log_pref}_var_mse_mld_vs_tr': float(var_mse_mld_vs_var_tr),
-            f'{log_pref}_var_mse_mld_vs_tt': float(var_mse_mld_vs_var_tt),
-            f'{log_pref}_rmse_mld_vs_mean_tt': float(rmse_mld_vs_mean_tt),
-        }
+        if self.log_mld :
+           md = {
+                f'{log_pref}_spatial_res': float(spatial_res_model),
+                f'{log_pref}_spatial_res_imp': float(spatial_res_model / spatial_res_oi),
+                f'{log_pref}_lambda_x': lamb_x,
+                f'{log_pref}_lambda_t': lamb_t,
+                f'{log_pref}_lambda_x_mld': lamb_x_mld,
+                f'{log_pref}_lambda_t_mld': lamb_t_mld,
+                f'{log_pref}_mu': mu,
+                f'{log_pref}_sigma': sig,
+                **mdf.to_dict(),
+                f'{log_pref}_var_mse_vs_oi': float(var_mse_pred_vs_oi),
+                f'{log_pref}_var_mse_grad_vs_oi': float(var_mse_grad_pred_vs_oi),
+                f'{log_pref}_var_mse_lap_pred': float(var_mse_pred_lap),
+                f'{log_pref}_var_mse_lap_oi': float(var_mse_oi_lap),
+                f'{log_pref}_bias_mld': float(bias_pred_mld),
+                f'{log_pref}_std_mld': float(std_pred_mld),
+                f'{log_pref}_corr_coef_mld': float(corr_coef_mld),
+                f'{log_pref}_var_mse_mld_vs_tr': float(var_mse_mld_vs_var_tr),
+                f'{log_pref}_var_mse_mld_vs_tt': float(var_mse_mld_vs_var_tt),
+                f'{log_pref}_rmse_mld_vs_mean_tt': float(rmse_mld_vs_mean_tt),
+            }
+        else:
+           md = {
+                f'{log_pref}_spatial_res': float(spatial_res_model),
+                f'{log_pref}_spatial_res_imp': float(spatial_res_model / spatial_res_oi),
+                f'{log_pref}_lambda_x': lamb_x,
+                f'{log_pref}_lambda_t': lamb_t,
+                f'{log_pref}_lambda_x_mld': lamb_x_mld,
+                f'{log_pref}_lambda_t_mld': lamb_t_mld,
+                f'{log_pref}_mu': mu,
+                f'{log_pref}_sigma': sig,
+                **mdf.to_dict(),
+                f'{log_pref}_var_mse_vs_oi': float(var_mse_pred_vs_oi),
+                f'{log_pref}_var_mse_grad_vs_oi': float(var_mse_grad_pred_vs_oi),
+                f'{log_pref}_var_mse_lap_pred': float(var_mse_pred_lap),
+                f'{log_pref}_var_mse_lap_oi': float(var_mse_oi_lap),
+                f'{log_pref}_bias_mld': float(bias_pred_mld),
+                f'{log_pref}_std_mld': float(std_pred_mld),
+                f'{log_pref}_corr_coef_mld': float(corr_coef_mld),
+                f'{log_pref}_var_mse_mld_vs_tr': float(var_mse_mld_vs_var_tr),
+                f'{log_pref}_var_mse_mld_vs_tt': float(var_mse_mld_vs_var_tt),
+                f'{log_pref}_rmse_mld_vs_mean_tt': float(rmse_mld_vs_mean_tt),
+                f'{log_pref}_bias_logmld': float(bias_pred_log_mld),
+                f'{log_pref}_std_logmld': float(std_pred_log_mld),
+                f'{log_pref}_corr_coef_logmld': float(corr_coef_log_mld),
+                f'{log_pref}_var_mse_logmld_vs_tr': float(var_mse_log_mld_vs_var_tr),
+                f'{log_pref}_var_mse_logmld_vs_tt': float(var_mse_log_mld_vs_var_tt),
+                f'{log_pref}_rmse_logmld_vs_mean_tt': float(rmse_log_mld_vs_mean_tt),
+            }
         print(pd.DataFrame([md]).T.to_markdown())
         return md
 
