@@ -1015,7 +1015,7 @@ class LitModelMLD(pl.LightningModule):
         #print('.... MLD observation rate =  %f '%(torch.sum(mask_obs_mld) / (mask_obs_mld.size(0)*mask_obs_mld.size(1)*mask_obs_mld.size(2)*mask_obs_mld.size(3)) ))
         print('.... # MLD observations =  %d '%(torch.sum(mask_obs_mld) ) , flush=True) 
         #print('.... ngrad = %d -- %d '%(self.model.n_grad,self.hparams.n_fourdvar_iter))
-        mask_obs_mld = mask_obs_mld.detach()
+        print(torch.sum( mask_obs_mld.view(mask_obs_mld.size(0),-1) , dim=1) )
         
         # remove mean MLD values
         if not self.use_sst:
