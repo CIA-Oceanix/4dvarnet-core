@@ -2147,7 +2147,7 @@ class LitModelMLD(pl.LightningModule):
             else:
                 
                 #outputs = self.model.phi_r( obs * new_masks )
-                outputs = self.model.phi_r( torch.cat( (targets_OI,targets_GT_wo_nan,sst_gt,sst_gt,mask_mld) , dim=1) )
+                outputs = self.model.phi_r( torch.cat( (targets_OI,targets_GT_wo_nan,sst_gt,sst_gt, mean_obs_mld_field) , dim=1) )
                              
                 #mean_obs_mld = torch.sum(  (mask_mld * mld_gt_wo_nan ).view(mask_mld.size(0),-1) , dim = 1 )
                 #mean_obs_mld = mean_obs_mld / torch.sum(  mask_mld.view(mask_mld.size(0),-1) , dim = 1 )
