@@ -1013,7 +1013,7 @@ class LitModelMLD(pl.LightningModule):
         # for ML measurements
         mask_obs_mld = torch.bernoulli( self.sampling_rate_mld_obs * torch.ones_like(batch[0]) )
         #print('.... MLD observation rate =  %f '%(torch.sum(mask_obs_mld) / (mask_obs_mld.size(0)*mask_obs_mld.size(1)*mask_obs_mld.size(2)*mask_obs_mld.size(3)) ))
-        #print('.... # MLD observations =  %d '%(torch.sum(mask_obs_mld) )) 
+        print('.... # MLD observations =  %d '%(torch.sum(mask_obs_mld) ) , flush=True) 
         
         #print('.... ngrad = %d -- %d '%(self.model.n_grad,self.hparams.n_fourdvar_iter))
         
@@ -2146,7 +2146,8 @@ class LitModelMLD(pl.LightningModule):
                         
             else:
                 
-                outputs = self.model.phi_r( obs * new_masks )
+                #outputs = self.model.phi_r( obs * new_masks )
+                outputs = self.model.phi_r( torch.cat( (targets_OI,targets_GT_wo_nan,sst_gt,mask_sampling_mld,mean_obs_mld_field) ) )
                              
                 #mean_obs_mld = torch.sum(  (mask_mld * mld_gt_wo_nan ).view(mask_mld.size(0),-1) , dim = 1 )
                 #mean_obs_mld = mean_obs_mld / torch.sum(  mask_mld.view(mask_mld.size(0),-1) , dim = 1 )
