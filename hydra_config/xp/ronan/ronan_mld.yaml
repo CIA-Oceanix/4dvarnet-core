@@ -46,7 +46,7 @@ params:
   resize_factor: ${datamodule.resize_factor}
 datamodule:
   aug_train_data: True 
-  resize_factor: 2
+  resize_factor: 4
   dl_kwargs:
     batch_size: ??
 defaults:
