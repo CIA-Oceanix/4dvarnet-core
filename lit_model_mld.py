@@ -2108,7 +2108,7 @@ class LitModelMLD(pl.LightningModule):
             mld_gt_wo_nan = mld_gt_wo_nan - mean_mld_batch
   
         mean_obs_mld = torch.sum(  (mask_mld * mld_gt_wo_nan ).view(mask_mld.size(0),-1) , dim = 1 )
-        mean_obs_mld = mean_obs_mld / torch.sum(  mask_mld.view(mask_mld.size(0),-1) , dim = 1 )
+        mean_obs_mld = mean_obs_mld / torch.sum(  mask_mld.view(mask_mld.size(0),-1) + 1e-10 , dim = 1 )
         mean_obs_mld = mean_obs_mld.detach()
         mean_obs_mld_field = mean_obs_mld.view(-1,1,1,1).repeat(1,mask_mld.size(1),mask_mld.size(2),mask_mld.size(3))
         mld_gt_wo_nan = mld_gt_wo_nan - mean_obs_mld_field
