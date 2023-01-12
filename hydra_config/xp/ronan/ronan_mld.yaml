@@ -5,7 +5,8 @@ entrypoint:
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_93/checkpoints/modelMLDwSSTGF-v2-resize02-augstate-dT21-mmstate-augstate-dT21-sstobs-nolinear-mld_05-grad_05_03_150-epoch=19-val_loss=0.1186.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_137/checkpoints/modelMLDwSSTGF-wo_clim-unet1_050-augdata-logmld_10-resize02-DirectInv-wSST-dT21-epoch=30-val_loss=0.1200.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_142/checkpoints/modelMLDwSSTGF-wo_clim-unet1_050-augdata-logmld_0-resize02-DirectInv-wSST-dT07-epoch=04-val_loss=0.3855.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_143/checkpoints/modelMLDwSSTGF-wo_clim-unet1_050-augdata-logmld_0-resize02-DirectInv-wSST-dT21-epoch=06-val_loss=0.1679.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_143/checkpoints/modelMLDwSSTGF-wo_clim-unet1_050-augdata-logmld_0-resize02-DirectInv-wSST-dT21-epoch=06-val_loss=0.1679.ckpt'
+   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_137/checkpoints/modelMLDwSSTGF-wo_clim-unet1_050-augdata-logmld_10-resize02-DirectInv-wSST-dT21-epoch=30-val_loss=0.1200.ckpt'
 params:
   files_cfg:
     mld_log: true
