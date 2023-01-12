@@ -565,11 +565,12 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     mld_min = 10.
                     mean_mld = float(xr.concat([ np.log( np.maximum( _ds.mld_ds.ds[_ds.mld_ds.var] , mld_min) ) for _ds in ds.datasets], dim='time').mean())
                     std_mld = float(xr.concat([np.log( np.maximum( _ds.mld_ds.ds[_ds.mld_ds.var] , mld_min) ) for _ds in ds.datasets], dim='time').std())                
+                    print('..... log-MLD data = %f -- %f'%(mean_mld,std_mld) )
                 else:
                     mean_mld = float(xr.concat([ _ds.mld_ds.ds[_ds.mld_ds.var] for _ds in ds.datasets], dim='time').mean())
                     std_mld = float(xr.concat([ _ds.mld_ds.ds[_ds.mld_ds.var] for _ds in ds.datasets], dim='time').std())                
+                    print('..... MLD data = %f -- %f'%(mean_mld,std_mld) )
                 
-                print('..... log-MLD data = %f -- %f'%(mean_mld,std_mld) )
 
                 return [mean, std], [mean_sst, std_sst], [mean_mld, std_mld]
 
