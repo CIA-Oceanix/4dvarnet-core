@@ -839,7 +839,7 @@ class LitModelMLD(pl.LightningModule):
         self.mean_Tt = self.hparams.mean_Tt
         self.mean_tr_mld = self.hparams.mean_tr_mld
         self.use_log_mld = True #self.hparams.use_log_mld
-        print(hparam['files_cfg'])
+        print(hparam['files_cfg']['mld_log'])
         
         # main model
         self.model_name = self.hparams.model if hasattr(self.hparams, 'model') else '4dvarnet'
