@@ -3,7 +3,7 @@ entrypoint:
    weights_save_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_86/checkpoints/modelMLDwSSTGF-v2-resize02-DirectInv-wSST-dT21-epoch=09-val_loss=0.1391.ckpt'
 #   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_93/checkpoints/modelMLDwSSTGF-v2-resize02-augstate-dT21-mmstate-augstate-dT21-sstobs-nolinear-mld_05-grad_05_03_150-epoch=19-val_loss=0.1186.ckpt'
-   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_137/checkpoints/modelMLDwSSTGF-wo_clim-unet1_050-augdata-logmld_10-resize02-DirectInv-wSST-dT21-epoch=30-val_loss=0.1200.ckpt'
+#   ckpt_path: '/gpfsscratch/rech/yrf/ulh44ct/NATL60_GF/MLDNATL60_GFMMexp240x240_ChckPt-wSST-hydra-exp/version_137/checkpoints/modelMLDwSSTGF-wo_clim-unet1_050-augdata-logmld_10-resize02-DirectInv-wSST-dT21-epoch=30-val_loss=0.1200.ckpt'
 params:
   files_cfg:
     mld_log: true
@@ -13,7 +13,7 @@ params:
   n_grad: 5
   apha_grad_descent_step: 0.
   learn_fsgd_param: false #true
-  dT: 21
+  dT: ??
   scale_dwscaling : 1.
   DimAE: 50
   dim_obs_sst_feat: 5
@@ -23,7 +23,7 @@ params:
   use_sst_obs: True #  False # 
   use_sst_state: True # False #  
   patch_weight:
-    _target_: lit_model_mld.get_cropped_hanning_mask
+    _target_: lit_model_mld.get_constant_crop #get_cropped_hanning_mask
     patch_size: ${datamodule.slice_win}
     crop:
       time: 1
@@ -37,7 +37,7 @@ params:
   norm_prior: l2
   sampling_model: 'sampling-from-sst'
   nb_feat_sampling_operator: 0
-  num_mld_obs: 10
+  num_mld_obs: ?? #10
   alpha_sampling_mld: 10.
   thr_l1_sampling_mld: 0.10
   scale_dwscaling_sst: 1.
