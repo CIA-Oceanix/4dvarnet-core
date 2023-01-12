@@ -1587,7 +1587,8 @@ class LitModelMLD(pl.LightningModule):
             self.test_xr_ds.mld_gt.data = np.exp ( self.test_xr_ds.mld_gt.data ) - 10.
             self.test_xr_ds.pred_mld.data = np.exp ( self.test_xr_ds.pred_mld.data ) - 10.
        
-        print('... mean values : %.3f -- %.3f'%( np.nanmean(self.test_xr_ds.mld_gt.data) , np.nanmean(self.test_xr_ds.pred_mld.data) ))
+        print('... mean MLD values : (true) %.3f -- (pred) %.3f'%( np.nanmean(self.test_xr_ds.mld_gt.data) , np.nanmean(self.test_xr_ds.pred_mld.data) ))
+        print('... medoan MLD values : (true) %.3f -- (pred) %.3f'%( np.nanmedian(self.test_xr_ds.mld_gt.data) , np.nanmedian(self.test_xr_ds.pred_mld.data) ))
 
         mse_metrics_pred_mld = metrics.compute_metrics(self.test_xr_ds.mld_gt, self.test_xr_ds.pred_mld)
         
