@@ -838,7 +838,7 @@ class LitModelMLD(pl.LightningModule):
         self.mean_Tr = self.hparams.mean_Tr
         self.mean_Tt = self.hparams.mean_Tt
         self.mean_tr_mld = self.hparams.mean_tr_mld
-        self.log_mld = self.hparams.files_cfg.mld_log
+        self.use_log_mld = self.hparams.use_log_mld
         
         # main model
         self.model_name = self.hparams.model if hasattr(self.hparams, 'model') else '4dvarnet'
@@ -1567,7 +1567,7 @@ class LitModelMLD(pl.LightningModule):
         mse_metrics_pred = metrics.compute_metrics(self.test_xr_ds.gt, self.test_xr_ds.pred)
         mse_metrics_oi = metrics.compute_metrics(self.test_xr_ds.gt, self.test_xr_ds.oi)
 
-        if self.log_mld :
+        if self.use_log_mld :
             mse_metrics_pred_log_mld = metrics.compute_metrics(self.test_xr_ds.mld_gt, self.test_xr_ds.pred_mld)
             
             corr_coef_log_mld =  compute_corr_coef(self.test_xr_ds.mld_gt.to_numpy(), self.test_xr_ds.pred_mld.to_numpy() )

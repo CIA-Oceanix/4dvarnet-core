@@ -43,6 +43,7 @@ params:
   remove_climatology: false #true #
   climatology_spatial_pooling: 120
   use_only_climatology: 0.
+  use_log_mld: ${params.files_cfg.log_mld}
   resize_factor: ${datamodule.resize_factor}
 datamodule:
   aug_train_data: True 
