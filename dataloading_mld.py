@@ -442,11 +442,14 @@ class FourDVarNetDataset(Dataset):
             else:
                 pp_mld = self.get_pp(self.norm_stats_mld)
                 
-                _mld_item = pp_mld(self.mld_ds[item % length])
-                mld_item = np.where(~np.isnan(_mld_item), _mld_item, 0.)
+                _mld_item = self.mld_ds[item % length]
+                _mld_item = np.where(~np.isnan(_mld_item), _mld_item, 10.)
+                _mld_item = np.where( _mld_item > 10., _mld_item, 10.)
+
                 if self.mld_log == True :
-                    mld_item = np.where( _mld_item < 10., _mld_item, 10.)
-                    mld_item = np.log( mld_item )
+                    _mld_item = np.log( _mld_item )
+                
+                mld_item = pp_mld(_mld_item)
                     
                 with self.gt_ds.get_coords():
                     _item_coords = self.gt_ds[item % length]
