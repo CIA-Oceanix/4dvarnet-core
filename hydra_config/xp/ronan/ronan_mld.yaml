@@ -18,7 +18,7 @@ params:
   DimAE: 50
   dim_obs_sst_feat: 5
   dim_grad_solver: 150
-  phi_param: 'unet1' #''unet-mld-mm' #unet-std'#
+  phi_param: 'unet-mld-mm' #'unet1' #'unet-std'#
   ckpt_name: 'modelMLDwSSTGF-wo_clim-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
   use_sst_obs: False # True #  
   use_sst_state: True # False #  
@@ -37,7 +37,7 @@ params:
   norm_prior: l2
   sampling_model: 'sampling-from-sst'
   nb_feat_sampling_operator: 0
-  num_mld_obs: ?? #10
+  num_mld_obs: 10
   alpha_sampling_mld: 10.
   thr_l1_sampling_mld: 0.10
   scale_dwscaling_sst: 1.
