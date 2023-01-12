@@ -176,7 +176,7 @@ class Phi_r_with_z(torch.nn.Module):
         dense_out = dense_out.view(-1,self.shape_data,30,30)
         dense_out = torch.nn.functional.interpolate(dense_out, scale_factor=4, mode='bicubic')
         
-        x = x + dense_out
+        x = x #+ dense_out
         
         #x = self.decoder(x)        
         return x
