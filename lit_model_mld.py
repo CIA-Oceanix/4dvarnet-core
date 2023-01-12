@@ -2146,15 +2146,15 @@ class LitModelMLD(pl.LightningModule):
             else:
                 
                 #outputs = self.model.phi_r( obs * new_masks )
-                outputs = self.model.phi_r( torch.cat( (targets_OI,targets_GT_wo_nan,sst_gt,mask_mld*mld_gt_wo_nan, mean_obs_mld_field) , dim=1) )
+                outputs = self.model.phi_r( torch.cat( (targets_OI,targets_GT_wo_nan,sst_gt,mask_mld*mld_gt_wo_nan+mean_obs_mld_field, 0. * mean_obs_mld_field) , dim=1) )
                              
                 #mean_obs_mld = torch.sum(  (mask_mld * mld_gt_wo_nan ).view(mask_mld.size(0),-1) , dim = 1 )
                 #mean_obs_mld = mean_obs_mld / torch.sum(  mask_mld.view(mask_mld.size(0),-1) , dim = 1 )
                 #print( mean_obs_mld )
                 #outputs_mld = mean_obs_mld.view(-1,1,1,1).repeat(1,mask_mld.size(1),mask_mld.size(2),mask_mld.size(3))
                                
-                outputs_mld = mean_obs_mld_field + outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]                                
-                #outputs_mld =  outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]                                
+                #outputs_mld = mean_obs_mld_field + outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]                                
+                outputs_mld =  outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]                                
                 mld_gt_wo_nan = mld_gt_wo_nan + mean_obs_mld_field
 
                 outputs = outputs[:, 0:self.hparams.dT, :, :] + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
