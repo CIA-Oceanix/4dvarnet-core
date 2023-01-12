@@ -2154,7 +2154,7 @@ class LitModelMLD(pl.LightningModule):
                 #print( mean_obs_mld )
                 #outputs_mld = mean_obs_mld.view(-1,1,1,1).repeat(1,mask_mld.size(1),mask_mld.size(2),mask_mld.size(3))
                                
-                outputs_mld = mean_obs_mld + 0. * outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]                                
+                outputs_mld = mean_obs_mld_field + 0. * outputs[:, 2*self.hparams.dT:3*self.hparams.dT, :, :]                                
                 outputs = outputs[:, 0:self.hparams.dT, :, :] + outputs[:, self.hparams.dT:2*self.hparams.dT, :, :]
 
                 
