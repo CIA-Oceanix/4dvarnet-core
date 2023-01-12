@@ -11,12 +11,12 @@ params:
   n_grad: 0
   apha_grad_descent_step: 0.
   learn_fsgd_param: false #true
-  dT: ??
+  dT: 21
   scale_dwscaling : 1.
   DimAE: 50
   dim_obs_sst_feat: 5
   dim_grad_solver: 150
-  phi_param: 'unet-mld-mm'#unet1'# 'unet-std'#'
+  phi_param: 'unet1'#'unet-mld-mm'# 'unet-std'#
   ckpt_name: 'modelMLDwSSTGF-wo_clim-{epoch:02d}-{val_loss:.4f}' #'modelUVwSSTGF-{epoch:02d}-{val_loss:.4f}'
   use_sst_obs: False # True #  
   use_sst_state: True # False #  
@@ -28,7 +28,7 @@ params:
   val_diag_freq: 5 
   padding_mode: reflect
   type_div_train_loss: 1
-  alpha_mse_ssh: ?? #1. # loss
+  alpha_mse_ssh: 1. #1. # loss
   alpha_mse_gssh: 0. #0. #1000.
   alpha_mse_mld: 1. #1.
   norm_obs: l2
@@ -46,7 +46,7 @@ params:
   resize_factor: ${datamodule.resize_factor}
 datamodule:
   aug_train_data: True 
-  resize_factor: ??
+  resize_factor: 2
   dl_kwargs:
     batch_size: ??
 defaults:
