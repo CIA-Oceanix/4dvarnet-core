@@ -897,34 +897,52 @@ def fmt_enatl():
             )
             for nad in ['tpn', 'en', 'j1', 'g2', 'swot']}
 
-        blb0 = []
+        blb0_mean = []
+        blb0_snapshot = []
         for f in tqdm(list(Path('../sla-data-registry/enatl60').glob('*BLB0*'))):
             samp = xr.open_dataset(f)
             samp=samp.mean('time_counter', keepdims=True).assign_coords(time_counter=[samp.time_counter.mean().values]).coarsen(x=3, y=3, boundary='trim').mean()
             regridded = interp_unstruct_to_grid(samp.sossheig, tgt_grid.ssh)
-            blb0.append(regridded)
+            blb0_mean.append(regridded)
+
+            samp = xr.open_dataset(f)
+            samp=samp.sel(time_counter=samp.time_counter.mean(), method='nearest').coarsen(x=3, y=3, boundary='trim').mean()
+            samp=samp.expand_dims({'time_counter':1})
+
+            regridded = interp_unstruct_to_grid(samp.sossheig, tgt_grid.ssh)
+            blb0_snapshot.append(regridded)
         
-        bods = xr.concat(blb0, 'time_counter').rename(time_counter='time')
-        bods_obs_ds = (sample_nadirs_from_simu(nadirs, bods)).ssh
+        bods = xr.concat(blb0_mean, 'time_counter').rename(time_counter='time')
+        bods_snap = xr.concat(blb0_snapshot, 'time_counter').rename(time_counter='time')
+        bods_obs_ds = (sample_nadirs_from_simu(nadirs, bods_snap)).ssh
 
         ds = xr.Dataset(dict(ssh=(bods.dims, bods.values), nadir_obs=(bods_obs_ds.dims, bods_obs_ds.values)), coords=bods.coords).load()
-        ds = ds.sortby('time')
-        ds.to_netcdf(f'../sla-data-registry/qdata/enatl_wo_tide.nc')
+        ds_wo_tide = ds.sortby('time')
+        ds_wo_tide.to_netcdf(f'../sla-data-registry/qdata/enatl_wo_tide.nc')
 
-        blbt = []
+        blbt_snapshot = []
+        blbt_mean = []
         for f in tqdm(list(Path('../sla-data-registry/enatl60').glob('*BLBT*'))):
             samp = xr.open_dataset(f)
             samp=samp.mean('time_counter', keepdims=True).assign_coords(time_counter=[samp.time_counter.mean().values]).coarsen(x=3, y=3, boundary='trim').mean()
             regridded = interp_unstruct_to_grid(samp.sossheig, tgt_grid.ssh)
-            blbt.append(regridded)
+            blbt_mean.append(regridded)
 
-        btds = xr.concat(blbt, 'time_counter').rename(time_counter='time')
-        btds_obs_ds = ( sample_nadirs_from_simu(nadirs, btds)).ssh
+            samp = xr.open_dataset(f)
+            samp=samp.sel(time_counter=samp.time_counter.mean(), method='nearest').coarsen(x=3, y=3, boundary='trim').mean()
+            samp=samp.expand_dims({'time_counter':1})
+            regridded = interp_unstruct_to_grid(samp.sossheig, tgt_grid.ssh)
+            blbt_snapshot.append(regridded)
+        
+
+        btds = xr.concat(blbt_mean, 'time_counter').rename(time_counter='time')
+        btds_snap = xr.concat(blbt_snapshot, 'time_counter').rename(time_counter='time')
+        btds_obs_ds = ( sample_nadirs_from_simu(nadirs, btds_snap)).ssh
 
 
         ds = xr.Dataset(dict(ssh=(btds.dims, btds.values), nadir_obs=(btds_obs_ds.dims, btds_obs_ds.values)), coords=btds.coords).load()
-        ds = ds.sortby('time')
-        ds.to_netcdf(f'../sla-data-registry/qdata/enatl_w_tide.nc')
+        ds_w_tide = ds.sortby('time')
+        ds_w_tide.to_netcdf(f'../sla-data-registry/qdata/enatl_w_tide.nc')
         
     except Exception as e:
         print(traceback.format_exc()) 

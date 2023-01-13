@@ -53,7 +53,6 @@ vort = lambda da: mpcalc.vorticity(*mpcalc.geostrophic_wind(da.assign_attrs(unit
 geo_energy = lambda da:np.hypot(*mpcalc.geostrophic_wind(da)).metpy.dequantify()
 
 def get_best_ckpt(xp_dir, version=None):
-    print(xp_dir)
     if version is None:
         version_dir = max(xp_dir.glob('version_*'), key=lambda d: int(str(d).split('_')[-1]))
     else:
@@ -70,16 +69,19 @@ def get_best_ckpt(xp_dir, version=None):
 
 
 cfg_set = []
-for xp_dir in list(Path('results/xp28').glob('*ds2*')):
+for xp_dir in list(Path('results/xp30').glob('*ds2*')):
     cfg_n, ckpt = get_best_ckpt(xp_dir)
-    # print(xp_dir, ckpt)
     cfg_set.append((cfg_n, ckpt))
-    
-cfg_set = []
-for xp_dir in list(Path('results/xp29').glob('*ds1*')):
-    cfg_n, ckpt = get_best_ckpt(xp_dir)
-    # print(xp_dir, ckpt)
-    cfg_set.append((cfg_n, ckpt))
+    # if pd.to_datetime(Path(ckpt).stat().st_mtime, unit='s')> pd.to_datetime('2023-01-01'):
+    #     print(xp_dir, pd.to_datetime(Path(ckpt).stat().st_mtime, unit='s'))
+    #     # print(xp_dir, ckpt)
+    #     cfg_set.append((cfg_n, ckpt))
+
+# cfg_set = []
+# for xp_dir in list(Path('results/xp29').glob('*ds1*')):
+#     cfg_n, ckpt = get_best_ckpt(xp_dir)
+#     # print(xp_dir, ckpt)
+#     cfg_set.append((cfg_n, ckpt))
 
 
 ose = [
@@ -192,7 +194,6 @@ def run_test(cfg_n, ckpt):
     mod.test_figs['psd']
     return mod, cfg, dm_osse, dm
 
-
 for cfg_n, ckpt in cfg_set:
     print(cfg_n, ckpt)
     mod, cfg, dm_osse, dm = run_test(cfg_n, ckpt)
@@ -281,14 +282,20 @@ cfg = get_cfg(
         *ose
 ])
 
-ose_metrics ={}
-sorted(list(Path('test_logs').glob('qxp29*/**/test.nc')), key=lambda p: p.stat().st_mtime)
+ose_metrics = {}
+# sorted(list(Path('test_logs').glob('qxp28*/**/test.nc')), key=lambda p: p.stat().st_mtime)
+sorted(list(Path('test_logs').glob('qxp30*/**/test.nc')), key=lambda p: p.stat().st_mtime)
 for p,c in zip(sorted(list(Path('test_logs').glob('qxp29*/**/test.nc')), key=lambda p: p.stat().st_mtime), cfg_set):
     print(p,c)
     # continue
+    data = xr.open_dataset(p)
+    data['pred'] = data.pred.groupby('time').apply(lambda g: xr.apply_ufunc(lambda npa :ndi.median_filter(npa, size=7), g))
     out = eval_4dvarnet_test_OSSE.metrics_ose(
-            xr.open_dataset(p), cfg.file_paths.ose_test_along_track)
+            data, cfg.file_paths.ose_test_along_track)
+    print(out['Leaderboard'])
     ose_metrics[p] = out['Leaderboard']
+    # break
+
 
 ose_metrics_df = pd.DataFrame([
     {'path': k, 'cfg': c[0], 'xp': str(k).split('/')[1], **v.loc[1].to_dict()}
@@ -297,11 +304,73 @@ ose_metrics_df = pd.DataFrame([
 ose_metrics_df.columns
 print(ose_metrics_df.to_markdown())
 print(ose_metrics_df[['cfg','µ(RMSE) ', 'σ(RMSE)', 'λx (km)']].to_markdown())
+print(ose_metrics_df.loc[lambda df: df.xp.map(lambda s: 'ds2' in s)][['xp','µ(RMSE) ', 'σ(RMSE)', 'λx (km)']].to_markdown())
 1/0
 # ose_metrics_df.to_csv('tmp/ose_metrics_df0102.csv')
 # ose_metrics_df.to_csv('tmp/ose_metrics_df1221.csv')
 # ose_metrics_df.to_csv('tmp/ose_metrics_df0411.csv')
+# ose_metrics_df.to_csv('tmp/ose_metrics_df1001.csv')
 ose_metrics_df = pd.read_csv('tmp/ose_metrics_df1221.csv')
+ose_metrics_df = pd.read_csv('tmp/ose_metrics_df0411.csv')
+import io
+scales = pd.read_csv(
+io.StringIO('''variable,scale (km)
+qxp28_no_sst_duacs_emul_ose_aug3_ds2_dT29_8,63.309
+qxp28_no_sst_enatl_w_tide_aug3_ds2_dT29_8,67.4348
+qxp28_no_sst_enatl_wo_tide_aug3_ds2_dT29_8,68.2462
+qxp28_no_sst_natl20_aug3_ds2_dT29_8,68.7848
+qxp28_no_sst_glo12_rea_aug3_ds2_dT29_8,87.1803
+qxp28_no_sst_glo12_free_aug3_ds2_dT29_8,90.1228
+qxp28_no_sst_orca25_aug3_ds2_dT29_8,101.948'''
+))
+scales.columns
+df = (
+    ose_metrics_df
+    .set_index('cfg')
+    .join(scales.set_index('variable'))
+    .reset_index()
+    .assign(data=lambda df: df.cfg.map(lambda x:'_'.join(x[13:].split('_')[:-4])))
+    .rename({'scale (km)': 'MES (km)'}, axis=1)
+)
+
+toplot = [
+    'orca25',
+    'glo12_free',
+    'glo12_rea',
+    # 'enatl_w_tide',
+    # 'enatl_wo_tide',
+    # 'duacs_emul_ose',
+    'natl20'
+]
+
+label_map = {
+        'orca25': 'ORCA025 (1/4°)',
+        'glo12_free': 'GLORYS12 (1/12°)',
+        'glo12_rea': 'GLORYS12 with Reanalysis (1/12°)',
+        'enatl_w_tide': 'NEMO 1/60° with tide',
+        'enatl_wo_tide': 'NEMO 1/60° without tide',
+        'duacs_emul_ose': 'emul duacs',
+        'natl20': 'NATL60 (1/60°)',
+}
+
+plot_kwargs = {'x': 'Mean eddy scale (km)', 'y': 'λx (km)', 'hue': 'Training simulation'}
+plot_kwargs = {'x': 'Mean eddy scale (km)', 'y': 'µ(RMSE) ', 'hue': 'data'}
+# ax = (
+#     df.loc[df.data.isin(toplot)].plot(**plot_kwargs , kind='scatter')
+# )
+import seaborn as sns
+
+df = df.assign(**{'Training simulation':lambda df: df.data.map(lambda d: label_map[d])})
+df = df.rename({'MES (km)': 'Mean eddy scale (km)',  'λx (km)': 'Resolved scale'}, axis=1)
+df
+sns.scatterplot(data=df.loc[df.data.isin(toplot)].sort_values( 'Mean eddy scale (km)'), **plot_kwargs)
+
+
+print(df.loc[df.data.isin(toplot)][['Training simulation',  'λx (km)', 'µ(RMSE) ']].set_index('Training simulation').to_latex())
+# import matplotlib.pyplot as plt
+# ax = df.loc[df.data.isin(toplot)].sort_values('scale (km)').pipe(lambda ddf: plt.errorbar(ddf['scale (km)'], 'µ(RMSE) ', yerr='σ(RMSE)', data=ddf))
+
+df.loc[df.data.isin(toplot)][list(plot_kwargs.values())].apply(lambda row: ax.text(*row),axis=1);
 
 training_data = {}
 domain = {'lat': slice(33, 43), 'lon':slice(-65,-55)}
@@ -310,36 +379,18 @@ for xp in ose_metrics_df.cfg:
     training_data[xp] = xr.open_dataset(cfg.params.files_cfg.gt_path)[cfg.params.files_cfg.gt_var].sel(domain)
 
 
-
-for training_data_path,c in zip(sorted(list(Path('.').glob('version_*/**/test.nc'))), cfg_set):
-    print(training_data_path)
-    training_data[c[0]] = xr.open_dataset(training_data_path).pred
-
-
-# testing_data = {}
-# for testing_data_path in list(Path('test_logs').glob('**/test.nc')):
-#     testing_data[str(testing_data_path).split('/')[1][13:]] = xr.open_dataset(testing_data_path)
-
-# list(testing_data.keys())
-
 def reset_time(ds):
     ds = ds.copy()
-    ds['time'] = (ds.time - ds.time.min()) /pd.to_timedelta('1D')
+    ds['time'] = ((pd.to_datetime(ds.time) - pd.to_datetime('2006-01-01')) /pd.to_timedelta('1D')) %366 //1
+    ds = ds.sortby('time')
     return ds
-import numpy as np
 
 
-def reset_latlon(ds):
+def reset_latlon(ds, dx=0.1):
     ds = ds.copy()
-    ds['lat'] = np.arange(34, 44, 0.05)
-    ds['lon'] = np.arange(-65, -55, 0.05)
+    ds['lat'] = np.arange(34, 44, dx)
+    ds['lon'] = np.arange(-65, -55, dx)
     return ds
-
-
-import metpy.calc as mpcalc
-import pyinterp.fill
-import pyinterp.backends.xarray
-
 
 def remove_nan(da):
     da['lon'] = da.lon.assign_attrs(units='degrees_east')
@@ -349,8 +400,119 @@ def remove_nan(da):
         pyinterp.backends.xarray.Grid3D(da))[1]
     return da
 
-training_ds = xr.Dataset({k: v.pipe(reset_time).pipe(reset_latlon).load().pipe(remove_nan).pipe(vort) for k, v in training_data.items()}).load()
-# training_ds.load().map(remove_nan).map(vort).to_array().isel(time=0).plot.pcolormesh(col='variable', col_wrap=4)
+
+
+for training_data_path,c in zip(sorted(list(Path('.').glob('version_*/**/test.nc'))), ose_metrics_df.cfg): #cfg_set):
+    print(training_data_path, c)
+    # if c == 'qxp28_no_sst_duacs_emul_ose_aug3_ds2_dT29_8': continue
+    # continue
+    cfg = get_cfg(c, overrides=[ f'file_paths={fp}'],)
+    training_data['_'.join(c[13:].split('_')[:-4])] = xr.concat(
+            [
+                xr.open_dataset(cfg.params.files_cfg.gt_path)[cfg.params.files_cfg.gt_var].isel(time=slice(0,366))
+                    .sel(domain).coarsen(lat=2, lon=2).mean()
+                    .pipe(reset_time).pipe(reset_latlon)
+                    .load().pipe(remove_nan)
+                    .expand_dims(dim={'phase':1})
+                    .assign_coords(phase=('phase', ['train'])),
+                xr.open_dataset(training_data_path).isel(time=slice(0,366))
+                    .pred.pipe(reset_time).pipe(reset_latlon).load().pipe(remove_nan)
+                    .expand_dims(dim={'phase':1}).assign_coords(phase=('phase', ['pred']))
+            ],
+            dim='phase')
+
+# testing_data = {}
+# for testing_data_path in list(Path('test_logs').glob('**/test.nc')):
+#     testing_data[str(testing_data_path).split('/')[1][13:]] = xr.open_dataset(testing_data_path)
+
+# list(testing_data.keys())
+
+
+import metpy.calc as mpcalc
+import pyinterp.fill
+import pyinterp.backends.xarray
+
+
+# training_ds = xr.Dataset({k: v.pipe(vort) for k, v in training_data.items()}).load()
+training_ds = xr.Dataset(training_data)
+
+toplot = [
+    # 'enatl_w_tide',
+    'orca25',
+    'glo12_free',
+    'glo12_rea',
+    # 'enatl_wo_tide',
+    # 'duacs_emul_ose',
+    'natl20'
+]
+
+import scipy.ndimage as ndi
+
+robust=False
+(
+    training_ds['natl20']
+    .isel(time=50)
+    .sel(phase='pred')
+    # .pipe(vort)
+    .pipe(lambda da: xr.apply_ufunc(lambda npa :ndi.median_filter(npa, size=filt),da))
+    .pipe(vort)
+    .plot(figsize=(6,5), robust=robust)
+)
+
+
+filt = 4
+time = 60
+filt_ds = training_ds.copy()
+filt_ds = filt_ds.isel(time=time).map(geo_energy)
+filt_ds.loc[{'phase': 'pred'}]=(
+    filt_ds.sel(phase='pred').map(lambda da: xr.apply_ufunc(lambda npa :ndi.median_filter(npa, size=filt), da))
+)
+toplot = [ 'orca25', 'glo12_free','glo12_rea', 'natl20' ]
+titles = [ 'ORCA025 1/4°', 'GLORYS12 1/12°','GLORYS12 1/12° Reanalysis', 'NATL60 1/60°']
+ax = filt_ds[toplot].to_array().plot.pcolormesh(
+    col='variable', row='phase', figsize=(18,8), robust=False,
+    cmap='viridis',
+    # cmap='RdGy_r',
+    **filt_ds[toplot].to_array().pipe(lambda da:dict(vmin=da.quantile(0.002), vmax=da.quantile(0.998)))
+    # **dict(vmin=-5e-5, vmax=5e-5)
+)
+for ti, axx in zip(titles, ax.axes[0]):
+    axx.set_title(ti)
+
+titles = [ 'ORCA025 1/4°', 'GLORYS12 1/12°','GLORYS12 1/12° Reanalysis', 'NATL60 1/60°']
+ax3 = filt_ds[toplot].to_array().sel(lat=slice(34,38), lon=slice(-62,-58), phase='pred').plot.pcolormesh(
+    col='variable', figsize=(18,5), robust=True, cmap='viridis', #cmap='RdGy_r',
+    # **filt_ds[toplot].to_array().pipe(lambda da:dict(vmin=da.quantile(0.002), vmax=da.quantile(0.998)))
+    # **dict(vmin=-5e-5, vmax=5e-5)
+)
+for ti, axx in zip(titles, ax3.axes[0]):
+    axx.set_title(ti)
+
+ax2 = (
+    filt_ds['duacs_emul_ose']
+    .sel(phase='train')
+    .pipe(lambda da: xr.apply_ufunc(lambda npa :ndi.median_filter(npa, size=filt), da))
+    .plot(vmin=ax.cbar.vmin, vmax=ax.cbar.vmax, cmap=ax.cbar.cmap, figsize=(5,5), add_colorbar=False)
+)
+ax2.axes.set_title('DUACS')
+
+ax.axes[0][0].set_title('toto')
+dir(ax.axes)
+toplot = [ 'glo12_free', 'glo12_rea', ]
+ax = filt_ds[toplot].to_array().plot.pcolormesh(col='variable', row='phase', figsize=(10,8), robust=True)
+
+toplot = [ 'enatl_w_tide', 'enatl_wo_tide', ]
+ax = filt_ds[toplot].to_array().plot.pcolormesh(col='variable', row='phase', figsize=(10,8), robust=True)
+
+(
+    filt_ds['glo12_rea']
+    .sel(phase='train')
+    # .pipe(lambda da: xr.apply_ufunc(lambda npa :ndi.median_filter(npa, size=filt), da))
+    .plot.pcolormesh(vmin=ax.cbar.vmin, vmax=ax.cbar.vmax, cmap=ax.cbar.cmap, add_colorbar=False)
+)
+
+ax.cmap
+dir(ax.cbar.cmap)
 
 # (training_ds[
 #     sorted([ k for k in training_ds if ('0_g' not in k) and ('ds2' in k)])
@@ -371,10 +533,9 @@ training_ds = xr.Dataset({k: v.pipe(reset_time).pipe(reset_latlon).load().pipe(r
 
 import xrft
 tpds = training_ds
-
-psd_fn = lambda da: xrft.isotropic_power_spectrum(
-        da, dim=('lat', 'lon'), truncate=True, window='hann')
-psds_ds = tpds.isel(time=np.isfinite(tpds.to_array()).all(['variable','lat', 'lon'])).map(lambda da: psd_fn(da).mean('time'))
+psd_fn = lambda da: xrft.power_spectrum(
+        da, dim='lon', scaling='density', real_dim='lon', truncate=True, window='hann')
+psds_ds = tpds.isel(time=np.isfinite(tpds.to_array()).all(['phase', 'variable','lat', 'lon'])).map(lambda da: psd_fn(da).mean('time').mean('lat'))
 
 # list(psds_ds)
 # psds_ds[sorted([ k for k in psds_ds if ('0_g' not in k) and ('ds2' in k)])].to_array().plot.line(
@@ -421,6 +582,18 @@ weighted_scale = (
 fmt_ws = (100*weighted_scale).to_array().to_dataframe(name='scale (km)').sort_values(by='scale (km)')
 print(fmt_ws.to_markdown())
 
+
+weighted_scale = (
+    psds_ds.sum() / (psds_ds * psds_ds.freq_lon).sum('freq_lon')
+)
+fmt_ws = (100*weighted_scale).to_array().to_dataframe(name='scale (km)').sort_values(by='scale (km)')
+print(fmt_ws.to_markdown())
+
+weighted_scale = (
+    psds_ds.sum() / (psds_ds * psds_ds.freq_lat).sum('freq_lat')
+)
+fmt_ws = (100*weighted_scale).to_array().to_dataframe(name='scale (km)').sort_values(by='scale (km)')
+print(fmt_ws.to_markdown())
 
 # simu = ['natl20', 'glo12_free', 'glo12_rea', 'orca25']
 # natl_filt = ['natl20', 'natl20_g1', 'natl20_g3', 'natl20_g5', 'natl20_g5', 'natl20_g8']

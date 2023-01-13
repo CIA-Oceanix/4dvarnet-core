@@ -53,7 +53,7 @@ class ConvSamePad(torch.nn.Module):
             side_limit = sizes['nc'] // 2
             return einops.rearrange(
                 [
-                    self._forward(x[..., :side_limit].flip(-1)).flip(-1),
+                    self._forward(x[..., :side_limit]),
                     self._forward(x[..., side_limit:]),
                 ],
                 'sides b c time hnc -> b c time (hnc sides)'
