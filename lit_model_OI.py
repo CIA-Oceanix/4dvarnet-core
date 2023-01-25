@@ -1,101 +1,157 @@
-import einops
-import torch.distributed as dist
-import kornia
-from hydra.utils import instantiate
-import pandas as pd
-from functools import reduce
-from torch.nn.modules import loss
-import xarray as xr
+""" Lit model for interpolation without the OI in initialisation """
+
 from pathlib import Path
+import pandas as pd
 from hydra.utils import call
 import numpy as np
-import pytorch_lightning as pl
 import torch
-import torch.nn.functional as F
-import torch.optim as optim
-from omegaconf import OmegaConf
-from scipy import stats
 import solver as NN_4DVar
-import metrics
-from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps_oi, animate_maps, get_psd_score
-from models import Model_H, Phi_r_OI, Gradient_img
+from metrics import psd_based_scores, plot_maps_oi, rmse_based_scores, plot_psd_score
+from models import Model_H, Phi_r_OI
 
 from lit_model_augstate import LitModelAugstate
 
-def get_4dvarnet_OI(hparams):
+
+def get_4dvarnet_oi(hparams):
+    """ Retrieve the 4dvarnet model adapted for experiences without the OI in the initialisation """
     return NN_4DVar.Solver_Grad_4DVarNN(
-                Phi_r_OI(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
-                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
-                Model_H(hparams.shape_state[0]),
-                NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
-                    hparams.dim_grad_solver, hparams.dropout),
-                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+        Phi_r_OI(hparams.shape_state[0], hparams.DimAE, hparams.dW,
+                 hparams.dW2, hparams.sS, hparams.nbBlocks,
+                 hparams.dropout_phi_r, hparams.stochastic),
+        Model_H(hparams.shape_state[0]),
+        NN_4DVar.model_GradUpdateLSTM(hparams.shape_state,
+                                      hparams.UsePriodicBoundary,
+                                      hparams.dim_grad_solver,
+                                      hparams.dropout), hparams.norm_obs,
+        hparams.norm_prior, hparams.shape_state,
+        hparams.n_grad * hparams.n_fourdvar_iter)
+
 
 class LitModelOI(LitModelAugstate):
     MODELS = {
-            '4dvarnet_OI': get_4dvarnet_OI,
-             }
+        '4dvarnet_OI': get_4dvarnet_oi,
+    }
+
+    # TODO: fix bug
+    # def __init__(self,
+    # hparam=None,
+    # min_lon=None,
+    # max_lon=None,
+    # min_lat=None,
+    # max_lat=None,
+    # ds_size_time=None,
+    # ds_size_lon=None,
+    # ds_size_lat=None,
+    # time=None,
+    # dX=None,
+    # dY=None,
+    # swX=None,
+    # swY=None,
+    # coord_ext=None,
+    # test_domain=None,
+    # *args,
+    # **kwargs):
+    # LitModelAugstate.__init__(self, hparam, min_lon, max_lon, min_lat,
+    # max_lat, ds_size_time, ds_size_lon,
+    # ds_size_lat, time, dX, dY, swX, swY,
+    # coord_ext, test_domain, args, kwargs)
+    # print(f'{hparam=}')
+    # self.test_xr_ds = None
+    # self.x_rec_ssh = None
 
     def configure_optimizers(self):
         opt = torch.optim.Adam
         if hasattr(self.hparams, 'opt'):
-            opt = lambda p: hydra.utils.call(self.hparams.opt, p)
+            opt = lambda p: call(self.hparams.opt, p)
         if self.model_name == '4dvarnet_OI':
-            optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
-                {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
-                {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
-                {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
-                ])
+            optimizer = opt([
+                {
+                    'params': self.model.model_Grad.parameters(),
+                    'lr': self.hparams.lr_update[0]
+                },
+                {
+                    'params': self.model.model_VarCost.parameters(),
+                    'lr': self.hparams.lr_update[0]
+                },
+                {
+                    'params': self.model.model_H.parameters(),
+                    'lr': self.hparams.lr_update[0]
+                },
+                {
+                    'params': self.model.phi_r.parameters(),
+                    'lr': 0.5 * self.hparams.lr_update[0]
+                },
+            ])
 
         return optimizer
 
     def diag_step(self, batch, batch_idx, log_pref='test'):
-        _, inputs_Mask, inputs_obs, targets_GT = batch
-        losses, out, metrics = self(batch, phase='test')
+        _, inputs_mask, inputs_obs, targets_gt = batch
+        losses, out, metric = self(batch, phase='test')
         loss = losses[-1]
         if loss is not None:
             self.log(f'{log_pref}_loss', loss)
-            self.log(f'{log_pref}_mse', metrics[-1]["mse"] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
-            self.log(f'{log_pref}_mseG', metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{log_pref}_mse',
+                     metric[-1]["mse"] / self.var_Tt,
+                     on_step=False,
+                     on_epoch=True,
+                     prog_bar=True)
+            self.log(f'{log_pref}_mseG',
+                     metric[-1]['mseGrad'] / metric[-1]['meanGrad'],
+                     on_step=False,
+                     on_epoch=True,
+                     prog_bar=True)
 
-        return {'gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
+        return {
+            'gt':
+            (targets_gt.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
+            'obs_inp': (inputs_obs.detach().where(
+                inputs_mask, torch.full_like(inputs_obs, np.nan)).cpu() *
+                        np.sqrt(self.var_Tr)) + self.mean_Tr,
+            'pred': (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr
+        }
 
     def sla_diag(self, t_idx=3, log_pref='test'):
 
         path_save0 = self.logger.log_dir + '/maps.png'
-        t_idx = 3
-        fig_maps = plot_maps_oi(
-                  self.x_gt[t_idx],
-                self.obs_inp[t_idx],
-                  self.x_rec[t_idx],
-                  self.test_lon, self.test_lat, path_save0)
+        fig_maps = plot_maps_oi(self.x_gt[t_idx], self.obs_inp[t_idx],
+                                self.x_rec[t_idx], self.test_lon,
+                                self.test_lat, path_save0)
         path_save01 = self.logger.log_dir + '/maps_Grad.png'
-        fig_maps_grad = plot_maps_oi(
-                  self.x_gt[t_idx],
-                self.obs_inp[t_idx],
-                  self.x_rec[t_idx],
-                  self.test_lon, self.test_lat, path_save01, grad=True)
+        fig_maps_grad = plot_maps_oi(self.x_gt[t_idx],
+                                     self.obs_inp[t_idx],
+                                     self.x_rec[t_idx],
+                                     self.test_lon,
+                                     self.test_lat,
+                                     path_save01,
+                                     grad=True)
         self.test_figs['maps'] = fig_maps
         self.test_figs['maps_grad'] = fig_maps_grad
-        self.logger.experiment.add_figure(f'{log_pref} Maps', fig_maps, global_step=self.current_epoch)
-        self.logger.experiment.add_figure(f'{log_pref} Maps Grad', fig_maps_grad, global_step=self.current_epoch)
+        self.logger.experiment.add_figure(f'{log_pref} Maps',
+                                          fig_maps,
+                                          global_step=self.current_epoch)
+        self.logger.experiment.add_figure(f'{log_pref} Maps Grad',
+                                          fig_maps_grad,
+                                          global_step=self.current_epoch)
 
-        psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
-        psd_fig = metrics.plot_psd_score(psd_ds)
+        psd_ds, lamb_x, lamb_t = psd_based_scores(self.test_xr_ds.pred,
+                                                  self.test_xr_ds.gt)
+        psd_fig = plot_psd_score(psd_ds)
         self.test_figs['psd'] = psd_fig
-        self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
-        _, _, mu, sig = metrics.rmse_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
+        self.logger.experiment.add_figure(f'{log_pref} PSD',
+                                          psd_fig,
+                                          global_step=self.current_epoch)
+        _, _, mean_mu, sig = rmse_based_scores(self.test_xr_ds.pred,
+                                               self.test_xr_ds.gt)
 
-        md = {
+        dict_md = {
             f'{log_pref}_lambda_x': lamb_x,
             f'{log_pref}_lambda_t': lamb_t,
-            f'{log_pref}_mu': mu,
+            f'{log_pref}_mu': mean_mu,
             f'{log_pref}_sigma': sig,
         }
-        print(pd.DataFrame([md]).T.to_markdown())
-        return md
+        print(pd.DataFrame([dict_md]).T.to_markdown())
+        return dict_md
 
     def diag_epoch_end(self, outputs, log_pref='test'):
         full_outputs = self.gather_outputs(outputs, log_pref=log_pref)
@@ -111,7 +167,7 @@ class LitModelOI(LitModelAugstate):
         self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
 
         Path(self.logger.log_dir).mkdir(exist_ok=True)
-        path_save1 = self.logger.log_dir + f'/test.nc'
+        path_save1 = self.logger.log_dir + '/test.nc'
         self.test_xr_ds.to_netcdf(path_save1)
 
         self.x_gt = self.test_xr_ds.gt.data
@@ -125,78 +181,81 @@ class LitModelOI(LitModelAugstate):
         self.test_dates = self.test_coords['time'].data
 
         # display map
-        md = self.sla_diag(t_idx=3, log_pref=log_pref)
-        self.latest_metrics.update(md)
-        self.logger.log_metrics(md, step=self.current_epoch)
+        dict_md = self.sla_diag(t_idx=3, log_pref=log_pref)
+        self.latest_metrics.update(dict_md)
+        self.logger.log_metrics(dict_md, step=self.current_epoch)
 
-    def get_init_state(self, batch, state=(None,)):
-        """ Create state state for the compute loss function. """
+    def get_init_state(self, batch, state=(None, )):
+        """ Create init state for the compute loss function. """
         if state[0] is not None:
             return state[0]
 
-        _, inputs_Mask, inputs_obs, _ = batch
+        _, inputs_mask, inputs_obs, _ = batch
 
-        init_state = inputs_Mask * inputs_obs
+        init_state = inputs_mask * inputs_obs
         return init_state
 
     def get_obs_state(self, batch):
         """ Create obs state for the compute loss function. """
-        _, inputs_Mask, inputs_obs, _ = batch
-        obs = inputs_Mask * inputs_obs
+        _, inputs_mask, inputs_obs, _ = batch
+        obs = inputs_mask * inputs_obs
         return obs
 
-    def compute_loss(self, batch, phase, state_init=(None,)):
+    def compute_loss(self, batch, phase, state_init=(None, )):
 
-        _, inputs_Mask, inputs_obs, targets_GT = batch
+        _, inputs_mask, _, targets_gt = batch
 
         # handle patch with no observation
-        if inputs_Mask.sum().item() == 0:
-            return (
-                    None,
-                    torch.zeros_like(targets_GT),
-                    torch.cat((torch.zeros_like(targets_GT),
-                              torch.zeros_like(targets_GT),
-                              torch.zeros_like(targets_GT)), dim=1),
-                    dict([('mse', 0.),
+        if inputs_mask.sum().item() == 0:
+            return (None, torch.zeros_like(targets_gt),
+                    torch.cat((torch.zeros_like(targets_gt),
+                               torch.zeros_like(targets_gt),
+                               torch.zeros_like(targets_gt)),
+                              dim=1),
+                    dict([
+                        ('mse', 0.),
                         ('mseGrad', 0.),
                         ('meanGrad', 1.),
-                        ])
-                    )
-        targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
+                    ]))
+        targets_gt_wo_nan = targets_gt.where(~targets_gt.isnan(),
+                                             torch.zeros_like(targets_gt))
 
         state = self.get_init_state(batch, state_init)
 
         obs = self.get_obs_state(batch)
-        new_masks =  inputs_Mask
+        new_masks = inputs_mask
 
         # gradient norm field
-        g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
+        g_targets_gt_x, g_targets_gt_y = self.gradient_img(targets_gt)
 
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
             state = torch.autograd.Variable(state, requires_grad=True)
-            outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
+            outputs, hidden_new, cell_new, normgrad = self.model(
+                state, obs, new_masks, *state_init[1:])
 
-            if (phase == 'val') or (phase == 'test'):
+            if phase in ('val', 'test'):
                 outputs = outputs.detach()
 
-            loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
-            loss_AE = self.loss_ae(outputs)
+            loss_all, loss_gall = self.sla_loss(outputs, targets_gt_wo_nan)
+            loss_ae = self.loss_ae(outputs)
 
             # total loss
-            loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
-            loss += 0.5 * self.hparams.alpha_proj * loss_AE
+            loss = self.hparams.alpha_mse_ssh * loss_all + self.hparams.alpha_mse_gssh * loss_gall
+            loss += 0.5 * self.hparams.alpha_proj * loss_ae
 
             # metrics
-            # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
-            mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(
-                    torch.hypot(g_targets_GT_x, g_targets_GT_y) , self.grad_crop(self.patch_weight))
-            mse = loss_All.detach()
-            mseGrad = loss_GAll.detach()
-            metrics = dict([
+            # mean_gall = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_gt, self.w_loss)
+            mean_gall = NN_4DVar.compute_spatio_temp_weighted_loss(
+                torch.hypot(g_targets_gt_x, g_targets_gt_y),
+                self.grad_crop(self.patch_weight))
+            mse = loss_all.detach()
+            mse_grad = loss_gall.detach()
+            metrics_dict = dict([
                 ('mse', mse),
-                ('mseGrad', mseGrad),
-                ('meanGrad', mean_GAll),
-                ])
+                ('mseGrad', mse_grad),
+                ('meanGrad', mean_gall),
+            ])
 
-        return loss, outputs, [outputs, hidden_new, cell_new, normgrad], metrics
+        return loss, outputs, [outputs, hidden_new, cell_new,
+                               normgrad], metrics_dict
