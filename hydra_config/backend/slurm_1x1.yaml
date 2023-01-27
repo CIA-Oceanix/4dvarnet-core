@@ -5,7 +5,7 @@ hydra:
     constraint: v100-32g
     nodes: 1
     additional_parameters:
-      account: yrf@gpu
+      account: bbg@gpu
       gres: gpu:1
       ntasks_per_node: 1
       time: '20:00:00'
