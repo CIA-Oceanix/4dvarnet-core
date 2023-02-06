@@ -6,14 +6,17 @@ from hydra.utils import call
 import numpy as np
 import torch
 import solver as NN_4DVar
-from metrics import psd_based_scores, plot_maps_oi, rmse_based_scores, plot_psd_score
+from metrics import psd_based_scores, rmse_based_scores, plot_psd_score
 from models import Model_H, Phi_r_OI
 
-from lit_model_augstate import LitModelAugstate
+from lit_model_augstate import LitModelAugstate, get_phi
 
 
 def get_4dvarnet_oi(hparams):
-    """ Retrieve the 4dvarnet model adapted for experiences without the OI in the initialisation """
+    """
+        Retrieve the 4dvarnet model adapted for experiences
+        without the OI in the initialisation
+    """
     return NN_4DVar.Solver_Grad_4DVarNN(
         Phi_r_OI(hparams.shape_state[0], hparams.DimAE, hparams.dW,
                  hparams.dW2, hparams.sS, hparams.nbBlocks,
@@ -30,34 +33,8 @@ def get_4dvarnet_oi(hparams):
 class LitModelOI(LitModelAugstate):
     MODELS = {
         '4dvarnet_OI': get_4dvarnet_oi,
+        'phi': get_phi,
     }
-
-    # TODO: fix bug
-    # def __init__(self,
-    # hparam=None,
-    # min_lon=None,
-    # max_lon=None,
-    # min_lat=None,
-    # max_lat=None,
-    # ds_size_time=None,
-    # ds_size_lon=None,
-    # ds_size_lat=None,
-    # time=None,
-    # dX=None,
-    # dY=None,
-    # swX=None,
-    # swY=None,
-    # coord_ext=None,
-    # test_domain=None,
-    # *args,
-    # **kwargs):
-    # LitModelAugstate.__init__(self, hparam, min_lon, max_lon, min_lat,
-    # max_lat, ds_size_time, ds_size_lon,
-    # ds_size_lat, time, dX, dY, swX, swY,
-    # coord_ext, test_domain, args, kwargs)
-    # print(f'{hparam=}')
-    # self.test_xr_ds = None
-    # self.x_rec_ssh = None
 
     def configure_optimizers(self):
         opt = torch.optim.Adam
@@ -82,6 +59,8 @@ class LitModelOI(LitModelAugstate):
                     'lr': 0.5 * self.hparams.lr_update[0]
                 },
             ])
+        else:
+            optimizer = opt(self.parameters(), lr=1e-4)
 
         return optimizer
 
@@ -113,26 +92,26 @@ class LitModelOI(LitModelAugstate):
 
     def sla_diag(self, t_idx=3, log_pref='test'):
 
-        path_save0 = self.logger.log_dir + '/maps.png'
-        fig_maps = plot_maps_oi(self.x_gt[t_idx], self.obs_inp[t_idx],
-                                self.x_rec[t_idx], self.test_lon,
-                                self.test_lat, path_save0)
-        path_save01 = self.logger.log_dir + '/maps_Grad.png'
-        fig_maps_grad = plot_maps_oi(self.x_gt[t_idx],
-                                     self.obs_inp[t_idx],
-                                     self.x_rec[t_idx],
-                                     self.test_lon,
-                                     self.test_lat,
-                                     path_save01,
-                                     grad=True)
-        self.test_figs['maps'] = fig_maps
-        self.test_figs['maps_grad'] = fig_maps_grad
-        self.logger.experiment.add_figure(f'{log_pref} Maps',
-                                          fig_maps,
-                                          global_step=self.current_epoch)
-        self.logger.experiment.add_figure(f'{log_pref} Maps Grad',
-                                          fig_maps_grad,
-                                          global_step=self.current_epoch)
+        # path_save0 = self.logger.log_dir + '/maps.png'
+        # fig_maps = plot_maps_oi(self.x_gt[t_idx], self.obs_inp[t_idx],
+        #                         self.x_rec[t_idx], self.test_lon,
+        #                         self.test_lat, path_save0)
+        # path_save01 = self.logger.log_dir + '/maps_Grad.png'
+        # fig_maps_grad = plot_maps_oi(self.x_gt[t_idx],
+        #                              self.obs_inp[t_idx],
+        #                              self.x_rec[t_idx],
+        #                              self.test_lon,
+        #                              self.test_lat,
+        #                              path_save01,
+        #                              grad=True)
+        # self.test_figs['maps'] = fig_maps
+        # self.test_figs['maps_grad'] = fig_maps_grad
+        # self.logger.experiment.add_figure(f'{log_pref} Maps',
+        #                                   fig_maps,
+        #                                   global_step=self.current_epoch)
+        # self.logger.experiment.add_figure(f'{log_pref} Maps Grad',
+        #                                   fig_maps_grad,
+        #                                   global_step=self.current_epoch)
 
         psd_ds, lamb_x, lamb_t = psd_based_scores(self.test_xr_ds.pred,
                                                   self.test_xr_ds.gt)

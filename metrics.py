@@ -1,28 +1,15 @@
 import logging
 from matplotlib.ticker import ScalarFormatter
-import datetime
 import einops
 import numpy as np
 import xarray as xr
 import matplotlib
-import os
 
 matplotlib.use('Agg')  # Must be before importing matplotlib.pyplot or pylab!
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib import cm, colors
-from matplotlib.ticker import LinearLocator, FormatStrFormatter
-import pandas as pd
-import shapely
-from shapely import wkt
-#import geopandas as gpd
-import cartopy
-from os.path import expanduser
-#cartopy.config['pre_existing_data_dir'] = expanduser('/gpfswork/rech/yrf/uba22to/4dvarnet-core/shapefiles/natural_earth/physical')
-#cartopy.config['data_dir'] = '/gpfswork/rech/yrf/uba22to/4dvarnet-core/shapefiles/natural_earth/physical'
+from matplotlib import colors
 from cartopy import crs as ccrs
 import cartopy.feature as cfeature
-from cartopy.io.shapereader import Reader
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 import cv2
 import matplotlib.animation as animation
@@ -186,13 +173,24 @@ def plot(ax,
          orientation="horizontal"):
     ax.set_extent(list(extent))
     if gridded:
-        im=ax.pcolormesh(lon, lat, data, cmap=cmap, \
-                          norm=norm, edgecolors='face', alpha=1, \
-                          transform=ccrs.PlateCarree(central_longitude=0.0))
+        im = ax.pcolormesh(lon,
+                           lat,
+                           data,
+                           cmap=cmap,
+                           norm=norm,
+                           edgecolors='face',
+                           alpha=1,
+                           transform=ccrs.PlateCarree(central_longitude=0.0))
     else:
-        im=ax.scatter(lon, lat, c=data, cmap=cmap, s=1, \
-                       norm=norm, edgecolors='face', alpha=1, \
-                       transform=ccrs.PlateCarree(central_longitude=0.0))
+        im = ax.scatter(lon,
+                        lat,
+                        c=data,
+                        cmap=cmap,
+                        s=1,
+                        norm=norm,
+                        edgecolors='face',
+                        alpha=1,
+                        transform=ccrs.PlateCarree(central_longitude=0.0))
     #  im.set_clim(vmin,vmax)
     if colorbar:
         clb = plt.colorbar(im,
@@ -265,7 +263,7 @@ def plot_maps(gt,
 
     if orthographic:
         crs = ccrs.Orthographic(central_lon, central_lat)
-        #crs = ccrs.Orthographic(-30,45)
+        # crs = ccrs.Orthographic(-30,45)
     else:
         crs = ccrs.PlateCarree(central_longitude=central_lon)
 
@@ -461,11 +459,9 @@ def plot_maps_oi(gt,
         np.min(lat) - 1,
         np.max(lat) + 1
     ]
-    central_lon = np.mean(extent[:2])
-    central_lat = np.mean(extent[2:])
 
     if orthographic:
-        #crs = ccrs.Orthographic(central_lon,central_lat)
+        # crs = ccrs.Orthographic(central_lon,central_lat)
         crs = ccrs.Orthographic(-30, 45)
     else:
         crs = ccrs.PlateCarree(central_longitude=0.0)
@@ -621,7 +617,7 @@ def animate_maps(gt,
             ax2.clear()
             ax3.clear()
             ax4.clear()
-            if grad == False:
+            if not grad:
                 plot(ax1,
                      lon,
                      lat,
@@ -699,7 +695,7 @@ def animate_maps(gt,
             ax1.clear()
             ax2.clear()
             ax3.clear()
-            if grad == False:
+            if not grad:
                 plot(ax1,
                      lon,
                      lat,
@@ -728,7 +724,7 @@ def animate_maps(gt,
                      norm=norm,
                      colorbar=False)
             else:
-                #plot(ax1, lon, lat, gradient(obs[i], 2), r"$\nabla_{OBS}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
+                # plot(ax1, lon, lat, gradient(obs[i], 2), r"$\nabla_{OBS}$", extent=extent, cmap=cm, norm=norm, colorbar=False)
                 plot(ax1,
                      lon,
                      lat,
@@ -762,7 +758,7 @@ def animate_maps(gt,
     gs.update(wspace=0.1)
     if orthographic:
         crs = ccrs.Orthographic(central_lon, central_lat)
-        #crs = ccrs.Orthographic(-30,45)
+        # crs = ccrs.Orthographic(-30,45)
     else:
         crs = ccrs.PlateCarree(central_longitude=central_lon)
     if supervised:
@@ -825,7 +821,7 @@ def plot_ensemble(pred, lon, lat, resfile, crop=None, orthographic=True):
 
     if orthographic:
         crs = ccrs.Orthographic(central_lon, central_lat)
-        #crs = ccrs.Orthographic(-30,45)
+        # crs = ccrs.Orthographic(-30,45)
     else:
         crs = ccrs.PlateCarree(central_longitude=central_lon)
 
@@ -951,14 +947,19 @@ def save_netcdf(saved_path1,
     mesh_lon = mesh_lon.T
 
     dt = pred.shape[1]
-    xrdata = xr.Dataset( \
-        data_vars={'longitude': (('lat', 'lon'), mesh_lon), \
-                   'latitude': (('lat', 'lon'), mesh_lat), \
-                   'Time': (('time'), time), \
-                   'GT': (('time', 'lat', 'lon'), gt),
-                   'OI': (('time', 'lat', 'lon'), oi),
-                   '4DVarNet': (('time', 'lat', 'lon'), pred)}, \
-        coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred))})
+    xrdata = xr.Dataset(data_vars={
+        'longitude': (('lat', 'lon'), mesh_lon),
+        'latitude': (('lat', 'lon'), mesh_lat),
+        'Time': (('time'), time),
+        'GT': (('time', 'lat', 'lon'), gt),
+        'OI': (('time', 'lat', 'lon'), oi),
+        '4DVarNet': (('time', 'lat', 'lon'), pred)
+    },
+                        coords={
+                            'lon': lon,
+                            'lat': lat,
+                            'time': np.arange(len(pred))
+                        })
     xrdata.time.attrs['units'] = time_units
     xrdata.to_netcdf(path=saved_path1, mode='w')
 
@@ -1224,8 +1225,8 @@ def psd_based_scores(da_rec, da_ref):
 
 def plot_psd_score(ds):
     fig, ax = plt.subplots()
-    #ax.invert_yaxis()
-    #ax.invert_xaxis()
+    # ax.invert_yaxis()
+    # ax.invert_xaxis()
     c1 = plt.contourf(1. / (ds['freq_lon']),
                       1. / ds['freq_time'],
                       ds['psd_score'],
@@ -1237,8 +1238,8 @@ def plot_psd_score(ds):
                fontweight='bold',
                fontsize=20)
     plt.ylabel('temporal wavelenght (days)', fontweight='bold', fontsize=20)
-    #plt.xscale('log')
-    #plt.yscale('log')
+    # plt.xscale('log')
+    # plt.yscale('log')
     plt.grid(linestyle='--', lw=1, color='w')
     plt.xticks(fontsize=18)
     plt.yticks(fontsize=18)
