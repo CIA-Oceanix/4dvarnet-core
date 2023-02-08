@@ -29,7 +29,7 @@ def get_forecast_crop(patch_size, crop):
     return final_patch_weight
 
 
-def longest_accurate_pred(array, threshold=0.90):
+def accurate_pred(array, threshold=0.90):
     """
         Find the longest accurate prediction according to a threshold
         for each day of a validation period
@@ -113,12 +113,9 @@ class LitModelForecast(LitModelOI):
                 # print(pd.DataFrame([dict_nb_days]).T.to_markdown())
             rmse_t_list = np.array(rmse_t_list)
             rmse_t_list = rmse_t_list[3::, :]
-            values_days_90, count_days_90 = longest_accurate_pred(
-                rmse_t_list, 0.90)
-            values_days_75, count_days_75 = longest_accurate_pred(
-                rmse_t_list, 0.75)
-            values_days_50, count_days_50 = longest_accurate_pred(
-                rmse_t_list, 0.50)
+            values_days_90, count_days_90 = accurate_pred(rmse_t_list, 0.90)
+            values_days_75, count_days_75 = accurate_pred(rmse_t_list, 0.75)
+            values_days_50, count_days_50 = accurate_pred(rmse_t_list, 0.50)
             print(f'{values_days_90=}')
             print(f'{count_days_90=}')
             print(f'{values_days_75=}')
@@ -160,12 +157,14 @@ class LitModelForecast(LitModelOI):
         # For the test build a [number of days of predictions x time x dims]
         # to estimate metrics
         if log_pref == 'test':
+            dims = full_outputs[0][0]['gt'].shape
+            dim_lat, dim_lon = dims[2:4]
             self.test_xr_ds_list = []
             for i in range(-3, 4):
                 small_patch_weight = np.concatenate(
-                    (np.zeros((self.hparams.dT // 2 + i, 240, 240)),
-                     np.ones((1, 240, 240)),
-                     np.zeros((self.hparams.dT // 2 - i, 240, 240))),
+                    (np.zeros((self.hparams.dT // 2 + i, dim_lat, dim_lon)),
+                     np.ones((1, dim_lat, dim_lon)),
+                     np.zeros((self.hparams.dT // 2 - i, dim_lat, dim_lon))),
                     axis=0)
                 outputs_reduced = deepcopy(full_outputs)
                 for gpu_rank in range(len(full_outputs)):

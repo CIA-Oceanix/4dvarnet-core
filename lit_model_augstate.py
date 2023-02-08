@@ -14,7 +14,8 @@ from torch import optim
 from omegaconf import OmegaConf
 import solver as NN_4DVar
 import metrics
-from metrics import plot_nrmse, plot_snr, plot_maps, animate_maps, get_psd_score
+from metrics import plot_nrmse, plot_snr, plot_maps, animate_maps, \
+        get_psd_score
 from models import Model_H, Model_HwithSST, Phi_r, ModelLR
 
 
