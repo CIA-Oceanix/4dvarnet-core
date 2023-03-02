@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: xp_turbidity_rf1_dt29_direct
+xp_name: xp_turbidity_rf1_dt29_direct_dimAE50
 
 params:
   model: 4dvarnet_OI
