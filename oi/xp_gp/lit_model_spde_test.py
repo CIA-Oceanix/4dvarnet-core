@@ -44,6 +44,17 @@ class LitModel(pl.LightningModule):
 
         self.spde_type = self.hparams.spde_type
         self.pow = hparam.pow
+        self.n_freq = 1
+        N = np.arange(1,self.n_freq+1)
+        Z = np.arange(-1*(self.n_freq),(self.n_freq+1))
+        # {0}*N
+        zero = np.array([0])
+        zero_N = np.array(np.meshgrid(0,N)).T.reshape(-1, 2)
+        # N*Z
+        N_Z = np.array(np.meshgrid(N,Z)).T.reshape(-1, 2)
+        self.kl = np.vstack((zero_N,N_Z))
+        self.n_params = (self.kl.shape[0]*4)+2+2 # + zero frequencies + gamma + beta
+
         # use OI or for metrics or not
         self.use_oi = self.hparams.oi if hasattr(self.hparams, 'oi') else False
 
@@ -55,8 +66,14 @@ class LitModel(pl.LightningModule):
                       #given_parameters=True,
                       nc=xr.open_dataset(hparam.files_cfg.spde_params_path)),
                 Model_H(self.shapeData[0]),
-                NN_4DVar.model_GradUpdateLSTM(self.shapeData, self.hparams.UsePriodicBoundary,
-                                          self.hparams.dim_grad_solver, self.hparams.dropout, self.hparams.stochastic),
+                NN_4DVar.model_GradUpdateLSTM([self.hparams.dT,self.Ny,self.Nx],
+                                               self.hparams.UsePriodicBoundary,
+                                               self.hparams.dim_grad_solver,
+                                               self.hparams.dropout, self.hparams.stochastic),
+                NN_4DVar.model_GradUpdateLSTM([self.n_params],
+                                               self.hparams.UsePriodicBoundary,
+                                               self.hparams.dim_grad_solver,
+                                               self.hparams.dropout, self.hparams.stochastic),
                 None, None, self.shapeData, self.hparams.n_grad, self.hparams.stochastic)
 
         self.model_LR = ModelLR()
@@ -103,9 +120,9 @@ class LitModel(pl.LightningModule):
 
     def configure_optimizers(self):
 
-        optimizer = optim.Adam([#{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
-                                #{'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
-                                {'params': self.model.phi_r.encoder.parameters(), 'lr': self.hparams.lr_update[0]}
+        optimizer = optim.SGD([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                                {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                                #{'params': self.model.phi_r.encoder.parameters(), 'lr': self.hparams.lr_update[0]}
                                 ])
 
         #optimizer = FullBatchLBFGS(self.model.parameters())
@@ -329,47 +346,43 @@ class LitModel(pl.LightningModule):
         new_mask = torch.cat((1. + 0. * inputs_mask, inputs_mask), dim=1)
         targets_gt_wo_nan = targets_gt.where(~targets_gt.isnan(), torch.zeros_like(targets_gt))
         targets_mask = torch.where(targets_gt!=0.)
-        inputs_init = inputs_obs
-        inputs_missing = inputs_obs
+        state_init = inputs_obs
 
-        inputs_init = targets_gt
-        inputs_missing = targets_gt
+        state_init = targets_gt
+        inputs_obs = targets_gt
         inputs_mask =  torch.ones_like(targets_gt)
+
+        n_b = inputs_obs.shape[0]
+        n_x = inputs_obs.shape[3]
+        n_y = inputs_obs.shape[2]
+        nb_nodes = n_x*n_y
+        n_t = inputs_obs.shape[1]
+        dx = 1
+        dy = 1
+        dt = 1
+
+        # augmented state with parameters
+        coeff_fourier_init = torch.ones((n_b,self.n_params)).to(device)
 
         # gradient norm field
         g_targets_gt = self.gradient_img(targets_gt)
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         #with torch.set_grad_enabled(True), torch.autograd.detect_anomaly():
         with torch.set_grad_enabled(True):
-            inputs_init = torch.autograd.Variable(inputs_init, requires_grad=True)
-            '''
+            state_init = torch.autograd.Variable(state_init, requires_grad=True)
+            coeff_fourier_init = torch.autograd.Variable(coeff_fourier_init, requires_grad=True)
             outputs, cmp_loss, hidden_new, cell_new, normgrad, params = self.model(targets_gt,
-                                                                         inputs_init,
-                                                                         inputs_missing,
+                                                                         state_init,
+                                                                         coeff_fourier_init,
+                                                                         inputs_obs,
                                                                          inputs_mask,
                                                                          targets_oi,
                                                                          estim_parameters=True)
             #outputs, params = self.model(inputs_init, inputs_missing, inputs_mask,.33,None,None)
-            '''
-            outputs = targets_gt
-            params = self.model.phi_r.encoder(outputs)
-            H = self.model.phi_r.decoder(params)
 
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
 
-            n_b = outputs.shape[0]
-            cmp_loss = torch.hstack([torch.ones(n_b,1), torch.ones(n_b,1) ])
-            n_x = outputs.shape[3]
-            n_y = outputs.shape[2]
-            H = torch.reshape(H,(n_b,2,2,n_x,n_y))
-            params = [.33,None,H,1.]
-
-            nb_nodes = n_x*n_y
-            n_t = outputs.shape[1]
-            dx = 1
-            dy = 1
-            dt = 1
             H = torch.reshape(params[2],(len(outputs),2,2,n_x*n_y))
             m = None
             kappa = 1./3
@@ -402,7 +415,9 @@ class LitModel(pl.LightningModule):
                 inputs_missing_simu = inputs_init_simu
                 x_itrp_simu,_ , _ ,_ ,_ ,_ = self.model(targets_gt,
                                                         inputs_init_simu,
-                                                        inputs_missing_simu, inputs_mask,
+                                                        coeff_fourier_init,
+                                                        inputs_missing_simu,
+                                                        inputs_mask,
                                                         targets_oi,
                                                         estim_parameters=False)
                 # conditional simulation
@@ -431,7 +446,7 @@ class LitModel(pl.LightningModule):
             loss_GAll = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_gt, self.w_loss)
 
             # OI loss
-            dy = self.model.model_H(outputs,inputs_missing,inputs_mask)
+            dy = self.model.model_H(outputs,inputs_obs,inputs_mask)
             dy_new=list()
             for i in range(n_b):
                 # observation term
@@ -479,9 +494,6 @@ class LitModel(pl.LightningModule):
                                            )\
                                           )
                         log_det += log_det_block
-                    #print(log_det*1e-4)
-                    #print(np.linalg.slogdet(Q[i].detach().cpu().to_dense().numpy()))
-                    #print('end')
                     det_Q.append(log_det)
                 # Mahanalobis distance
                 MD = list()
@@ -542,15 +554,14 @@ class LitModel(pl.LightningModule):
                                         torch.unsqueeze(gamma,dim=1).expand(n_b,n_x*n_y))+\
                                         torch.einsum('b,bijk->bijk',beta,torch.einsum('bki,bjk->bijk',vxy,vxyT))
                 H = torch.reshape(H,(n_b,2,2,n_x,n_y)).to(device)
-                H11_gt = H[:,0,0,:,:]
+                H11_gt = H[:,1,1,:,:]
                 H12_gt = H[:,0,1,:,:]
-                H22_gt = H[:,1,1,:,:]
+                H22_gt = H[:,0,0,:,:]
                 loss_H11 = torch.nanmean((H11_gt-H11_predict)**2)
                 loss_H12 = torch.nanmean((H12_gt-H12_predict)**2)
                 loss_H22 = torch.nanmean((H22_gt-H22_predict)**2)
                 loss = loss_H11+loss_H22+loss_H12
-                loss = loss_H22+loss_H12
-                loss = loss_H11+loss_H22
+                loss = loss_H12
 
             if self.loss_type=="mseoi_loss":
                 loss = loss_mseoi

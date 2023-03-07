@@ -1,14 +1,14 @@
 import einops
 import xarray as xr
 import numpy as np
-import functorch
+#import functorch
 import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
 from omegaconf import OmegaConf
 from scipy import stats
-import oi.xp_gp.solver_spde as NN_4DVar
+import oi.xp_gp.solver_spde2x as NN_4DVar
 from oi.sqrtm import *
 from oi.spde import *
 from oi.scipy_sparse_tools import *
@@ -189,10 +189,10 @@ class decode_param_CNN_diff_Fourier(torch.nn.Module):
 
         gamma = params[:,0]
         beta = params[:,1]
-        gamma = torch.ones_like(gamma)
-        beta = 25*torch.ones_like(beta)
-        gamma.requires_grad=True
-        beta.requires_grad=True
+        #gamma = torch.ones_like(gamma)
+        #beta = 25*torch.ones_like(beta)
+        #gamma.requires_grad=True
+        #beta.requires_grad=True
         pi = torch.acos(torch.zeros(1)).item() * 2
             
         # init v_x and v_y
@@ -281,7 +281,6 @@ class Prior_SPDE(torch.nn.Module):
             block_diag=list()
                  
         for batch in range(n_b):
-
             # Build model evolution and noise effects operator
             inv_M = list() # linear model evolution matrix (inverse)
             inv_S = list() # T*Tt with T the noise effect matrix (inverse) 
@@ -443,8 +442,6 @@ class Prior_SPDE(torch.nn.Module):
             #op = torch.stack(op)
             if store_block_diag==False:
                 return op
-            else:
-                return op, block_diag
         else:
             if store_block_diag==False:
                 return Q
@@ -452,6 +449,91 @@ class Prior_SPDE(torch.nn.Module):
                 return Q, block_diag
 
 class Phi_r(torch.nn.Module):
+
+    def __init__(self, shape_data, pow=1, spde_type="diff",
+                 square_root=False,
+                 given_parameters=False, nc="spde_path.nc"):
+        super().__init__()
+        self.spde_type = spde_type
+        self.pow = pow
+        self.encoder = encode_param_CNN_diff_Fourier(shape_data,10,1)
+        self.decoder = decode_param_CNN_diff_Fourier(shape_data,1)
+        self.operator_spde = Prior_SPDE(shape_data,pow=self.pow,spde_type=self.spde_type)
+        self.square_root = square_root
+        self.given_parameters = given_parameters
+        self.nb_nodes = np.prod(shape_data[1:])
+        if self.given_parameters==True:
+            # SPDE diffusion parameters
+            H = torch.empty((2,2,self.nb_nodes),requires_grad=False).to(device)
+            H11 = torch.reshape(torch.Tensor(nc.H11.values),(self.nb_nodes,)).to(device)
+            H12 = torch.reshape(torch.Tensor(nc.H12.values),(self.nb_nodes,)).to(device)
+            H22 = torch.reshape(torch.Tensor(nc.H22.values),(self.nb_nodes,)).to(device)
+            H[0,0,:] = H22
+            H[0,1,:] = H12
+            H[1,0,:] = H12
+            H[1,1,:] = H11
+
+            self.params = [1./3, None, H]
+            self.Q = self.operator_spde(.33,None,torch.unsqueeze(H,dim=0),1.,
+                                        square_root=self.square_root)[0]
+
+    def forward(self, state, estim_params=True):
+        # augmented state [x,params], i.e. (#b,#t+#params,#y,#x)
+        x = state[0]
+        n_b, n_t, n_y, n_x = x.shape
+        coeff_theta = state[1]
+        H = self.decoder(coeff_theta)
+        # state space -> parameter space
+        if self.given_parameters==False:
+            kappa = .33
+            tau = 1.
+            m = None
+            '''
+            H = torch.empty((n_b,2,2,self.nb_nodes),requires_grad=False).to(device)
+            H[:,0,0,:] = torch.reshape(params[:,2,:],(n_b,self.nb_nodes))
+            H[:,0,1,:] = torch.reshape(params[:,1,:],(n_b,self.nb_nodes))
+            H[:,1,0,:] = torch.reshape(params[:,1,:],(n_b,self.nb_nodes))
+            H[:,1,1,:] = torch.reshape(params[:,0,:],(n_b,self.nb_nodes))
+            '''
+        else:
+            kappa = .33
+            m = None
+            H = torch.stack(n_b*[self.params[2]])
+            tau = 1.
+
+        # SPDE prior (sparse Q)
+        if self.given_parameters==False:
+            Q = self.operator_spde(kappa, m, H, tau, square_root=self.square_root)
+        #else:
+        #    Q = torch.stack(n_b*[self.Q])
+        x_new = list()
+        for i in range(n_b):
+            if self.given_parameters==False:
+                Q_ = Q[i]
+            else:
+                Q_ = self.Q
+            if self.square_root==True:
+                x_ = torch.matmul(Q_,
+                                 torch.reshape(torch.permute(x[i],(0,2,1)),
+                                               (n_t*n_x*n_y,1)))
+            else:
+                x_ = sp_mm(Q_,torch.reshape(torch.permute(x[i],(0,2,1)),
+                                            (n_t*n_x*n_y,1)))
+            if self.square_root==False:
+                x_ = torch.matmul(torch.reshape(torch.permute(x[i],(0,2,1)),
+                                               (1,n_t*n_x*n_y)),x_)
+                x_new.append(x_[0,0])
+            else:
+                x_new.append(torch.permute(torch.reshape(x_,(n_t,n_x,n_y)),(0,2,1)))
+        x = torch.stack(x_new)
+        if self.given_parameters==False:
+            H = torch.reshape(H,(n_b,2,2,n_x,n_y))
+        else:
+            H = torch.stack(n_b*[self.params[2]])
+            H = torch.reshape(H,(n_b,2,2,n_x,n_y))
+        return x, [kappa,m,H,tau]
+
+class Phi_r_state_dependent(torch.nn.Module):
 
     def __init__(self, shape_data, pow=1, spde_type="diff",
                  square_root=False,

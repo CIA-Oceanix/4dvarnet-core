@@ -49,7 +49,7 @@ datamodule:
   _target_: dataloading.FourDVarNetDataModule
   slice_win: ??? # dl
   strides: ???
-  predict_slices: ??? # splits
+  #predict_slices: ??? # splits
   analog_slices: ???
   oi_path: ${params.files_cfg.oi_path}
   oi_var: ${params.files_cfg.oi_var}

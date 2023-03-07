@@ -173,7 +173,7 @@ class LitModelAugstate(pl.LightningModule):
         metrics = []
         state_init = [None]
         out=None
-        for _ in range(self.hparams.n_fourdvar_iter):
+        for i in range(self.hparams.n_fourdvar_iter):
             _loss, out, state, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
             state_init = [None if s is None else s.detach() for s in state]
             losses.append(_loss)
@@ -188,7 +188,7 @@ class LitModelAugstate(pl.LightningModule):
             optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
-                {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                #{'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                 ])
 
             return optimizer
@@ -197,7 +197,7 @@ class LitModelAugstate(pl.LightningModule):
             optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
-                                {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                                #{'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                                 ])
 
             return optimizer
@@ -308,7 +308,6 @@ class LitModelAugstate(pl.LightningModule):
         print(f'epoch end {self.global_rank} {len(outputs)}')
         if (self.current_epoch + 1) % self.hparams.val_diag_freq == 0:
             return self.diag_epoch_end(outputs, log_pref='val')
-
 
     def gather_outputs(self, outputs, log_pref):
         data_path = Path(f'{self.logger.log_dir}/{log_pref}_data')
@@ -651,28 +650,27 @@ class LitModelAugstate(pl.LightningModule):
                 yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
             )
 
-
             # total loss
             if self.hparams.supervised==True:
                 loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
                 loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
                 loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
-                        # unsupervised loss
             else:
-                # MSE
-                mask = (targets_GT_wo_nan!=0.)
-                iT = int(self.hparams.dT / 2)
-                new_tensor = torch.masked_select(outputs[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(targets_GT[:,iT,:,:],mask[:,iT,:,:])
-                loss = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
-                # GradMSE
-                '''
-                mask = (self.gradient_img(targets_GT_wo_nan)!=0.)
-                iT = int(self.hparams.dT / 2)
-                new_tensor = torch.masked_select(self.gradient_img(outputs)[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(self.gradient_img(targets_GT)[:,iT,:,:],mask[:,iT,:,:])
-                loss_Grad = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
-                '''
-                loss_Grad = 0.
-                loss = self.hparams.alpha_mse_ssh * loss  + self.hparams.alpha_mse_gssh *loss_Grad + 0.5 * self.hparams.alpha_proj * loss_AE + self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
+                self.type_loss_supervised = self.hparams.type_loss_supervised if hasattr(self.hparams, 'type_loss_supervised') else 'var_cost'
+                if self.type_loss_supervised == "loss_on_track":
+                    # MSE
+                    mask = (targets_GT_wo_nan!=0.)
+                    iT = int(self.hparams.dT / 2)
+                    new_tensor = torch.masked_select(outputs[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(targets_GT[:,iT,:,:],mask[:,iT,:,:])
+                    loss = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
+                    loss = 10*loss  + 0.5 * self.hparams.alpha_proj * loss_AE
+                else:
+                    dy = self.model.model_H(outputsSLRHR,obs,new_masks)
+                    dx = outputsSLRHR - self.model.phi_r(outputsSLRHR)
+                    loss = self.model.model_VarCost(dx,dy)
+                    loss_LR = NN_4DVar.compute_spatio_temp_weighted_loss(self.model_LR(outputs)-self.model_LR(targets_OI),
+                                                                         self.model_LR(self.patch_weight))
+                    loss += 10*loss_LR
 
             # metrics
             # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)

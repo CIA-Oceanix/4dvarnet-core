@@ -249,7 +249,7 @@ class Solver_Grad_4DVarNN(nn.Module):
 
     def var_cost(self, w, x, yobs, mask):
         # In the 4DEnVar approach,
-        # L(w) = l1||y-F(xbar-wXf)|| + l2||w||
+        # L(w) = l1||y-H(xbar-wXf)|| + l2||w||
         # x has dim Nb*Nt*Nx*Ny*Ns
         batch_size = x.size()[0]
         # ensemble mean
@@ -263,5 +263,5 @@ class Solver_Grad_4DVarNN(nn.Module):
         # observation term
         dy = self.model_H(xstar,yobs,mask)
         loss = self.model_VarCost(w, dy)
-        var_cost_grad = torch.autograd.grad(loss, w, create_graph=True)[0]
+        var_cost_grad = torch.autograd.grad(loss, inputs = [w, x], create_graph=True)[0]
         return loss, var_cost_grad

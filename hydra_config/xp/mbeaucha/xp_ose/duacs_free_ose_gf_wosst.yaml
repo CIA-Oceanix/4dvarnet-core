@@ -36,14 +36,22 @@ params:
     - ${datamodule.slice_win.time}
     - ${datamodule.slice_win.lon}
     - ${datamodule.slice_win.lat}
-  type_loss_supervised: var_cost
+  #type_loss_supervised: var_cost
+  type_loss_supervised: loss_on_track
 
 lit_mod_cls: ose.lit_model_OI.LitModelOI
 datamodule:
+  rmv_patches: True
   resize_factor: 1
-  #train_slices:
-  #  - _target_: builtins.slice
-  #    _args_: ['2016-12-29', '2017-06-01']
+  train_slices:
+    - _target_: builtins.slice
+#      _args_: ['2016-12-29', '2017-02-21']
+      _args_: ['2017-03-29', '2017-05-21']
+  test_slices:
+    - _target_: builtins.slice
+#      _args_: ['2016-12-29', '2017-02-21']
+      _args_: ['2017-03-29', '2017-05-21']
+
 
 defaults:
   - /xp/base_xp

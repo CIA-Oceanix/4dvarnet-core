@@ -441,7 +441,7 @@ class FourDVarNetDataset(Dataset):
         X = np.nan_to_num(self.binning.variable('mean').flatten().reshape(1, -1))
         self.binning.clear()
         # create query (get item)
-        dist_knn, index_knn = self.tree.query(X, k=100)
+        dist_knn, index_knn = self.tree.query(X, k=150)
         # retrieve the analogs
         _analog_item = np.stack( [ pp(self.analog_ds[item]) for item in index_knn[0] ], axis=0)
         #_analog_item = np.stack( [ pp(self.analog_ds[item]) for item in np.random.randint(0,length_analog-1,50) ], axis=0)
@@ -463,23 +463,6 @@ class FourDVarNetDataset(Dataset):
         obs_item = np.where(~np.isnan(_obs_item), _obs_item, np.zeros_like(_obs_item))
 
         # remove patches from data
-        '''
-        supervised = False
-        if supervised==False:
-            n_patch = 10
-            s_patch = 10
-            for i in range(len(obs_item)):
-                posx = np.random.randint(s_patch,self.slice_win['lon']-s_patch,n_patch)
-                posy = np.random.randint(s_patch,self.slice_win['lat']-s_patch,n_patch)
-                ix = np.stack([np.arange(posx[ipatch]-s_patch,posx[ipatch]+s_patch+1) for ipatch in range(n_patch)])
-                iy = np.stack([np.arange(posy[ipatch]-s_patch,posy[ipatch]+s_patch+1) for ipatch in range(n_patch)])
-                ix, iy = np.transpose(np.stack([np.meshgrid(ix[ipatch],iy[ipatch]) for ipatch in range(n_patch)]),
-                                      (1,0,2,3))
-                gt_item[i,ix,iy] = 0.
-                obs_item[i,~ix,~iy] = 0.
-                obs_mask_item[i,~ix,~iy] = 0.
-        '''
-
         if self.sst_ds == None:
             return oi_item, obs_mask_item, obs_item, gt_item, analog_item
         else:
@@ -494,7 +477,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             slice_win,
             dim_range=None,
             strides=None,
-            predict_slices= (slice('2012-10-01', "2012-11-20"), slice('2013-02-07', "2013-09-30")),
+            test_slices= (slice('2012-10-01', "2012-11-20"), slice('2013-02-07', "2013-09-30")),
             analog_slices= (slice('2013-01-03', "2013-01-27"),),
             oi_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc',
             oi_var='ssh_mod',
@@ -553,8 +536,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.compute = compute
         self.use_auto_padding = use_auto_padding
 
-        self.predict_slices, self.analog_slices =  predict_slices, analog_slices
-        self.predict = None, None
+        self.test_slices, self.analog_slices =  test_slices, analog_slices
+        self.test = None, None
         self.norm_stats = (0, 1)
         self.norm_stats_sst = None
 
@@ -612,20 +595,20 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         return min_lon, max_lon, min_lat, max_lat
 
     def coordXY(self):
-        return self.predict_ds.datasets[0].coordXY()
+        return self.test_ds.datasets[0].coordXY()
 
     def get_padded_coords(self):
-        return self.predict_ds.datasets[0].gt_ds.padded_coords
+        return self.test_ds.datasets[0].gt_ds.padded_coords
 
     def get_original_coords(self):
-        return self.predict_ds.datasets[0].gt_ds.original_coords
+        return self.test_ds.datasets[0].gt_ds.original_coords
 
     def get_domain_split(self):
-        return self.predict_ds.datasets[0].gt_ds.ds_size
+        return self.test_ds.datasets[0].gt_ds.ds_size
 
     def setup(self, stage=None):
 
-        self.predict_ds = ConcatDataset(
+        self.test_ds = ConcatDataset(
                 [FourDVarNetDataset(
                     dim_range={**self.dim_range, **{'time': slices[0]}},
                     strides=self.strides,
@@ -652,17 +635,18 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     use_auto_padding=self.use_auto_padding,
                     pp=self.pp,
                 )
-                for slices in zip(self.predict_slices,self.analog_slices)
+                for slices in zip(self.test_slices,self.analog_slices)
              ])
 
         if self.sst_var is None:
-            self.norm_stats = self.compute_norm_stats(self.predict_ds)
-            self.set_norm_stats(self.predict_ds, self.norm_stats)
+            self.norm_stats = self.compute_norm_stats(self.test_ds)
+            self.set_norm_stats(self.test_ds, self.norm_stats)
         else:
-            self.norm_stats, self.norm_stats_sst = self.compute_norm_stats(self.predict_ds)
-            self.set_norm_stats(self.predict_ds, self.norm_stats, self.norm_stats_sst)
-        self.bounding_box = self.get_domain_bounds(self.predict_ds)
+            self.norm_stats, self.norm_stats_sst = self.compute_norm_stats(self.test_ds)
+            self.set_norm_stats(self.test_ds, self.norm_stats, self.norm_stats_sst)
+        self.bounding_box = self.get_domain_bounds(self.test_ds)
         self.ds_size = self.get_domain_split()
 
-    def predict_dataloader(self):
-        return DataLoader(self.predict_ds, **{**dict(shuffle=False), **self.dl_kwargs})
+    def test_dataloader(self):
+        return DataLoader(self.test_ds, **{**dict(shuffle=False), **self.dl_kwargs})
+

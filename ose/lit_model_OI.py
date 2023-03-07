@@ -18,7 +18,7 @@ from scipy import stats
 import ose.solver as NN_4DVar
 import metrics
 from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps_oi, animate_maps, get_psd_score
-from models import Model_H, Phi_r_OI, Gradient_img
+from models import Model_H, Model_HwithSST, Phi_r_OI, Gradient_img
 # additional import for OSE metrics
 from ose.src.mod_inout import *
 from ose.src.mod_interp import *
@@ -39,9 +39,19 @@ def get_4dvarnet_OI(hparams):
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
+def get_4dvarnet_OI_sst(hparams):
+    return NN_4DVar.Solver_Grad_4DVarNN(
+                Phi_r_OI(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+                Model_HwithSST(hparams.shape_state[0], dT=hparams.dT),
+                NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+                    hparams.dim_grad_solver, hparams.dropout),
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+
 class LitModelOI(LitModelAugstate):
     MODELS = {
             '4dvarnet_OI': get_4dvarnet_OI,
+            '4dvarnet_OI_sst': get_4dvarnet_OI_sst,
              }
 
     def __init__(self, *args, **kwargs):
@@ -62,8 +72,8 @@ class LitModelOI(LitModelAugstate):
          # spectral parameter
          # C2 parameter
          #self.c2_file = self.hparams.files_cfg.c2_path
-         #self.c2_file = "/gpfswork/rech/yrf/uba22to/4dvarnet-core/ose/eval_notebooks/inputs/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc"
-         self.c2_file = "/users/local/m19beauc/4dvarnet-core/ose/eval_notebooks/inputs/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc"
+         self.c2_file = "/gpfswork/rech/yrf/uba22to/4dvarnet-core/ose/eval_notebooks/inputs/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc"
+         #self.c2_file = "/users/local/m19beauc/4dvarnet-core/ose/eval_notebooks/inputs/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc"
          self.ds_alongtrack = read_l3_dataset(self.c2_file,
                                            lon_min=self.lon_min,
                                            lon_max=self.lon_max,
@@ -75,23 +85,25 @@ class LitModelOI(LitModelAugstate):
          self.c2_velocity = 6.77   # km/s
          self.c2_delta_x = self.c2_velocity * self.c2_delta_t
          self.c2_length_scale = 1000 # km
-         # duplicate the model 
-         self.model2 = copy.deepcopy(self.model)
 
     def configure_optimizers(self):
         opt = torch.optim.Adam
         if hasattr(self.hparams, 'opt'):
             opt = lambda p: hydra.utils.call(self.hparams.opt, p)
+
         if self.model_name == '4dvarnet_OI':
-            optimizer = opt([#{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
-                             #{'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
-                             #{'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
+            optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                             {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                             {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
                              #{'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
-                             {'params': self.model2.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
-                             {'params': self.model2.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
-                             {'params': self.model2.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
-                             {'params': self.model2.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                 ])
+        elif self.model_name == '4dvarnet_OI_sst':
+
+            optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                                {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                                {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
+                                {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                                ])
 
         return optimizer
 
@@ -100,21 +112,18 @@ class LitModelOI(LitModelAugstate):
         metrics = []
         state_init = [None]
         out=None
-        # 1. run the OSSE-based pretrained model
         for _ in range(self.hparams.n_fourdvar_iter):
-            _loss, out, state, _metrics = self.compute_loss(self.model,batch, phase='test', state_init=state_init)
+            _loss, out, state, _metrics = self.compute_loss(self.model,batch, phase=phase, state_init=state_init)
             state_init = [None if s is None else s.detach() for s in state]
-        state_init = [s.detach() for s in state]
-        # 2. train the new model2
-        #for _ in range(self.hparams.n_fourdvar_iter):
-        _loss, out, state, _metrics = self.compute_loss(self.model2,batch, phase=phase, state_init=state_init)
-        state_init = [s.detach() for s in state]
         losses.append(_loss)
         metrics.append(_metrics)
         return losses, out, metrics
 
     def diag_step(self, batch, batch_idx, log_pref='test'):
-        _, inputs_Mask, inputs_obs, targets_GT = batch
+        if not self.use_sst:
+            _, inputs_Mask, inputs_obs, targets_GT = batch
+        else:
+            _, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
         losses, out, metrics = self(batch, phase='test')
         loss = losses[-1]
         if loss is not None:
@@ -129,16 +138,16 @@ class LitModelOI(LitModelAugstate):
     def sla_diag(self, t_idx=3, log_pref='test'):
 
         path_save0 = self.logger.log_dir + '/maps.png'
-        t_idx = 3
+        t_idx = 2
         fig_maps = plot_maps_oi(
                   self.x_gt[t_idx],
-                self.obs_inp[t_idx],
+                  self.obs_inp[t_idx],
                   self.x_rec[t_idx],
                   self.test_lon, self.test_lat, path_save0)
         path_save01 = self.logger.log_dir + '/maps_Grad.png'
         fig_maps_grad = plot_maps_oi(
                   self.x_gt[t_idx],
-                self.obs_inp[t_idx],
+                  self.obs_inp[t_idx],
                   self.x_rec[t_idx],
                   self.test_lon, self.test_lat, path_save01, grad=True)
         self.test_figs['maps'] = fig_maps
@@ -241,6 +250,8 @@ class LitModelOI(LitModelAugstate):
                                     'λx (km)'])
         print("Summary of the leaderboard metrics:")
         print(Leaderboard)
+        path_metrics = self.logger.log_dir + f'/metrics.txt'
+        Leaderboard.to_csv(path_metrics, header=True, index=None, sep='\t')
 
         self.x_gt = self.test_xr_ds.gt.data
         self.obs_inp = self.test_xr_ds.obs_inp.data
@@ -261,14 +272,20 @@ class LitModelOI(LitModelAugstate):
         if state[0] is not None:
             return state[0]
 
-        _, inputs_Mask, inputs_obs, _ = batch
+        if not self.use_sst:
+            _, inputs_Mask, inputs_obs, _ = batch
+        else:
+            _, inputs_Mask, inputs_obs, _, _ = batch
 
         init_state = inputs_Mask * inputs_obs
         return init_state
 
     def compute_loss(self, model, batch, phase, state_init=(None,)):
 
-        _, inputs_Mask, inputs_obs, targets_GT = batch
+        if not self.use_sst:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
+        else:
+            targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
 
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:
@@ -283,12 +300,16 @@ class LitModelOI(LitModelAugstate):
                         ('meanGrad', 1.),
                         ])
                     )
+        obs = inputs_Mask * inputs_obs
+        new_masks =  inputs_Mask
+
+        if self.use_sst:
+            new_masks = [ new_masks, torch.ones_like(sst_gt) ]
+            obs = [ obs, sst_gt ]
+
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
 
         state = self.get_init_state(batch, state_init)
-
-        obs = inputs_Mask * inputs_obs
-        new_masks =  inputs_Mask
 
         # gradient norm field
         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
@@ -311,16 +332,30 @@ class LitModelOI(LitModelAugstate):
                 self.type_loss_supervised = self.hparams.type_loss_supervised if hasattr(self.hparams, 'type_loss_supervised') else 'var_cost'
                 if self.type_loss_supervised == "loss_on_track":
                     # MSE
-                    mask = (targets_GT_wo_nan!=0.)
-                    iT = int(self.hparams.dT / 2)
-                    new_tensor = torch.masked_select(outputs[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(targets_GT[:,iT,:,:],mask[:,iT,:,:])
-                    loss = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
-                    loss = self.hparams.alpha_mse_ssh * loss  + 0.5 * self.hparams.alpha_proj * loss_AE 
+                    itime = int(self.hparams.dT/2)
+                    gt = torch.where(obs==0,0.,targets_GT.double())
+                    pred_track = torch.where(obs==0,0.,outputs.double())
+                    mask = (obs!=0)
+                    pred_diff = torch.masked_select(pred_track[:,itime,:,:],mask[:,itime,:,:]) - torch.masked_select(gt[:,itime,:,:],mask[:,itime,:,:])
+                    loss = NN_4DVar.compute_WeightedLoss(pred_diff, torch.tensor(1.))
+                    # add spatial information
+                    grad_pred = kornia.filters.sobel(pred_track,3)
+                    grad_gt = kornia.filters.sobel(gt,3)
+                    laplacian_pred = kornia.filters.laplacian(pred_track,3)
+                    laplacian_gt = kornia.filters.laplacian(gt,3)
+                    grad_pred_diff = torch.masked_select(grad_pred[:,itime,:,:],mask[:,itime,:,:]) - torch.masked_select(grad_gt[:,itime,:,:],mask[:,itime,:,:])
+                    laplacian_pred_diff = torch.masked_select(laplacian_pred[:,itime,:,:],mask[:,itime,:,:]) - torch.masked_select(laplacian_gt[:,itime,:,:],mask[:,itime,:,:])
+                    loss_grad = NN_4DVar.compute_WeightedLoss(grad_pred_diff, torch.tensor(1.))
+                    loss_laplacian = NN_4DVar.compute_WeightedLoss(laplacian_pred_diff, torch.tensor(1.))
+                    loss += 0.1*loss_grad + 0.1*loss_laplacian
                 else:
                     dy = model.model_H(outputs,obs,new_masks)
                     dx = outputs - model.phi_r(outputs)
                     loss, loss_prior, loss_obs = model.model_VarCost(dx,dy)
-
+                    loss_LR = NN_4DVar.compute_spatio_temp_weighted_loss(self.model_LR(outputs)-self.model_LR(targets_OI),
+                                                                         self.model_LR(self.patch_weight))
+                    loss += 10*loss_LR
+                    
             # metrics
             # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
             mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(

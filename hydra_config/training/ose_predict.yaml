@@ -14,7 +14,8 @@ params:
 
 lit_mod_cls: lit_model_augstate.LitModelAugstate
 datamodule:
-  predict_slices: ${splits.train_slices}
+  #predict_slices: ${splits.train_slices}
+  test_slices: ${splits.train_slices}
   analog_slices: ${splits.test_slices}
   oi_path: ${params.files_cfg.oi_path}
   oi_var: ${params.files_cfg.oi_var}

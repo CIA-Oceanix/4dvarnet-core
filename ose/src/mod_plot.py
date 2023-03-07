@@ -6,6 +6,7 @@ from scipy import interpolate
 import hvplot.xarray
 import cartopy.crs as ccrs
 from matplotlib.patches import Rectangle
+import math
 
 def find_wavelength_05_crossing(filename):
     
@@ -52,6 +53,8 @@ def plot_psd_score(filename):
               lw=0.5,
               ls='--')
     plt.vlines(x=resolved_scale, ymin=0, ymax=1, lw=0.5, color='g')
+    if not math.isfinite(resolved_scale):
+        resolved_scale = 1e10
     ax.fill_betweenx((1. - ds.psd_diff/ds.psd_ref), 
                      resolved_scale, 
                      np.ma.max(np.ma.masked_invalid(1./ds.wavenumber)),

@@ -15,10 +15,10 @@ params:
   grad_clip_val: 0
   estim_parameters: true
   loss_type: diffusion_loss
-  n_grad: 20
+  n_grad: 50
   iter_update:
     - 0
-    - 25
+    - 4
     - 50
     - 100
     - 200

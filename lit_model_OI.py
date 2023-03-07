@@ -31,9 +31,20 @@ def get_4dvarnet_OI(hparams):
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
+def get_4dvarnet_OI_sst(hparams):
+    return NN_4DVar.Solver_Grad_4DVarNN(
+                Phi_r_OI(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+                Model_HwithSST(hparams.shape_state[0], dT=hparams.dT),
+                NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+                    hparams.dim_grad_solver, hparams.dropout),
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+
+
 class LitModelOI(LitModelAugstate):
     MODELS = {
             '4dvarnet_OI': get_4dvarnet_OI,
+            '4dvarnet_OI_sst': get_4dvarnet_OI_sst,
              }
 
     def __init__(self, *args, **kwargs):
@@ -47,13 +58,24 @@ class LitModelOI(LitModelAugstate):
             optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
-                #{'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                 ])
+        elif self.model_name == '4dvarnet_OI_sst':
+
+            optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                                {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                                {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
+                                {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                                ])
 
         return optimizer
 
     def diag_step(self, batch, batch_idx, log_pref='test'):
-        _, inputs_Mask, inputs_obs, targets_GT = batch
+        if not self.use_sst:
+            _, inputs_Mask, inputs_obs, targets_GT = batch
+        else:
+            _, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
+
         losses, out, metrics = self(batch, phase='test')
         loss = losses[-1]
         if loss is not None:

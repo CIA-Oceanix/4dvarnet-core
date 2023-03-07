@@ -15,7 +15,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from omegaconf import OmegaConf
 from scipy import stats
-import solver as NN_4DVar
+import ose.solver as NN_4DVar
 import metrics
 from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps_oi, animate_maps, get_psd_score
 from models import Model_H, Phi_r_OI, Gradient_img
@@ -27,7 +27,9 @@ from ose.src.mod_spectral import *
 from ose.src.mod_plot import *
 from ose.src.utils import *
 
-from lit_model_OI import LitModelOI
+import ose.solver as NN_4DVar
+
+from lit_model_augstate import LitModelAugstate
 
 def get_4dvarnet_OI(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
@@ -38,7 +40,7 @@ def get_4dvarnet_OI(hparams):
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
-class LitModelOI_predict(LitModelOI):
+class LitModelOI_predict(LitModelAugstate):
     MODELS = {
             '4dvarnet_OI': get_4dvarnet_OI,
              }
@@ -60,7 +62,7 @@ class LitModelOI_predict(LitModelOI):
          self.bin_time_step = '1D'
          # spectral parameter
          # C2 parameter
-         self.c2_file = '/users/local/m19beauc/4dvarnet-core/ose/eval_notebooks/inputs/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc'
+         self.c2_file = '/gpfswork/rech/yrf/uba22to/4dvarnet-core/ose/eval_notebooks/inputs/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc'
          self.ds_alongtrack = read_l3_dataset(self.c2_file,
                                            lon_min=self.lon_min,
                                            lon_max=self.lon_max,
@@ -73,6 +75,19 @@ class LitModelOI_predict(LitModelOI):
          self.c2_delta_x = self.c2_velocity * self.c2_delta_t
          self.c2_lenght_scale = 1000 # km
 
+    def forward(self, batch, phase='test'):
+        losses = []
+        metrics = []
+        state_init = [None]
+        out=None
+        # 1. run the OSSE-based pretrained model
+        for _ in range(self.hparams.n_fourdvar_iter):
+            _loss, out, state, _metrics = self.compute_loss(self.model,batch, phase='test', state_init=state_init)
+            state_init = [None if s is None else s.detach() for s in state]
+        state_init = [s.detach() for s in state]
+        losses.append(_loss)
+        metrics.append(_metrics)
+        return losses, out, metrics
 
     def diag_step(self, batch, batch_idx, log_pref='predict'):
 
@@ -106,25 +121,22 @@ class LitModelOI_predict(LitModelOI):
                 'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'pdf' : (pdf.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
-    def predict_step(self, predict_batch, batch_idx):
-        return self.diag_step(predict_batch, batch_idx, log_pref='predict')
+    def test_step(self, predict_batch, batch_idx):
+        return self.diag_step(predict_batch, batch_idx,log_pref='test')# log_pref='predict')
 
-    def on_predict_epoch_end(self, outputs):
-        return self.diag_epoch_end(outputs, log_pref='predict')
+    def test_epoch_end(self, outputs):
+        return self.diag_epoch_end(outputs,log_pref='test')# log_pref='predict')
 
     def diag_epoch_end(self, outputs, log_pref='predict'):
-        outputs_0 = [ [ dict((k, outputs[i][j][k]) for k in ['gt','obs_inp', 'pred']) \
-                        for j in range(len(outputs[i])) \
-                      ] \
+        outputs_0 =[[ dict((k, outputs[i][k]) for k in ['gt','obs_inp', 'pred']) \
                         for i in range(len(outputs)) \
-                    ]
-        outputs_1 = [ [ dict((k, outputs[i][j][k]) for k in ['pdf']) \
-                        for j in range(len(outputs[i])) \
-                      ] \
+                    ]] 
+        outputs_1 = [[ dict((k, outputs[i][k]) for k in ['pdf']) \
                         for i in range(len(outputs)) \
-                    ]
+                    ]]
         full_outputs = self.gather_outputs(outputs_0, log_pref=log_pref)
         full_outputs_pdf = self.gather_outputs(outputs_1, log_pref=log_pref)
+        #full_outputs = self.gather_outputs(outputs, log_pref=log_pref)
         if full_outputs is None:
             print("full_outputs is None on ", self.global_rank)
             return
@@ -137,7 +149,8 @@ class LitModelOI_predict(LitModelOI):
         else:
             raise Exception('unknown phase')
         
-        if log_pref=='predict':
+        if log_pref=='test':
+            #self.test_xr_ds = self.build_test_xr_ds(outputs, diag_ds=diag_ds)
             self.test_xr_ds = self.build_test_xr_ds(outputs_0, diag_ds=diag_ds)
             self.test_xr_pdf_ds = self.build_test_xr_pdf_ds(outputs_1, diag_ds=diag_ds)
             self.test_xr_ds = xr.merge([self.test_xr_ds,self.test_xr_pdf_ds])
@@ -212,4 +225,83 @@ class LitModelOI_predict(LitModelOI):
             .isel(time=slice(self.hparams.dT //2, -self.hparams.dT //2))
             # .pipe(lambda ds: ds.sel(time=~(np.isnan(ds.gt).all('lat').all('lon'))))
         ).transpose('member','time', 'lat', 'lon')
+
+    def get_init_state(self, batch, state=(None,)):
+        if state[0] is not None:
+            return state[0]
+
+        _, inputs_Mask, inputs_obs, _ = batch
+
+        init_state = inputs_Mask * inputs_obs
+        return init_state
+
+
+    def compute_loss(self, model, batch, phase, state_init=(None,)):
+
+        _, inputs_Mask, inputs_obs, targets_GT = batch
+
+
+        # handle patch with no observation
+        if inputs_Mask.sum().item() == 0:
+            return (
+                    None,
+                    torch.zeros_like(targets_GT),
+                    torch.cat((torch.zeros_like(targets_GT),
+                              torch.zeros_like(targets_GT),
+                              torch.zeros_like(targets_GT)), dim=1),
+                    dict([('mse', 0.),
+                        ('mseGrad', 0.),
+                        ('meanGrad', 1.),
+                        ])
+                    )
+        targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
+        state = self.get_init_state(batch, state_init)
+
+        obs = inputs_Mask * inputs_obs
+        new_masks =  inputs_Mask
+
+        # gradient norm field
+        g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
+
+        # need to evaluate grad/backward during the evaluation and training phase for phi_r
+        with torch.set_grad_enabled(True):
+            state = torch.autograd.Variable(state, requires_grad=True)
+            outputs, hidden_new, cell_new, normgrad = model(state, obs, new_masks, *state_init[1:])
+
+            if (phase == 'val') or (phase == 'test'):
+                outputs = outputs.detach()
+
+            loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
+            loss_AE = self.loss_ae(outputs)
+            if self.hparams.supervised==True:
+                # total loss
+                loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
+                loss += 0.5 * self.hparams.alpha_proj * loss_AE
+            else:
+                self.type_loss_supervised = self.hparams.type_loss_supervised if hasattr(self.hparams, 'type_loss_supervised') else 'var_cost'
+                if self.type_loss_supervised == "loss_on_track":
+                    # MSE
+                    mask = (targets_GT_wo_nan!=0.)
+                    iT = int(self.hparams.dT / 2)
+                    new_tensor = torch.masked_select(outputs[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(targets_GT[:,iT,:,:],mask[:,iT,:,:])
+                    loss = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
+                    loss = self.hparams.alpha_mse_ssh * loss  + 0.5 * self.hparams.alpha_proj * loss_AE
+                else:
+                    dy = model.model_H(outputs,obs,new_masks)
+                    dx = outputs - model.phi_r(outputs)
+                    loss, loss_prior, loss_obs = model.model_VarCost(dx,dy)
+
+            # metrics
+            # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
+            mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(
+                    torch.hypot(g_targets_GT_x, g_targets_GT_y) , self.grad_crop(self.patch_weight))
+            mse = loss_All.detach()
+            mseGrad = loss_GAll.detach()
+            metrics = dict([
+                ('mse', mse),
+                ('mseGrad', mseGrad),
+                ('meanGrad', mean_GAll),
+                ])
+
+        return loss, outputs, [outputs, hidden_new, cell_new, normgrad], metrics
 

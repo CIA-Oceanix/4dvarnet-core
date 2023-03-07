@@ -258,6 +258,7 @@ class FourDVarNetDataset(Dataset):
         aug_train_data=False,
         compute=False,
         pp='std',
+        rmv_patches=False
     ):
         super().__init__()
         self.use_auto_padding=use_auto_padding
@@ -328,6 +329,8 @@ class FourDVarNetDataset(Dataset):
         if self.aug_train_data:
             self.perm = np.random.permutation(len(self.obs_mask_ds))
 
+        self.rmv_patches = rmv_patches
+
         self.norm_stats = (0, 1)
         self.norm_stats_sst = (0, 1)
 
@@ -396,8 +399,7 @@ class FourDVarNetDataset(Dataset):
 
         # remove patches from data
         '''
-        supervised = False
-        if supervised==False:
+        if self.rmv_patches==True:
             n_patch = 10
             s_patch = 10
             for i in range(len(obs_item)):
@@ -447,7 +449,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             dl_kwargs=None,
             compute=False,
             use_auto_padding=False,
-            pp='std'
+            pp='std',
+            rmv_patches=False
     ):
         super().__init__()
         self.resize_factor = resize_factor
@@ -483,6 +486,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.norm_stats = (0, 1)
         self.norm_stats_sst = None
 
+        self.rmv_patches = rmv_patches
 
     def mean_stds(self, ds):
         sum = 0
@@ -572,6 +576,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 aug_train_data=self.aug_train_data,
                 compute=self.compute,
                 pp=self.pp,
+                rmv_patches=self.rmv_patches
             ) for sl in self.train_slices])
 
 
@@ -598,6 +603,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     compute=self.compute,
                     use_auto_padding=self.use_auto_padding,
                     pp=self.pp,
+                    rmv_patches=False
                 ) for sl in slices]
             )
             for slices in (self.val_slices, self.test_slices)
@@ -625,7 +631,6 @@ class FourDVarNetDataModule(pl.LightningDataModule):
 
     def test_dataloader(self):
         return DataLoader(self.test_ds, **{**dict(shuffle=False), **self.dl_kwargs})
-
 
 if __name__ == '__main__':
     """

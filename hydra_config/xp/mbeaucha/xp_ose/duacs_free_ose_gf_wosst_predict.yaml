@@ -2,7 +2,8 @@
 
 xp_name: df_ose_gf_wosst
 params:
-  mode: predict
+  #mode: predict
+  #mode: test
   model: 4dvarnet_OI
   files_cfg:
     oi_path: ${file_paths.oi_ose_nad_path}
@@ -26,7 +27,7 @@ params:
       time: 3
   k_n_grad: 3
   n_grad: 5
-  val_diag_freq: 5
+  val_diag_freq: 1
   padding_mode: reflect
   alpha_mse_ssh: 50. # loss
   alpha_mse_gssh: 1000.
@@ -40,12 +41,14 @@ params:
     - ${datamodule.slice_win.time}
     - ${datamodule.slice_win.lon}
     - ${datamodule.slice_win.lat}
+  type_loss_supervised: var_cost
+
 
 lit_mod_cls: ose.lit_model_OI_predict.LitModelOI_predict
 datamodule:
+  resize_factor: 1
   _target_: ose.dataloading_predict.FourDVarNetDataModule
-  #predict_slices: ${splits.test_slices}
-  predict_slices:
+  test_slices:
     - _target_: builtins.slice
       _args_: ['2016-12-19', '2017-02-12']
   analog_slices: 
@@ -54,16 +57,14 @@ datamodule:
   analog_path: ${params.files_cfg.analog_path}
   analog_var: ${params.files_cfg.analog_var}
   analog_decode: ${params.files_cfg.analog_decode}
-  resize_factor: 1
 
 defaults:
   - /xp/mbeaucha/xp_ose/base_xp
   - /splits/ose
   - /xp/baseline/aug/without_aug_state
-  # - /xp/baseline/dl/d200_p200x5_s200x1
   - /xp/baseline/dl/d240_p240x5_s240x1
   - /xp/baseline/sst/without_sst
   - /xp/baseline/loss/map
   - /params/fourdvarnet_ose
   - /training/ose_predict
-  - _self_ 
+  - _self_

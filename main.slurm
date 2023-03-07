@@ -5,7 +5,7 @@
 #SBATCH --gres=gpu:1                # nombre de GPU à réserver (un unique GPU ici)
 #SBATCH --ntasks-per-node=1         # nombre de coeurs à réserver (un quart du noeud)
 #SBATCH --cpus-per-task=10
-#SBATCH --time=04:00:00
+#SBATCH --time=10:00:00
 #SBATCH --hint=nomultithread
 #SBATCH -C v100-32g
 #SBATCH --qos=qos_gpu-t3
@@ -26,8 +26,9 @@ export HYDRA_FULL_ERROR=1
 # run script from above
 # config files stored in config_q --> examples: --config=q.nad_swot
 
+srun python hydra_main.py xp=mbeaucha/xp_stoch/duacs_free_osse_gf_wosst_ft_uq file_paths=jz_osse entrypoint=run entrypoint.max_epochs=100 +entrypoint.ckpt_path="../../ose/ckpt/4DVarNet_OI_OSSE_woSST.ckpt"
 # train the model
-srun python hydra_main.py xp=mbeaucha/xp_osse/full_core_hanning_fp1_nad file_paths=jz_osse entrypoint=run entrypoint.max_epochs=30
+#srun python hydra_main.py xp=mbeaucha/xp_osse/full_core_hanning_fp1_nad file_paths=jz_osse entrypoint=run entrypoint.max_epochs=30
 #srun python hydra_main.py xp=mbeaucha/xp_stoch/stoch_En4DVar_osse_gf file_paths=jz_osse entrypoint=run entrypoint.max_epochs=3
 #srun python hydra_main.py xp=mbeaucha/xp_ose/ose_osse_nadswot_gf_wsst file_paths=jz_ose entrypoint=run entrypoint.max_epochs=120
 #srun python hydra_main.py xp=mbeaucha/xp_ose/ose_gf_wsst file_paths=jz_ose entrypoint=run entrypoint.max_epochs=120

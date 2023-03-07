@@ -33,12 +33,13 @@ def find_open_ncdf_grads(path):
     data = xr.open_dataset(latest_subdir+"/grads.nc")
     return data
 
-def plot(ax, lon, lat, data, title, cmap, norm, extent=[-65, -55, 30, 40], colorbar=True, orientation="horizontal", extend="both",fs=12):
+def plot(ax, lon, lat, data, title, cmap, norm, extent=[-65, -55, 30, 40], colorbar=True, orientation="horizontal", extend="both",fs=18):
     im=ax.pcolormesh(lon, lat, data, cmap=cmap,
                           norm=norm, edgecolors='face', alpha=1)
+    ax.tick_params(axis='both', which='major',labelsize=18)
     if colorbar==True:
         clb = plt.colorbar(im, orientation=orientation, pad=0.05, ax=ax,extend=extend)
-        clb.ax.tick_params(labelsize = 18)
+        clb.ax.tick_params(labelsize = 26)
     ax.set_title(title,fontsize = fs)
  
 gp_dataset = sys.argv[1]
@@ -57,22 +58,22 @@ for ipatch in range(19):
     fourdvarnet_lstm_phi_unet_mse_loss = find_open_ncdf("oi_gp_4dvarnet_mse_loss_"+gp_dataset)['4DVarNet'].isel(time=ipatch)
     fourdvarnet_lstm_phi_unet_oi_loss = find_open_ncdf("oi_gp_4dvarnet_oi_loss_"+gp_dataset)['4DVarNet'].isel(time=ipatch)
 
-    fig = plt.figure(figsize=(20,40))
-    gs = gridspec.GridSpec(6,3)
+    fig = plt.figure(figsize=(40,20))
+    gs = gridspec.GridSpec(3,6)
     gs.update(wspace=0.5,hspace=0.5)
-    ax1 = fig.add_subplot(gs[:3, 0:3])
+    ax1 = fig.add_subplot(gs[:3, :3])
     # No params
-    ax2 = fig.add_subplot(gs[3, 0])
-    ax3 = fig.add_subplot(gs[3, 1])
-    ax4 = fig.add_subplot(gs[3, 2])
+    ax2 = fig.add_subplot(gs[0, 3])
+    ax3 = fig.add_subplot(gs[0, 4])
+    ax4 = fig.add_subplot(gs[0, 5])
     # MSE loss
-    ax5 = fig.add_subplot(gs[4, 0])
-    ax6 = fig.add_subplot(gs[4, 1])
-    ax7 = fig.add_subplot(gs[4, 2])
+    ax5 = fig.add_subplot(gs[1, 3])
+    ax6 = fig.add_subplot(gs[1, 4])
+    ax7 = fig.add_subplot(gs[1, 5])
     # OI loss
-    ax8 = fig.add_subplot(gs[5, 0])
-    ax9 = fig.add_subplot(gs[5, 1])
-    ax10 = fig.add_subplot(gs[5, 2])
+    ax8 = fig.add_subplot(gs[2, 3])
+    ax9 = fig.add_subplot(gs[2, 4])
+    ax10 = fig.add_subplot(gs[2, 5])
 
     extent = [np.min(gt.lon.values),np.max(gt.lon.values),np.min(gt.lat.values),np.max(gt.lat.values)]
     vmax = -2
@@ -151,15 +152,18 @@ for ipatch in range(19):
            fourdvarnet_lstm_phi_cov_mse_loss_loss_oi.values)))
     plt.xlim(xmin-(xmax-xmin)/10,xmax+(xmax-xmin)/10)
     plt.ylim(ymin-(ymax-ymin)/10,ymax+(ymax-ymin)/10)
-    plt.xlabel('OI variational cost')
-    plt.ylabel('MSE vs true state')
+    plt.xlabel('OI variational cost',fontsize=24)
+    plt.ylabel('MSE vs true state',fontsize=24)
+    plt.xticks(fontsize=20)
+    plt.yticks(fontsize=20)
     plt.vlines(min_oi,ymin=0,ymax=10000,linestyle='solid',color='black')
+    plt.ticklabel_format(axis='x', style='sci',scilimits=(0, 0))
     plt.grid()
     plt.gca().invert_xaxis()
     handles, labels = plt.gca().get_legend_handles_labels()
     order = [7,1,3,5,0,2,4,6]
     plt.legend([handles[idx] for idx in order],[labels[idx] for idx in order],
-              loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=2)
+              loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2, fontsize="large")
     plt.savefig('4DVarNet_xp_GP_'+gp_dataset+'_loss_'+str(ipatch)+'.png', bbox_inches='tight')
     fig = plt.gcf()
     plt.close() 
@@ -180,15 +184,18 @@ for ipatch in range(19):
     plt.hlines(min_oi,xmin=0,xmax=10000,linestyle='solid',color='black')
     plt.xlim(0,10000)
     plt.ylim(xmin-(xmax-xmin)/10,xmax+(xmax-xmin)/10)
-    plt.xlabel('Number of solver iterations')
-    plt.ylabel('OI variational cost')
+    plt.xlabel('Number of solver iterations', fontsize=24)
+    plt.ylabel('OI variational cost',fontsize=24)
+    plt.xticks(fontsize=20)
+    plt.yticks(fontsize=20)
+    plt.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
     plt.xscale('symlog')
     plt.grid()
     handles, labels = plt.gca().get_legend_handles_labels()
     print(labels)
     order = [7,1,3,5,0,2,4,6]
     plt.legend([handles[idx] for idx in order],[labels[idx] for idx in order],
-              loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=2)
+              loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2, fontsize="large")
     plt.savefig('4DVarNet_xp_GP_'+gp_dataset+'_oi_vs_iter_'+str(ipatch)+'.png', bbox_inches='tight')
     fig = plt.gcf()
     plt.close()
