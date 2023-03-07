@@ -12,3 +12,5 @@ new_noisy_swot_with_1d_decomp: /gpfsdswork/projects/rech/yrf/commun/cal_data_new
 natl_ssh_daily: /gpfsdsstore/projects/rech/yrf/commun/NATL60/NATL/ref_new/NATL60-CJM165_NATL_ssh_y2013.1y.nc
 natl_sst_daily: /gpfsdsstore/projects/rech/yrf/commun/NATL60/NATL/ref_new/NATL60-CJM165_NATL_sst_y2013.1y.nc
 
+natl_sst_daily_2016: /gpfsstore/rech/yrf/commun/NATL60_IFREMER_sources_and_sst_2016_2017.nc
+enatl_sst_daily_2018: /gpfsstore/rech/yrf/commun/eNATL_IFREMER_sources_and_sst_2018_2019.nc
