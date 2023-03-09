@@ -220,7 +220,8 @@ class LitModelOI(LitModelAugstate):
             loss_ae = self.loss_ae(outputs)
 
             # total loss
-            loss = self.hparams.alpha_mse_ssh * loss_all + self.hparams.alpha_mse_gssh * loss_gall
+            loss = self.hparams.alpha_mse_ssh * loss_all \
+                + self.hparams.alpha_mse_gssh * loss_gall
             loss += 0.5 * self.hparams.alpha_proj * loss_ae
 
             # metrics

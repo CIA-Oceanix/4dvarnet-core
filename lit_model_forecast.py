@@ -1,4 +1,4 @@
-""" Lit model forecast """
+""" Lit model for forecasting applications """
 
 import torch
 import pandas as pd
@@ -8,6 +8,7 @@ from metrics import rmse_based_scores, psd_based_scores
 from lit_model_augstate import get_constant_crop
 from lit_model_OI import LitModelOI
 from copy import deepcopy
+from pathlib import Path
 
 
 def get_forecast_crop(patch_size, crop):
@@ -17,7 +18,7 @@ def get_forecast_crop(patch_size, crop):
             patch_size: [time, latitude, longitute]
             crop: [time, latitude, longitute]
         return:
-            patch_weight: time : 0 for past value, 1 for future value
+            patch_weight: time: 0 for past value, 1 for future value
     """
     patch_weight = get_constant_crop(patch_size, crop)
     time_patch_weight = np.concatenate((np.zeros(
@@ -29,10 +30,73 @@ def get_forecast_crop(patch_size, crop):
     return final_patch_weight
 
 
-def accurate_pred(array, threshold=0.90):
+def get_forecast_interp_triangle_crop(patch_size, crop):
     """
-        Find the longest accurate prediction according to a threshold
-        for each day of a validation period
+        Get the crop for forecasting applications with interpolation
+        input:
+            patch_size: [time, latitude, longitute]
+            crop: [time, latitude, longitute]
+        return:
+            patch_weight: Linear weight from 0 to 1 for the interpolation
+                          Linear weight from 1 to 0.5 for the forecast
+    """
+    patch_weight = get_constant_crop(patch_size, crop)
+    time_patch_weight = np.concatenate(
+        (np.linspace(0, 1, (patch_size['time'] - 1) // 2),
+         np.linspace(1, 0.5, (patch_size['time'] + 1) // 2)),
+        axis=0)
+    print(patch_size, crop)
+    final_patch_weight = time_patch_weight[:, None, None] * patch_weight
+    return final_patch_weight
+
+
+def get_forecast_interp_triangle_crop_asym(patch_size, crop):
+    """
+        Get the crop for forecasting applications with interpolation
+        input:
+            patch_size: [time, latitude, longitute]
+            crop: [time, latitude, longitute]
+        return:
+            patch_weight: Linear weight from 0 to 1 for the interpolation
+                          Linear weight from 1 to 0.5 for the forecast
+                          Only forecast 7 days
+    """
+    patch_weight = get_constant_crop(patch_size, crop)
+    time_patch_weight = np.concatenate(
+        (np.linspace(0, 1,
+                     (patch_size['time'] - 1) // 2), np.linspace(1, 0.5, 7),
+         (np.zeros((patch_size['time'] + 1) // 2 - 7))),
+        axis=0)
+    print(patch_size, crop)
+    final_patch_weight = time_patch_weight[:, None, None] * patch_weight
+    return final_patch_weight
+
+
+def get_forecast_triangle_interp_constant_crop(patch_size, crop):
+    """
+        Get the crop for forecasting applications with interpolation
+        input:
+            patch_size: [time, latitude, longitute]
+            crop: [time, latitude, longitute]
+        return:
+            patch_weight: Linear weight from 0 to 1 for the interpolation
+                          Constant weight to 1 for the forecast
+                          7 days of forecast
+    """
+    patch_weight = get_constant_crop(patch_size, crop)
+    time_patch_weight = np.concatenate(
+        (np.linspace(0, 1, (patch_size['time'] - 1) // 2), np.ones(7),
+         (np.zeros((patch_size['time'] + 1) // 2 - 7))),
+        axis=0)
+    print(patch_size, crop)
+    final_patch_weight = time_patch_weight[:, None, None] * patch_weight
+    return final_patch_weight
+
+
+def accurate_pred(array, threshold=0.9):
+    """
+        Find the number of days of good prediction according
+        to a threshold for each day of a validation period
         input:
             array: [nb_days_predictions x nb_days_validation]
             threshold: float between 0 and 1
@@ -42,20 +106,22 @@ def accurate_pred(array, threshold=0.90):
             count: number of times each value appears
     """
     counter = np.zeros_like(array[0])
-    array_longest_accurate_pred = np.zeros_like(array[0])
+    array_accurate_pred = np.zeros_like(array[0])
     array_threshold = array >= threshold
     for preds in array_threshold:
         for id_day in range(len(preds)):
             if preds[id_day]:
                 counter[id_day] += 1
             else:
-                array_longest_accurate_pred[id_day] = max(
-                    array_longest_accurate_pred[id_day], counter[id_day])
-                counter[id_day] = 0
+                array_accurate_pred[id_day] = max(array_accurate_pred[id_day],
+                                                  counter[id_day])
+                # We only want series that start at the beginning
+                # -100 is an arbitrary value
+                counter[id_day] = -100
     for id_value in range(len(counter)):
-        array_longest_accurate_pred[id_value] = max(
-            array_longest_accurate_pred[id_value], counter[id_value])
-    return np.unique(array_longest_accurate_pred, return_counts=True)
+        array_accurate_pred[id_value] = max(array_accurate_pred[id_value],
+                                            counter[id_value])
+    return np.unique(array_accurate_pred, return_counts=True)
 
 
 class LitModelForecast(LitModelOI):
@@ -89,6 +155,7 @@ class LitModelForecast(LitModelOI):
 
         if log_pref == 'test':
             rmse_t_list = []
+            dict_md = []
             for test_xr_dses in self.test_xr_ds_list:
                 psd_ds, lamb_x, lamb_t = psd_based_scores(
                     test_xr_dses.pred, test_xr_dses.gt)
@@ -101,18 +168,11 @@ class LitModelForecast(LitModelOI):
                     f'{log_pref}_mu': mean_mu,
                     f'{log_pref}_sigma': sig,
                 }
-                # print(f'{rmse_t>0.90=}')
-                # find the number of consecutive days where
-                # the error is below a threshold
-                # dict_nb_days = {
-                #     f'{log_pref}_nb_days_90': nb_days_90,
-                #     f'{log_pref}_nb_days_75': nb_days_75,
-                #     f'{log_pref}_nb_days_50': nb_days_50,
-                # }
-                print(pd.DataFrame([dict_md_temp]).T.to_markdown())
-                # print(pd.DataFrame([dict_nb_days]).T.to_markdown())
+                dict_md.append(dict_md_temp)
+            print(pd.DataFrame(dict_md, range(-13, 7)).T.to_markdown())
+            dict_md = dict_md[0]
             rmse_t_list = np.array(rmse_t_list)
-            rmse_t_list = rmse_t_list[3::, :]
+            rmse_t_list = rmse_t_list[13::, :]
             values_days_90, count_days_90 = accurate_pred(rmse_t_list, 0.90)
             values_days_75, count_days_75 = accurate_pred(rmse_t_list, 0.75)
             values_days_50, count_days_50 = accurate_pred(rmse_t_list, 0.50)
@@ -122,7 +182,6 @@ class LitModelForecast(LitModelOI):
             print(f'{count_days_75=}')
             print(f'{values_days_50=}')
             print(f'{count_days_50=}')
-            dict_md = dict_md_temp
         else:
             psd_ds, lamb_x, lamb_t = psd_based_scores(self.test_xr_ds.pred,
                                                       self.test_xr_ds.gt)
@@ -160,7 +219,7 @@ class LitModelForecast(LitModelOI):
             dims = full_outputs[0][0]['gt'].shape
             dim_lat, dim_lon = dims[2:4]
             self.test_xr_ds_list = []
-            for i in range(-3, 4):
+            for i in range(-13, 7):
                 small_patch_weight = np.concatenate(
                     (np.zeros((self.hparams.dT // 2 + i, dim_lat, dim_lon)),
                      np.ones((1, dim_lat, dim_lon)),
@@ -173,21 +232,16 @@ class LitModelForecast(LitModelOI):
                             'pred'] *= small_patch_weight
                         outputs_reduced[gpu_rank][batch_nb][
                             'gt'] *= small_patch_weight
-                # outputs_reduced = list(
-                #     map(
-                #         lambda y: map(
-                #             lambda x: x.get("pred") * small_patch_weight, y),
-                #         full_outputs))
                 self.test_xr_ds_list.append(
                     self.build_test_xr_ds(outputs_reduced, diag_ds=diag_ds))
-            self.test_xr_ds = self.test_xr_ds_list[0]
+            self.test_xr_ds = self.test_xr_ds_list[12]
         else:
             self.test_xr_ds = self.build_test_xr_ds(full_outputs,
                                                     diag_ds=diag_ds)
 
-        # Path(self.logger.log_dir).mkdir(exist_ok=True)
-        # path_save1 = self.logger.log_dir + '/test.nc'
-        # self.test_xr_ds.to_netcdf(path_save1)
+        Path(self.logger.log_dir).mkdir(exist_ok=True)
+        path_save1 = self.logger.log_dir + '/test.nc'
+        self.test_xr_ds.to_netcdf(path_save1)
 
         self.x_gt = self.test_xr_ds.gt.data
         self.obs_inp = self.test_xr_ds.obs_inp.data
@@ -227,6 +281,8 @@ class LitModelForecast(LitModelOI):
         """
         _, inputs_mask, inputs_obs, _ = batch
         prod = inputs_mask * inputs_obs
+        # _, _, _, targets_gt = batch
+        # prod = targets_gt
         obs = torch.cat((
             prod[:, 0:(self.hparams.dT - 1) // 2, :, :],
             torch.zeros_like(
