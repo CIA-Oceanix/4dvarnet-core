@@ -251,6 +251,9 @@ class FourDVarNetDataset(Dataset):
         sst_path=None,
         sst_var=None,
         sst_decode=True,
+        sst_mask_path=None,
+        sst_mask_var=None,
+        sst_mask_decode=True,
         resolution=1/20,
         resize_factor=1,
         use_auto_padding=False,
@@ -317,6 +320,22 @@ class FourDVarNetDataset(Dataset):
             )
         else:
             self.sst_ds = None
+
+        if sst_mask_var is not None:
+            self.sst_mask_ds = XrDataset(
+                sst_mask_path, sst_mask_var,
+                slice_win=slice_win,
+                resolution=resolution,
+                dim_range=dim_range,
+                strides=strides,
+                decode=sst_mask_decode,
+                resize_factor=resize_factor,
+                compute=compute,
+                auto_padding=use_auto_padding,
+                interp_na=True,
+            )
+        else:
+            self.sst_mask_ds = None
 
         if self.aug_train_data:
             self.perm = np.random.permutation(len(self.obs_mask_ds))
@@ -389,12 +408,16 @@ class FourDVarNetDataset(Dataset):
 
         if self.sst_ds == None:
             return oi_item, obs_mask_item, obs_item, gt_item
-        else:
+        else:            
             pp_sst = self.get_pp(self.norm_stats_sst)
             _sst_item = pp_sst(self.sst_ds[item % length])
             sst_item = np.where(~np.isnan(_sst_item), _sst_item, 0.)
 
-            return oi_item, obs_mask_item, obs_item, gt_item, sst_item
+            if self.sst_mask_ds == None:            
+                return oi_item, obs_mask_item, obs_item, gt_item, sst_item, 1. + 0. * sst_item
+            else:
+                _sst_mask_item = pp_sst(self.sst_mask_ds[item % length])
+                return oi_item, obs_mask_item, obs_item, gt_item, sst_item, _sst_mask_item
 
 class FourDVarNetDataModule(pl.LightningDataModule):
     def __init__(
@@ -417,6 +440,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             sst_path=None,
             sst_var=None,
             sst_decode=True,
+            sst_mask_path=None,
+            sst_mask_var=None,
+            sst_mask_decode=True,
             resize_factor=1,
             aug_train_data=False,
             resolution="1/20",
@@ -447,6 +473,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.sst_path = sst_path
         self.sst_var = sst_var
         self.sst_decode = sst_decode
+        self.sst_mask_path = sst_mask_path
+        self.sst_mask_var = sst_mask_var
+        self.sst_mask_decode = sst_mask_decode
 
         self.pp=pp
         self.resize_factor = resize_factor
@@ -543,6 +572,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 sst_path=self.sst_path,
                 sst_var=self.sst_var,
                 sst_decode=self.sst_decode,
+                sst_mask_path=self.sst_mask_path,
+                sst_mask_var=self.sst_mask_var,
+                sst_mask_decode=self.sst_mask_decode,
                 resolution=self.resolution,
                 resize_factor=self.resize_factor,
                 aug_train_data=self.aug_train_data,
@@ -569,6 +601,9 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     sst_path=self.sst_path,
                     sst_var=self.sst_var,
                     sst_decode=self.sst_decode,
+                    sst_mask_path=self.sst_mask_path,
+                    sst_mask_var=self.sst_mask_var,
+                    sst_mask_decode=self.sst_mask_decode,
                     resolution=self.resolution,
                     resize_factor=self.resize_factor,
                     compute=self.compute,
