@@ -1,9 +1,9 @@
 # @package _global_
 
-xp_name: xp_turbidity_chloro_rf1_dt29_dimAE50
+xp_name: xp_turbidity_bbp_rf1_dt29_Unet50
 
 params:
-  model: 4dvarnet_OI
+  model: 4dvarnet_OI_unet
   dT: 29
   patch_weight:
     _target_: lit_model_augstate.get_constant_crop
@@ -75,8 +75,7 @@ datamodule:
   oi_var: "bbp443"
   gt_var: "bbp443"
   obs_mask_var: "bbp443"
-  sst_var: "chl"
-
+  
   slice_win:
     lat: ${div:240,${datamodule.resize_factor}}
     lon: ${div:240,${datamodule.resize_factor}}

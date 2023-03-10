@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: xp_chloro_rf1_dt29_unet_dimAE50
+xp_name: xp_turbidity_bbp_rf1_dt29_direct_Unet50
 
 params:
   model: 4dvarnet_OI_unet
@@ -72,9 +72,9 @@ datamodule:
     - _target_: builtins.slice
       _args_: ${adjust_testslices:['2021-02-09', '2021-06-30'],${params.dT}}
       
-  oi_var: "chl"
-  gt_var: "chl"
-  obs_mask_var: "chl"
+  oi_var: "bbp443"
+  gt_var: "bbp443"
+  obs_mask_var: "bbp443"
   
   slice_win:
     lat: ${div:240,${datamodule.resize_factor}}

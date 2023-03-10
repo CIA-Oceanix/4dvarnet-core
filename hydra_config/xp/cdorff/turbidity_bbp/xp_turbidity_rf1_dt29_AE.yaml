@@ -1,9 +1,9 @@
 # @package _global_
 
-xp_name: xp_turbidity_rf1_dt29_unet_dimAE50
+xp_name: xp_turbidity_bbp_rf1_dt29_AE50
 
 params:
-  model: 4dvarnet_OI_unet
+  model: 4dvarnet_OI
   dT: 29
   patch_weight:
     _target_: lit_model_augstate.get_constant_crop
@@ -13,7 +13,7 @@ params:
       lon: ${div:0,${datamodule.resize_factor}}
       time: 0
   k_n_grad: 3
-  n_grad: 0
+  n_grad: 5
   val_diag_freq: 5
   padding_mode: reflect
   alpha_mse_ssh: 50. # loss
