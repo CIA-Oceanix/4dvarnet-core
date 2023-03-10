@@ -5,7 +5,10 @@ from holoviews import opts
 import pytorch_lightning as pl
 from pathlib import Path
 
-hv.extension('matplotlib')
+try:
+    hv.extension('matplotlib')
+except Exception:
+    pass
 
 import xarray as xr
 from scipy import ndimage
@@ -15,14 +18,24 @@ import importlib
 from hydra.utils import instantiate, get_class, call
 import runner as runner_mod
 import lit_model_augstate
+import sys
+sys.path.append('4dvarnet-core')
 
 import metpy.calc as mpcalc
 importlib.reload(lit_model_augstate)
+import metrics
+importlib.reload(metrics)
 from utils import get_cfg, get_dm, get_model
 from omegaconf import OmegaConf
 # OmegaConf.register_new_resolver("mul", lambda x,y: int(x)*y, replace=True)
 import hydra_config
 
+
+import sys
+# sys.path.append('4dvarnet-core')
+# sys.path.append('4dvarnet-core/ose/eval_notebooks')
+sys.path.append('ose/eval_notebooks')
+import eval_4dvarnet_test_OSSE
 fp = "dgx_ifremer"
 
 cfg_set = []
@@ -77,7 +90,30 @@ for xp_dir in list(Path('results/xp30').glob('*ds2*')):
     #     # print(xp_dir, ckpt)
     #     cfg_set.append((cfg_n, ckpt))
 
+
+cfg_set = []
+for xp_dir in list(Path('results/xp30').glob('*ds2*')):
+    version_dir = max(xp_dir.glob('version_*'), key=lambda d: int(str(d).split('_')[-1]))
+    cfg_n = str(version_dir).split('/')[-2]
+    for ckpt in version_dir.glob('checkpoints/*'):
+        cfg_set.append((cfg_n, ckpt))
+
+'''
+dashboard/qxp23_sst_5nad_aug8_ds1_dT29_13/version_0/checkpoints/modelCalSLAInterpGF-epoch=241-val_loss=0.4742.ckpt
+dashboard/qxp23_sst_5nad_aug8_ds1_dT29_13/version_0/checkpoints/modelCalSLAInterpGF-epoch=307-val_loss=0.4600.ckpt
+dashboard/qxp23_sst_5nad_aug8_ds1_dT29_13/version_0/checkpoints/modelCalSLAInterpGF-epoch=335-val_loss=0.4791.ckpt
+'''
+
+cfg_set = [('qxp23_sst_5nad_aug8_ds1_dT29_13', 'dashboard/qxp23_sst_5nad_aug8_ds1_dT29_13/version_0/checkpoints/modelCalSLAInterpGF-epoch=307-val_loss=0.4600.ckpt')]
+cfg_set = [('qxp20_5nad_sst', 'results/xp20/qxp20_5nad_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=138-val_loss=0.4040.ckpt')]
+cfg_set = [('qxp20_5nad_no_sst', 'results/xp20/qxp20_5nad_no_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=85-val_loss=0.7589.ckpt')]
+cfg_set = [('qxp23_sst_swot_w_oi_aug8_ds1_dT29_13', 'results/xp23/qxp23_sst_swot_w_oi_aug8_ds1_dT29_13/version_0/checkpoints/modelCalSLAInterpGF-epoch=337-val_loss=0.3767.ckpt')]
+cfg_set = [('qxp23_sst_swot_w_oi_aug8_ds1_dT29_8', 'results/xp23/qxp23_sst_swot_w_oi_aug8_ds1_dT29_8/version_0/checkpoints/modelCalSLAInterpGF-epoch=278-val_loss=1.1519.ckpt')]
+cfg_set = [('qxp20_swot_sst', 'results/xp20/qxp20_swot_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=139-val_loss=0.2836.ckpt')]
+cfg_set = [('qxp20_swot_no_sst', 'results/xp20/qxp20_swot_no_sst/version_0/checkpoints/modelCalSLAInterpGF-epoch=131-val_loss=0.4958.ckpt')]
+cfg_set = [('qxp23_no_sst_swot_w_oi_aug8_ds1_dT29_13', 'results/xp23/qxp23_no_sst_swot_w_oi_aug8_ds1_dT29_13/version_0/checkpoints/modelCalSLAInterpGF-epoch=194-val_loss=1.0944.ckpt')]
 # cfg_set = []
+
 # for xp_dir in list(Path('results/xp29').glob('*ds1*')):
 #     cfg_n, ckpt = get_best_ckpt(xp_dir)
 #     # print(xp_dir, ckpt)
@@ -198,6 +234,37 @@ for cfg_n, ckpt in cfg_set:
     print(cfg_n, ckpt)
     mod, cfg, dm_osse, dm = run_test(cfg_n, ckpt)
 
+cfg = get_cfg(
+    cfg_set[0][0],
+    overrides=[
+        f'file_paths={fp}',
+        *ose
+])
+
+ose_metrics = {}
+# sorted(list(Path('test_logs').glob('qxp28*/**/test.nc')), key=lambda p: p.stat().st_mtime)
+sorted(list(Path('test_logs').glob('qxp30*/**/test.nc')), key=lambda p: p.stat().st_mtime)
+for p,c in zip(sorted(list(Path('test_logs').glob('qxp30*/**/test.nc')), key=lambda p: p.stat().st_mtime), cfg_set):
+    print(p,c)
+    # continue
+    data = xr.open_dataset(p)
+    # data['pred'] = data.pred.groupby('time').apply(lambda g: xr.apply_ufunc(lambda npa :ndi.median_filter(npa, size=7), g))
+    out = eval_4dvarnet_test_OSSE.metrics_ose(
+            data, cfg.file_paths.ose_test_along_track)
+    print(out['Leaderboard'])
+    ose_metrics[p] = out['Leaderboard']
+    # break
+
+
+ose_metrics_df = pd.DataFrame([
+    {'path': k, 'cfg': c[0], 'xp': str(k).split('/')[1], **v.loc[1].to_dict()}
+    for (k,v),c in zip(ose_metrics.items(), cfg_set)])
+
+ose_metrics_df.columns
+print(ose_metrics_df.to_markdown())
+print(ose_metrics_df[['cfg','µ(RMSE) ', 'σ(RMSE)', 'λx (km)']].to_markdown())
+ose_metrics_df[['µ(RMSE) ', 'σ(RMSE)', 'λx (km)']]= ose_metrics_df[['µ(RMSE) ', 'σ(RMSE)', 'λx (km)']].applymap(float)
+print(ose_metrics_df[['cfg','µ(RMSE) ', 'λx (km)']].groupby('cfg').mean().sort_values( 'λx (km)').to_markdown())
 # mod, cfg, dm_osse, dm = run_test(cfg_n, ckpt)
 # self = mod
 # animate_maps(self.x_gt, self.obs_inp, self.x_oi, self.x_rec, self.test_lon, self.test_lat, 'animation.mp4')
@@ -254,56 +321,36 @@ def anim(test_xr_ds, deriv=None,  dvars=['ssh_1_14D', 'ssh_1_1D', 'ssh_025_1D', 
 # hv.output(simu + pred, holomap='gif', fps=3, dpi=125)
 # 1/0
 
-import sys
-sys.path.append('4dvarnet-core')
-sys.path.append('4dvarnet-core/ose/eval_notebooks')
-sys.path.append('ose/eval_notebooks')
-import eval_4dvarnet_test_OSSE
 
 import xarray as xr
 
 oi = xr.open_dataset(
     '/raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/training/ssh_alg_h2g_j2g_j2n_j3_s3a_duacs.nc',
 ).ssh
-ds = xr.open_dataset('/raid/localscratch/qfebvre/4dvarnet-starter/outputs/2022-12-02/15-19-18/ose_ssh_rec.nc').assign(
-        gt=lambda d: d.rec_ssh, pred=lambda d: d.rec_ssh, oi=lambda d: oi.sel(d.coords), obs_inp=lambda d: d.rec_ssh
-).sel(time=slice('2017-01-01', '2017-12-31'))
-eval_4dvarnet_test_OSSE.metrics_ose(ds, 'sla-data-registry/data_OSE/along_track/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc')
 
+import pandas as pd
+# glorys = xr.open_dataset('../sla-data-registry/GLORYS/cmems_mod_glo_phy_my_0.083_P1D-m_1674061226086.nc')
+# glo_da = glorys.zos.load().rename(latitude='lat', longitude='lon')
+# glo_da['time'] =  pd.to_datetime(glo_da['time']).date
+
+ds = xr.open_dataset('/raid/localscratch/qfebvre/o2o_enatl_wo_tide_rec.nc').sel(time=slice('2017-01-01', '2017-12-31')).assign(
+# ds = xr.open_dataset('/raid/localscratch/qfebvre/ose_rec230120.nc').sel(time=slice('2017-01-01', '2017-12-31')).assign(
+# ds = xr.open_dataset('/raid/localscratch/qfebvre/ose_enatl_wo_tide_rec230120.nc').assign(
+        gt=lambda d: d.rec_ssh, pred=lambda d: d.rec_ssh, oi=lambda d: oi.sel(d.coords), obs_inp=lambda d: d.rec_ssh
+        # gt=lambda d: d.rec_ssh_6, pred=lambda d: d.rec_ssh_3, oi=lambda d: oi.sel(d.coords), obs_inp=lambda d: d.rec_ssh_6
+        # gt=lambda d: d['median_field'], pred=lambda d: d['median_field'], oi=lambda d: oi.sel(d.coords), obs_inp=lambda d: d['median_field']
+        # gt=lambda d: d['median_field'], pred=lambda d: d['median_field'], oi=lambda d: oi.sel(d.coords), obs_inp=lambda d: d['median_field']
+        # gt=lambda d: d['median'], pred=lambda d: glo_da.interp(**d.coords), oi=lambda d: oi.sel(d.coords), obs_inp=lambda d: d['median']
+)
+
+eval_4dvarnet_test_OSSE.metrics_ose(ds, '../sla-data-registry/data_OSE/along_track/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc')
+
+ds[['pred', 'oi']].mean('lat').mean('lon').to_array().plot.line(hue='variable')
 # import importlib
 
 # mod.test_xr_ds
 # importlib.reload(eval_4dvarnet_test_OSSE)
 
-cfg = get_cfg(
-    cfg_set[0][0],
-    overrides=[
-        f'file_paths={fp}',
-        *ose
-])
-
-ose_metrics = {}
-# sorted(list(Path('test_logs').glob('qxp28*/**/test.nc')), key=lambda p: p.stat().st_mtime)
-sorted(list(Path('test_logs').glob('qxp30*/**/test.nc')), key=lambda p: p.stat().st_mtime)
-for p,c in zip(sorted(list(Path('test_logs').glob('qxp29*/**/test.nc')), key=lambda p: p.stat().st_mtime), cfg_set):
-    print(p,c)
-    # continue
-    data = xr.open_dataset(p)
-    data['pred'] = data.pred.groupby('time').apply(lambda g: xr.apply_ufunc(lambda npa :ndi.median_filter(npa, size=7), g))
-    out = eval_4dvarnet_test_OSSE.metrics_ose(
-            data, cfg.file_paths.ose_test_along_track)
-    print(out['Leaderboard'])
-    ose_metrics[p] = out['Leaderboard']
-    # break
-
-
-ose_metrics_df = pd.DataFrame([
-    {'path': k, 'cfg': c[0], 'xp': str(k).split('/')[1], **v.loc[1].to_dict()}
-    for (k,v),c in zip(ose_metrics.items(), cfg_set)])
-
-ose_metrics_df.columns
-print(ose_metrics_df.to_markdown())
-print(ose_metrics_df[['cfg','µ(RMSE) ', 'σ(RMSE)', 'λx (km)']].to_markdown())
 print(ose_metrics_df.loc[lambda df: df.xp.map(lambda s: 'ds2' in s)][['xp','µ(RMSE) ', 'σ(RMSE)', 'λx (km)']].to_markdown())
 1/0
 # ose_metrics_df.to_csv('tmp/ose_metrics_df0102.csv')

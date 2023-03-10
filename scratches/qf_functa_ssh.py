@@ -284,7 +284,7 @@ class LitFuncta(pl.LightningModule):
         return loss_outer, out, latent
 
     def configure_optimizers(self):
-        # return torch.optim.Adam(self.params, lr=3e-6)
+        # return torch.optim.Adam(self.params, lr=5e-6)
         opt = torch.optim.Adam(
                 [{'params': self.parameters(), 'initial_lr': 0.002}],
                 lr=0.002)
@@ -300,7 +300,7 @@ class LitFuncta(pl.LightningModule):
                 # torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt,
                                                                        #     eta_min=5e-5, T_0=15, T_mult=2, last_epoch=-1),
                 torch.optim.lr_scheduler.CyclicLR(
-                    opt, base_lr=2e-6, max_lr=1e-3,  step_size_up=15, step_size_down=25, cycle_momentum=False, mode='triangular2'),
+                    opt, base_lr=5e-6, max_lr=1e-3,  step_size_up=150, step_size_down=250, gamma=0.96, cycle_momentum=False, mode='triangular2'),
                 }
 
     def test_step(self, batch, batch_idx):
@@ -336,27 +336,69 @@ class LitFuncta(pl.LightningModule):
         self.latents = list(it.chain(*latent))
 
 class MseGradEncoder(nn.Module):
-    def __init__(self, n_iter=3, lr=1e-2, msk_prop=0.1, train_lr=False):
+    def __init__(self, n_iter=3, lr=1e-2, dropout=0.1, train_lr=False, grad_mod=None):
         super().__init__()
         self.n_iter = n_iter
+        self.grad_mod = grad_mod if grad_mod is not None else nn.Identity()
         # self.lr = nn.Parameter(torch.scalar(lr), requires_grad=train_lr)
-        self.msk_prop = msk_prop
+        self.dropout = nn.Dropout(dropout)
         self.lr = lr
 
     def forward(self, tgt, lit_mod):
         tgt = tgt[..., None]
-        msk = torch.rand_like(tgt).greater_equal_(self.msk_prop).int()
+
         with torch.enable_grad():
             inp_c = batchify_as(lit_mod.coords, tgt).detach().requires_grad_()
             latent = batchify_as(lit_mod.latent_init, tgt).detach().requires_grad_()
-            for _ in range(self.n_iter):
+            try:
+                self.grad_mod.reset(latent)
+            except Exception:
+                pass
+            for it in range(self.n_iter):
+                msk = self.dropout(torch.ones_like(tgt))
+                if not lit_mod.training:
+                    msk = 1.
                 out = lit_mod.net_fn(lit_mod.params, (inp_c, latent))
                 loss_inner = F.mse_loss(out*msk, tgt*msk)
                 grad_lat = torch.autograd.grad(loss_inner, (latent,), create_graph=True)[0]
-                latent = latent - self.lr * (grad_lat)
+                latent = latent - self.lr * (self.n_iter - it) / self.n_iter * self.grad_mod(grad_lat) - 0.1*(1 + it) / self.n_iter * grad_lat
                 if not lit_mod.training:
                     latent.detach_().requires_grad_()
         return latent
+
+
+class LstmGradMod(nn.Module):
+    def __init__(self, dim_hidden=128, preproc_factor=10.):
+        super().__init__()
+        self.lstm = nn.LSTMCell(2, dim_hidden)
+        self.lstm2 = nn.LSTMCell(dim_hidden, dim_hidden)
+        self.output = nn.Linear(dim_hidden, 1)
+        self.preproc_factor = preproc_factor
+        self.preproc_threshold = np.exp(-preproc_factor)
+        self.dim_hidden = dim_hidden
+        self.hiddens = None
+        self.cells = None
+    
+    def reset(self, tgt):
+        init = lambda: torch.zeros(tgt.size(0)*tgt.size(1), self.dim_hidden, device=tgt.device)
+        self.hiddens = (init(), init())
+        self.cells = (init(), init())
+
+    def forward(self, inp):
+        shape = einops.parse_shape(inp, 'b lat')
+        inp2 = torch.zeros(*inp.size(), 2, device=inp.device)
+        keep_grads = (torch.abs(inp) >= self.preproc_threshold)
+        inp2[..., 0][keep_grads] = (torch.log(torch.abs(inp[keep_grads]) + 1e-8) / self.preproc_factor).squeeze()
+        inp2[..., 1][keep_grads] = torch.sign(inp[keep_grads]).squeeze()
+        
+        inp2[..., 0][~keep_grads] = -1
+        inp2[..., 1][~keep_grads] = (float(np.exp(self.preproc_factor)) * inp[~keep_grads]).squeeze()
+        inp = einops.rearrange(inp2, 'b l i -> (b l) i')
+        hidden0, cell0 = self.lstm(inp, (self.hiddens[0], self.cells[0]))
+        hidden1, cell1 = self.lstm2(hidden0, (self.hiddens[1], self.cells[1]))
+        self.hiddens = (hidden0, hidden1)
+        self.cell = (cell0, cell1)
+        return einops.rearrange(self.output(hidden1), '(b lat) () -> b lat', **shape)
 
 class Conv2dResBlock(pl.LightningModule):
     '''Aadapted from https://github.com/makora9143/pytorch-convcnp/blob/master/convcnp/modules/resblock.py'''
@@ -418,6 +460,29 @@ class ConvImgEncoder(pl.LightningModule):
         return o
 
 
+class MyEnc(nn.Module):
+    def __init__(self, latent, dropout=0.1):
+        super().__init__()
+        self.net = nn.Sequential(
+                Rearrange('b ... -> b () ...'),
+                nn.Conv3d(1, 3, kernel_size=2, stride=2), # 1x20x40x40 -> 3x10x20x20
+                nn.LeakyReLU(),
+                nn.BatchNorm3d(3),
+                nn.Conv3d(3, 3, kernel_size=3, padding=1), # 1x20x40x40 -> 3x10x20x20
+                nn.LeakyReLU(),
+                nn.BatchNorm3d(3),
+                nn.Conv3d(3, 6, kernel_size=(2, 5, 5), stride=(2, 5, 5)), # 3x10x20x20 -> 6x2x4x4
+                nn.LeakyReLU(),
+                Rearrange('b ... -> b (...)'),
+                nn.Linear(6*5*4*4, 128),
+                nn.Tanh(),
+                nn.Dropout1d(dropout),
+                nn.Linear(128, latent),
+        )
+
+    def forward(self, x, lit_mod):
+        return self.net(x)
+
 class SimonEnc(nn.Module):
     def __init__(self,in_c, latent):
         super().__init__()
@@ -466,7 +531,7 @@ def run1():
 
         xr.open_dataset( f'{cfg.file_paths.data_registry_path}/qdata/natl20.nc',).ssh.std()
 
-        _strides = dict(time=1, lat=20, lon=20)
+        _strides = dict(time=1, lat=40, lon=40)
         _patch_dims = dict(time=20, lat=80, lon=80)
         ds = dict(time=1, lat=2, lon=2)
         patch_dims = {k: _patch_dims[k]//ds.get(k,1) for k in _patch_dims}
@@ -490,12 +555,16 @@ def run1():
 
 
 
-        # latent_dim = 950
-        # net = SirenNet(dim_in=3, dim_hidden=450, dim_out=1, num_layers=3)
-        # mod = Modulator(dim_in=latent_dim, dim_hidden=450, num_layers=3)
-        latent_dim = 2048
-        net = SirenNet(dim_in=3, dim_hidden=128, dim_out=1, num_layers=4)
-        mod = Modulator(dim_in=latent_dim, dim_hidden=128, num_layers=4)
+        latent_dim = 950
+        net = SirenNet(dim_in=3, dim_hidden=450, dim_out=1, num_layers=3)
+        mod = Modulator(dim_in=latent_dim, dim_hidden=450, num_layers=3)
+
+        # latent_dim = 2048
+        # net = SirenNet(dim_in=3, dim_hidden=450, dim_out=1, num_layers=4)
+        # mod = Modulator(dim_in=latent_dim, dim_hidden=450, num_layers=4)
+        # latent_dim = 1024
+        # net = SirenNet(dim_in=3, dim_hidden=128, dim_out=1, num_layers=6)
+        # mod = Modulator(dim_in=latent_dim, dim_hidden=128, num_layers=6)
         coords = torch.stack(torch.meshgrid(
             *(torch.linspace(-1, 1, v) for v in patch_dims.values()), indexing='ij'
         ), dim=-1)
@@ -513,23 +582,31 @@ def run1():
 
         # encoder = ConvImgEncoder(patch_dims['time'], patch_dims['lat'], latent_dim)
         # encoder = SimonEnc(patch_dims['time'], latent_dim)
-        encoder = MseGradEncoder(n_iter=3, msk_prop=0.1, lr=5e-2)
+        # encoder = MyEnc(latent_dim)
+        # for p in encoder.parameters():
+        #     p.requires_grad_(False)
+
+        encoder = MseGradEncoder(n_iter=3, dropout=0.3, 
+                                 lr=5e-2, grad_mod=nn.Identity(),
+                                # lr=5e-2, grad_mod=LstmGradMod(dim_hidden=128),
+        )
+
         lit_mod = LitFuncta(
             net_fn=net_fn, params=params, encoder=encoder, rec_weight=rec_weight, patch_dims=patch_dims, latent_init=np.zeros(latent_dim, dtype=np.float32)
         )
-        lt.lovely(encoder(batch.ssh, lit_mod))
+        # lt.lovely(encoder(batch.ssh, lit_mod))
 
         callbacks=[
-            plcb.ModelCheckpoint(monitor='val_loss', save_last=True),
+            plcb.ModelCheckpoint(monitor='val_loss', save_last=True, verbose=True),
             plcb.TQDMProgressBar(),
-            plcb.GradientAccumulationScheduler({10:8, 15:16, 25:32, 50:64}),
+            # plcb.GradientAccumulationScheduler({10:8, 15:16, 25:32, 50:64}),
             # plcb.StochasticWeightAveraging(),
             # plcb.RichProgressBar(),
             plcb.ModelSummary(max_depth=2),
             # plcb.GradientAccumulationScheduler({50: 10})
         ]
         trainer = pl.Trainer(
-                gpus=[2],
+                gpus=[3],
                 logger=False,
                 callbacks=callbacks,
                 max_epochs=2000,
@@ -539,25 +616,30 @@ def run1():
         )
 
         # ckpt = 'checkpoints/saved_grad_functa_siren.ckpt' #commit afc8052cd7a179625b919e1358d97441b457722b
-        # lit_mod.load_state_dict(torch.load(ckpt)['state_dict'])
-        # encoder.n_iter=3
-        # trainer.fit(lit_mod, train_dataloaders=train_dl, val_dataloaders=val_dl)
+        # ckpt=trainer.checkpoint_callback.best_model_path
+        ckpt='siren_training/checkpoints/epoch=51-step=20644-v1.ckpt'
+        lit_mod.load_state_dict(torch.load(ckpt)['state_dict'])
+        # encoder.n_iter=5
+        # encoder.msk_prop=0.
+        trainer.fit(lit_mod, train_dataloaders=train_dl, val_dataloaders=val_dl)
 
         # ckpt = 'checkpoints/epoch=73-step=24812.ckpt' 
-        # ckpt=trainer.checkpoint_callback.best_model_path
-        ckpt='siren_training/checkpoints/last.ckpt'
+        ckpt=trainer.checkpoint_callback.best_model_path
+        # ckpt='siren_training/checkpoints/last.ckpt'
+        # ckpt='siren_training/checkpoints/epoch=345-step=137362.ckpt'
+        # ckpt = 'siren_training/checkpoints/epoch=138-step=55183.ckpt'
         lit_mod.load_state_dict(torch.load(ckpt)['state_dict'])
 
-        import kornia
-        ker2d = kornia.filters.get_gaussian_kernel2d(kernel_size=(patch_dims['lat']+1, patch_dims['lon']+1), sigma=(patch_dims['lon']/4.,patch_dims['lat']/4))
-        ker1d = kornia.filters.get_gaussian_kernel1d(kernel_size=patch_dims['time']+1, sigma=patch_dims['time']/4)
-        # rec_weight = (ker2d[None, 1:, 1:]*ker1d[1:, None, None]).numpy()
-        rec_weight = np.fromfunction(lambda t, lt, lg: (
-            (1 - np.abs(2*t - patch_dims['time']) / patch_dims['time']) *
-            (1 - np.abs(2*lt - patch_dims['lat']) / patch_dims['lat']) *
-            (1 - np.abs(2*lg - patch_dims['lon']) / patch_dims['lon'])
-        ),patch_dims.values())
-        lit_mod.rec_weight.data = torch.from_numpy(rec_weight).to(lit_mod.device)
+        # import kornia
+        # ker2d = kornia.filters.get_gaussian_kernel2d(kernel_size=(patch_dims['lat']+1, patch_dims['lon']+1), sigma=(patch_dims['lon']/4.,patch_dims['lat']/4))
+        # ker1d = kornia.filters.get_gaussian_kernel1d(kernel_size=patch_dims['time']+1, sigma=patch_dims['time']/4)
+        # # rec_weight = (ker2d[None, 1:, 1:]*ker1d[1:, None, None]).numpy()
+        # rec_weight = np.fromfunction(lambda t, lt, lg: (
+        #     (1 - np.abs(2*t - patch_dims['time']) / patch_dims['time']) *
+        #     (1 - np.abs(2*lt - patch_dims['lat']) / patch_dims['lat']) *
+        #     (1 - np.abs(2*lg - patch_dims['lon']) / patch_dims['lon'])
+        # ),patch_dims.values())
+        # lit_mod.rec_weight.data = torch.from_numpy(rec_weight).to(lit_mod.device)
 
 
         # trainer.fit(lit_mod, train_dataloaders=train_dl, val_dataloaders=val_dl)
@@ -565,7 +647,9 @@ def run1():
         # lit_mod.load_state_dict(torch.load('tmp/siren_functa_model.t'))
         # trainer.fit(lit_mod, train_dataloaders=val_dl)#, val_dataloaders=val_dl)
         # trainer.checkpoint_callback.best_model_score
+        encoder.n_iter=15
         trainer.test(lit_mod, dataloaders=[val_dl])
+        # trainer.test(lit_mod, dataloaders=[train_dl])
         # trainer.test(lit_mod, dataloaders=[train_dl], ckpt_path=trainer.checkpoint_callback.best_model_path)
         lit_mod.test_data.to_array().isel(time=slice(0, 30, 10)).plot.pcolormesh(row='variable', col='time')
         lit_mod.test_data.map(geo_energy).to_array().isel(time=slice(0, 30, 10)).plot.pcolormesh(row='variable', col='time')
@@ -576,8 +660,8 @@ def run1():
         m = train_dl.dataset.da.sel(variable='ssh').mean().values
         print(lit_mod.test_data.pipe(lambda ds: (ds.rec_ssh -ds.ssh)*s).pipe(lambda da: da**2).mean().pipe(np.sqrt))
         import metrics
-        metrics.psd_based_scores(lit_mod.test_data.rec_ssh , lit_mod.test_data.ssh )
-        metrics.rmse_based_scores(lit_mod.test_data.rec_ssh , lit_mod.test_data.ssh  )
+        print(metrics.psd_based_scores(lit_mod.test_data.rec_ssh , lit_mod.test_data.ssh)[1:])
+        print(metrics.rmse_based_scores(lit_mod.test_data.rec_ssh , lit_mod.test_data.ssh)[2:])
         # lit_mod.test_data.pipe(lambda ds: ds-ds.ssh).drop('ssh').to_array().isel(time=slice(0, 30, 10)).plot.pcolormesh(row='variable', col='time')
 
 

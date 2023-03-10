@@ -58,7 +58,7 @@ def oi_core(it, ds_oi_grid, ds_oi_param, ds_obs):
     
     ind1 = numpy.where((numpy.abs(ds_obs.time.values - ds_oi_grid.gtime.values[it]) < 2.*ds_oi_param.Lt.values))[0]
     nobs = len(ind1)
-    print('Processing time-step : ', it, '/', len(ds_oi_grid.gtime.values) - 1, '      nobs = ', nobs, end="\r")
+    # print('Processing time-step : ', it, '/', len(ds_oi_grid.gtime.values) - 1, '      nobs = ', nobs, end="\r")
     
     BHt = numpy.empty((len(ds_oi_grid.ng), nobs))
     HBHt = numpy.empty((nobs, nobs))
@@ -71,7 +71,7 @@ def oi_core(it, ds_oi_grid, ds_oi_param, ds_obs):
     fglat = ds_oi_grid.fglat.values
     ftime = ds_oi_grid.gtime.values[it]
     
-    for iobs in range(nobs):
+    # for iobs in range(nobs):
         # print(iobs)
         
         BHt[:,iobs] = numpy.exp(-((ftime - obs_time[iobs])/ds_oi_param.Lt.values)**2 - 

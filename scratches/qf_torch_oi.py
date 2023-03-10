@@ -236,5 +236,115 @@ def main():
         print('Am I here')
         return locals()
 
+def main_enalt():
+    try:
+        device = 'cuda:3'
+        # device = 'cpu'
+        lon_min = -66.                                           # domain min longitude
+        lon_max = -54.                                           # domain max longitude
+        lat_min = 32.                                            # domain min latitude
+        lat_max = 44.                                            # domain max latitude
+        simu_start_date = np.datetime64('2009-07-01')                # domain min time
+        dt = np.timedelta64(1, 'D')                           # temporal grid step
+        time_min = np.datetime64('2009-07-01')
+        time_max = np.datetime64('2010-06-30')
+        dx = 0.2                                                 # zonal grid spatial step (in degree)
+        dy = 0.2                                                 # meridional grid spatial step (in degree)
+
+
+        glon = torch.arange(lon_min, lon_max + dx, dx).to(device)           # output OI longitude grid
+        glat = torch.arange(lat_min, lat_max + dy, dy).to(device)           # output OI latitude grid
+        gtime = torch.arange(
+            (time_min - simu_start_date) / dt,
+            (time_max - simu_start_date) / dt, 1
+        ).to(device)        # output OI time grid
+
+        # OI parameters
+        Lx = 1.                                                  # Zonal decorrelation scale (in degree)
+        Ly = 1.                                                  # Meridional decorrelation scale (in degree)
+        Lt = 7.                                                  # Temporal decorrelation scale (in days)
+        noise = 0.05                                             # Noise level (5%)
+
+        path_ref_daily = '../sla-data-registry/qdata/enatl_wo_tide.nc'
+        ref_daily_ds = xr.open_dataset(path_ref_daily)
+
+
+        inputs = '../sla-data-registry/CalData/cal_data_new_errs.nc'
+
+
+        inputs = '../sla-data-registry/qdata/enatl_wo_tide.nc'
+        ds_obs = (
+                xr.open_dataset(inputs)
+                .sel(lat=slice(lat_min - 2*Ly, lat_max + 2*Ly))
+                .sel(lon=slice(lon_min - 2*Lx, lon_max + 2*Lx))
+                .sel(time=slice(time_min - 2*Lt*dt, time_max + 2*Lt * dt))
+        )
+
+        ds_obs['nadir_obs'].isel(time=0).plot()
+        full_outs = {}
+        for obs_var in [ 'nadir_obs', ]:
+            # break
+        # obs_var = 'four_nadirs' 
+            obs = np.flatnonzero(np.isfinite(ds_obs[obs_var].values))
+
+            obs_values = torch.from_numpy(np.ravel(ds_obs[obs_var].values)[obs]).to(device)
+            obs_lon = torch.from_numpy(np.ravel(ds_obs.lon.broadcast_like(ds_obs[obs_var]).values)[obs]).to(device)
+            obs_lat = torch.from_numpy(np.ravel(ds_obs.lat.broadcast_like(ds_obs[obs_var]).values)[obs]).to(device)
+            obs_time = torch.from_numpy((np.ravel(ds_obs.time.broadcast_like(ds_obs[obs_var]).values)[obs] - simu_start_date) / dt).float().to(device)
+
+            outputs = []
+            t0 = time.time()
+            with torch.no_grad():
+                for i, batch in enumerate(prepare_oi_batch(
+                        obs_values, obs_time, obs_lon, obs_lat,
+                        gtime, glon, glat,
+                        {'time': 1, 'lon': 12, 'lat': 12},
+                        Lt, Lx, Ly)):
+                    # print(f'{len(batch[0])=}')
+                    # if 'cuda' in device:
+                    #     print(torch.cuda.memory_summary(device))
+                    #     print(torch.cuda.list_gpu_processes(device))
+                    torch.cuda.empty_cache()
+                    sol = torch_oi(
+                        *batch,
+                        Lt, Lx, Ly, noise
+                    )
+                    outputs.append((*(x.detach().cpu() for x in batch), sol.cpu()))
+                        # break
+                print(time.time() - t0)
+            dfs = []
+            for chunk in outputs:
+                (*_, grid_time, grid_lat, grid_lon, grid_sol) = chunk
+                dfs.append(
+                    pd.DataFrame(
+                        {
+                            'ssh': grid_sol.numpy(),
+                            'time': grid_time.numpy() * dt + simu_start_date,
+                            'lat': grid_lat.numpy(),
+                            'lon': grid_lon.numpy(),
+                        }
+                    )
+                )
+
+            out_ds = pd.concat(dfs).set_index(['time', 'lat', 'lon']).pipe(xr.Dataset.from_dataframe)
+            ref_daily = ref_daily_ds.interp(out_ds[['time', 'lat', 'lon']].coords)
+            out_ds.ssh.isel(time=1).plot()
+            ref_daily.ssh.isel(time=1).plot()
+            ref_daily_ds.nadir_obs.isel(time=100).plot()
+            eval_domain = dict(lat=slice(33, 43), lon=slice(-65, -55))
+            (out_ds.ssh - ref_daily.ssh).sel(eval_domain).isel(time=100).plot()
+            rmse = (out_ds.ssh - ref_daily.ssh).isel(time=slice(15, -15)).sel(eval_domain).pipe(lambda da: np.sqrt(np.mean(da**2))).compute().item()
+            rmse
+            out_ds.to_netcdf('../oi_enatl.nc')
+
+
+            
+
+    except Exception as e:
+        print(traceback.format_exc()) 
+    finally:
+        print('Am I here')
+        return locals()
+
 if __name__ =='__main__':
     locals().update(main())

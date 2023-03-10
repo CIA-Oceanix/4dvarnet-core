@@ -159,7 +159,7 @@ def animate_maps(oi, pred, lon, lat,
         norm = colors.Normalize(vmin=vmin, vmax=vmax)
 
     def animate(i):
-        print(i)
+        # print(i)
         ax1.clear()
         ax2.clear()
         if grad==False:
@@ -240,7 +240,7 @@ def plot_temporal_statistics(filenames, methods, colors):
     rmse_score = [ rmse_score[i].dropna(dim='time').where(ds1[i]['count'] > 10, drop=True) for i in range(len(filenames)) ]
   
     rmse_score=xr.merge([rmse_score[i].to_dataset().rename({"rms":"rms_"+methods[i]}) for i in range(len(filenames)) ])
-    print(rmse_score)
+    # print(rmse_score)
     plot1 = rmse_score.hvplot.line(x='time',y=['rms_'+methods[i] for  i in range(len(filenames)) ],ylabel='RMSE SCORE', shared_axes=True, color=colors[:len(filenames)])
     plot1.opts(legend_position='bottom',legend_cols=False)
     plot2 = ds1[0]['count'].dropna(dim='time').hvplot.step(ylabel='#Obs.', shared_axes=True, color='grey')
@@ -306,8 +306,8 @@ def plot_psd_score_intercomparison(filenames, methods, colors):
     plt.legend(loc='best')
     plt.grid(which='both')
     
-    logging.info(' ')
-    logging.info(f'  Minimum spatial scale resolved = {int(resolved_scales[imax])}km')
+    # logging.info(' ')
+    # logging.info(f'  Minimum spatial scale resolved = {int(resolved_scales[imax])}km')
     
     plt.show()
     

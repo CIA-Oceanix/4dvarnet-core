@@ -36,6 +36,7 @@ def compute_segment_alongtrack(time_alongtrack,
 
     if selected_track_segment.size > 0:
 
+        print(len(selected_track_segment))
         for track in selected_track_segment:
 
             if track-1 >= 0:
@@ -48,7 +49,8 @@ def compute_segment_alongtrack(time_alongtrack,
             start_point = index_start_selected_track
             end_point = index_end_selected_track
 
-            for sub_segment_point in range(start_point, end_point - npt, int(npt*segment_overlapping)):
+            for i, sub_segment_point in enumerate(range(start_point, end_point - npt, int(npt*segment_overlapping))):
+                if i >0: print("Long track")
 
                 # Near Greenwhich case
                 if ((lon_alongtrack[sub_segment_point + npt - 1] < 50.)
@@ -112,6 +114,7 @@ def compute_spectral_scores(time_alongtrack,
                                                                                             delta_x,
                                                                                             delta_t)
     
+    print(np.shape(ref_segment))
     # Power spectrum density reference field
     global_wavenumber, global_psd_ref = scipy.signal.welch(np.asarray(ref_segment).flatten(),
                                                            fs=1.0 / delta_x,
@@ -142,6 +145,6 @@ def compute_spectral_scores(time_alongtrack,
                    )
     
     ds.to_netcdf(output_filename)
-    logging.info(f'  Results saved in: {output_filename}')
+    # logging.info(f'  Results saved in: {output_filename}')
 
     

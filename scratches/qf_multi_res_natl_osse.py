@@ -270,14 +270,14 @@ def fix_time(da):
     da['time'] =  pd.to_datetime('2012-10-01') + pd.to_timedelta(da.time, 's')
     return da
         
-def sample_nadirs_from_simu(nadirs, simu, nadirs_start_time=pd.to_datetime('2012-10-01')):
+def sample_nadirs_from_simu(nadirs, simu, nadirs_start_time=pd.to_datetime('2012-10-01'), nb_day_nadirs=365):
     binning = pyinterp.Binning2D(pyinterp.Axis(simu.lon.values), pyinterp.Axis(simu.lat.values))
     grid_day_dses = []
     for i in tqdm(range(len(simu.time))):
         binning.clear()
         for nad in nadirs:
             try:
-                nad_chunk=nadirs[nad].sel(time=str((nadirs_start_time + pd.to_timedelta(f'{i}D')).date()))
+                nad_chunk=nadirs[nad].sel(time=str((nadirs_start_time + pd.to_timedelta(f'{i%365}D')).date()))
             except KeyError as e:
                 print(e)
                 continue
@@ -482,7 +482,7 @@ def find_good_down_sampling():
         psd_fn = lambda da: xrft.isotropic_power_spectrum(
                 da, dim=('lat', 'lon'), truncate=True, window='flattop')
 
-        domain = {'lat': slice(34, 44), 'lon':slice(-65,-55)}
+        domain = {'lat': slice(33, 43), 'lon':slice(-65,-55)}
 
         natl = xr.open_dataset('../sla-data-registry/NATL60/NATL/ref_new/NATL60-CJM165_NATL_ssh_y2013.1y.nc')
         natl['time'] =  pd.to_datetime('2012-10-01') + pd.to_timedelta(natl.time, 's')
@@ -670,8 +670,8 @@ def preprocess_glo():
         psd_fn = lambda da: xrft.isotropic_power_spectrum(
                 da, dim=('lat', 'lon'), truncate=True, window='hann')
 
-        domain = {'lat': slice(33, 45), 'lon':slice(-66,-54)}
-        subdomain = {'lat': slice(34, 44), 'lon':slice(-65,-55)}
+        domain = {'lat': slice(32, 44), 'lon':slice(-66,-54)}
+        subdomain = {'lat': slice(33, 43), 'lon':slice(-65,-55)}
 
         def interpolate_na_2D(ds, max_value=100.):
             return (
@@ -744,7 +744,7 @@ def anim_res():
         # hv.output(img, holomap='gif', fps=4, dpi=125)
         
         natl = xr.open_dataset('../sla-data-registry/NATL60/NATL/ref_new/NATL60-CJM165_NATL_ssh_y2013.1y.nc')
-        domain = {'lat': slice(33, 45), 'lon':slice(-66,-54)}
+        domain = {'lat': slice(32, 44), 'lon':slice(-66,-54)}
         img = anim(natl.sel(domain), dvars=['ssh'])
         hv.output(img, holomap='gif', fps=4, dpi=125)
         hv.save(img, 'anim.gif', fps=4, dpi=125)
@@ -825,33 +825,21 @@ def fmt_glorys12():
     finally:
         return locals()
 
-
-def fmt_orca25():
+def refmt_enatl():
     try:
-        orca = xr.open_dataset('../sla-data-registry/eORCA025/eORCA025_North_Atlantic_sossheig_y2013.nc')
-        natl = xr.open_dataset('../sla-data-registry/NATL60/NATL/ref_new/NATL60-CJM165_NATL_ssh_y2013.1y.nc')
-        natl['time'] =  pd.to_datetime('2012-10-01') + pd.to_timedelta(natl.time, 's')
-        natl = natl.sel(lat=slice(32, 44), lon=slice(-66, -54))
 
-        orca1d = orca.resample(time_counter='1D').mean()
-        
-        orca1d['lat'] = orca1d.nav_lat.mean('x')
-        orca1d['lon'] = orca1d.nav_lon.mean('y')
-        orca1d['time'] = orca1d.time_counter + pd.to_timedelta('12H')
-        orca1d.lat
-        natl.lon
+        ref = xr.open_dataset('../sla-data-registry/NATL60/NATL/ref_new/NATL60-CJM165_NATL_ssh_y2013.1y.nc')
+        ref['time'] =  pd.to_datetime('2012-10-01') + pd.to_timedelta(ref.time, 's')
+        ref = ref.sel(lat=slice(32, 44), lon=slice(-66, -54))
 
-        fmtted_orca = (
-            orca1d
-            .swap_dims(time_counter='time', y='lat', x='lon')
-            .pipe(lambda ds:
-            ds.sossheig
-            .interp(
-                lat=natl.lat,
-                lon=natl.lon,
-            ))
+        raw_natl = xr.open_dataset('../sla-data-registry/raw/NATL60_regular_grid/1_10/natl60CH_H.nc')
+        raw_natl['time'] =  pd.to_datetime('2012-10-01') + pd.to_timedelta(raw_natl.time, 's')
+        raw_natl['lon'] =  raw_natl['lon'] - 360
+        raw_natl = (
+                raw_natl.swap_dims(x='lon', y='lat')
+                .pipe(lambda ds: ds.isel(lat=  (44>=ds.lat) &  (ds.lat>=32) ))
+                .pipe(lambda ds: ds.isel(lon=  (-66>=ds.lon) &  (ds.lon>=-44) ))
         )
-
 
         nadirs = {
             nad: swath_calib.utils.get_nadir_slice(
@@ -863,19 +851,70 @@ def fmt_orca25():
             )
             for nad in ['tpn', 'en', 'j1', 'g2', 'swot']}
 
+    except Exception as e:
+        print(traceback.format_exc()) 
+    finally:
+        return locals()
+        
+def fmt_orca25():
+    try:
+        # orca = xr.open_dataset('../sla-data-registry/eORCA025/eORCA025_North_Atlantic_sossheig_y2013.nc')
+        orca = xr.open_dataset('../sla-data-registry/eORCA025_North_Atlantic_sossheig_y2013_fixed.nc')
+        orca.nav_lat
+        natl = xr.open_dataset('../sla-data-registry/NATL60/NATL/ref_new/NATL60-CJM165_NATL_ssh_y2013.1y.nc')
+        natl['time'] =  pd.to_datetime('2012-10-01') + pd.to_timedelta(natl.time, 's')
+        natl = natl.sel(lat=slice(31, 45), lon=slice(-67, -53))
+
+        
+
+        import xesmf as xe
+        ds_out = xe.util.grid_2d(-67, -53, 0.05, 31, 45, 0.05)
+        reggridder = xe.Regridder(orca, ds_out, "bilinear", unmapped_to_nan=True)
+        out = reggridder(orca)
+
+        out['time'] = out.time_counter + pd.to_timedelta('11H') + pd.to_timedelta('30min')
+        fmtted_orca = (
+            out
+            .assign(lat=lambda ds: ds.lat.isel(x=0) -0.025, lon=lambda ds: ds.lon.isel(y=0) -0.025, )
+            .swap_dims(time_counter='time', y='lat', x='lon')
+        )
+
+
+        nadirs = {
+            nad: swath_calib.utils.get_nadir_slice(
+                f'../sla-data-registry/sensor_zarr/zarr/nadir/{nad}',
+                lat_min=31,
+                lat_max=45,
+                lon_min=293,
+                lon_max=308,
+            )
+            for nad in ['tpn', 'en', 'j1', 'g2', 'swot']}
+
          
-        simu_offset= natl.time.min().values -fmtted_orca.time.min().values
-        fmtted_orca.assign_coords(time=fmtted_orca.time + simu_offset).isel(time=25).plot()
+        simu_offset= pd.to_timedelta(natl.time.min().values -fmtted_orca.time.min().values)
+        # fmtted_orca.assign_coords(time=fmtted_orca.time + simu_offset).isel(time=25).plot()
+        fmtted_orca.isel(time=0).sossheig.plot()
+        mean_day = fmtted_orca.resample(time='1D').mean()
+        mean_day.sel(lat=toto.lat, lon=toto.lon, method='nearest').isel(time=0).sossheig.plot()
+        mean_day.sossheig.isel(time=1).plot()
+        snap_day = fmtted_orca.sel(time=mean_day.time, method='nearest')
         new_obs_ds = (
-            sample_nadirs_from_simu(nadirs, fmtted_orca.assign_coords(time=fmtted_orca.time + simu_offset))
+            sample_nadirs_from_simu(nadirs, snap_day.assign_coords(time=pd.to_datetime(snap_day.time) + simu_offset).sossheig)
             .assign_coords(time=lambda ds: ds.time - simu_offset)
         )
-        new_obs_ds.isel(time=30).ssh.plot()
+        new_obs_ds.isel(time=30).sel(lat=toto.lat, lon=toto.lon, method='nearest').ssh.plot()
+        mean_day.isel(time=30).sel(lat=toto.lat, lon=toto.lon, method='nearest').sossheig.plot()
 
         new_obs_ds.time
         fmtted_orca.time
-        xr.merge([new_obs_ds.rename(ssh='five_nadirs'), fmtted_orca.to_dataset(name='ssh')]).to_netcdf('../sla-data-registry/eORCA025/preprocessed_eorca220921.nc')
-
+        xr.merge([new_obs_ds.rename(ssh='five_nadirs'), fmtted_orca.to_dataset(name='ssh')]).to_netcdf('../sla-data-registry/eORCA025/preprocessed_eorca230303.nc')
+        ds = xr.merge([new_obs_ds.rename(ssh='nadir_obs').interp(lat=toto.lat, lon=toto.lon, method='nearest').interp(time=mean_day.time, method='nearest'),
+                        mean_day.rename(sossheig='ssh').interp(lat=toto.lat, lon=toto.lon, method='nearest'),])
+        ds.isel(time=slice(0, 3)).to_array().plot(col='time', row='variable')
+        ds.to_netcdf('../sla-data-registry/qdata/orca25.nc')
+        toto = xr.open_dataset('../sla-data-registry/qdata/orca25.nc')
+        toto.close() 
+        toto
     except Exception as e:
         print(traceback.format_exc()) 
     finally:
@@ -883,10 +922,24 @@ def fmt_orca25():
 
 def fmt_enatl():
     try:
+        xr.open_dataset('../sla-data-registry/DAC_ERA_INTERIM_GF.nc')
         # 2009-11-14 -> 2010-03-21
         tgt_grid = xr.open_dataset('../sla-data-registry/qdata/natl20.nc')
 
         (tgt_grid.ssh - tgt_grid.nadir_obs).pipe(np.abs).pipe(np.nanmean)
+
+
+        def proc(samp):
+            ssamp = samp - samp.mean('x').mean('y') + samp.mean()
+            pp_samp = ( ssamp
+             .assign(lat=lambda ds: ds.nav_lat.isel(x=600), lon=lambda ds: ds.nav_lon.isel(y=600))
+             .coarsen(x=3, y=3, boundary='trim').mean()
+             .swap_dims(x='lon', y='lat').sossheig
+             .interp(lon=tgt_grid.lon, lat=tgt_grid.lat)
+            )
+
+            return pp_samp.mean('time_counter'), pp_samp.sel(time_counter=samp.time_counter.mean(), method='nearest')
+
         nadirs = {
             nad: swath_calib.utils.get_nadir_slice(
                 f'../sla-data-registry/sensor_zarr/zarr/nadir/{nad}',
@@ -899,57 +952,171 @@ def fmt_enatl():
 
         blb0_mean = []
         blb0_snapshot = []
-        for f in tqdm(list(Path('../sla-data-registry/enatl60').glob('*BLB0*'))):
+        for f in tqdm(sorted(list(Path('../sla-data-registry/enatl60').glob('*BLB0*')))):
             samp = xr.open_dataset(f)
-            samp=samp.mean('time_counter', keepdims=True).assign_coords(time_counter=[samp.time_counter.mean().values]).coarsen(x=3, y=3, boundary='trim').mean()
-            regridded = interp_unstruct_to_grid(samp.sossheig, tgt_grid.ssh)
-            blb0_mean.append(regridded)
-
-            samp = xr.open_dataset(f)
-            samp=samp.sel(time_counter=samp.time_counter.mean(), method='nearest').coarsen(x=3, y=3, boundary='trim').mean()
-            samp=samp.expand_dims({'time_counter':1})
-
-            regridded = interp_unstruct_to_grid(samp.sossheig, tgt_grid.ssh)
-            blb0_snapshot.append(regridded)
+            mean, snap = proc(samp)
+            blb0_mean.append(mean)
+            blb0_snapshot.append(snap)
         
-        bods = xr.concat(blb0_mean, 'time_counter').rename(time_counter='time')
-        bods_snap = xr.concat(blb0_snapshot, 'time_counter').rename(time_counter='time')
+        bods = xr.concat(blb0_mean, 'time_counter').rename(time_counter='time').drop('nav_lon').drop('nav_lat')
+        bods_snap = xr.concat(blb0_snapshot, 'time_counter').rename(time_counter='time').sortby('time')
         bods_obs_ds = (sample_nadirs_from_simu(nadirs, bods_snap)).ssh
 
         ds = xr.Dataset(dict(ssh=(bods.dims, bods.values), nadir_obs=(bods_obs_ds.dims, bods_obs_ds.values)), coords=bods.coords).load()
         ds_wo_tide = ds.sortby('time')
+        ds_wo_tide['time']= pd.to_datetime('2009-07-01') + ds_wo_tide['time']*pd.to_timedelta('1D')
         ds_wo_tide.to_netcdf(f'../sla-data-registry/qdata/enatl_wo_tide.nc')
 
         blbt_snapshot = []
         blbt_mean = []
-        for f in tqdm(list(Path('../sla-data-registry/enatl60').glob('*BLBT*'))):
+        for f in tqdm(sorted(list(Path('../sla-data-registry/enatl60').glob('*BLBT*')))):
             samp = xr.open_dataset(f)
-            samp=samp.mean('time_counter', keepdims=True).assign_coords(time_counter=[samp.time_counter.mean().values]).coarsen(x=3, y=3, boundary='trim').mean()
-            regridded = interp_unstruct_to_grid(samp.sossheig, tgt_grid.ssh)
-            blbt_mean.append(regridded)
-
-            samp = xr.open_dataset(f)
-            samp=samp.sel(time_counter=samp.time_counter.mean(), method='nearest').coarsen(x=3, y=3, boundary='trim').mean()
-            samp=samp.expand_dims({'time_counter':1})
-            regridded = interp_unstruct_to_grid(samp.sossheig, tgt_grid.ssh)
-            blbt_snapshot.append(regridded)
+            samp = samp - samp.mean('x').mean('y')
+            mean, snap = proc(samp)
+            blbt_mean.append(mean)
+            blbt_snapshot.append(snap)
         
 
-        btds = xr.concat(blbt_mean, 'time_counter').rename(time_counter='time')
-        btds_snap = xr.concat(blbt_snapshot, 'time_counter').rename(time_counter='time')
+        btds = xr.concat(blbt_mean, 'time_counter').rename(time_counter='time').drop('nav_lon').drop('nav_lat')
+        btds_snap = xr.concat(blbt_snapshot, 'time_counter').rename(time_counter='time').sortby('time')
         btds_obs_ds = ( sample_nadirs_from_simu(nadirs, btds_snap)).ssh
 
 
         ds = xr.Dataset(dict(ssh=(btds.dims, btds.values), nadir_obs=(btds_obs_ds.dims, btds_obs_ds.values)), coords=btds.coords).load()
         ds_w_tide = ds.sortby('time')
+        ds_w_tide['time']= pd.to_datetime('2009-07-01') + ds_w_tide['time']*pd.to_timedelta('1D')
         ds_w_tide.to_netcdf(f'../sla-data-registry/qdata/enatl_w_tide.nc')
+
         
     except Exception as e:
         print(traceback.format_exc()) 
     finally:
         return locals()
 
+
+
+
+
+def new_enatl_fmt():
+    import xesmf as xe
+    from tqdm import tqdm
+    from pathlib import Path
+    import xarray as xr
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    tgt_grid = xr.open_dataset('../sla-data-registry/qdata/natl20.nc')
+    nadirs = {
+        nad: swath_calib.utils.get_nadir_slice(
+            f'../sla-data-registry/sensor_zarr/zarr/nadir/{nad}',
+            lat_min=31,
+            lat_max=45,
+            lon_min=293,
+            lon_max=307,
+        )
+        for nad in ['tpn', 'en', 'j1', 'g2', 'swot']}
+
+
+    dac = xr.open_dataset('../sla-data-registry/DAC_ERA_INTERIM_GF.nc')
+
+    ds_out = xe.util.grid_2d(-67, -53, 0.05, 31, 45, 0.05)
+    dac.nav_lon.attrs=samp.nav_lon.attrs
+    dac.nav_lat.attrs=samp.nav_lat.attrs
+    dac = dac.rename(nav_lat='lat', nav_lon='lon')
+
+
+    reggridder = xe.Regridder(dac, ds_out, "bilinear")
+    dac_out = reggridder(dac, keep_attrs=True)
+    domain = {'lat': slice(32, 44), 'lon':slice(-66,-54)}
+    pp_dac = (
+        dac_out.assign(
+            lat=lambda ds: ds.lat.isel(x=0) - 0.025,
+            lon=lambda ds: ds.lon.isel(y=0) - 0.025,
+        ).swap_dims(x='lon', y='lat').sel(domain)
+    )
+    pp_dac.DAC_ERA_INTERIM.isel(time_counter=slice(0,81,9)).plot(col="time_counter", col_wrap=3)
+
+    def proc(samp, regridder=None):
+        # ssamp = samp - samp.mean('x').mean('y') + samp.mean()
+        ds = samp.rename(nav_lat='lat', nav_lon='lon').load().isel(
+                x=(samp.nav_lon.isel(y=600)>-67) & (samp.nav_lon.isel(y=600)<-53),
+                y=(samp.nav_lat.isel(x=600)>32) & (samp.nav_lat.isel(x=600)<46),
+        )
+        ds[['lat', 'lon']] = ds[['lat', 'lon']].to_dataframe().assign(
+            lat=lambda df: df.lat.map(lambda l: np.nan if l==0 else l),
+            lon=lambda df: df.lon.map(lambda l: np.nan if l==0 else l)
+        ).interpolate().to_xarray()
+        if regridder is None:
+            reggridder = xe.Regridder(ds, ds_out, "bilinear")
+        dr_out = reggridder(ds, keep_attrs=True)
+        domain = {'lat': slice(32, 44), 'lon':slice(-66,-54)}
+        pp_samp = (
+            dr_out.assign(
+                lat=lambda ds: ds.lat.isel(x=0) - 0.025,
+                lon=lambda ds: ds.lon.isel(y=0) - 0.025,
+            ).swap_dims(x='lon', y='lat').sel(domain)
+        )
+        pp_samp =  pp_samp + pp_dac.sel(time_counter=pp_samp.time_counter).DAC_ERA_INTERIM
+        pp_samp['lat'] = tgt_grid.lat
+        pp_samp['lon'] = tgt_grid.lon
+        pp_samp = xr.where(tgt_grid.ssh.isel(time=0).pipe(np.isfinite), pp_samp, xr.full_like(pp_samp, np.nan))
+        pp_samp = pp_samp - pp_samp.mean(('lat', 'lon'))
+        snap = pp_samp.sel(time_counter=samp.time_counter.mean(), method='nearest')
+        mean = pp_samp.mean('time_counter').assign(time_counter=snap.time_counter)
+        return regridder, (mean, snap)
+
+    out = proc(samp)
+    samp.mean("time_counter").std()
+    mean.sossheig.std()
+
+    def build_enatl(g="BLB0"):
+        regridder = None
+        blb0_mean = []
+        blb0_snapshot = []
+        for i,f in enumerate(tqdm(sorted(list(Path('../sla-data-registry/enatl60').glob(f'*{g}*'))))):
+            samp = xr.open_dataset(f)
+            regridder, (mean, snap) = proc(samp, regridder)
+            blb0_mean.append(mean)
+            blb0_snapshot.append(snap)
+            # if i > 1:
+            #     break
+
+        bods = xr.concat(blb0_mean, 'time_counter').drop('time').rename(time_counter='time').drop('time_centered').sortby('time').sossheig
+        bods_snap = xr.concat(blb0_snapshot, 'time_counter').drop('time').rename(time_counter='time').drop('time_centered').sortby('time').sossheig
+        bods_obs_ds = (sample_nadirs_from_simu(nadirs, bods_snap)).ssh
+        return bods, bods_snap, bods_obs_ds
+
+    bods, bods_snap, bods_obs_ds = build_natl('BLB0')
+    ds = xr.Dataset(dict(ssh=(bods.dims, bods.values), nadir_obs=(bods_obs_ds.dims, bods_obs_ds.values)), coords=bods.coords).load()
+    ds_wo_tide = ds.sortby('time')
+    # xr.open_dataset(f'../sla-data-registry/qdata/enatl_wo_tide.nc').std()
+    ds_wo_tide.to_netcdf(f'../sla-data-registry/qdata/enatl_wo_tide.nc')
+
+
+    btds, btds_snap, btds_obs_ds = build_enatl('BLBT')
+    ds = xr.Dataset(dict(ssh=(btds.dims, btds.values), nadir_obs=(btds_obs_ds.dims, btds_obs_ds.values)), coords=btds.coords).load()
+    ds_w_tide = ds.sortby('time')
+    ds_w_tide.to_netcdf(f'../sla-data-registry/qdata/enatl_w_tide.nc')
+
+def new_enatl_w_tide_fmt():
+    tgt_grid = xr.open_dataset('../sla-data-registry/qdata/natl20.nc')
+    sla_5nad = xr.open_zarr('../sla-data-registry/enatl_preproc/SLA_SSH_5nadirs.zarr')
+    sla_5nad.load()
+    enatl = xr.open_zarr('../sla-data-registry/enatl_preproc/truth_SLA_SSH_NATL60.zarr')
+    enatl.load()
+    
+    regridder = xe.Regridder(enatl, tgt_grid, "bilinear")
+    enatl_out = regridder(enatl)
+    regridder = xe.Regridder(sla_5nad, tgt_grid, "bilinear")
+    obs_out = regridder(sla_5nad)
+    enatl_obs = (sample_nadirs_from_simu(nadirs, enatl_out.ssh)).ssh
+    ds = xr.Dataset(dict(ssh=(enatl_out.ssh.dims, enatl_out.ssh.values), nadir_obs=(enatl_obs.dims, enatl_obs.values)), coords=enatl_out.coords).load()
+    ds.to_array().pipe(np.isnan).isel(time=slice(0, None, 45)).plot(col='variable', row='time')
+    ds.to_netcdf(f'../sla-data-registry/qdata/enatl_w_tide.nc')
+
+
 def fmt_duacs_emul():
+
     try:
 
         ose_oi_path= '/raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/training/ssh_alg_h2g_j2g_j2n_j3_s3a_duacs.nc'

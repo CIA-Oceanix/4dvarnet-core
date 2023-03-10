@@ -45,7 +45,7 @@ def compute_stats(time_alongtrack,
     
     ncfile.close()
     
-    logging.info(f'  Results saved in: {output_filename}')
+    # logging.info(f'  Results saved in: {output_filename}')
 
     # write time series statistics
     leaderboard_nrmse, leaderboard_nrmse_std = write_timeserie_stat(ssh_alongtrack, 

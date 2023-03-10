@@ -124,8 +124,8 @@ def write_timeserie_stat(ssh_alongtrack, ssh_map_interp, time_vector, freq, outp
     
     ds.to_netcdf(output_filename, group='maps', mode='a')
     
-    logging.info(' ')
-    logging.info(f'  Results saved in: {output_filename}')
+    # logging.info(' ')
+    # logging.info(f'  Results saved in: {output_filename}')
     
     rmse_score = 1. - rmse/rms_alongtrack
     # mask score if nb obs < nb_min_obs
@@ -135,9 +135,9 @@ def write_timeserie_stat(ssh_alongtrack, ssh_map_interp, time_vector, freq, outp
     mean_rmse = np.ma.mean(np.ma.masked_invalid(rmse_score))
     std_rmse = np.ma.std(np.ma.masked_invalid(rmse_score))
     
-    logging.info(' ')
-    logging.info(f'  MEAN RMSE Score = {mean_rmse}')
-    logging.info(' ')
-    logging.info(f'  STD RMSE Score = {std_rmse}')
+    # logging.info(' ')
+    # logging.info(f'  MEAN RMSE Score = {mean_rmse}')
+    # logging.info(' ')
+    # logging.info(f'  STD RMSE Score = {std_rmse}')
     
     return mean_rmse, std_rmse

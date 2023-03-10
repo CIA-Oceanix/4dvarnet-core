@@ -21,7 +21,7 @@
 # %%
 import os
 import sys
-# sys.path.append('/raid/localscratch/qfebvre/4dvarnet-core/ose/eval_notebooks')
+sys.path.append('/raid/localscratch/qfebvre/4dvarnet-core/ose/eval_notebooks')
 
 import logging
 import pandas as pd
@@ -160,9 +160,7 @@ def metrics_ose(data_src, alontrack_independent_dataset):
           return str(newfile)
 
         file_oi = define_ssh_var(data_src.copy(),'oi',"DUACS")
-        print(xr.open_dataset(file_oi))
         file_4dvarnet = define_ssh_var(data_src.copy(),'pred',"4DVarNet")
-        print(xr.open_dataset(file_4dvarnet))
 
         methods = ['OI', '4DVarNet']
         colors = ['k','red']

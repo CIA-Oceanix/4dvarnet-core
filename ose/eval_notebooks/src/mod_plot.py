@@ -61,8 +61,8 @@ def plot_psd_score(filename):
     plt.legend(loc='best')
     plt.grid(which='both')
     
-    logging.info(' ')
-    logging.info(f'  Minimum spatial scale resolved = {int(resolved_scale)}km')
+    # logging.info(' ')
+    # logging.info(f'  Minimum spatial scale resolved = {int(resolved_scale)}km')
     
     plt.show()
     
