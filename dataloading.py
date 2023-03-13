@@ -84,11 +84,8 @@ class XrDataset(Dataset):
         self.auto_padding = auto_padding
         self.interp_na = interp_na
         # try/except block for handling both netcdf and zarr files
-        try:
-            _ds = xr.open_dataset(path)
-        except OSError as ex:
-            raise ex
-            _ds = xr.open_zarr(path)
+        print(path)
+        _ds = xr.open_dataset(path)
         if decode:
             if str(_ds.time.dtype) == 'float64':
                 _ds.time.attrs["units"] = "seconds since 2012-10-01"

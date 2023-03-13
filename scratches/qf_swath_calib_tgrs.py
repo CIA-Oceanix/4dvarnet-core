@@ -13,7 +13,6 @@ import swath_calib.configs
 import swath_calib.utils
 import swath_calib.models
 import swath_calib.dataset
-import swath_calib.versioning_cb
 import swath_calib.report
 import pytorch_lightning as pl
 from pathlib import Path
@@ -22,10 +21,6 @@ import utils
 import uuid
 
 
-import importlib
-importlib.reload(swath_calib.configs)
-importlib.reload(utils)
-importlib.reload(swath_calib.utils)
 
 def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
     try:
@@ -114,14 +109,12 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
             )
         cal_mod.use_ff = False
         logger = pl.loggers.TensorBoardLogger('lightning_logs', name=f'{xp_num}_{cfgn}', version='')
-        vcb = swath_calib.versioning_cb.VersioningCallback()
         trainer = pl.Trainer(
             gpus=[0],
             logger=logger,
             # fast_dev_run=1,
             callbacks=[
                 pl.callbacks.LearningRateMonitor(),
-                vcb,
                 pl.callbacks.ModelCheckpoint(monitor='val_loss', save_last=True),
                 # pl.callbacks.StochasticWeightAveraging(),
                 pl.callbacks.GradientAccumulationScheduler({1: 4, 10: 8, 15: 16, 20: 32}), #, 30: 64}),
@@ -148,7 +141,6 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
                     {'uid':uid},
                     {'cfgn':cfgn},
                     {'xp_num':xp_num},
-                    {'src_commit': vcb.setup_hash},
                     {'training_data': str(saved_data_path)},
                 
         )
@@ -304,12 +296,12 @@ def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
         return locals()
 
 def bst_ckpt(dirpath, glob='version_*/checkpoints/*', ckpt_fmt='.+val_loss=(.+)\.ckpt'):
-    return min(Path(dirpath).glob(glob), key=lambda p: float(re.match(ckpt_fmt, str(p)).group(1)))
-
-def bst_ckpt(dirpath, glob='version_*/checkpoints/*', ckpt_fmt='.+val_loss=(.+)\.ckpt'):
+    print(dirpath)
     return min(Path(dirpath).glob(glob), key=lambda p: float(re.match(ckpt_fmt, str(p)).group(1)))
 
 if __name__ == '__main__':
+    Path('tmp').mkdir(exist_ok=True)
+    Path('trained_cfgs').mkdir(exist_ok=True)
 
     cfg = OmegaConf.create(dict(
         net_cfg=dict(
@@ -335,7 +327,7 @@ if __name__ == '__main__':
             },
         ),
         fourdvar_cfg='qxp20_5nad_no_sst',
-        fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp20/qxp20_5nad_no_sst')),
+        fourdvar_mod_ckpt=str(bst_ckpt(f'../4dvarnet-core/results/xp20/qxp20_5nad_no_sst')),
         cal_mod_ckpt=None,
         swath_ds_cfg=dict(
             sigmas_gt=(0,),
@@ -353,22 +345,22 @@ if __name__ == '__main__':
     cs = ConfigStore.instance()
     xpns = []
     for xp, override in [
-        # ('base', dict()),
+        ('base', dict()),
         # ('with_bn', dict(net_cfg=dict(norm_type='bn'))),
         # ('xb_oi', dict(swath_ds_cfg=dict(xb_var='oi', ref_var='oi'))) ,
         # ('no_xb', dict(swath_ds_cfg=dict(xb_var='zeros', sigmas_xb=tuple()))) ,
         # ('sst_xb', dict(
         #     fourdvar_cfg='qxp20_5nad_sst',
-        #     fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp20/qxp20_5nad_sst')),
+        #     fourdvar_mod_ckpt=str(bst_ckpt(f'../4dvarnet-core/results/xp20/qxp20_5nad_sst')),
         # )) ,
         # ('no_mix', dict(net_cfg=dict(mix=False))) ,
         # ('no_res', dict(net_cfg=dict(residual=False))) ,
         # ('no_mix_no_res', dict(net_cfg=dict(residual=False))) ,
-        ('sst_no_mix_no_res', dict(
-            net_cfg=dict(residual=False),
-            fourdvar_cfg='qxp20_5nad_sst',
-            fourdvar_mod_ckpt=str(bst_ckpt(f'results/xp20/qxp20_5nad_sst')),
-        )) ,
+        # ('sst_no_mix_no_res', dict(
+        #     net_cfg=dict(residual=False),
+        #     fourdvar_cfg='qxp20_5nad_sst',
+        #     fourdvar_mod_ckpt=str(bst_ckpt(f'../4dvarnet-core/results/xp20/qxp20_5nad_sst')),
+        # )) ,
         # ('linear', dict(net_cfg=dict(depth=0))) ,
         # ('smaller', dict(net_cfg=dict(depth=1, nhidden=32))) ,
         # ('bigger', dict(net_cfg=dict(depth=5, nhidden=512))) ,
@@ -378,11 +370,11 @@ if __name__ == '__main__':
         # ))),
         # ('log', dict(swath_ds_cfg=dict(
         #     sigmas_obs = (0,*sorted(list(set([int(s) for s in np.logspace(0,3,15)])))) ,
-        #     sigmas_xb = (0,*sorted(list(set([int(s) for s in np.logspace(0,3,15)])))) 
+        #     sigmas_xb = (0,*sorted(list(set([int(s) for s in np.logspace(0,3,15)]))))
         # ))),
         # ('no_decomp', dict(swath_ds_cfg=dict(
         #     sigmas_obs = (0,) ,
-        #     sigmas_xb = (0,) 
+        #     sigmas_xb = (0,)
         # ))),
         # ('40x2', dict(swath_ds_cfg=dict(
         #     sigmas_obs=(0,*[(i+1)*2 for i in range(40)]),
@@ -421,36 +413,5 @@ if __name__ == '__main__':
         results.append(trained_cfg_w_metrics)
 
 
-    # fig, ax = plt.subplots(figsize=(10,10))    
-    # for cfg in results:
-    #     num_feat = len(cfg.swath_ds_cfg.sigmas_obs + cfg.swath_ds_cfg.sigmas_xb)
-    #     net = swath_calib.models.build_net(
-    #             in_channels=num_feat,
-    #             out_channels=1,
-    #             **cfg.net_cfg
-    #     )
-    #     normnet = torch.nn.Sequential(
-    #         torch.nn.BatchNorm2d(num_features=num_feat, affine=True, momentum=0.1),
-    #         net,
-    #         # torch.nn.BatchNorm2d(num_features=1, affine=True, momentum=0.1),
-    #     )
-
-    #     cal_mod = swath_calib.models.LitDirectCNN(
-    #             # net,
-    #             normnet,
-    #             # gt_var_stats=[s[train_ds.gt_vars].to_array().data for s in train_ds.stats],
-    #             gt_var_stats=[np.array([ns[0]]), np.array([ns[1]])],
-    #             # gt_var_stats=[np.array([0.]), np.array([1.])],
-    #             **cfg.lit_cfg
-    #         )
-    #     print(cal_mod.load_state_dict(torch.load(cfg.cal_mod_ckpt)['state_dict']))
-
-    #     with open(f'tmp/{cfg.uid}_figs.pk', 'rb') as f:
-    #         figs=pickle.load(f)
-
-        # ax.plot(cfg.swath_ds_cfg.sigmas_obs, cal_mod.net[0].weight.detach().cpu()[:len(cfg.swath_ds_cfg.sigmas_obs)], label=cfg.cfgn)
-        
-    # ax.legend()
-    # figs[0]['violin_diff']
 
 

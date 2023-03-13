@@ -14,11 +14,6 @@ XP=20
 for  defaults in product(
         [
             ('5nad', '/xp/qfebvre/ds/five_nadirs.yaml'),
-            ('swot', '/xp/qfebvre/ds/clean_swot_oi_no_swot.yaml'),
-            # ('swot_w_oi', '/xp/qfebvre/ds/clean_swot_oi_w_swot.yaml'),
-            # ('roll', '/xp/qfebvre/ds/new_noisy_swot_roll.yaml'),
-            # ('syst', '/xp/qfebvre/ds/new_noisy_swot_syst_errs.yaml'),
-            ('noisy', '/xp/qfebvre/ds/new_noisy_swot.yaml'),
         ],
         [
             ('sst', '/xp/qfebvre/sst/with_sst.yaml'),
@@ -34,7 +29,6 @@ for  defaults in product(
             'defaults': BASE_DEFAULTS + list(defaults) + ['_self_'],
         }
     cs.store(name=xp_name, node=cfg, group='xp', package='_global_')
-    # print(cs.list('xp'))
 
 
 if __name__== '__main__':
