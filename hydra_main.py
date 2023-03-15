@@ -56,12 +56,21 @@ class FourDVarNetHydraRunner:
         self.setup(dm)
 
     def setup(self, datamodule):
-        self.mean_Tr = datamodule.norm_stats[0]
-        self.mean_Tt = datamodule.norm_stats[0]
-        self.mean_Val = datamodule.norm_stats[0]
-        self.var_Tr = datamodule.norm_stats[1] ** 2
-        self.var_Tt = datamodule.norm_stats[1] ** 2
-        self.var_Val = datamodule.norm_stats[1] ** 2
+        if hasattr(datamodule, 'sst_mask_var') and datamodule.sst_mask_var is not None:
+            self.mean_Tr = [datamodule.norm_stats[0], datamodule.norm_stats_sst[0]]
+            self.mean_Tt = [datamodule.norm_stats[0], datamodule.norm_stats_sst[0]]
+            self.mean_Val = [datamodule.norm_stats[0], datamodule.norm_stats_sst[0]]
+            self.var_Tr = [datamodule.norm_stats[1] ** 2, datamodule.norm_stats_sst[1]**2]
+            self.var_Tt = [datamodule.norm_stats[1] ** 2, datamodule.norm_stats_sst[1]**2]
+            self.var_Val = [datamodule.norm_stats[1] ** 2, datamodule.norm_stats_sst[1]**2]
+        else:
+            self.mean_Tr = datamodule.norm_stats[0]
+            self.mean_Tt = datamodule.norm_stats[0]
+            self.mean_Val = datamodule.norm_stats[0]
+            self.var_Tr = datamodule.norm_stats[1] ** 2
+            self.var_Tt = datamodule.norm_stats[1] ** 2
+            self.var_Val = datamodule.norm_stats[1] ** 2
+
         self.min_lon = datamodule.dim_range['lon'].start
         self.max_lon = datamodule.dim_range['lon'].stop
         self.min_lat = datamodule.dim_range['lat'].start
