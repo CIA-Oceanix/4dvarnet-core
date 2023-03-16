@@ -135,6 +135,7 @@ class FourDVarNetHydraRunner:
                                                     )
 
         else:
+            print('LAAAAAAAAA :* ! !')
             mod = self.lit_cls(hparam=self.cfg,
                                w_loss=self.wLoss,
                                mean_Tr=self.mean_Tr,
@@ -167,7 +168,6 @@ class FourDVarNetHydraRunner:
         :param trainer_kwargs: (Optional) Trainer arguments
         :return:
         """
-
         mod = self._get_model(ckpt_path=ckpt_path)
 
         checkpoint_callback = ModelCheckpoint(monitor='val_loss',

@@ -18,7 +18,7 @@ from scipy import stats
 import solver as NN_4DVar
 import metrics
 from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps_oi, animate_maps, animate_maps_OI, get_psd_score
-from models import Model_H, Phi_r_OI, Phi_r, Phi_r_unet, Gradient_img
+from models import Model_H, Phi_r_OI, Phi_r, ModelLR, Phi_r_unet, Gradient_img
 
 from lit_model_augstate import LitModelAugstate
 
@@ -49,7 +49,8 @@ def get_4dvarnet_OI_phir_unet(hparams):
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
-class LitModelOI(LitModelAugstate):
+class LitModelOI(pl.LightningModule):
+
     MODELS = {
             '4dvarnet_OI': get_4dvarnet_OI,
             '4dvarnet_OI_phir': get_4dvarnet_OI_phir,
@@ -137,6 +138,9 @@ class LitModelOI(LitModelAugstate):
 
         self.median_filter_width = self.hparams.median_filter_width if hasattr(self.hparams, 'median_filter_width') else 1
 
+    def create_model(self):
+        return self.MODELS[self.model_name](self.hparams)
+
     def configure_optimizers(self):
         opt = torch.optim.Adam
         if hasattr(self.hparams, 'opt'):
@@ -202,7 +206,7 @@ class LitModelOI(LitModelAugstate):
                 'ssh_pred' : (out.detach().cpu() * np.sqrt(self.var_ssh_Tr)) + self.mean_ssh_Tr,
                 'sst_gt'    : (sst_gt.detach().cpu() * np.sqrt(self.var_sst_Tr)) + self.mean_sst_Tr,
                 'sst_obs_inp'    : (sst_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_sst_Tr)) + self.mean_sst_Tr,
-                'sst_pred' : (out.detach().cpu() * np.sqrt(self.var_sst_Tr)) + self.mean_sst_Tr}}
+                'sst_pred' : (out.detach().cpu() * np.sqrt(self.var_sst_Tr)) + self.mean_sst_Tr}
 
     def sla_diag(self, t_idx=3, log_pref='test'):
         path_save0 = self.logger.log_dir + '/maps_ssh.png'

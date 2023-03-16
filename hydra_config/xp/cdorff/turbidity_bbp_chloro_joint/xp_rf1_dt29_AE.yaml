@@ -81,7 +81,8 @@ datamodule:
   obs_mask_var: "bbp443"
   sst_var: "chl"
   sst_mask_var: "chl"
-  
+  sst_path: ${params.files_cfg.sst_path}
+  sst_mask_path: ${params.files_cfg.sst_mask_path}
   slice_win:
     lat: ${div:240,${datamodule.resize_factor}}
     lon: ${div:240,${datamodule.resize_factor}}
