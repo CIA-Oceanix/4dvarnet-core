@@ -49,6 +49,31 @@ def get_4dvarnet_OI_phir_unet(hparams):
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
+
+def get_constant_crop(patch_size, crop, dim_order=['time', 'lat', 'lon']):
+        patch_weight = np.zeros([patch_size[d] for d in dim_order], dtype='float32')
+        print(patch_size, crop)
+        mask = tuple(
+                slice(crop[d], -crop[d]) if crop.get(d, 0)>0 else slice(None, None)
+                for d in dim_order
+        )
+        patch_weight[mask] = 1.
+        print(patch_weight.sum())
+        return patch_weight
+
+def get_hanning_mask(patch_size, **kwargs):
+
+    t_msk =kornia.filters.get_hanning_kernel1d(patch_size['time'])
+    s_msk = kornia.filters.get_hanning_kernel2d((patch_size['lat'], patch_size['lon']))
+
+    patch_weight = t_msk[:, None, None] * s_msk[None, :, :]
+    return patch_weight.cpu().numpy()
+
+def get_cropped_hanning_mask(patch_size, crop, **kwargs):
+    pw = get_constant_crop(patch_size, crop)
+
+    t_msk =kornia.filters.get_hanning_kernel1d(patch_size['time'])
+    
 class LitModelOI(pl.LightningModule):
 
     MODELS = {
@@ -141,6 +166,18 @@ class LitModelOI(pl.LightningModule):
     def create_model(self):
         return self.MODELS[self.model_name](self.hparams)
 
+    def forward(self, batch, phase='test'):
+        losses = []
+        metrics = []
+        state_init = [None]
+        out=None
+        for _ in range(self.hparams.n_fourdvar_iter):
+            _loss, out, state, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
+            state_init = [None if s is None else s.detach() for s in state]
+            losses.append(_loss)
+            metrics.append(_metrics)
+        return losses, out, metrics
+        
     def configure_optimizers(self):
         opt = torch.optim.Adam
         if hasattr(self.hparams, 'opt'):
@@ -153,6 +190,46 @@ class LitModelOI(pl.LightningModule):
                 ])
 
         return optimizer
+
+    def on_epoch_start(self):
+        self.model.n_grad = self.hparams.n_grad
+
+    def on_train_epoch_start(self):
+        if self.model_name in ('4dvarnet', '4dvarnet_sst'):
+            opt = self.optimizers()
+            if (self.current_epoch in self.hparams.iter_update) & (self.current_epoch > 0):
+                indx = self.hparams.iter_update.index(self.current_epoch)
+                print('... Update Iterations number/learning rate #%d: NGrad = %d -- lr = %f' % (
+                    self.current_epoch, self.hparams.nb_grad_update[indx], self.hparams.lr_update[indx]))
+
+                self.hparams.n_grad = self.hparams.nb_grad_update[indx]
+                self.model.n_grad = self.hparams.n_grad
+                print("ngrad iter", self.model.n_grad)
+                mm = 0
+                lrCurrent = self.hparams.lr_update[indx]
+                lr = np.array([lrCurrent, lrCurrent, 0.5 * lrCurrent, 0.])
+                for pg in opt.param_groups:
+                    pg['lr'] = lr[mm]  # * self.hparams.learning_rate
+                    mm += 1
+
+    def training_epoch_end(self, outputs):
+        best_ckpt_path = self.trainer.checkpoint_callback.best_model_path
+        if len(best_ckpt_path) > 0:
+            def should_reload_ckpt(losses):
+                diffs = losses.diff()
+                if losses.max() > (10 * losses.min()):
+                    print("Reloading because of check", 1)
+                    return True
+
+                if diffs.max() > (100 * diffs.abs().median()):
+                    print("Reloading because of check", 2)
+                    return True
+
+            if should_reload_ckpt(torch.stack([out['loss'] for out in outputs])):
+                print('reloading', best_ckpt_path)
+                ckpt = torch.load(best_ckpt_path)
+                self.load_state_dict(ckpt['state_dict'])
+
         
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
 
@@ -207,6 +284,110 @@ class LitModelOI(pl.LightningModule):
                 'sst_gt'    : (sst_gt.detach().cpu() * np.sqrt(self.var_sst_Tr)) + self.mean_sst_Tr,
                 'sst_obs_inp'    : (sst_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_sst_Tr)) + self.mean_sst_Tr,
                 'sst_pred' : (out.detach().cpu() * np.sqrt(self.var_sst_Tr)) + self.mean_sst_Tr}
+
+    def test_step(self, test_batch, batch_idx):
+        return self.diag_step(test_batch, batch_idx, log_pref='test')
+
+    def test_epoch_end(self, step_outputs):
+        return self.diag_epoch_end(step_outputs, log_pref='test')
+
+    def validation_step(self, batch, batch_idx):
+        return self.diag_step(batch, batch_idx, log_pref='val')
+
+    def validation_epoch_end(self, outputs):
+        print(f'epoch end {self.global_rank} {len(outputs)}')
+        if (self.current_epoch + 1) % self.hparams.val_diag_freq == 0:
+            return self.diag_epoch_end(outputs, log_pref='val')
+
+
+    def gather_outputs(self, outputs, log_pref):
+        data_path = Path(f'{self.logger.log_dir}/{log_pref}_data')
+        data_path.mkdir(exist_ok=True, parents=True)
+        torch.save(outputs, data_path / f'{self.global_rank}.t')
+
+        if dist.is_initialized():
+            dist.barrier()
+
+        if self.global_rank == 0:
+            return [torch.load(f) for f in sorted(data_path.glob('*'))]
+
+    def build_test_xr_ds(self, outputs, diag_ds):
+
+        outputs_keys = list(outputs[0][0].keys())
+        with diag_ds.get_coords():
+            self.test_patch_coords = [
+               diag_ds[i]
+               for i in range(len(diag_ds))
+            ]
+
+        def iter_item(outputs):
+            n_batch_chunk = len(outputs)
+            n_batch = len(outputs[0])
+            for b in range(n_batch):
+                bs = outputs[0][b]['gt'].shape[0]
+                for i in range(bs):
+                    for bc in range(n_batch_chunk):
+                        yield tuple(
+                                [outputs[bc][b][k][i] for k in outputs_keys]
+                        )
+
+        dses =[
+                xr.Dataset( {
+                    k: (('time', 'lat', 'lon'), x_k) for k, x_k in zip(outputs_keys, xs)
+                }, coords=coords)
+            for  xs, coords
+            in zip(iter_item(outputs), self.test_patch_coords)
+        ]
+
+        fin_ds = xr.merge([xr.zeros_like(ds[['time','lat', 'lon']]) for ds in dses])
+        fin_ds = fin_ds.assign(
+            {'weight': (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
+        )
+        for v in dses[0]:
+            fin_ds = fin_ds.assign(
+                {v: (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
+            )
+
+        for ds in dses:
+            ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
+            xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.gt.dims)
+            _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
+            fin_ds = fin_ds + _ds
+
+
+        return (
+            (fin_ds.drop('weight') / fin_ds.weight)
+            .sel(instantiate(self.test_domain))
+            .isel(time=slice(self.hparams.dT //2, -self.hparams.dT //2))
+            # .pipe(lambda ds: ds.sel(time=~(np.isnan(ds.gt).all('lat').all('lon'))))
+        ).transpose('time', 'lat', 'lon')
+
+
+    def nrmse_fn(self, pred, ref, gt):
+        return (
+                self.test_xr_ds[[pred, ref]]
+                .pipe(lambda ds: ds - ds.mean())
+                .pipe(lambda ds: ds - (self.test_xr_ds[gt].pipe(lambda da: da - da.mean())))
+                .pipe(lambda ds: ds ** 2 / self.test_xr_ds[gt].std())
+                .to_dataframe()
+                .pipe(lambda ds: np.sqrt(ds.mean()))
+                .to_frame()
+                .rename(columns={0: 'nrmse'})
+                .assign(nrmse_ratio=lambda df: df / df.loc[ref])
+        )
+
+    def mse_fn(self, pred, ref, gt):
+            return(
+                self.test_xr_ds[[pred, ref]]
+                .pipe(lambda ds: ds - self.test_xr_ds[gt])
+                .pipe(lambda ds: ds ** 2)
+                .to_dataframe()
+                .pipe(lambda ds: ds.mean())
+                .to_frame()
+                .rename(columns={0: 'mse'})
+                .assign(mse_ratio=lambda df: df / df.loc[ref])
+        )
+
 
     def sla_diag(self, t_idx=3, log_pref='test'):
         path_save0 = self.logger.log_dir + '/maps_ssh.png'
@@ -316,6 +497,14 @@ class LitModelOI(pl.LightningModule):
         self.latest_metrics.update(md)
         self.logger.log_metrics(md, step=self.current_epoch)
 
+    def teardown(self, stage='test'):
+
+        self.logger.log_hyperparams(
+                {**self.hparams},
+                self.latest_metrics
+    )
+
+
     def get_init_state(self, batch, state=(None,)):
         if state[0] is not None:
             return state[0]
@@ -323,6 +512,31 @@ class LitModelOI(pl.LightningModule):
         _, inputs_Mask, inputs_obs, targets_GT, sst_gt, sst_mask = batch
         init_state = torch.cat(inputs_Mask * inputs_obs,sst_mask*sst_gt, dim=1)
         return init_state
+    def loss_ae(self, state_out):
+        return torch.mean((self.model.phi_r(state_out) - state_out) ** 2)
+
+    def sla_loss(self, gt, out):
+        g_outputs_x, g_outputs_y = self.gradient_img(out)
+        g_gt_x, g_gt_y = self.gradient_img(gt)
+
+        loss = NN_4DVar.compute_spatio_temp_weighted_loss((out - gt), self.patch_weight)
+        loss_grad = (
+                NN_4DVar.compute_spatio_temp_weighted_loss(g_outputs_x - g_gt_x, self.grad_crop(self.patch_weight))
+            +    NN_4DVar.compute_spatio_temp_weighted_loss(g_outputs_y - g_gt_y, self.grad_crop(self.patch_weight))
+        )
+
+        return loss, loss_grad
+
+    def reg_loss(self, y_gt, oi, out, out_lr, out_lrhr):
+        l_ae = self.loss_ae(out_lrhr)
+        l_ae_gt = self.loss_ae(y_gt)
+        l_sr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr - oi, self.patch_weight)
+
+        gt_lr = self.model_LR(oi)
+        out_lr_bis = self.model_LR(out)
+        l_lr = NN_4DVar.compute_spatio_temp_weighted_loss(out_lr_bis - gt_lr, self.model_LR(self.patch_weight))
+
+        return l_ae, l_ae_gt, l_sr, l_lr
 
     def compute_loss(self, batch, phase, state_init=(None,)):
         _, inputs_Mask, inputs_obs, targets_GT, sst_gt, sst_mask = batch
