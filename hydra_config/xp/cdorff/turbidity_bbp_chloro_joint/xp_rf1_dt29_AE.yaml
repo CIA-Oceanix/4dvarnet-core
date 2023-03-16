@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: xp_turbidity_bbp_chloro_rf1_dt29_AE50
+xp_name: xp_turbidity_bbp_chloro_joint_rf1_dt29_AE50
 
 params:
   model: 4dvarnet_OI
@@ -38,6 +38,10 @@ params:
     
   animate: true
   
+  files_cfg:
+    sst_path: ${file_paths.sst_gt}
+    sst_mask_path: ${file_paths.sst_obs}
+  
 entrypoint:
   max_epochs: 200
   
@@ -73,10 +77,8 @@ datamodule:
       _args_: ${adjust_testslices:['2021-02-09', '2021-06-30'],${params.dT}}
       
   oi_var: "bbp443"
-  
   gt_var: "bbp443"
   obs_mask_var: "bbp443"
-  
   sst_var: "chl"
   sst_mask_var: "chl"
   

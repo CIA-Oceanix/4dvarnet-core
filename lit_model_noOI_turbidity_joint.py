@@ -172,9 +172,12 @@ class LitModelOI(LitModelAugstate):
         # self.log("tr_min_nobs", train_batch[1].sum(dim=[1,2,3]).min().item(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         # self.log("tr_n_nobs", train_batch[1].sum().item(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log("tr_loss", loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log("tr_mse", metrics[-1]['mse'] / self.var_Tr, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("tr_mseG", metrics[-1]['mseGrad'] / metrics[-1]['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
-        self.log("tr_msePhir", metrics[-1]['msePhir'], on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_mse_ssh", metrics[-1]['mseSSH'] / self.var_ssh_Tr, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_mseG_ssh", metrics[-1]['mseGradSSH'] / metrics[-1]['meanGradSSH'], on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_msePhir_ssh", metrics[-1]['msePhirSSH'], on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_mse_sst", metrics[-1]['mseSST'] / self.var_sst_Tr, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_mseG_sst", metrics[-1]['mseGradSST'] / metrics[-1]['meanGradSST'], on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_msePhir_sst", metrics[-1]['msePhirSST'], on_step=False, on_epoch=True, prog_bar=True)
         return loss
         
     def diag_step(self, batch, batch_idx, log_pref='test'):
@@ -192,7 +195,7 @@ class LitModelOI(LitModelAugstate):
             self.log(f'{log_pref}_mse_sst', metrics[-1]["mseSST"] / self.var_sst_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_mseG_ssh', metrics[-1]['mseGradSSH'] / metrics[-1]['meanGradSSH'], on_step=False, on_epoch=True, prog_bar=True)
             self.log(f'{log_pref}_mseG_sst', metrics[-1]['mseGradSST'] / metrics[-1]['meanGradSST'], on_step=False, on_epoch=True, prog_bar=True)
-            self.log(f'{log_pref}_msePhir', metrics[-1]['msePhir'], on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{log_pref}_msePhir_ssh', metrics[-1]['msePhirSSH'], on_step=False, on_epoch=True, prog_bar=True)
         return {'ssh_gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_ssh_Tr)) + self.mean_ssh_Tr,
                 'ssh_oi' : (oi.detach().cpu() * np.sqrt(self.var_ssh_Tr)) + self.mean_ssh_Tr,
                 'ssh_obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_ssh_Tr)) + self.mean_ssh_Tr,
@@ -202,45 +205,71 @@ class LitModelOI(LitModelAugstate):
                 'sst_pred' : (out.detach().cpu() * np.sqrt(self.var_sst_Tr)) + self.mean_sst_Tr}}
 
     def sla_diag(self, t_idx=3, log_pref='test'):
-        path_save0 = self.logger.log_dir + '/maps.png'
+        path_save0 = self.logger.log_dir + '/maps_ssh.png'
         t_idx = 3
-        fig_maps = plot_maps_oi(
-                  self.ssh_gt[t_idx],
-                self.ssh_obs_inp[t_idx],
-                  self.x_rec[t_idx],
+        fig_maps_ssh = plot_maps_oi(
+                  self.x_ssh_gt[t_idx],
+                self.obs_ssh_inp[t_idx],
+                  self.x_ssh_rec[t_idx],
                   self.test_lon, self.test_lat, path_save0)
-        path_save01 = self.logger.log_dir + '/maps_Grad.png'
-        fig_maps_grad = plot_maps_oi(
-                  self.x_gt[t_idx],
-                self.obs_inp[t_idx],
-                  self.x_rec[t_idx],
+        path_save01 = self.logger.log_dir + '/maps_Grad_ssh.png'
+        fig_maps_grad_ssh = plot_maps_oi(
+                  self.x_ssh_gt[t_idx],
+                self.obs_ssh_inp[t_idx],
+                  self.x_ssh_rec[t_idx],
                   self.test_lon, self.test_lat, path_save01, grad=True)
-        self.test_figs['maps'] = fig_maps
-        self.test_figs['maps_grad'] = fig_maps_grad
-        self.logger.experiment.add_figure(f'{log_pref} Maps', fig_maps, global_step=self.current_epoch)
-        self.logger.experiment.add_figure(f'{log_pref} Maps Grad', fig_maps_grad, global_step=self.current_epoch)
+        path_save02 = self.logger.log_dir + '/maps_sst.png'
+        t_idx = 3
+        fig_maps_sst = plot_maps_oi(
+                  self.x_sst_gt[t_idx],
+                self.obs_sst_inp[t_idx],
+                  self.x_sst_rec[t_idx],
+                  self.test_lon, self.test_lat, path_save02)
+        path_save03 = self.logger.log_dir + '/maps_Grad_sst.png'
+        fig_maps_grad_sst = plot_maps_oi(
+                  self.x_sst_gt[t_idx],
+                self.obs_sst_inp[t_idx],
+                  self.x_sst_rec[t_idx],
+                  self.test_lon, self.test_lat, path_save03, grad=True)
+        self.test_figs['maps_ssh'] = fig_maps_ssh
+        self.test_figs['maps_grad_ssh'] = fig_maps_grad_ssh
+        self.test_figs['maps_sst'] = fig_maps_sst
+        self.test_figs['maps_grad_sst'] = fig_maps_grad_sst
+        self.logger.experiment.add_figure(f'{log_pref} Maps_ssh', fig_maps_ssh, global_step=self.current_epoch)
+        self.logger.experiment.add_figure(f'{log_pref} Maps Grad_ssh', fig_maps_grad_ssh, global_step=self.current_epoch)
+        self.logger.experiment.add_figure(f'{log_pref} Maps_sst', fig_maps_sst, global_step=self.current_epoch)
+        self.logger.experiment.add_figure(f'{log_pref} Maps Grad_sst', fig_maps_grad_sst, global_step=self.current_epoch)
         ###############
         # animate maps
         ###############
         #print(self.hparams)
         if self.hparams.animate:
-            path_save0 = self.logger.log_dir + '/animation.mp4'
-            animate_maps_OI(self.x_gt, self.obs_inp, self.x_rec, self.test_lon, self.test_lat, path_save0)
+            path_save0 = self.logger.log_dir + '/animation_ssh.mp4'
+            animate_maps_OI(self.x_ssh_gt, self.obs_ssh_inp, self.x_ssh_rec, self.test_lon, self.test_lat, path_save0)
 
-            path_save0 = self.logger.log_dir + '/animation_grad.mp4'
-            animate_maps_OI(self.x_gt, self.obs_inp, self.x_rec, self.test_lon, self.test_lat, path_save0, grad=True)
+            path_save0 = self.logger.log_dir + '/animation_grad_ssh.mp4'
+            animate_maps_OI(self.x_ssh_gt, self.obs_ssh_inp, self.x_ssh_rec, self.test_lon, self.test_lat, path_save0, grad=True)
+            
+            path_save0 = self.logger.log_dir + '/animation_sst.mp4'
+            animate_maps_OI(self.x_sst_gt, self.obs_sst_inp, self.x_sst_rec, self.test_lon, self.test_lat, path_save0)
+
+            path_save0 = self.logger.log_dir + '/animation_grad_sst.mp4'
+            animate_maps_OI(self.x_sst_gt, self.obs_sst_inp, self.x_sst_rec, self.test_lon, self.test_lat, path_save0, grad=True)
 
         # ~ psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
         # ~ psd_fig = metrics.plot_psd_score(psd_ds)
         # ~ self.test_figs['psd'] = psd_fig
         # ~ self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
-        _, _, mu, sig = metrics.rmse_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
+        _, _, mu_ssh, sig_ssh = metrics.rmse_based_scores(self.test_xr_ds.pred_ssh, self.test_xr_ds.ssh_gt)
+        _, _, mu_sst, sig_sst = metrics.rmse_based_scores(self.test_xr_ds.pred_sst, self.test_xr_ds.sst_gt)
 
         md = {
             # ~ f'{log_pref}_lambda_x': lamb_x,
             # ~ f'{log_pref}_lambda_t': lamb_t,
-            f'{log_pref}_mu': mu,
-            f'{log_pref}_sigma': sig,
+            f'{log_pref}_mu_ssh': mu_ssh,
+            f'{log_pref}_sigma_ssh': sig_ssh,
+            f'{log_pref}_mu_sst': mu_sst,
+            f'{log_pref}_sigma_sst': sig_sst,
         }
         print(pd.DataFrame([md]).T.to_markdown())
         return md
@@ -262,10 +291,17 @@ class LitModelOI(LitModelAugstate):
         path_save1 = self.logger.log_dir + f'/test.nc'
         print(path_save1)
         self.test_xr_ds.to_netcdf(path_save1)
-        self.x_gt = self.test_xr_ds.gt.data
-        self.obs_inp = self.test_xr_ds.obs_inp.data
-        self.x_rec = self.test_xr_ds.pred.data
-        self.x_rec_ssh = self.x_rec
+        
+        self.x_ssh_gt = self.test_xr_ds.ssh_gt.data
+        self.obs_ssh_inp = self.test_xr_ds.ssh_obs_inp.data
+        self.x_ssh_rec = self.test_xr_ds.ssh_pred.data
+        self.x_rec_ssh = self.x_ssh_rec
+        
+        self.x_sst_gt = self.test_xr_ds.sst_gt.data
+        self.obs_sst_inp = self.test_xr_ds.sst_obs_inp.data
+        self.x_sst_rec = self.test_xr_ds.sst_pred.data
+        self.x_rec_sst = self.x_sst_rec
+        
         self.test_coords = self.test_xr_ds.coords
         self.test_lat = self.test_coords['lat'].data
         self.test_lon = self.test_coords['lon'].data
@@ -280,12 +316,12 @@ class LitModelOI(LitModelAugstate):
         if state[0] is not None:
             return state[0]
 
-        _, inputs_Mask, inputs_obs, _ = batch
-        init_state = inputs_Mask * inputs_obs
+        _, inputs_Mask, inputs_obs, targets_GT, sst_gt, sst_mask = batch
+        init_state = torch.cat(inputs_Mask * inputs_obs,sst_mask*sst_gt, dim=1)
         return init_state
 
     def compute_loss(self, batch, phase, state_init=(None,)):
-        _, inputs_Mask, inputs_obs, targets_GT = batch
+        _, inputs_Mask, inputs_obs, targets_GT, sst_gt, sst_mask = batch
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:
             return (
@@ -301,12 +337,18 @@ class LitModelOI(LitModelAugstate):
                         ])
                     )
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
-
+        sst_gt_wo_nan = sst_gt.where(~sst_gt.isnan(), torch.zeros_like(targets_GT))
+        
         state = self.get_init_state(batch, state_init)
 
         obs = inputs_Mask * inputs_obs
         new_masks =  inputs_Mask
+        
+        obs = torch.cat((obs,sst_mask*sst_gt), dim=1)
+        new_masks = torch.cat((new_masks,sst_mask),dim,1)
+        
         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
+        g_sst_gt_x, g_sst_gt_y = self.gradient_img(sst_gt)
         
 
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
@@ -323,28 +365,45 @@ class LitModelOI(LitModelAugstate):
                 normgrad = None
             
             # ~ loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
+            output_ssh = outputs[:,0:self.hparams.dt,:,:]
+            output_sst = outputs[:,self.hparams.dt:2*self.hparams.dt,:,:]
             
-            outputs_GT_wo_nan = outputs.where(~targets_GT.isnan(), torch.zeros_like(outputs))
-            loss_All, loss_GAll = self.sla_loss(outputs_GT_wo_nan, targets_GT_wo_nan)
+            outputs_GT_ssh_wo_nan = outputs_ssh.where(~targets_GT.isnan(), torch.zeros_like(outputs_ssh))
+            outputs_GT_sst_wo_nan = outputs_sst.where(~sst_gt.isnan(), torch.zeros_like(outputs_sst))
             
-            loss_AE = self.loss_ae(outputs)
+            loss_All_ssh, loss_GAll_ssh = self.sla_loss(outputs_GT_ssh_wo_nan, targets_GT_wo_nan)            
+            loss_AE_ssh = self.loss_ae(outputs_ssh)
+            
+            loss_All_sst, loss_GAll_sst = self.sla_loss(outputs_GT_sst_wo_nan, sst_gt_wo_nan)            
+            loss_AE_sst = self.loss_ae(outputs_sst)
 
             # total loss
-            loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
-            loss += 0.5 * self.hparams.alpha_proj * loss_AE
+            loss = self.hparams.alpha_mse_ssh * loss_All_ssh + self.hparams.alpha_mse_g_ssh * loss_GAll_ssh
+            loss += 0.5 * self.hparams.alpha_proj * loss_AE_ssh
+            loss += self.hparams.alpha_mse_sst * loss_All_sst + self.hparams.alpha_mse_g_sst * loss_GAll_sst
+            loss += 0.5 * self.hparams.alpha_proj * loss_AE_sst
 
             # metrics
             # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
-            mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(
+            mean_GAll_ssh = NN_4DVar.compute_spatio_temp_weighted_loss(
                     torch.hypot(g_targets_GT_x, g_targets_GT_y) , self.grad_crop(self.patch_weight))
-            mse = loss_All.detach()
-            mseGrad = loss_GAll.detach()
-            msePhir = loss_AE.detach()
+            mean_GAll_ssh = NN_4DVar.compute_spatio_temp_weighted_loss(
+                    torch.hypot(g_sst_gt_x, g_sst_gt_y) , self.grad_crop(self.patch_weight))
+            mse_ssh = loss_All_ssh.detach()
+            mse_sst = loss_All_sst.detach()
+            mseGrad_ssh = loss_GAll_ssh.detach()
+            mseGrad_sst = loss_GAll_sst.detach()
+            msePhir_ssh = loss_AE_ssh.detach()
+            msePhir_sst = loss_AE_sst.detach()
             metrics = dict([
-                ('mse', mse),
-                ('mseGrad', mseGrad),
-                ('meanGrad', mean_GAll),
-                ('msePhir', msePhir),
+                ('mse_ssh', mse_ssh),
+                ('mseGrad_ssh', mseGrad_ssh),
+                ('meanGrad_ssh', mean_GAll_ssh),
+                ('msePhir_ssh', msePhir_ssh),
+                ('mse_sst', mse_sst),
+                ('mseGrad_sst', mseGrad_sst),
+                ('meanGrad_sst', mean_GAll_sst),
+                ('msePhir_sst', msePhir_sst),
                 ])
         return loss, outputs, [outputs, hidden_new, cell_new, normgrad], metrics
 
