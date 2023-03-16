@@ -510,7 +510,7 @@ class LitModelOI(pl.LightningModule):
             return state[0]
 
         _, inputs_Mask, inputs_obs, targets_GT, sst_gt, sst_mask = batch
-        init_state = torch.cat(inputs_Mask * inputs_obs,sst_mask*sst_gt, dim=1)
+        init_state = torch.cat((inputs_Mask * inputs_obs,sst_mask*sst_gt,), dim=1)
         return init_state
     def loss_ae(self, state_out):
         return torch.mean((self.model.phi_r(state_out) - state_out) ** 2)
@@ -563,17 +563,20 @@ class LitModelOI(pl.LightningModule):
         new_masks =  inputs_Mask
         
         obs = torch.cat((obs,sst_mask*sst_gt), dim=1)
-        new_masks = torch.cat((new_masks,sst_mask),dim,1)
+        new_masks = torch.cat((new_masks,sst_mask), dim=1)
         
         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
         g_sst_gt_x, g_sst_gt_y = self.gradient_img(sst_gt)
+        
         
 
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
             state = torch.autograd.Variable(state, requires_grad=True)
+            print('la c ok encore ! !')
             if self.hparams.n_grad>0:
                 outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
+                print('rien ne va plus....')
                 if (phase == 'val') or (phase == 'test'):
                     outputs = outputs.detach()
             else:
