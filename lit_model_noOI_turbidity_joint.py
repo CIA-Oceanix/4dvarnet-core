@@ -350,8 +350,8 @@ class LitModelOI(pl.LightningModule):
             )
 
         for ds in dses:
-            ds_nans = ds.assign(weight=xr.ones_like(ds.gt_ssh)).isnull().broadcast_like(fin_ds).fillna(0.)
-            xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.gt.dims)
+            ds_nans = ds.assign(weight=xr.ones_like(ds.ssh_gt)).isnull().broadcast_like(fin_ds).fillna(0.)
+            xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.ssh_gt.dims)
             _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
             fin_ds = fin_ds + _ds
 
