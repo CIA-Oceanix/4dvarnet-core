@@ -541,37 +541,42 @@ class LitModelOI(pl.LightningModule):
         return l_ae, l_ae_gt, l_sr, l_lr
 
     def compute_loss(self, batch, phase, state_init=(None,)):
-        _, inputs_Mask, inputs_obs, targets_GT, sst_gt, sst_mask = batch
+        _, inputs_Mask, inputs_obs, targets_GT, inputs_Mask_sst, inputs_obs_sst, targets_GT_sst = batch
         # handle patch with no observation
-        if inputs_Mask.sum().item() == 0:
+        if (inputs_Mask.sum().item()+inputs_Mask_sst.sum().item()) == 0:
             return (
                     None,
                     torch.zeros_like(targets_GT),
                     torch.cat((torch.zeros_like(targets_GT),
                               torch.zeros_like(targets_GT),
                               torch.zeros_like(targets_GT)), dim=1),
-                    dict([('mse', 0.),
-                        ('mseGrad', 0.),
-                        ('meanGrad', 1.),
-                        ('msePhir', 0.),
-                        ])
+                    dict([
+                ('mse_ssh', 0.),
+                ('mseGrad_ssh', 0.),
+                ('meanGrad_ssh', 1.),
+                ('msePhir_ssh', 0.),
+                ('mse_sst', 0.),
+                ('mseGrad_sst', 0.),
+                ('meanGrad_sst', 1.),
+                ('msePhir_sst', 0.),
+                ])
                     )
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
-        sst_gt_wo_nan = sst_gt.where(~sst_gt.isnan(), torch.zeros_like(targets_GT))
+        targets_GT_sst_wo_nan = targets_GT_sst.where(~targets_GT_sst.isnan(), torch.zeros_like(targets_GT_sst))
         
         print('Nb. of NaN in bbp: '+ str((inputs_Mask*inputs_obs).isnan().sum()))
-        print('Nb. of NaN in chloro: ' + str((sst_mask*sst_gt).isnan().sum()))
+        print('Nb. of NaN in chloro: ' + str((inputs_Mask_sst*inputs_obs_sst).isnan().sum()))
 
         state = self.get_init_state(batch, state_init)
 
         obs = inputs_Mask * inputs_obs
         new_masks =  inputs_Mask
         
-        obs = torch.cat((obs,sst_mask*sst_gt), dim=1)
-        new_masks = torch.cat((new_masks,sst_mask), dim=1)
+        obs = torch.cat((obs,inputs_Mask_sst * inputs_obs_sst), dim=1)
+        new_masks = torch.cat((new_masks,inputs_Mask_sst), dim=1)
         
         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
-        g_sst_gt_x, g_sst_gt_y = self.gradient_img(sst_gt)
+        g_targets_GT_sst_x, g_targets_GT_sst_y = self.gradient_img(targets_GT_sst)
         
         print('Nb. of NaN in obs.: ' + str(obs.isnan().sum()))
 
@@ -579,13 +584,7 @@ class LitModelOI(pl.LightningModule):
         with torch.set_grad_enabled(True):
             state = torch.autograd.Variable(state, requires_grad=True)
             if self.hparams.n_grad>0:
-                #print(obs)
-                #print(state)
-                #print('max obs. = '+str(obs.max()))
-                #print('min obs. = '+str(obs.min()))
                 outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
-                #print(outputs.shape)
-                #print(outputs)
                 if (phase == 'val') or (phase == 'test'):
                     outputs = outputs.detach()
             else:
@@ -593,28 +592,29 @@ class LitModelOI(pl.LightningModule):
                 hidden_new = None
                 cell_new = None
                 normgrad = None
-            # ~ loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
+                
             loss_AE_ssh, loss_AE_sst = self.loss_ae(outputs)
             outputs_ssh = outputs[:,0:self.hparams.dT,:,:]
             outputs_sst = outputs[:,self.hparams.dT:2*self.hparams.dT,:,:]
             
             outputs_GT_ssh_wo_nan = outputs_ssh.where(~targets_GT.isnan(), torch.zeros_like(outputs_ssh))
-            outputs_GT_sst_wo_nan = outputs_sst.where(~sst_gt.isnan(), torch.zeros_like(outputs_sst))
+            outputs_GT_sst_wo_nan = outputs_sst.where(~targets_GT_sst.isnan(), torch.zeros_like(outputs_sst))
             
             loss_All_ssh, loss_GAll_ssh = self.sla_loss(outputs_GT_ssh_wo_nan, targets_GT_wo_nan)            
-            loss_All_sst, loss_GAll_sst = self.sla_loss(outputs_GT_sst_wo_nan, sst_gt_wo_nan)            
+            loss_All_sst, loss_GAll_sst = self.sla_loss(outputs_GT_sst_wo_nan, targets_GT_sst_wo_nan) 
+                       
             # total loss
             loss = self.hparams.alpha_mse_ssh * loss_All_ssh + self.hparams.alpha_mse_gssh * loss_GAll_ssh
             loss += 0.5 * self.hparams.alpha_proj * loss_AE_ssh
             loss += self.hparams.alpha_mse_ssh * loss_All_sst + self.hparams.alpha_mse_gssh * loss_GAll_sst
             loss += 0.5 * self.hparams.alpha_proj * loss_AE_sst
+            
             loss = .5*loss
             # metrics
-            # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
             mean_GAll_ssh = NN_4DVar.compute_spatio_temp_weighted_loss(
                     torch.hypot(g_targets_GT_x, g_targets_GT_y) , self.grad_crop(self.patch_weight))
             mean_GAll_sst = NN_4DVar.compute_spatio_temp_weighted_loss(
-                    torch.hypot(g_sst_gt_x, g_sst_gt_y) , self.grad_crop(self.patch_weight))
+                    torch.hypot(g_targets_GT_sst_x, g_targets_GT_sst_y) , self.grad_crop(self.patch_weight))
             mse_ssh = loss_All_ssh.detach()
             mse_sst = loss_All_sst.detach()
             mseGrad_ssh = loss_GAll_ssh.detach()

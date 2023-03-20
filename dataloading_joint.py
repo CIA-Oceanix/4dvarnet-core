@@ -408,16 +408,26 @@ class FourDVarNetDataset(Dataset):
 
         if self.sst_ds == None:
             return oi_item, obs_mask_item, obs_item, gt_item
-        else:
+        elif self.sst_mask_ds == None:     
             pp_sst = self.get_pp(self.norm_stats_sst)
             _sst_item = pp_sst(self.sst_ds[item % length])
             sst_item = np.where(~np.isnan(_sst_item), _sst_item, 0.)
-
-            if self.sst_mask_ds == None:            
-                return oi_item, obs_mask_item, obs_item, gt_item, sst_item, 1. + 0. * sst_item
+            return oi_item, obs_mask_item, obs_item, gt_item, sst_item
+        else:
+            pp_sst = self.get_pp(self.norm_stats_sst)
+            length = len(self.obs_mask_ds)
+            if item < length:
+                _obs_item_sst = pp(self.sst_mask_ds[item])
+                _gt_item_sst = pp(self.sst_ds[item])
             else:
-                _sst_mask_item = pp_sst(self.sst_mask_ds[item % length])
-                return oi_item, obs_mask_item, obs_item, gt_item, sst_item, _sst_mask_item
+                _gt_item_sst = pp(self.sst_ds[item%length])
+                _sst_mask_item = self.sst_mask_ds[pitem]
+                sst_mask_item = ~np.isnan(_sst_mask_item)
+                _sst_item = np.where(sst_mask_item, _gt_item_sst, np.full_like(_gt_item_sst,np.nan))
+            gt_item_sst = _gt_item_sst
+            sst_mask_item = ~np.isnan(_sst_item)
+            sst_item = np.where(~np.isnan(_sst_item), _sst_item, np.zeros_like(_sst_item))
+            return oi_item, obs_mask_item, obs_item, gt_item, sst_mask_item, sst_item, gt_item_sst
 
 class FourDVarNetDataModule(pl.LightningDataModule):
     def __init__(
