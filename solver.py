@@ -339,7 +339,6 @@ class Model_Var_Cost(nn.Module):
         self.normPrior = m_NormPhi
 
     def forward(self, dx, dy):
-
         loss = self.alphaReg**2 * self.normPrior(dx,self.WReg**2,self.epsReg)
         if self.dim_obs == 1 :
             loss +=  self.alphaObs[0]**2 * self.normObs(dy,self.WObs[0,:]**2,self.epsObs[0])
@@ -396,7 +395,6 @@ class Solver_Grad_4DVarNN(nn.Module):
         x_k_plus_1 = None
         for _ in range(self.n_grad):
             x_k_plus_1, hidden, cell, normgrad_ = self.solver_step(x_k, obs, mask,hidden, cell, normgrad_)
-
             x_k = torch.mul(x_k_plus_1,1.)
 
         return x_k_plus_1, hidden, cell, normgrad_
@@ -415,7 +413,6 @@ class Solver_Grad_4DVarNN(nn.Module):
     def var_cost(self , x, yobs, mask):
         dy = self.model_H(x,yobs,mask)
         dx = x - self.phi_r(x)
-
         loss = self.model_VarCost( dx , dy )
 
         var_cost_grad = torch.autograd.grad(loss, x, create_graph=True)[0]

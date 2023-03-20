@@ -408,7 +408,7 @@ class FourDVarNetDataset(Dataset):
 
         if self.sst_ds == None:
             return oi_item, obs_mask_item, obs_item, gt_item
-        else:            
+        else:
             pp_sst = self.get_pp(self.norm_stats_sst)
             _sst_item = pp_sst(self.sst_ds[item % length])
             sst_item = np.where(~np.isnan(_sst_item), _sst_item, 0.)

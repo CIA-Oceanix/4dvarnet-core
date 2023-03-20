@@ -135,7 +135,6 @@ class FourDVarNetHydraRunner:
                                                     )
 
         else:
-            print('LAAAAAAAAA :* ! !')
             mod = self.lit_cls(hparam=self.cfg,
                                w_loss=self.wLoss,
                                mean_Tr=self.mean_Tr,

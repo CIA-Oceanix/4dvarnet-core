@@ -29,7 +29,7 @@ def get_4dvarnet_OI(hparams):
                 Model_H(hparams.shape_state[0]),
                 NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
                     hparams.dim_grad_solver, hparams.dropout),
-                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state[:], hparams.n_grad * hparams.n_fourdvar_iter)
                 
 def get_4dvarnet_OI_phir(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
@@ -136,6 +136,7 @@ class LitModelOI(pl.LightningModule):
         self.model_name = self.hparams.model if hasattr(self.hparams, 'model') else '4dvarnet'
         self.use_sst = self.hparams.sst if hasattr(self.hparams, 'sst') else False
         self.aug_state = self.hparams.aug_state if hasattr(self.hparams, 'aug_state') else False
+        self.hparams.shape_state[0] = 2*self.hparams.shape_state[0]
         self.model = self.create_model()
         self.model_LR = ModelLR()
         self.grad_crop = lambda t: t[...,1:-1, 1:-1]
@@ -253,12 +254,12 @@ class LitModelOI(pl.LightningModule):
         # self.log("tr_min_nobs", train_batch[1].sum(dim=[1,2,3]).min().item(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         # self.log("tr_n_nobs", train_batch[1].sum().item(), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log("tr_loss", loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log("tr_mse_ssh", metrics[-1]['mseSSH'] / self.var_ssh_Tr, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("tr_mseG_ssh", metrics[-1]['mseGradSSH'] / metrics[-1]['meanGradSSH'], on_step=False, on_epoch=True, prog_bar=True)
-        self.log("tr_msePhir_ssh", metrics[-1]['msePhirSSH'], on_step=False, on_epoch=True, prog_bar=True)
-        self.log("tr_mse_sst", metrics[-1]['mseSST'] / self.var_sst_Tr, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("tr_mseG_sst", metrics[-1]['mseGradSST'] / metrics[-1]['meanGradSST'], on_step=False, on_epoch=True, prog_bar=True)
-        self.log("tr_msePhir_sst", metrics[-1]['msePhirSST'], on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_mse_ssh", metrics[-1]['mse_ssh'] / self.var_ssh_Tr, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_mseG_ssh", metrics[-1]['mseGrad_ssh'] / metrics[-1]['meanGrad_ssh'], on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_msePhir_ssh", metrics[-1]['msePhir_ssh'], on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_mse_sst", metrics[-1]['mse_sst'] / self.var_sst_Tr, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_mseG_sst", metrics[-1]['mseGrad_sst'] / metrics[-1]['meanGrad_sst'], on_step=False, on_epoch=True, prog_bar=True)
+        self.log("tr_msePhir_sst", metrics[-1]['msePhir_sst'], on_step=False, on_epoch=True, prog_bar=True)
         return loss
         
     def diag_step(self, batch, batch_idx, log_pref='test'):
@@ -272,11 +273,11 @@ class LitModelOI(pl.LightningModule):
         
         if loss is not None:
             self.log(f'{log_pref}_loss', loss)
-            self.log(f'{log_pref}_mse_ssh', metrics[-1]["mseSSH"] / self.var_ssh_Tt, on_step=False, on_epoch=True, prog_bar=True)
-            self.log(f'{log_pref}_mse_sst', metrics[-1]["mseSST"] / self.var_sst_Tt, on_step=False, on_epoch=True, prog_bar=True)
-            self.log(f'{log_pref}_mseG_ssh', metrics[-1]['mseGradSSH'] / metrics[-1]['meanGradSSH'], on_step=False, on_epoch=True, prog_bar=True)
-            self.log(f'{log_pref}_mseG_sst', metrics[-1]['mseGradSST'] / metrics[-1]['meanGradSST'], on_step=False, on_epoch=True, prog_bar=True)
-            self.log(f'{log_pref}_msePhir_ssh', metrics[-1]['msePhirSSH'], on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{log_pref}_mse_ssh', metrics[-1]["mse_ssh"] / self.var_ssh_Tt, on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{log_pref}_mse_sst', metrics[-1]["mse_sst"] / self.var_sst_Tt, on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{log_pref}_mseG_ssh', metrics[-1]['mseGrad_ssh'] / metrics[-1]['meanGrad_ssh'], on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{log_pref}_mseG_sst', metrics[-1]['mseGrad_sst'] / metrics[-1]['meanGrad_sst'], on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'{log_pref}_msePhir_ssh', metrics[-1]['msePhir_ssh'], on_step=False, on_epoch=True, prog_bar=True)
         return {'ssh_gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_ssh_Tr)) + self.mean_ssh_Tr,
                 'ssh_oi' : (oi.detach().cpu() * np.sqrt(self.var_ssh_Tr)) + self.mean_ssh_Tr,
                 'ssh_obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_ssh_Tr)) + self.mean_ssh_Tr,
@@ -513,7 +514,8 @@ class LitModelOI(pl.LightningModule):
         init_state = torch.cat((inputs_Mask * inputs_obs,sst_mask*sst_gt,), dim=1)
         return init_state
     def loss_ae(self, state_out):
-        return torch.mean((self.model.phi_r(state_out) - state_out) ** 2)
+        ae_err = self.model.phi_r(state_out)-state_out
+        return torch.mean((ae_err[:,0:self.hparams.dT,:,:]) ** 2), torch.mean((ae_err[:,self.hparams.dT:2*self.hparams.dT,:,:]) ** 2)
 
     def sla_loss(self, gt, out):
         g_outputs_x, g_outputs_y = self.gradient_img(out)
@@ -557,6 +559,9 @@ class LitModelOI(pl.LightningModule):
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
         sst_gt_wo_nan = sst_gt.where(~sst_gt.isnan(), torch.zeros_like(targets_GT))
         
+        print('Nb. of NaN in bbp: '+ str((inputs_Mask*inputs_obs).isnan().sum()))
+        print('Nb. of NaN in chloro: ' + str((sst_mask*sst_gt).isnan().sum()))
+
         state = self.get_init_state(batch, state_init)
 
         obs = inputs_Mask * inputs_obs
@@ -568,15 +573,19 @@ class LitModelOI(pl.LightningModule):
         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
         g_sst_gt_x, g_sst_gt_y = self.gradient_img(sst_gt)
         
-        
+        print('Nb. of NaN in obs.: ' + str(obs.isnan().sum()))
 
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
             state = torch.autograd.Variable(state, requires_grad=True)
-            print('la c ok encore ! !')
             if self.hparams.n_grad>0:
+                #print(obs)
+                #print(state)
+                #print('max obs. = '+str(obs.max()))
+                #print('min obs. = '+str(obs.min()))
                 outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
-                print('rien ne va plus....')
+                #print(outputs.shape)
+                #print(outputs)
                 if (phase == 'val') or (phase == 'test'):
                     outputs = outputs.detach()
             else:
@@ -584,31 +593,27 @@ class LitModelOI(pl.LightningModule):
                 hidden_new = None
                 cell_new = None
                 normgrad = None
-            
             # ~ loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
-            output_ssh = outputs[:,0:self.hparams.dt,:,:]
-            output_sst = outputs[:,self.hparams.dt:2*self.hparams.dt,:,:]
+            loss_AE_ssh, loss_AE_sst = self.loss_ae(outputs)
+            outputs_ssh = outputs[:,0:self.hparams.dT,:,:]
+            outputs_sst = outputs[:,self.hparams.dT:2*self.hparams.dT,:,:]
             
             outputs_GT_ssh_wo_nan = outputs_ssh.where(~targets_GT.isnan(), torch.zeros_like(outputs_ssh))
             outputs_GT_sst_wo_nan = outputs_sst.where(~sst_gt.isnan(), torch.zeros_like(outputs_sst))
             
             loss_All_ssh, loss_GAll_ssh = self.sla_loss(outputs_GT_ssh_wo_nan, targets_GT_wo_nan)            
-            loss_AE_ssh = self.loss_ae(outputs_ssh)
-            
             loss_All_sst, loss_GAll_sst = self.sla_loss(outputs_GT_sst_wo_nan, sst_gt_wo_nan)            
-            loss_AE_sst = self.loss_ae(outputs_sst)
-
             # total loss
-            loss = self.hparams.alpha_mse_ssh * loss_All_ssh + self.hparams.alpha_mse_g_ssh * loss_GAll_ssh
+            loss = self.hparams.alpha_mse_ssh * loss_All_ssh + self.hparams.alpha_mse_gssh * loss_GAll_ssh
             loss += 0.5 * self.hparams.alpha_proj * loss_AE_ssh
-            loss += self.hparams.alpha_mse_sst * loss_All_sst + self.hparams.alpha_mse_g_sst * loss_GAll_sst
+            loss += self.hparams.alpha_mse_ssh * loss_All_sst + self.hparams.alpha_mse_gssh * loss_GAll_sst
             loss += 0.5 * self.hparams.alpha_proj * loss_AE_sst
-
+            loss = .5*loss
             # metrics
             # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
             mean_GAll_ssh = NN_4DVar.compute_spatio_temp_weighted_loss(
                     torch.hypot(g_targets_GT_x, g_targets_GT_y) , self.grad_crop(self.patch_weight))
-            mean_GAll_ssh = NN_4DVar.compute_spatio_temp_weighted_loss(
+            mean_GAll_sst = NN_4DVar.compute_spatio_temp_weighted_loss(
                     torch.hypot(g_sst_gt_x, g_sst_gt_y) , self.grad_crop(self.patch_weight))
             mse_ssh = loss_All_ssh.detach()
             mse_sst = loss_All_sst.detach()
@@ -616,6 +621,9 @@ class LitModelOI(pl.LightningModule):
             mseGrad_sst = loss_GAll_sst.detach()
             msePhir_ssh = loss_AE_ssh.detach()
             msePhir_sst = loss_AE_sst.detach()
+
+            print('mse_Phir_sst = '+str(msePhir_sst))
+
             metrics = dict([
                 ('mse_ssh', mse_ssh),
                 ('mseGrad_ssh', mseGrad_ssh),
