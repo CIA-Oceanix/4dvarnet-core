@@ -426,8 +426,8 @@ class FourDVarNetDataset(Dataset):
                 _obs_item_sst = np.where(sst_mask_item, _gt_item_sst, np.full_like(_gt_item_sst,np.nan))
             gt_item_sst = _gt_item_sst
             sst_mask_item = ~np.isnan(_obs_item_sst)
-            _obs_item_sst = np.where(~np.isnan(_obs_item_sst), _obs_item_sst, np.zeros_like(_obs_item_sst))
-            return oi_item, obs_mask_item, obs_item, gt_item, sst_mask_item, sst_item, gt_item_sst
+            obs_item_sst = np.where(~np.isnan(_obs_item_sst), _obs_item_sst, np.zeros_like(_obs_item_sst))
+            return oi_item, obs_mask_item, obs_item, gt_item, sst_mask_item, obs_item_sst, gt_item_sst
 
 class FourDVarNetDataModule(pl.LightningDataModule):
     def __init__(
