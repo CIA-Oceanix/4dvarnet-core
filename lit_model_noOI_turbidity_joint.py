@@ -446,8 +446,8 @@ class LitModelOI(pl.LightningModule):
         # ~ psd_fig = metrics.plot_psd_score(psd_ds)
         # ~ self.test_figs['psd'] = psd_fig
         # ~ self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
-        _, _, mu_ssh, sig_ssh = metrics.rmse_based_scores(self.test_xr_ds.pred_ssh, self.test_xr_ds.ssh_gt)
-        _, _, mu_sst, sig_sst = metrics.rmse_based_scores(self.test_xr_ds.pred_sst, self.test_xr_ds.sst_gt)
+        _, _, mu_ssh, sig_ssh = metrics.rmse_based_scores(self.test_xr_ds.ssh_pred, self.test_xr_ds.ssh_gt)
+        _, _, mu_sst, sig_sst = metrics.rmse_based_scores(self.test_xr_ds.sst_pred, self.test_xr_ds.sst_gt)
 
         md = {
             # ~ f'{log_pref}_lambda_x': lamb_x,
