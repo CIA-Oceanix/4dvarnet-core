@@ -423,10 +423,10 @@ class FourDVarNetDataset(Dataset):
                 _gt_item_sst = pp(self.sst_ds[item%length])
                 _sst_mask_item = self.sst_mask_ds[pitem]
                 sst_mask_item = ~np.isnan(_sst_mask_item)
-                _sst_item = np.where(sst_mask_item, _gt_item_sst, np.full_like(_gt_item_sst,np.nan))
+                _obs_item_sst = np.where(sst_mask_item, _gt_item_sst, np.full_like(_gt_item_sst,np.nan))
             gt_item_sst = _gt_item_sst
-            sst_mask_item = ~np.isnan(_sst_item)
-            sst_item = np.where(~np.isnan(_sst_item), _sst_item, np.zeros_like(_sst_item))
+            sst_mask_item = ~np.isnan(_obs_item_sst)
+            _obs_item_sst = np.where(~np.isnan(_obs_item_sst), _obs_item_sst, np.zeros_like(_obs_item_sst))
             return oi_item, obs_mask_item, obs_item, gt_item, sst_mask_item, sst_item, gt_item_sst
 
 class FourDVarNetDataModule(pl.LightningDataModule):
