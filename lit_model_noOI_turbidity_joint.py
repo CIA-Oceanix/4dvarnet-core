@@ -562,9 +562,6 @@ class LitModelOI(pl.LightningModule):
                     )
         targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
         targets_GT_sst_wo_nan = targets_GT_sst.where(~targets_GT_sst.isnan(), torch.zeros_like(targets_GT_sst))
-        
-        print('Nb. of NaN in bbp: '+ str((inputs_Mask*inputs_obs).isnan().sum()))
-        print('Nb. of NaN in chloro: ' + str((inputs_Mask_sst*inputs_obs_sst).isnan().sum()))
 
         state = self.get_init_state(batch, state_init)
 
@@ -577,8 +574,6 @@ class LitModelOI(pl.LightningModule):
         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
         g_targets_GT_sst_x, g_targets_GT_sst_y = self.gradient_img(targets_GT_sst)
         
-        print('Nb. of NaN in obs.: ' + str(obs.isnan().sum()))
-
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
             state = torch.autograd.Variable(state, requires_grad=True)
@@ -620,8 +615,6 @@ class LitModelOI(pl.LightningModule):
             mseGrad_sst = loss_GAll_sst.detach()
             msePhir_ssh = loss_AE_ssh.detach()
             msePhir_sst = loss_AE_sst.detach()
-
-            print('mse_Phir_sst = '+str(msePhir_sst))
 
             metrics = dict([
                 ('mse_ssh', mse_ssh),
