@@ -20,7 +20,7 @@ SBATCH --cpus-per-task=10           # nombre de CPU par tache (1/4 des CPU du no
 ##SBATCH --cpus-per-task=8           # nombre de CPU par tache pour gpu_p5 (1/8 des CPU du noeud 8-GPU)
 # /!\ Attention, "multithread" fait reference à l'hyperthreading dans la terminologie Slurm
 SBATCH --hint=nomultithread         # hyperthreading desactive
-#SBATCH --time=00:10:00              # temps maximum d'execution demande (HH:MM:SS)
+SBATCH --time=20:00:00              # temps maximum d'execution demande (HH:MM:SS)
 #SBATCH --output=gpu_mono%j.out      # nom du fichier de sortie
 #SBATCH --error=gpu_mono%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
  
