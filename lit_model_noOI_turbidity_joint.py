@@ -330,7 +330,7 @@ class LitModelOI(pl.LightningModule):
                         yield tuple(
                                 [outputs[bc][b][k][i] for k in outputs_keys]
                         )
-        print(outputs_keys)
+                        
         dses =[
                 xr.Dataset( {
                     k: (('time', 'lat', 'lon'), x_k) for k, x_k in zip(outputs_keys, xs)
@@ -338,12 +338,12 @@ class LitModelOI(pl.LightningModule):
             for  xs, coords
             in zip(iter_item(outputs), self.test_patch_coords)
         ]
-        print(dses)
+        
         fin_ds = xr.merge([xr.zeros_like(ds[['time','lat', 'lon']]) for ds in dses])
         fin_ds = fin_ds.assign(
             {'weight': (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
         )
-        print(fin_ds)
+        
         for v in dses[0]:
             fin_ds = fin_ds.assign(
                 {v: (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
