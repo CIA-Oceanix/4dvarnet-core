@@ -324,7 +324,7 @@ class LitModelOI(pl.LightningModule):
             n_batch_chunk = len(outputs)
             n_batch = len(outputs[0])
             for b in range(n_batch):
-                bs = outputs[0][b]['gt'].shape[0]
+                bs = outputs[0][b]['ssh_gt'].shape[0]
                 for i in range(bs):
                     for bc in range(n_batch_chunk):
                         yield tuple(
