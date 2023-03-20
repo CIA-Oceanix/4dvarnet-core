@@ -264,13 +264,12 @@ class LitModelOI(pl.LightningModule):
         
     def diag_step(self, batch, batch_idx, log_pref='test'):
         
-        oi, inputs_Mask, inputs_obs, targets_GT, sst_gt, mask_sst = batch
-        
-        sst_obs = sst_gt * mask_sst
+        oi, inputs_Mask, inputs_obs, targets_GT, inputs_Mask_sst, inputs_obs_sst, targets_GT_sst = batch
         
         losses, out, metrics = self(batch, phase='test')
         loss = losses[-1]
-        
+        outputs_ssh = out[:,0:self.hparams.dT,:,:]
+        outputs_sst = out[:,self.hparams.dT:2*self.hparams.dT,:,:]
         if loss is not None:
             self.log(f'{log_pref}_loss', loss)
             self.log(f'{log_pref}_mse_ssh', metrics[-1]["mse_ssh"] / self.var_ssh_Tt, on_step=False, on_epoch=True, prog_bar=True)
@@ -281,10 +280,10 @@ class LitModelOI(pl.LightningModule):
         return {'ssh_gt'    : (targets_GT.detach().cpu() * np.sqrt(self.var_ssh_Tr)) + self.mean_ssh_Tr,
                 'ssh_oi' : (oi.detach().cpu() * np.sqrt(self.var_ssh_Tr)) + self.mean_ssh_Tr,
                 'ssh_obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_ssh_Tr)) + self.mean_ssh_Tr,
-                'ssh_pred' : (out.detach().cpu() * np.sqrt(self.var_ssh_Tr)) + self.mean_ssh_Tr,
-                'sst_gt'    : (sst_gt.detach().cpu() * np.sqrt(self.var_sst_Tr)) + self.mean_sst_Tr,
-                'sst_obs_inp'    : (sst_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_sst_Tr)) + self.mean_sst_Tr,
-                'sst_pred' : (out.detach().cpu() * np.sqrt(self.var_sst_Tr)) + self.mean_sst_Tr}
+                'ssh_pred' : (outputs_ssh.detach().cpu() * np.sqrt(self.var_ssh_Tr)) + self.mean_ssh_Tr,
+                'sst_gt'    : (targets_GT_sst.detach().cpu() * np.sqrt(self.var_sst_Tr)) + self.mean_sst_Tr,
+                'sst_obs_inp'    : (inputs_obs_sst.detach().where(inputs_Mask_sst, torch.full_like(inputs_obs_sst, np.nan)).cpu() * np.sqrt(self.var_sst_Tr)) + self.mean_sst_Tr,
+                'sst_pred' : (outputs_sst.detach().cpu() * np.sqrt(self.var_sst_Tr)) + self.mean_sst_Tr}
 
     def test_step(self, test_batch, batch_idx):
         return self.diag_step(test_batch, batch_idx, log_pref='test')
@@ -510,8 +509,8 @@ class LitModelOI(pl.LightningModule):
         if state[0] is not None:
             return state[0]
 
-        _, inputs_Mask, inputs_obs, targets_GT, sst_gt, sst_mask = batch
-        init_state = torch.cat((inputs_Mask * inputs_obs,sst_mask*sst_gt,), dim=1)
+        _, inputs_Mask, inputs_obs, targets_GT, inputs_Mask_sst, inputs_obs_sst, targets_GT_sst = batch
+        init_state = torch.cat((inputs_Mask * inputs_obs,inputs_Mask_sst * inputs_obs_sst,), dim=1)
         return init_state
     def loss_ae(self, state_out):
         ae_err = self.model.phi_r(state_out)-state_out
