@@ -1,0 +1,15 @@
+pseudo_obs: /DATASET/NATL/dataset_nadir_0d_swot.nc
+cal_data: /DATASET/NATL/full_cal_obs.nc
+noisy_swot: /DATASET/NATL/cal_data_karin_noise_only.nc
+new_noisy_swot: /DATASET/NATL/cal_data_new_errs.nc
+new_noisy_swot_with_1d_decomp: /DATASET/NATL/cal_data_new_syst_errs_20220218.nc
+
+natl_ssh: /DATASET/NATL/NATL60-CJM165_NATL_ssh_y2013.1y.nc
+natl_sst: /DATASET/NATL/NATL60-CJM165_NATL_sst_y2013.1y.nc
+natl_ssh_daily: /DATASET/NATL/NATL60-CJM165_NATL_ssh_y2013.1y.bigger.nc
+natl_sst_daily: /DATASET/NATL/NATL60-CJM165_NATL_sst_y2013.1y.bigger.nc
+natl_sst_daily_2016: /DATASET/NATL/NATL60_IFREMER_sources_and_sst_2016_2017.nc
+enatl_sst_daily_2018: /DATASET/NATL/eNATL_IFREMER_sources_and_sst_2018_2019.nc
+
+oi_4nadir: /DATASET/NATL/ssh_NATL60_4nadir.nc
+oi_swot_4nadir: /DATASET/NATL/ssh_NATL60_swot_4nadir.nc
