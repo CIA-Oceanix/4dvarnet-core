@@ -278,7 +278,7 @@ class FourDVarNetDataset(Dataset):
             resize_factor=resize_factor,
             compute=compute,
             auto_padding=use_auto_padding,
-            interp_na=True,
+            interp_na=False,
         )
         self.obs_mask_ds = XrDataset(
             obs_mask_path, obs_mask_var,
@@ -302,7 +302,7 @@ class FourDVarNetDataset(Dataset):
             resize_factor=resize_factor,
             compute=compute,
             auto_padding=use_auto_padding,
-            interp_na=True,
+            interp_na=False,
         )
 
         if sst_var is not None:
@@ -316,7 +316,7 @@ class FourDVarNetDataset(Dataset):
                 resize_factor=resize_factor,
                 compute=compute,
                 auto_padding=use_auto_padding,
-                interp_na=True,
+                interp_na=False,
             )
         else:
             self.sst_ds = None
@@ -332,7 +332,7 @@ class FourDVarNetDataset(Dataset):
                 resize_factor=resize_factor,
                 compute=compute,
                 auto_padding=use_auto_padding,
-                interp_na=True,
+                interp_na=False,
             )
         else:
             self.sst_mask_ds = None
