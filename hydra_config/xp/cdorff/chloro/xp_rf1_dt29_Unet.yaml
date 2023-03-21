@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: xp_chloro_bbp_rf1_dt29_Unet50
+xp_name: xp_chloro_rf1_dt29_Unet50
 
 params:
   model: 4dvarnet_OI_unet
