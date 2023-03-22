@@ -5,6 +5,9 @@ channels:
   - anaconda
   - pyviz
 dependencies:
+  - pytorch=1.11
+  - torchvision
+  - cudatoolkit=11.3
   - jupyterlab
   - python=3.9
   - pip=21.1
@@ -26,3 +29,4 @@ dependencies:
     - hydra-core
     - kornia
     - pyepsg
+    - matplotlib==3.5.2
