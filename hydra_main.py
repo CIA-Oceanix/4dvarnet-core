@@ -133,7 +133,6 @@ class FourDVarNetHydraRunner:
                                                     original_coords=self.original_coords,
                                                     padded_coords=self.padded_coords
                                                     )
-            print('LAAAAAAAAAAAAAAAAAAA ! ! ! ! ')
 
         else:
             mod = self.lit_cls(hparam=self.cfg,
@@ -200,9 +199,7 @@ class FourDVarNetHydraRunner:
         if _trainer is not None:
             _trainer.test(mod, dataloaders=self.dataloaders[dataloader])
             return
-        print('ICIIIIIII ! ! ! ! ')
         mod = _mod or self._get_model(ckpt_path=ckpt_path)
-        print('ICIIIIIIIII 2 ! ! ! ! ! ! ! ')
         trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs)
         trainer.test(mod, dataloaders=self.dataloaders[dataloader])
         return mod
