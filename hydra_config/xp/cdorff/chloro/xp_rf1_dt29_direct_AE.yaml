@@ -72,9 +72,9 @@ datamodule:
     - _target_: builtins.slice
       _args_: ${adjust_testslices:['2021-02-09', '2021-06-30'],${params.dT}}
       
-  oi_var: "chloro"
-  gt_var: "chloro"
-  obs_mask_var: "chloro"
+  oi_var: "chl"
+  gt_var: "chl"
+  obs_mask_var: "chl"
   
   slice_win:
     lat: ${div:240,${datamodule.resize_factor}}
