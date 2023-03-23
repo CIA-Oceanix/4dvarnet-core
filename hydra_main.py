@@ -201,7 +201,7 @@ class FourDVarNetHydraRunner:
             return
 
         mod = _mod or self._get_model(ckpt_path=ckpt_path)
-
+        print(mod)
         trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs)
         trainer.test(mod, dataloaders=self.dataloaders[dataloader])
         return mod
