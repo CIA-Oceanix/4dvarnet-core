@@ -136,7 +136,8 @@ class LitModelOI(pl.LightningModule):
         self.model_name = self.hparams.model if hasattr(self.hparams, 'model') else '4dvarnet'
         self.use_sst = self.hparams.sst if hasattr(self.hparams, 'sst') else False
         self.aug_state = self.hparams.aug_state if hasattr(self.hparams, 'aug_state') else False
-        self.hparams.shape_state[0] = 2*self.hparams.shape_state[0]
+        # ~ self.hparams.shape_state[0] = 2*self.hparams.shape_state[0]
+        self.hparams.shape_state[0] = 2*self.hparams.dT
         self.model = self.create_model()
         self.model_LR = ModelLR()
         self.grad_crop = lambda t: t[...,1:-1, 1:-1]
