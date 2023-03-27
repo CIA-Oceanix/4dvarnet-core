@@ -104,7 +104,6 @@ class XrDataset(Dataset):
             rename_coords["longitude"] = "lon"
         _ds = _ds.rename(rename_coords)
 
-
         self.ds = _ds.sel(**(dim_range or {}))
         if resize_factor!=1:
             self.ds = self.ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
@@ -417,10 +416,10 @@ class FourDVarNetDataset(Dataset):
             pp_sst = self.get_pp(self.norm_stats_sst)
             length = len(self.obs_mask_ds)
             if item < length:
-                _obs_item_sst = pp(self.sst_mask_ds[item])
-                _gt_item_sst = pp(self.sst_ds[item])
+                _obs_item_sst = pp_sst(self.sst_mask_ds[item])
+                _gt_item_sst = pp_sst(self.sst_ds[item])
             else:
-                _gt_item_sst = pp(self.sst_ds[item%length])
+                _gt_item_sst = pp_sst(self.sst_ds[item%length])
                 _sst_mask_item = self.sst_mask_ds[pitem]
                 sst_mask_item = ~np.isnan(_sst_mask_item)
                 _obs_item_sst = np.where(sst_mask_item, _gt_item_sst, np.full_like(_gt_item_sst,np.nan))
