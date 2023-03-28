@@ -1,4 +1,0 @@
-natl_ssh_daily: /users/local/DATA/DataNATL60/GULFSTREAM/ref/NATL60-CJM165_GULFSTREAM240x240_ssh_y2013.1y_new.nc
-natl_sst_daily: /users/local/DATA/DataNATL60/GULFSTREAM/ref/NATL60-CJM165_GULFSTREAM240x240_sst_y2013.1y_new.nc
-oi_swot_4nadir: /users/local/DATA/DataNATL60/GULFSTREAM/oi/ssh_NATL60_swot_4nadir.nc
-pseudo_obs: /users/local/DATA/DataNATL60/GULFSTREAM/data_new/dataset_nadir_0d_swot.nc

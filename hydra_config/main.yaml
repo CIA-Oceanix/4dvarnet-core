@@ -8,7 +8,7 @@ hydra:
 seed: 0
 
 defaults:
-  - file_paths: jz
+  - file_paths: tgrs
   - entrypoint: train
   - xp: ???
   - _self_

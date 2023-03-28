@@ -33,7 +33,7 @@ def _main(cfg):
     call(cfg.entrypoint, self=runner)
 
 
-main = hydra.main(config_path='hydra_config', config_name='main', version_base='1.1')(_main)
+main = hydra.main(config_path='hydra_config', config_name='main', version_base='1.2')(_main)
 
 if __name__ == '__main__':
     main()

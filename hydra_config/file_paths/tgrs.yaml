@@ -1,0 +1,5 @@
+oi_4nadir: ../tgrs-data/NATL60/NATL/oi/ssh_NATL60_4nadir.nc
+new_noisy_swot: ../tgrs-data/CalData/cal_data_new_errs.nc
+natl_ssh_daily: ../tgrs-data/NATL60/NATL/ref_new/NATL60-CJM165_NATL_ssh_y2013.1y.nc
+natl_sst_daily: ../tgrs-data/NATL60/NATL/ref_new/NATL60-CJM165_NATL_sst_y2013.1y.nc
+

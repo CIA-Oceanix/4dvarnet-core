@@ -22,7 +22,7 @@ import uuid
 
 
 
-def full_from_scratch(xp_num, cfgn='base_no_sst', fp="dgx_ifremer"):
+def full_from_scratch(xp_num, cfgn='base_no_sst', fp="tgrs"):
     try:
         cfg = utils.get_cfg(f'{cfgn}')
 

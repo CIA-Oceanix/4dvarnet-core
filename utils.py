@@ -29,7 +29,7 @@ def get_cfg(xp_cfg, overrides=None, hydra_root='.'):
         cfg = hydra.compose(config_name='main', overrides=
             [
                 f'xp={xp_cfg}',
-                'file_paths=jz',
+                'file_paths=tgrs',
                 'entrypoint=train',
             ] + overrides
         )

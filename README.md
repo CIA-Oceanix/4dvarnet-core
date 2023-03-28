@@ -21,23 +21,8 @@ mamba install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
 mamba env update -f environment.yaml
 ```
 
-### Download the data
-The data is available at
-```
-# obs
-https://s3.eu-central-1.wasabisys.com/melody/NATL/data/gridded_data_swot_wocorr/dataset_nadir_0d_swot.nc
-https://s3.eu-central-1.wasabisys.com/melody/NATL/data/gridded_data_swot_wocorr/dataset_nadir_0d.nc
-https://s3.eu-central-1.wasabisys.com/melody/NATL/data/gridded_data_swot_wocorr/dataset_swot.nc
-
-#oi
-https://s3.eu-central-1.wasabisys.com/melody/NATL/oi/ssh_NATL60_4nadir.nc
-https://s3.eu-central-1.wasabisys.com/melody/NATL/oi/ssh_NATL60_swot_4nadir.nc
-https://s3.eu-central-1.wasabisys.com/melody/NATL/oi/ssh_NATL60_swot.nc
-
-#ref
-https://s3.eu-central-1.wasabisys.com/melody/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc
-https://s3.eu-central-1.wasabisys.com/melody/NATL/ref/NATL60-CJM165_NATL_sst_y2013.1y.nc
-```
+### Download the data and saved_model_weights
+The data is available on zenodo: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7773884.svg)](https://doi.org/10.5281/zenodo.7773884)
 
 
 ### Training scripts

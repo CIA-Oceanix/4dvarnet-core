@@ -20,7 +20,7 @@ def to_swath_data(grid_ds):
                 lon_max=grid_ds['lon'].max().item() + 360,
         )
 
-        swath_data = get_swot_slice('../sla-data-registry/sensor_zarr/zarr/new_swot', **slice_args, drop_vars=[
+        swath_data = get_swot_slice('../tgrs-data/sensor_zarr/zarr/new_swot', **slice_args, drop_vars=[
          'bd_err', 'karin_noise', 'karin_err', 'phase_err', 'roll_err','timing_err',
          'model_index',
          ])
