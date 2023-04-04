@@ -199,7 +199,10 @@ def plot_maps(gt,obs,oi,pred,lon,lat,resfile,grad=False,
         pred = (pred[:,ilat,:])[:,:,ilon]
         lon = lon[ilon]
         lat = lat[ilat]
-    extent = [np.min(lon)-1,np.max(lon)+1,np.min(lat)-1,np.max(lat)+1]
+    # ~ extent = [np.min(lon)-1,np.max(lon)+1,np.min(lat)-1,np.max(lat)+1]
+    dlon = np.mean(np.abs(np.diff(lon)))
+    dlat = np.mean(np.abs(np.diff(lat)))
+    extent = [np.min(lon)-dlon,np.max(lon)+dlon,np.min(lat)-dlat,np.max(lat)+dlat]
     central_lon = np.mean(extent[:2])
     central_lat = np.mean(extent[2:])
 
@@ -274,7 +277,10 @@ def plot_maps_oi(gt,obs,pred,lon,lat,resfile,grad=False,
         pred = (pred[:,ilat,:])[:,:,ilon]
         lon = lon[ilon]
         lat = lat[ilat]
-    extent = [np.min(lon)-1,np.max(lon)+1,np.min(lat)-1,np.max(lat)+1]
+    # ~ extent = [np.min(lon)-1,np.max(lon)+1,np.min(lat)-1,np.max(lat)+1]
+    dlon = np.mean(np.abs(np.diff(lon)))
+    dlat = np.mean(np.abs(np.diff(lat)))
+    extent = [np.min(lon)-dlon,np.max(lon)+dlon,np.min(lat)-dlat,np.max(lat)+dlat]
     central_lon = np.mean(extent[:2])
     central_lat = np.mean(extent[2:])
 
@@ -285,13 +291,17 @@ def plot_maps_oi(gt,obs,pred,lon,lat,resfile,grad=False,
         crs = ccrs.PlateCarree(central_longitude=0.0)
 
     if grad:
-        vmax = np.nanmax(np.abs(gradient(gt, 2)))
-        vmin = 0
+        # ~ vmax = np.nanmax(np.abs(gradient(gt, 2)))
+        # ~ vmin = 0
+        vmax = np.nanmax(gradient(gt, 2))
+        vmin = np.nanmin(gradient(gt, 2))
         cm = plt.cm.viridis
         norm = colors.PowerNorm(gamma=0.7, vmin=vmin, vmax=vmax)
     else:
-        vmax = np.nanmax(np.abs(gt))
-        vmin = -1.*vmax
+        # ~ vmax = np.nanmax(np.abs(gt))
+        # ~ vmin = -1.*vmax
+        vmax = np.nanmax(gt)
+        vmin = np.nanmin(gt)
         cm = plt.cm.coolwarm
         norm = colors.Normalize(vmin=vmin, vmax=vmax)
 
@@ -347,18 +357,25 @@ def animate_maps(gt, obs, oi, pred, lon, lat, resfile,
         pred = (pred[:,ilat,:])[:,:,ilon]
         lon = lon[ilon]
         lat = lat[ilat]
-    extent = [np.min(lon)-1,np.max(lon)+1,np.min(lat)-1,np.max(lat)+1]
+    # ~ extent = [np.min(lon)-1,np.max(lon)+1,np.min(lat)-1,np.max(lat)+1]
+    dlon = np.mean(np.abs(np.diff(lon)))
+    dlat = np.mean(np.abs(np.diff(lat)))
+    extent = [np.min(lon)-dlon,np.max(lon)+dlon,np.min(lat)-dlat,np.max(lat)+dlat]
     central_lon = np.mean(extent[:2])
     central_lat = np.mean(extent[2:])
 
     if grad:
-        vmax = np.nanmax([np.nanmax(np.abs(gradient(oi[i], 2))) for i in range(len(oi))])
-        vmin = 0
+        # ~ vmax = np.nanmax([np.nanmax(np.abs(gradient(oi[i], 2))) for i in range(len(oi))])
+        # ~ vmin = 0
+        vmax = np.nanmax([np.nanmax(gradient(oi[i], 2)) for i in range(len(oi))])
+        vmin = np.nanmin([np.nanmin(gradient(oi[i], 2)) for i in range(len(oi))])
         cm = plt.cm.viridis
         norm = colors.PowerNorm(gamma=0.7, vmin=vmin, vmax=vmax)
     else:
-        vmax = np.nanmax(np.abs(oi))
-        vmin = -1.*vmax
+        # ~ vmax = np.nanmax(np.abs(oi))
+        # ~ vmin = -1.*vmax
+        vmax = np.nanmax(oi)
+        vmin = np.nanmin(oi)
         cm = plt.cm.coolwarm
         norm = colors.Normalize(vmin=vmin, vmax=vmax)
 
@@ -449,29 +466,25 @@ def animate_maps_OI(gt, obs, pred, lon, lat, resfile,
         pred = (pred[:,ilat,:])[:,:,ilon]
         lon = lon[ilon]
         lat = lat[ilat]
-    extent = [np.min(lon)-1,np.max(lon)+1,np.min(lat)-1,np.max(lat)+1]
+    # ~ extent = [np.min(lon)-1,np.max(lon)+1,np.min(lat)-1,np.max(lat)+1]
+    dlon = np.mean(np.abs(np.diff(lon)))
+    dlat = np.mean(np.abs(np.diff(lat)))
+    extent = [np.min(lon)-dlon,np.max(lon)+dlon,np.min(lat)-dlat,np.max(lat)+dlat]
     central_lon = np.mean(extent[:2])
     central_lat = np.mean(extent[2:])
 
-    # ~ if grad:
-        # ~ vmax = np.nanmax([np.nanmax(np.abs(gradient(oi[i], 2))) for i in range(len(oi))])  #########
-        # ~ vmin = 0
-        # ~ cm = plt.cm.viridis
-        # ~ norm = colors.PowerNorm(gamma=0.7, vmin=vmin, vmax=vmax)
-    # ~ else:
-        # ~ vmax = np.nanmax(np.abs(oi))  #########
-        # ~ vmin = -1.*vmax
-        # ~ cm = plt.cm.coolwarm
-        # ~ norm = colors.Normalize(vmin=vmin, vmax=vmax)
-
     if grad:
-        vmax = np.nanmax(np.abs(gradient(gt, 2)))
-        vmin = 0
+        # ~ vmax = np.nanmax(np.abs(gradient(gt, 2)))
+        # ~ vmin = 0
+        vmax = np.nanmax(gradient(gt, 2))
+        vmin = np.nanmin(gradient(gt, 2))
         cm = plt.cm.viridis
         norm = colors.PowerNorm(gamma=0.7, vmin=vmin, vmax=vmax)
     else:
-        vmax = np.nanmax(np.abs(gt))
-        vmin = -1.*vmax
+        # ~ vmax = np.nanmax(np.abs(gt))
+        # ~ vmin = -1.*vmax
+        vmax = np.nanmax(gt)
+        vmin = np.nanmin(gt)
         cm = plt.cm.coolwarm
         norm = colors.Normalize(vmin=vmin, vmax=vmax)
 
