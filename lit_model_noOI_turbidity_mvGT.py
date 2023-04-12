@@ -242,9 +242,11 @@ class LitModelOI(LitModelAugstate):
             
             loss_AE = self.loss_ae(outputs)
 
+            outputs_t_diff = torch.norm(torch.flatten(torch.diff(outputs,n=1,dim=1)))
+
             # total loss
             loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
-            loss += 0.5 * self.hparams.alpha_proj * loss_AE
+            loss += 0.5 * self.hparams.alpha_proj * loss_AE + .5 * self.hparams.alpha_mse_gssh * outputs_t_diff
 
             # metrics
             # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
