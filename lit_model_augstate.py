@@ -509,7 +509,7 @@ class LitModelAugstate(pl.LightningModule):
                                           global_step=self.current_epoch)
 
         # animate maps
-        if self.hparams.animate == True:
+        if self.hparams.animate:
             path_save0 = self.logger.log_dir + '/animation.mp4'
             animate_maps(self.x_gt, self.obs_inp, self.x_oi, self.x_rec,
                          self.lon, self.lat, path_save0)
@@ -688,7 +688,7 @@ class LitModelAugstate(pl.LightningModule):
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
 
-        #targets_OI, inputs_Mask, targets_GT = batch
+        # targets_OI, inputs_Mask, targets_GT = batch
         # handle patch with no observation
         if inputs_Mask.sum().item() == 0:
             return (None, torch.zeros_like(targets_GT),
@@ -702,7 +702,7 @@ class LitModelAugstate(pl.LightningModule):
 
         state = self.get_init_state(batch, state_init)
 
-        #state = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
+        # state = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
 
         obs = torch.cat((targets_OI, inputs_Mask * (inputs_obs - targets_OI)),
                         dim=1)

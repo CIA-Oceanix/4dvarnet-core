@@ -9,6 +9,8 @@ from lit_model_augstate import get_constant_crop
 from lit_model_OI import LitModelOI
 from copy import deepcopy
 from pathlib import Path
+import xarray as xr
+from hydra.utils import instantiate
 
 
 def get_forecast_crop(patch_size, crop):
@@ -157,6 +159,7 @@ class LitModelForecast(LitModelOI):
             rmse_t_list = []
             dict_md = []
             for test_xr_dses in self.test_xr_ds_list:
+                # Reconstructions metrics
                 psd_ds, lamb_x, lamb_t = psd_based_scores(
                     test_xr_dses.pred, test_xr_dses.gt)
                 rmse_t, _, mean_mu, sig = rmse_based_scores(
@@ -169,10 +172,13 @@ class LitModelForecast(LitModelOI):
                     f'{log_pref}_sigma': sig,
                 }
                 dict_md.append(dict_md_temp)
-            print(pd.DataFrame(dict_md, range(-13, 7)).T.to_markdown())
+            print(
+                pd.DataFrame(dict_md,
+                             range(-((self.hparams.dT - 1) // 2 - 1),
+                                   7)).T.to_markdown())
             dict_md = dict_md[0]
             rmse_t_list = np.array(rmse_t_list)
-            rmse_t_list = rmse_t_list[13::, :]
+            rmse_t_list = rmse_t_list[((self.hparams.dT - 1) // 2 - 1)::, :]
             values_days_90, count_days_90 = accurate_pred(rmse_t_list, 0.90)
             values_days_75, count_days_75 = accurate_pred(rmse_t_list, 0.75)
             values_days_50, count_days_50 = accurate_pred(rmse_t_list, 0.50)
@@ -202,6 +208,52 @@ class LitModelForecast(LitModelOI):
             print(pd.DataFrame([dict_md]).T.to_markdown())
         return dict_md
 
+    def build_test_xr_ds(self, outputs, diag_ds):
+
+        outputs_keys = list(outputs[0][0].keys())
+        with diag_ds.get_coords():
+            self.test_patch_coords = [diag_ds[i] for i in range(len(diag_ds))]
+
+        def iter_item(outputs):
+            n_batch_chunk = len(outputs)
+            n_batch = len(outputs[0])
+            for b in range(n_batch):
+                bs = outputs[0][b]['gt'].shape[0]
+                for i in range(bs):
+                    for bc in range(n_batch_chunk):
+                        yield tuple(
+                            [outputs[bc][b][k][i] for k in outputs_keys])
+
+        dses = [
+            xr.Dataset(
+                {
+                    k: (('time', 'lat', 'lon'), x_k)
+                    for k, x_k in zip(outputs_keys, xs)
+                },
+                coords=coords)
+            for xs, coords in zip(iter_item(outputs), self.test_patch_coords)
+        ]
+
+        fin_ds = xr.merge(
+            [xr.zeros_like(ds[['time', 'lat', 'lon']]) for ds in dses])
+        fin_ds = fin_ds.assign(
+            {'weight': (fin_ds.dims, np.zeros(list(fin_ds.dims.values())))})
+        for v in dses[0]:
+            fin_ds = fin_ds.assign(
+                {v: (fin_ds.dims, np.zeros(list(fin_ds.dims.values())))})
+
+        for ds in dses:
+            ds_nans = ds.assign(weight=xr.ones_like(
+                ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
+            _ds = ds.assign(weight=xr.ones_like(ds.gt)).broadcast_like(
+                fin_ds).fillna(0.).where(ds_nans == 0, np.nan)
+            fin_ds = fin_ds + _ds
+
+        return ((fin_ds.drop('weight') / fin_ds.weight).sel(
+            instantiate(self.test_domain)).isel(
+                time=slice(self.hparams.dT // 2, -self.hparams.dT //
+                           2))).transpose('time', 'lat', 'lon')
+
     def diag_epoch_end(self, outputs, log_pref='test'):
         full_outputs = self.gather_outputs(outputs, log_pref=log_pref)
         if full_outputs is None:
@@ -219,7 +271,7 @@ class LitModelForecast(LitModelOI):
             dims = full_outputs[0][0]['gt'].shape
             dim_lat, dim_lon = dims[2:4]
             self.test_xr_ds_list = []
-            for i in range(-13, 7):
+            for i in range(-((self.hparams.dT - 1) // 2 - 1), 7):
                 small_patch_weight = np.concatenate(
                     (np.zeros((self.hparams.dT // 2 + i, dim_lat, dim_lon)),
                      np.ones((1, dim_lat, dim_lon)),
@@ -232,16 +284,19 @@ class LitModelForecast(LitModelOI):
                             'pred'] *= small_patch_weight
                         outputs_reduced[gpu_rank][batch_nb][
                             'gt'] *= small_patch_weight
+                        outputs_reduced[gpu_rank][batch_nb][
+                            'oi'] *= small_patch_weight
                 self.test_xr_ds_list.append(
                     self.build_test_xr_ds(outputs_reduced, diag_ds=diag_ds))
-            self.test_xr_ds = self.test_xr_ds_list[12]
+            self.test_xr_ds = self.test_xr_ds_list[(
+                (self.hparams.dT - 1) // 2 - 2)]
+            Path(self.logger.log_dir).mkdir(exist_ok=True)
+            for i in range(len(self.test_xr_ds_list)):
+                path_save1 = self.logger.log_dir + f'/test_{i:02}.nc'
+                self.test_xr_ds_list[i].to_netcdf(path_save1)
         else:
             self.test_xr_ds = self.build_test_xr_ds(full_outputs,
                                                     diag_ds=diag_ds)
-
-        Path(self.logger.log_dir).mkdir(exist_ok=True)
-        path_save1 = self.logger.log_dir + '/test.nc'
-        self.test_xr_ds.to_netcdf(path_save1)
 
         self.x_gt = self.test_xr_ds.gt.data
         self.obs_inp = self.test_xr_ds.obs_inp.data

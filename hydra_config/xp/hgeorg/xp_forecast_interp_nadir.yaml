@@ -6,11 +6,11 @@ params:
     oi_path: ${file_paths.oi_4nadir}
     obs_mask_path: ${file_paths.obs_4nadirs}
   model: 4dvarnet_OI
-  dT: 17
+  dT: 29
   patch_weight:
-    _target_: lit_model_augstate.get_constant_crop
+    _target_: lit_model_forecast.get_forecast_interp_triangle_crop_asym
     crop:
-      time: 5
+      time: 0
   k_n_grad: 3
   n_grad: 5
   val_diag_freq: 5
