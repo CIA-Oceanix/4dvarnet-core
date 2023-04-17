@@ -290,6 +290,32 @@
 #~ python hydra_main.py file_paths=turbidity_bbp/patch10/r8 xp=cdorff/turbidity_bbp/xp_rf1_dt7_Unet100 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=149-val_loss\=15.3881.ckpt'
 #~ python hydra_main.py file_paths=turbidity_bbp/patch10/r9 xp=cdorff/turbidity_bbp/xp_rf1_dt7_Unet100 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=149-val_loss\=15.3881.ckpt'
 
+### Turbidity v2 dt=29
+
+#~ python hydra_main.py file_paths=turbidity_bbp/patch50 xp=cdorff/turbidity_bbp/xp_rf1_dt29_AE_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=178-val_loss\=44.5831.ckpt'
+#~ python hydra_main.py file_paths=turbidity_bbp/patch10/r0 xp=cdorff/turbidity_bbp/xp_rf1_dt29_AE_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=178-val_loss\=44.5831.ckpt'
+#~ python hydra_main.py file_paths=turbidity_bbp/patch10/r1 xp=cdorff/turbidity_bbp/xp_rf1_dt29_AE_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=178-val_loss\=44.5831.ckpt'
+#~ python hydra_main.py file_paths=turbidity_bbp/patch10/r2 xp=cdorff/turbidity_bbp/xp_rf1_dt29_AE_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=178-val_loss\=44.5831.ckpt'
+#~ python hydra_main.py file_paths=turbidity_bbp/patch10/r3 xp=cdorff/turbidity_bbp/xp_rf1_dt29_AE_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=178-val_loss\=44.5831.ckpt'
+#~ python hydra_main.py file_paths=turbidity_bbp/patch10/r4 xp=cdorff/turbidity_bbp/xp_rf1_dt29_AE_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=178-val_loss\=44.5831.ckpt'
+#~ python hydra_main.py file_paths=turbidity_bbp/patch10/r5 xp=cdorff/turbidity_bbp/xp_rf1_dt29_AE_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=178-val_loss\=44.5831.ckpt'
+#~ python hydra_main.py file_paths=turbidity_bbp/patch10/r6 xp=cdorff/turbidity_bbp/xp_rf1_dt29_AE_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=178-val_loss\=44.5831.ckpt'
+#~ python hydra_main.py file_paths=turbidity_bbp/patch10/r7 xp=cdorff/turbidity_bbp/xp_rf1_dt29_AE_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=178-val_loss\=44.5831.ckpt'
+#~ python hydra_main.py file_paths=turbidity_bbp/patch10/r8 xp=cdorff/turbidity_bbp/xp_rf1_dt29_AE_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=178-val_loss\=44.5831.ckpt'
+#~ python hydra_main.py file_paths=turbidity_bbp/patch10/r9 xp=cdorff/turbidity_bbp/xp_rf1_dt29_AE_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=178-val_loss\=44.5831.ckpt'
+
+#~ python hydra_main.py file_paths=turbidity_bbp/patch50 xp=cdorff/turbidity_bbp/xp_rf1_dt29_Unet_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=159-val_loss\=44.1918.ckpt'
+#~ python hydra_main.py file_paths=turbidity_bbp/patch10/r0 xp=cdorff/turbidity_bbp/xp_rf1_dt29_Unet_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=159-val_loss\=44.1918.ckpt'
+#~ python hydra_main.py file_paths=turbidity_bbp/patch10/r1 xp=cdorff/turbidity_bbp/xp_rf1_dt29_Unet_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=159-val_loss\=44.1918.ckpt'
+#~ python hydra_main.py file_paths=turbidity_bbp/patch10/r2 xp=cdorff/turbidity_bbp/xp_rf1_dt29_Unet_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=159-val_loss\=44.1918.ckpt'
+#~ python hydra_main.py file_paths=turbidity_bbp/patch10/r3 xp=cdorff/turbidity_bbp/xp_rf1_dt29_Unet_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=159-val_loss\=44.1918.ckpt'
+#~ python hydra_main.py file_paths=turbidity_bbp/patch10/r4 xp=cdorff/turbidity_bbp/xp_rf1_dt29_Unet_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=159-val_loss\=44.1918.ckpt'
+#~ python hydra_main.py file_paths=turbidity_bbp/patch10/r5 xp=cdorff/turbidity_bbp/xp_rf1_dt29_Unet_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=159-val_loss\=44.1918.ckpt'
+#~ python hydra_main.py file_paths=turbidity_bbp/patch10/r6 xp=cdorff/turbidity_bbp/xp_rf1_dt29_Unet_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=159-val_loss\=44.1918.ckpt'
+#~ python hydra_main.py file_paths=turbidity_bbp/patch10/r7 xp=cdorff/turbidity_bbp/xp_rf1_dt29_Unet_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=159-val_loss\=44.1918.ckpt'
+#~ python hydra_main.py file_paths=turbidity_bbp/patch10/r8 xp=cdorff/turbidity_bbp/xp_rf1_dt29_Unet_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=159-val_loss\=44.1918.ckpt'
+#~ python hydra_main.py file_paths=turbidity_bbp/patch10/r9 xp=cdorff/turbidity_bbp/xp_rf1_dt29_Unet_v2 entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=159-val_loss\=44.1918.ckpt'
+
 
 ### Clear unnecessary files
 rm -rf dashboard/xp*/version*/val_data
