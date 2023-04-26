@@ -43,7 +43,7 @@ class LitModel(pl.LightningModule):
         self.mean_Tt = kwargs['mean_Tt']
 
         self.spde_type = self.hparams.spde_type
-        self.pow = hparam.pow
+        self.pow = self.hparams.pow
         # use OI or for metrics or not
         self.use_oi = self.hparams.oi if hasattr(self.hparams, 'oi') else False
 
@@ -55,7 +55,7 @@ class LitModel(pl.LightningModule):
                       #given_parameters=True,
                       nc=xr.open_dataset(hparam.files_cfg.spde_params_path)),
                 Model_H(self.shapeData[0]),
-                NN_4DVar.model_GradUpdateLSTM([self.hparams.dT+3,self.Ny,self.Nx],
+                NN_4DVar.model_GradUpdateLSTM([self.hparams.dT+2,self.Ny,self.Nx],
                                                self.hparams.UsePriodicBoundary,
                                                self.hparams.dim_grad_solver,
                                                self.hparams.dropout, self.hparams.stochastic),
@@ -72,10 +72,29 @@ class LitModel(pl.LightningModule):
 
         self.automatic_optimization = self.hparams.automatic_optimization
 
-    def forward(self):
-        return 1
+        self.n_simu = 2
 
-    def run_simulation(self,i,M,x,dx,dy,dt,n_init_run=10):
+    def forward(self, batch, phase='test'):
+        losses = []
+        metrics = []
+        state_init = [None]
+        out=None
+        for i in range(self.hparams.n_fourdvar_iter):
+            if phase=='test':
+                _loss, out, params, _metrics, sc, cmp_loss = self.compute_loss(batch, phase=phase, state_init=state_init)
+            else:
+                _loss, out, params, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
+            state_init = [ out.detach() ]
+            if i!=(self.hparams.n_fourdvar_iter-1):
+                del out
+            losses.append(_loss)
+            metrics.append(_metrics)
+        if phase=='test':
+            return losses[-1], out, params, metrics[-1], sc, cmp_loss
+        else:
+            return losses[-1], out, params, metrics[-1]
+
+    def run_simulation_(self,i,M,x,dx,dy,dt,n_init_run=10):
         nb_nodes = M.shape[0]
         tau = 1.
         regul = (tau*sqrt(dt))/(dx*dy)
@@ -86,40 +105,67 @@ class LitModel(pl.LightningModule):
         # if i==0: start stability run
         if i==0:
             xi = torch.randn(nb_nodes).to(device)
-            for i in range(n_init_run):
+            for _ in range(n_init_run):
                 RM = torch.mul(regul,random)+torch.flatten(xi)
                 RM_ = cupy.fromDlpack(to_dlpack(RM))
                 xi_ = cupy_spsolve(M_, RM_)
                 xi = torch.flatten(from_dlpack(xi_.toDlpack())).to(device)
                 #xi = torch.flatten(cupy_solve_sparse.apply(M,RM)).to(device)     
         else:
-            RM = torch.mul(regul,random)+torch.flatten(x[i-1])
+            RM = torch.mul(regul,random)+x
             RM_ = cupy.fromDlpack(to_dlpack(RM))
             xi_ = cupy_spsolve(M_, RM_)
             xi = torch.flatten(from_dlpack(xi_.toDlpack())).to(device)
             #xi = torch.flatten(cupy_solve_sparse.apply(M,RM)).to(device)
         xi.requires_grad = True
-        xi = torch.flatten(xi)
-        x.append(xi)
+        x = xi
+        return x
+
+    def run_simulation(self,i,M,x,dx,dy,dt,n_init_run=10):
+        M = M.to_dense()
+        L = torch.linalg.cholesky(M)
+        nb_nodes = M.shape[0]
+        tau = 1.
+        regul = (tau*sqrt(dt))/(dx*dy)
+        random = torch.randn(nb_nodes).to(device)
+        # if i==0: start stability run
+        if i==0:
+            x = torch.randn(nb_nodes).to(device)
+            for _ in range(n_init_run):
+                noise = torch.mul(regul,random)+x
+                tmp = torch.triangular_solve(torch.unsqueeze(torch.unsqueeze(noise,dim=1),dim=0).float(),
+                              torch.tril(torch.unsqueeze(L.to_dense(),dim=0)).float(),
+                              upper=False)
+                x_ = torch.triangular_solve(tmp[0],
+                             torch.transpose(torch.tril(torch.unsqueeze(L.to_dense(),dim=0)).float(),1,2),
+                             upper=True)
+                x = torch.flatten(x_[0]).to(device)
+        else:
+            noise = torch.mul(regul,random)+x
+            tmp = torch.triangular_solve(torch.unsqueeze(torch.unsqueeze(noise,dim=1),dim=0).float(),
+                              torch.tril(torch.unsqueeze(L.to_dense(),dim=0)).float(),
+                              upper=False)
+            x_ = torch.triangular_solve(tmp[0],
+                             torch.transpose(torch.tril(torch.unsqueeze(L.to_dense(),dim=0)).float(),1,2),
+                             upper=True)
+            x = torch.flatten(x_[0]).to(device)
+        #x.requires_grad = True
         return x
 
     def configure_optimizers(self):
 
-        optimizer = optim.SGD([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+        optimizer = optim.Adam([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                                 #{'params': self.model.phi_r.encoder.parameters(), 'lr': self.hparams.lr_update[0]}
                                 ])
 
         #optimizer = FullBatchLBFGS(self.model.parameters())
 
-
         return optimizer
 
-    def on_epoch_start(self):
+    def on_train_epoch_start(self):
         # enfore acnd check some hyperparameters
         self.model.n_grad = self.hparams.n_grad
-
-    def on_train_epoch_start(self):
         opt = self.optimizers()
         if (self.current_epoch in self.hparams.iter_update) & (self.current_epoch > 0):
             indx = self.hparams.iter_update.index(self.current_epoch)
@@ -139,7 +185,7 @@ class LitModel(pl.LightningModule):
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
 
         # compute loss and metrics    
-        loss, out, param, metrics = self.compute_loss(train_batch, phase='train')
+        loss, out, param, metrics = self(train_batch, phase='train')
         if loss is None:
             return loss
         # log step metric        
@@ -164,7 +210,7 @@ class LitModel(pl.LightningModule):
         return loss
 
     def validation_step(self, val_batch, batch_idx):
-        loss, out, param, metrics = self.compute_loss(val_batch, phase='val')
+        loss, out, param, metrics = self(val_batch, phase='val')
         if loss is None:
             return loss
         self.log('val_loss', loss)
@@ -180,7 +226,9 @@ class LitModel(pl.LightningModule):
         else:
             inputs_obs, inputs_mask, targets_gt, targets_oi = test_batch
 
-        loss, out, param, metrics, simu, cmp_loss = self.compute_loss(test_batch, phase='test')
+        with torch.inference_mode(mode=False):
+            loss, out, param, metrics, simu, cmp_loss = self(test_batch, phase='test')
+        
         if loss is not None:
             self.log('test_loss', loss)
             self.log("test_mse", metrics['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
@@ -189,7 +237,7 @@ class LitModel(pl.LightningModule):
         return {'gt'    : (targets_gt.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'obs'   : (inputs_obs.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'preds' : (out.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'simulations' : (simu.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'simulations' : (simu.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX),:]*np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'params': param,
                 'cmp_loss': cmp_loss}
 
@@ -223,7 +271,15 @@ class LitModel(pl.LightningModule):
         gt = np.moveaxis(reshape(gt),1,3)
         obs = np.moveaxis(reshape(obs),1,3)
         pred = np.moveaxis(reshape(pred),1,3)
-        simu = np.moveaxis(reshape(simu),1,3)
+
+        simu = einops.rearrange(simu,
+                '(t_idx lat_idx lon_idx dim1) win_time win_lat win_lon win_dim1-> t_idx win_time (lat_idx win_lat) (lon_idx win_lon) (dim1 win_dim1)',
+                dim1=1,
+                t_idx=ds_size['time'],
+                lat_idx=ds_size['lat'],
+                lon_idx=ds_size['lon'],
+                )
+        simu = np.moveaxis(simu,1,3)
 
         # keep only points of the original domain
         iX = np.where( (self.lon_ext>=self.xmin) & (self.lon_ext<=self.xmax) )[0]
@@ -235,7 +291,7 @@ class LitModel(pl.LightningModule):
         self.x_gt = gt[:,:,:,int(self.hparams.dT / 2)]
         self.x_obs = obs[:,:,:,int(self.hparams.dT / 2)]
         self.x_rec = pred[:,:,:,int(self.hparams.dT / 2)]
-        self.x_simu = simu[:,:,:,int(self.hparams.dT / 2)]
+        self.x_simu = simu[:,:,:,int(self.hparams.dT / 2),:]
 
         # display map
         path_save0 = self.logger.log_dir + '/maps.png'
@@ -260,7 +316,7 @@ class LitModel(pl.LightningModule):
         fig_maps = plot_maps(
                   self.x_gt[0],
                   self.x_obs[0],
-                  self.x_simu[0],
+                  self.x_simu[0,:,:,0],
                   self.lon, self.lat, path_save0,
                   cartopy=False,
                   supervised=self.hparams.supervised)
@@ -303,7 +359,7 @@ class LitModel(pl.LightningModule):
         H = np.transpose(H,(0,3,4,1,2))
         # save NetCDF
         path_save1 = self.logger.log_dir + '/maps.nc'
-        save_netcdf(gt,obs,pred,pred,pred,pred,[H],
+        save_netcdf(gt,obs,pred,pred,simu,pred,pred,[H],
                     self.lon,self.lat,path_save1,
                     time=self.time['time_test'],
                     time_units='days since 2012-10-01 00:00:00')
@@ -313,7 +369,7 @@ class LitModel(pl.LightningModule):
         path_save = self.logger.log_dir + '/loss.nc'
         save_loss(path_save,cmp_loss)
 
-    def compute_loss(self, batch, phase):
+    def compute_loss(self, batch, phase, state_init=(None,)):
 
         if not self.use_oi:
             inputs_obs, inputs_mask, targets_gt = batch[:3]
@@ -331,11 +387,6 @@ class LitModel(pl.LightningModule):
         new_mask = torch.cat((1. + 0. * inputs_mask, inputs_mask), dim=1)
         targets_gt_wo_nan = targets_gt.where(~targets_gt.isnan(), torch.zeros_like(targets_gt))
         targets_mask = torch.where(targets_gt!=0.)
-        state_init = inputs_obs
-
-        state_init = targets_gt
-        inputs_obs = targets_gt
-        inputs_mask =  torch.ones_like(targets_gt)
 
         n_b = inputs_obs.shape[0]
         n_x = inputs_obs.shape[3]
@@ -346,19 +397,57 @@ class LitModel(pl.LightningModule):
         dy = 1
         dt = 1
 
-        # init parameters 
-        nc = xr.open_dataset("/gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/xp_gp/data/SPDE_diffusion_dataset_kappa_033_pow_2_diff.nc")
-        H11_gt = torch.transpose(torch.Tensor(nc.H11.values),0,1).to(device)
-        H12_gt = torch.transpose(torch.Tensor(nc.H22.values),0,1).to(device)
-        H22_gt = torch.transpose(torch.Tensor(nc.H12.values),0,1).to(device)
-        H11_gt = (torch.unsqueeze(H11_gt,dim=0)).expand(n_b,1,100,100)
-        H12_gt = (torch.unsqueeze(H12_gt,dim=0)).expand(n_b,1,100,100)
-        H22_gt = (torch.unsqueeze(H22_gt,dim=0)).expand(n_b,1,100,100)
+        if state_init[0] is not None:
+            state_init = state_init[0]
+        else:
+            state_init = inputs_obs
+            # recreate true set of parameters
+            def fxy(x,y):
+                resolution = 10
+                return( ((2*resolution)/np.pi)*( (3/4)*np.sin(2*np.pi*x/(5*resolution))) + (1/4)*np.sin(2*np.pi*y/(5*resolution) ))
+            x, y = np.meshgrid(range(n_x),range(n_y))
+            res = np.array(fxy(x,y))
+            grad = np.gradient(res)
+            u_ = grad[0]
+            v_ = grad[1]
+            def rotate_vector(x1,y1,angle):
+                x1_ = x1.flatten()
+                y1_ = y1.flatten()
+                x2_ = np.cos(angle)*x1_-np.sin(angle)*y1_
+                y2_ = np.sin(angle)*x1_+np.cos(angle)*y1_
+                return np.c_[x2_,y2_]
+            self.u = torch.tensor(np.reshape(np.array(rotate_vector(u_,v_,-np.pi/2)[:,0],),(n_x,n_y))).to(device)
+            self.v = torch.tensor(np.reshape(np.array(rotate_vector(u_,v_,-np.pi/2)[:,1],),(n_x,n_y))).to(device)
+            vx = torch.stack(n_b*[self.u],dim=0)
+            vy = torch.stack(n_b*[self.v],dim=0)
+            vx = torch.reshape(vx,(n_b,n_x*n_y))
+            vy = torch.reshape(vy,(n_b,n_x*n_y))
+            vxy = torch.stack([vx,vy],dim=2)
+            vxyT = torch.permute(vxy,(0,2,1))
+            gamma = torch.ones(n_b).to(device)
+            beta = torch.ones(n_b).to(device)*25
+            H  = torch.einsum('ij,bk->bijk',torch.eye(2).to(device),
+                                        torch.unsqueeze(gamma,dim=1).expand(n_b,n_x*n_y))+\
+                                        torch.einsum('b,bijk->bijk',beta,torch.einsum('bki,bjk->bijk',vxy,vxyT))
+            H = torch.permute(H,(0,2,1,3))
+            H = torch.reshape(H,(n_b,2,2,n_x,n_y)).to(device)
+            H_gt = H.float()
+            H11_gt = H[:,0,0,:,:]
+            H12_gt = H[:,0,1,:,:]
+            H22_gt = H[:,1,1,:,:]
+            vx_gt = torch.reshape(vx,(n_b,1,n_x,n_y)).float()
+            vy_gt = torch.reshape(vy,(n_b,1,n_x,n_y)).float()
 
-        # augmented state with parameters
-        #state_init = torch.cat((state_init,H11_gt,H12_gt,H22_gt),dim=1)
-        H_init = torch.zeros_like(H11_gt)
-        state_init = torch.cat((state_init,H_init,H_init,H_init),dim=1)
+            vx_init = vx_gt
+            vy_init = vy_gt
+            vx_init = torch.zeros(n_b,1,n_x,n_y).to(device)
+            vy_init = torch.zeros(n_b,1,n_x,n_y).to(device)
+            state_init = torch.cat((state_init,vx_init,vy_init),dim=1)
+
+        # state initialization
+        state_init = state_init.clone()
+        inputs_obs = inputs_obs.clone()
+        inputs_mask = inputs_mask.clone()
 
         # gradient norm field
         g_targets_gt = self.gradient_img(targets_gt)
@@ -366,18 +455,28 @@ class LitModel(pl.LightningModule):
         #with torch.set_grad_enabled(True), torch.autograd.detect_anomaly():
         with torch.set_grad_enabled(True):
             state_init = torch.autograd.Variable(state_init, requires_grad=True)
-            outputs, cmp_loss, hidden_new, cell_new, normgrad, params = self.model(targets_gt,
+            outputs_, cmp_loss, hidden_new, cell_new, normgrad, params = self.model(targets_gt,
                                                                          state_init,
                                                                          inputs_obs,
                                                                          inputs_mask,
                                                                          targets_oi,
                                                                          estim_parameters=True)
-            #outputs, params = self.model(inputs_init, inputs_missing, inputs_mask,.33,None,None)
 
             if (phase == 'val') or (phase == 'test'):
-                outputs = outputs.detach()
+                outputs_ = outputs_.detach()
 
+            outputs = outputs_[:,:n_t,:,:]
+
+            #
+            '''
+            H_ = params[2]
+            H_[:,0,1,:,:] = H12_gt
+            H_[:,1,0,:,:] = H12_gt
+            H_ = H_gt
+            params[2] = torch.permute(H_,(0,2,1,3,4))
+            '''
             H = torch.reshape(params[2],(len(outputs),2,2,n_x*n_y))
+
             m = None
             kappa = 1./3
             tau = 1.
@@ -389,32 +488,48 @@ class LitModel(pl.LightningModule):
             if phase=="test":
                 # run n_batches*simulation
                 I = sparse_eye(n_x*n_y)
-                x_simu = []
-                for ibatch in range(len(outputs)):
-                    x_simu_ = []
-                    for i in range(n_t):
-                        A = DiffOperator(n_x,n_y,dx,dy,None,H[ibatch],kappa)
-                        M = I+pow_diff_operator(A,self.pow)
-                        x_simu_ = self.run_simulation(i,M,x_simu_,dx,dy,dt,n_init_run=10)
-                    x_simu_ = torch.stack(x_simu_,dim=0)
-                    x_simu_ = torch.reshape(x_simu_,outputs.shape[1:])
-                    # x,y -> y,x
-                    x_simu_ = torch.permute(x_simu_,(0,2,1))
-                    x_simu.append(x_simu_)
-                x_simu = torch.stack(x_simu,dim=0).to(device)
-                # interpolate the simulation based on LSTM-solver
-                idx = torch.where(inputs_mask==0.)
-                inputs_init_simu = x_simu.clone()
-                inputs_init_simu[idx] = 0.
-                inputs_missing_simu = inputs_init_simu
-                x_itrp_simu,_ , _ ,_ ,_ ,_ = self.model(targets_gt,
-                                                        torch.cat((inputs_init_simu,H11_gt,H12_gt,H22_gt),dim=1),
+                simu_cond = []
+                for isimu in range(self.n_simu):
+                    x_simu = []
+                    for ibatch in range(len(outputs)):
+                        x_ = None
+                        x_simu_ = []
+                        for i in range(n_t):
+                            #A = DiffOperator(n_x,n_y,dx,dy,None,H[ibatch],kappa)
+                            H_ = torch.zeros(H[ibatch].shape).to(device)
+                            H_[0,0,:] = H[ibatch,1,1,:]
+                            H_[0,1,:] = H[ibatch,1,0,:]
+                            H_[1,0,:] = H[ibatch,0,1,:]
+                            H_[1,1,:] = H[ibatch,0,0,:]
+                            A = DiffOperator(n_x,n_y,dx,dy,None,H_,kappa)
+                            M = I+pow_diff_operator(A,self.pow,sparse=True)
+                            x_ = self.run_simulation_(i,M,x_,dx,dy,dt,n_init_run=10)
+                            x_simu_.append(x_)
+                        x_simu_ = torch.stack(x_simu_,dim=0)
+                        x_simu_ = torch.reshape(x_simu_,outputs.shape[1:])
+                        # x,y -> y,x
+                        x_simu_ = torch.permute(x_simu_,(0,2,1))
+                        x_simu.append(x_simu_)
+                    x_simu = torch.stack(x_simu,dim=0).to(device)
+                    x_simu.detach()
+                    x_simu = torch.autograd.Variable(x_simu, requires_grad=True)
+                    # interpolate the simulation based on LSTM-solver
+                    idx = torch.where(inputs_mask==0.)
+                    inputs_init_simu = x_simu.clone()
+                    inputs_init_simu[idx] = 0.
+                    inputs_missing_simu = inputs_init_simu
+                    x_itrp_simu,_ , _ ,_ ,_ ,_ = self.model(targets_gt,
+                                                        torch.cat((inputs_init_simu,vx_init,vy_init),dim=1),
                                                         inputs_missing_simu,
                                                         inputs_mask,
                                                         targets_oi,
                                                         estim_parameters=False)
-                # conditional simulation
-                x_simu_cond = outputs+(x_simu-x_itrp_simu)
+                    # conditional simulation
+                    x_simu_cond = x_simu
+                    #x_simu_cond = outputs+(x_simu-x_itrp_simu)
+                    simu_cond.append(x_simu_cond)
+                    x_simu_cond = x_simu_cond.detach()
+                simu_cond = torch.stack(simu_cond,dim=4)
 
             g_outputs = self.gradient_img(outputs)
             # Mahanalobis distance
@@ -464,16 +579,6 @@ class LitModel(pl.LightningModule):
                 loss = self.hparams.alpha_mse_ssh * loss_All #+ self.hparams.alpha_mse_gssh * loss_GAll
 
             # log-likelihood loss
-            '''
-            #try a simu with Q
-            x = np.linalg.solve(np.linalg.cholesky(Q[i].detach().cpu().to_dense().numpy()).T,
-                                torch.randn(50000).numpy())
-            x = np.reshape(x,(5,100,100))
-            print(x.shape)
-            import matplotlib.pyplot as plt
-            plt.imshow(x[2])
-            plt.show()
-            '''
             if self.loss_type=="ml_loss":
                 det_Q = list()
                 for i in range(n_b):
@@ -499,7 +604,9 @@ class LitModel(pl.LightningModule):
                 MD = torch.stack(MD)
                 loss_NLL = torch.nanmean(-1.*(log_det - MD))
                 # mixed MSE & NLL
-                loss = loss_NLL*(1e-4) #+ 10*loss_All # (ou loss OI ?)
+                print([10*loss_All, loss_GAll, loss_NLL*(1e-4)])
+                loss = loss_NLL*(1e-4) + 10*loss_All + .1*loss_GAll # (ou loss OI ?)
+                #loss = loss_All
                 #loss.backward()
                 #print(loss)
 
@@ -507,56 +614,14 @@ class LitModel(pl.LightningModule):
                 loss = loss_OI
 
             if self.loss_type=="diffusion_loss":
-                # add loss parameters
-                nc = xr.open_dataset(self.spde_params_path)
-                #nb_nodes = np.prod(shape_data[1:])
-                H11_gt = torch.transpose(torch.Tensor(nc.H11.values),0,1).to(device)
-                H12_gt = torch.transpose(torch.Tensor(nc.H22.values),0,1).to(device)
-                H22_gt = torch.transpose(torch.Tensor(nc.H12.values),0,1).to(device)
-                H11_gt = (torch.unsqueeze(H11_gt,dim=0)).expand(2,100,100)
-                H12_gt = (torch.unsqueeze(H12_gt,dim=0)).expand(2,100,100)
-                H22_gt = (torch.unsqueeze(H22_gt,dim=0)).expand(2,100,100)
                 H11_predict = params[2][:,0,0,:,:]
                 H12_predict = params[2][:,0,1,:,:]
                 H22_predict = params[2][:,1,1,:,:]
-                def fxy(x,y):
-                    resolution = 10
-                    return( ((2*resolution)/np.pi)*( (3/4)*np.sin(2*np.pi*x/(5*resolution))) + (1/4)*np.sin(2*np.pi*y/(5*resolution) ))
-                x, y = np.meshgrid(range(n_x),range(n_y))
-                res = np.array(fxy(x,y))
-                grad = np.gradient(res)
-                u_ = grad[0]
-                v_ = grad[1]
-                def rotate_vector(x1,y1,angle):
-                    x1_ = x1.flatten()
-                    y1_ = y1.flatten()
-                    x2_ = np.cos(angle)*x1_-np.sin(angle)*y1_
-                    y2_ = np.sin(angle)*x1_+np.cos(angle)*y1_
-                    return np.c_[x2_,y2_]
-                self.u = torch.tensor(np.reshape(np.array(rotate_vector(u_,v_,-np.pi/2)[:,0],),(n_x,n_y))).to(device)
-                self.v = torch.tensor(np.reshape(np.array(rotate_vector(u_,v_,-np.pi/2)[:,1],),(n_x,n_y))).to(device)
-                vx = torch.stack(n_b*[self.u],dim=0)
-                vy = torch.stack(n_b*[self.v],dim=0)
-                vx = torch.reshape(vx,(n_b,n_x*n_y))
-                vy = torch.reshape(vy,(n_b,n_x*n_y))
-                vxy = torch.stack([vx,vy],dim=2)
-                vxyT = torch.permute(vxy,(0,2,1))
-                gamma = torch.ones(n_b).to(device)
-                beta = torch.ones(n_b).to(device)*25
-                H  = torch.einsum('ij,bk->bijk',torch.eye(2).to(device),
-                                        torch.unsqueeze(gamma,dim=1).expand(n_b,n_x*n_y))+\
-                                        torch.einsum('b,bijk->bijk',beta,torch.einsum('bki,bjk->bijk',vxy,vxyT))
-                H = torch.reshape(H,(n_b,2,2,n_x,n_y)).to(device)
-                H11_gt = H[:,1,1,:,:]
-                H12_gt = H[:,0,1,:,:]
-                H22_gt = H[:,0,0,:,:]
                 loss_H11 = torch.nanmean((H11_gt-H11_predict)**2)
                 loss_H12 = torch.nanmean((H12_gt-H12_predict)**2)
                 loss_H22 = torch.nanmean((H22_gt-H22_predict)**2)
                 loss = loss_H11+loss_H22+loss_H12
-                loss = loss_H22+loss_H12
-                loss = loss_H11+loss_H22+loss_H12
-                loss = loss_H12
+                loss = loss_H11
 
             if self.loss_type=="mseoi_loss":
                 loss = loss_mseoi
@@ -574,6 +639,6 @@ class LitModel(pl.LightningModule):
                 metrics['mseoi'] = mse_oi
 
         if phase!="test":
-            return loss, outputs, params, metrics
+            return loss, outputs_, params, metrics
         else:
-            return loss, outputs, params, metrics, x_simu_cond, cmp_loss
+            return loss, outputs_, params, metrics, simu_cond, cmp_loss

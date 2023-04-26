@@ -37,5 +37,5 @@ datamodule:
   resize_factor: ${params.resize_factor}
   resolution: ${params.resolution}
   dl_kwargs:
-    batch_size: 2
+    batch_size: 1
     num_workers: 2

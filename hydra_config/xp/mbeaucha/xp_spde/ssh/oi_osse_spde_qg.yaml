@@ -1,0 +1,39 @@
+# @package _global_
+xp_name: oi_osse_spde
+datamodule:
+  resolution: 1/20
+  slice_win:
+    lat: 200
+    lon: 200
+    time: 5
+  test_slices:
+    - _target_: builtins.slice
+      _args_: ['2013-01-03', '2013-01-09']
+#  train_slices:
+#    - _target_: builtins.slice
+#      _args_: ['2013-02-07', '2013-03-07']
+#      _args_: ['2013-02-07', '2012-02-29']
+  resize_factor: 2
+lit_mod_cls: oi.xp_ssh.lit_model_spde_qg.LitModel
+
+params:
+  estim_parameters: true
+  loss_type: ml_loss
+  resize_factor: 2
+  oi: true
+  dT: 5
+  pow: 2
+  n_fourdvar_iter: 3
+  n_grad: 5
+  shapeData:
+    - 5
+    - 200
+    - 200
+
+defaults:
+  - /params: fourdvarnet_oi_osse_spde
+  - /domain@datamodule.dim_range: gf
+  - /domain@params.test_domain: gf
+  - /training: oi_osse_spde
+  - _self_
+

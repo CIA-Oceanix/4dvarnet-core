@@ -209,10 +209,8 @@ class LitModelAugstate(pl.LightningModule):
             'monitor': 'val_loss'
         }
 
-    def on_epoch_start(self):
-        self.model.n_grad = self.hparams.n_grad
-
     def on_train_epoch_start(self):
+        self.model.n_grad = self.hparams.n_grad
         if self.model_name in ('4dvarnet', '4dvarnet_sst'):
             opt = self.optimizers()
             if (self.current_epoch in self.hparams.iter_update) & (self.current_epoch > 0):

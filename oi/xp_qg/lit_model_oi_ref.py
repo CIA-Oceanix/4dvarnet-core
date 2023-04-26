@@ -94,11 +94,8 @@ class LitModel(pl.LightningModule):
         optimizer = optim.Adam([{'params': self.model.parameters(), 'lr': self.hparams.lr_update[0]}], lr=0.)
         return optimizer
 
-    def on_epoch_start(self):
-        # enfore acnd check some hyperparameters
-        self.model.n_grad = self.hparams.n_grad
-
     def on_train_epoch_start(self):
+        self.model.n_grad = self.hparams.n_grad
         opt = self.optimizers()
         if (self.current_epoch in self.hparams.iter_update) & (self.current_epoch > 0):
             indx = self.hparams.iter_update.index(self.current_epoch)
@@ -121,13 +118,16 @@ class LitModel(pl.LightningModule):
 
     def validation_step(self, val_batch, batch_idx):
         # nothing to train
+        self.log('val_loss', 0.)
+        self.log("val_mse", 0.)
+        self.log("val_mseG", 0.)
         return None
 
     def test_step(self, test_batch, batch_idx):
 
         inputs_obs, inputs_mask, targets_gt, targets_u, targets_v = test_batch
-
-        loss, out, param, metrics = self.compute_loss(test_batch, phase='test')
+        with torch.inference_mode(mode=False):
+            loss, out, param, metrics = self.compute_loss(test_batch, phase='test')
         if loss is not None:
             self.log('test_loss', loss)
             self.log("test_mse", metrics['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
@@ -251,8 +251,10 @@ class LitModel(pl.LightningModule):
         new_mask = torch.cat((1. + 0. * inputs_mask, inputs_mask), dim=1)
         targets_gt_wo_nan = targets_gt.where(~targets_gt.isnan(), torch.zeros_like(targets_gt))
         targets_mask = torch.where(targets_gt!=0.)
-        inputs_init = inputs_obs
-        inputs_missing = inputs_obs
+
+        inputs_init = inputs_obs.clone()
+        inputs_missing = inputs_obs.clone()
+        inputs_mask = inputs_mask.clone()
 
         # gradient norm field
         g_targets_gt = self.gradient_img(targets_gt)

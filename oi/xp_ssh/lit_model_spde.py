@@ -55,8 +55,11 @@ class LitModel(pl.LightningModule):
         self.model = NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r(self.shapeData,pow=hparam.pow),
                 Model_H(self.shapeData[0]),
-                NN_4DVar.model_GradUpdateLSTM(self.shapeData, self.hparams.UsePriodicBoundary,
-                                          self.hparams.dim_grad_solver, self.hparams.dropout, self.hparams.stochastic),
+                NN_4DVar.model_GradUpdateLSTM([7*self.hparams.dT,self.Ny,self.Nx],
+                                               self.hparams.UsePriodicBoundary,
+                                               self.hparams.dim_grad_solver,
+                                               self.hparams.dropout,
+                                               self.hparams.stochastic),
                 None, None, self.shapeData, self.hparams.n_grad, self.hparams.stochastic)
 
         self.model_LR = ModelLR()
@@ -70,12 +73,28 @@ class LitModel(pl.LightningModule):
 
         self.automatic_optimization = self.hparams.automatic_optimization
 
-    def forward(self):
-        return 1
+        self.n_simu = 1
 
-    def run_simulation(self,i,M,x,dx,dy,dt,n_init_run=10):
+    def forward(self, batch, phase='test'):
+        losses = []
+        metrics = []
+        state_init = [None]
+        out=None
+        for i in range(self.hparams.n_fourdvar_iter):
+            if phase=='test':
+                _loss, out, params, _metrics, sc = self.compute_loss(batch, phase=phase, state_init=state_init)
+            else:
+                _loss, out, params, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
+            state_init = [out.detach()]
+            losses.append(_loss)
+            metrics.append(_metrics)
+        if phase=='test':
+            return losses[-1], out, params, metrics[-1], sc
+        else:
+            return losses[-1], out, params, metrics[-1]
+
+    def run_simulation(self,i,tau,M,x,dx,dy,dt,n_init_run=10):
         nb_nodes = M.shape[0]
-        tau = 1.
         regul = (tau*sqrt(dt))/(dx*dy)
         random = torch.randn(nb_nodes).to(device)
         val = cupy.fromDlpack(to_dlpack(M.coalesce().values().data))
@@ -109,11 +128,8 @@ class LitModel(pl.LightningModule):
                                 ], lr=0.)
         return optimizer
 
-    def on_epoch_start(self):
-        # enfore acnd check some hyperparameters
-        self.model.n_grad = self.hparams.n_grad
-
     def on_train_epoch_start(self):
+        self.model.n_grad = self.hparams.n_grad
         opt = self.optimizers()
         if (self.current_epoch in self.hparams.iter_update) & (self.current_epoch > 0):
             indx = self.hparams.iter_update.index(self.current_epoch)
@@ -133,7 +149,7 @@ class LitModel(pl.LightningModule):
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
 
         # compute loss and metrics    
-        loss, out, param, metrics = self.compute_loss(train_batch, phase='train')
+        loss, out, param, metrics = self(train_batch, phase='train')
         if loss is None:
             return loss
         # log step metric        
@@ -158,7 +174,7 @@ class LitModel(pl.LightningModule):
         return loss
 
     def validation_step(self, val_batch, batch_idx):
-        loss, out, param, metrics = self.compute_loss(val_batch, phase='val')
+        loss, out, param, metrics = self(val_batch, phase='val')
         if loss is None:
             return loss
         self.log('val_loss', loss)
@@ -170,8 +186,9 @@ class LitModel(pl.LightningModule):
 
         targets_oi, inputs_mask, inputs_obs, targets_gt = test_batch
 
-        #loss, out, param, metrics, simu, cmp_loss = self.compute_loss(test_batch, phase='test')
-        loss, out, param, metrics = self.compute_loss(test_batch, phase='test')
+        with torch.inference_mode(mode=False):
+            loss, out, param, metrics, simu = self(test_batch, phase='test')
+
         if loss is not None:
             self.log('test_loss', loss)
             self.log("test_mse", metrics['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
@@ -180,7 +197,8 @@ class LitModel(pl.LightningModule):
         return {'gt'    : (targets_gt.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'obs'   : (inputs_obs.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'preds' : (out.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
-#                'simulations' : (simu.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'oi' : (targets_oi.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'simulations' : (simu.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX),:]*np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'params': param}
 
     def test_epoch_end(self, outputs):
@@ -194,14 +212,15 @@ class LitModel(pl.LightningModule):
         obs = torch.cat([chunk['obs'] for chunk in outputs]).numpy()
         obs = np.where(obs==self.mean_Tr,np.nan,obs)
         pred = torch.cat([chunk['preds'] for chunk in outputs]).numpy()
-        #simu = torch.cat([chunk['simulations'] for chunk in outputs]).numpy()
+        oi = torch.cat([chunk['oi'] for chunk in outputs]).numpy()
+        simu = torch.cat([chunk['simulations'] for chunk in outputs]).numpy()
 
         kappa = torch.cat([(chunk['params'])[0].detach().cpu() for chunk in outputs]).numpy()
         m = torch.cat([(chunk['params'])[1].detach().cpu() for chunk in outputs]).numpy()
         H = torch.cat([(chunk['params'])[2].detach().cpu() for chunk in outputs]).numpy()           
         tau = torch.cat([(chunk['params'])[3].detach().cpu() for chunk in outputs]).numpy()
 
-        gt, obs, pred = map(
+        gt, obs, oi, pred = map(
             lambda t: einops.rearrange(
                 t,
                 '(t_idx lat_idx lon_idx) win_time win_lat win_lon -> t_idx win_time (lat_idx win_lat) (lon_idx win_lon)',
@@ -209,12 +228,22 @@ class LitModel(pl.LightningModule):
                 lat_idx=ds_size['lat'],
                 lon_idx=ds_size['lon'],
             ),
-            [gt, obs, pred])
+            [gt, obs, oi, pred])
+
+        simu = einops.rearrange(simu,
+                '(t_idx lat_idx lon_idx dim1) win_time win_lat win_lon win_dim1-> t_idx win_time (lat_idx win_lat) (lon_idx win_lon) (dim1 win_dim1)',
+                dim1=1,
+                t_idx=ds_size['time'],
+                lat_idx=ds_size['lat'],
+                lon_idx=ds_size['lon'],
+                )
 
         gt = np.moveaxis(gt,1,3)
         obs = np.moveaxis(obs,1,3)
+        oi = np.moveaxis(oi,1,3)
         pred = np.moveaxis(pred,1,3)
-        #simu = np.moveaxis(reshape(simu),1,3)
+        simu = np.moveaxis(simu,1,3)
+        anom = gt-oi
 
         # reshape parameters
         kappa = np.transpose(kappa,(0,4,3,2,1))
@@ -262,14 +291,18 @@ class LitModel(pl.LightningModule):
         self.ds_test = xr.Dataset(
             data_vars={
                 'gt': (('time', 'lat', 'lon','daw'), gt),
+                'oi': (('time', 'lat', 'lon','daw'), oi),
+                'anom': (('time', 'lat', 'lon','daw'), anom),
                 'pred': (('time', 'lat', 'lon','daw'), pred),
                 'obs': (('time', 'lat', 'lon','daw'), obs),
+                'simu': (('time', 'lat', 'lon','daw','n_simu'), simu),
             },
             coords={
                 'time': self.time['time_test'],
                 'lat': self.padded_coords['lat'],
                 'lon': self.padded_coords['lon'],
-                'daw': np.arange(gt.shape[3])
+                'daw': np.arange(gt.shape[3]),
+                'n_simu': np.arange(self.n_simu)
             }
         ).sel(
             lat=slice(
@@ -284,16 +317,19 @@ class LitModel(pl.LightningModule):
 
         # get underlying data array
         self.x_gt = self.ds_test.gt.values
+        self.x_oi = self.ds_test.oi.values
+        self.x_anom = self.ds_test.anom.values
         self.x_obs = self.ds_test.obs.values
         self.x_rec = self.ds_test.pred.values
-        #self.x_simu = self.ds_test.simu.values
+        self.x_simu = self.ds_test.simu.values
 
         # save NetCDF
         path_save1 = self.logger.log_dir + '/maps.nc'
         save_netcdf(self.x_gt,
                     self.x_obs,
+                    self.x_anom,
                     self.x_rec,
-                    self.x_rec,
+                    self.x_simu,
                     self.x_rec,
                     self.x_rec,
                     [kappa, m, H, tau],
@@ -306,9 +342,9 @@ class LitModel(pl.LightningModule):
         # display map
         path_save0 = self.logger.log_dir + '/maps.png'
         fig_maps = plot_maps(
-                self.x_gt[0,:,:,2],
-                  self.x_obs[0,:,:,2],
-                  self.x_rec[0,:,:,2],
+                self.x_gt[0,:,:,int(self.hparams.dT / 2)],
+                  self.x_obs[0,:,:,int(self.hparams.dT / 2)],
+                  self.x_rec[0,:,:,int(self.hparams.dT / 2)],
                   self.ds_test.lon,
                   self.ds_test.lat,
                   path_save0,
@@ -316,9 +352,9 @@ class LitModel(pl.LightningModule):
                   supervised=self.hparams.supervised)
         path_save0 = self.logger.log_dir + '/maps_Grad.png'
         fig_maps_grad = plot_maps(
-                  self.x_gt[0,:,:,2],
-                  self.x_obs[0,:,:,2],
-                  self.x_rec[0,:,:,2],
+                  self.x_gt[0,:,:,int(self.hparams.dT / 2)],
+                  self.x_obs[0,:,:,int(self.hparams.dT / 2)],
+                  self.x_rec[0,:,:,int(self.hparams.dT / 2)],
                   self.ds_test.lon,
                   self.ds_test.lat,
                   path_save0,
@@ -326,18 +362,16 @@ class LitModel(pl.LightningModule):
                   grad=True, supervised=self.hparams.supervised)
 
         # compute simulation
-        '''
         path_save0 = self.logger.log_dir + '/simu.png'
         fig_maps = plot_maps(
-                  self.x_gt[0,:,:,2],
-                  self.x_obs[0,:,:,2],
-                  self.x_simu[0,:,:,2],
+                  self.x_gt[0,:,:,int(self.hparams.dT / 2)],
+                  self.x_obs[0,:,:,int(self.hparams.dT / 2)],
+                  self.x_simu[0,:,:,int(self.hparams.dT / 2),0],
                   self.ds_test.lon,
                   self.ds_test.lat,
                   path_save0,
                   cartopy=False,
                   supervised=self.hparams.supervised)
-        '''
 
         # compute nRMSE
         path_save2 = self.logger.log_dir + '/nRMSE.txt'
@@ -361,7 +395,7 @@ class LitModel(pl.LightningModule):
         self.test_figs['snr'] = snr_fig
         self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
 
-    def compute_loss(self, batch, phase):
+    def compute_loss(self, batch, phase, state_init=(None,)):
 
         targets_oi, inputs_mask, inputs_obs, targets_gt = batch
 
@@ -376,36 +410,63 @@ class LitModel(pl.LightningModule):
         targets_gt_wo_nan = targets_gt.where(~targets_gt.isnan(), torch.zeros_like(targets_gt))
         targets_mask = torch.where(targets_gt!=0.)
 
-        if not self.use_oi:
-            inputs_init = inputs_obs
-            inputs_missing = inputs_obs
+        n_b = inputs_obs.shape[0]
+        n_x = inputs_obs.shape[3]
+        n_y = inputs_obs.shape[2]
+        nb_nodes = n_x*n_y
+        n_t = inputs_obs.shape[1]
+        dx = 1
+        dy = 1
+        dt = 1
+
+        if state_init[0] is not None:
+            state_init = state_init[0]
         else:
-            inputs_init = inputs_obs-torch.where(inputs_mask!=0, targets_oi, torch.zeros_like(targets_oi))
-            inputs_missing = inputs_obs-torch.where(inputs_mask!=0, targets_oi, torch.zeros_like(targets_oi))
+            if not self.use_oi:
+                state_init = inputs_obs.clone()
+                inputs_obs = inputs_obs.clone()
+                inputs_mask = inputs_mask.clone()
+            else:
+                state_init = inputs_obs-torch.where(inputs_mask!=0, targets_oi, torch.zeros_like(targets_oi))
+                inputs_obs = inputs_obs-torch.where(inputs_mask!=0, targets_oi, torch.zeros_like(targets_oi))
+
+            # augmented state
+            kappa_init = torch.ones(n_b,n_t,n_x,n_y).to(device)*.33
+            tau_init = torch.ones(n_b,n_t,n_x,n_y).to(device)
+            m1_init = torch.zeros(n_b,n_t,n_x,n_y).to(device)
+            m2_init = torch.zeros(n_b,n_t,n_x,n_y).to(device)
+            vx_init = torch.zeros(n_b,n_t,n_x,n_y).to(device)
+            vy_init = torch.zeros(n_b,n_t,n_x,n_y).to(device)
+            state_init = torch.cat((state_init,
+                                kappa_init,
+                                tau_init,
+                                m1_init,
+                                m2_init,
+                                vx_init,
+                                vy_init),dim=1)
+            
+        state_init = state_init.clone()
+        inputs_obs = inputs_obs.clone()
+        inputs_mask = inputs_mask.clone()
 
         # gradient norm field
         g_targets_gt = self.gradient_img(targets_gt)
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
-            inputs_init = torch.autograd.Variable(inputs_init, requires_grad=True)
-            outputs,  hidden_new, cell_new, normgrad, params = self.model(inputs_init,
-                                                                         inputs_missing,
+        #with torch.set_grad_enabled(True), torch.autograd.detect_anomaly():
+            state_init = torch.autograd.Variable(state_init, requires_grad=True)
+            outputs_, hidden_new, cell_new, normgrad, params = self.model(state_init,
+                                                                         inputs_obs,
                                                                          inputs_mask,
                                                                          estim_parameters=True)
+            if (phase == 'val') or (phase == 'test'):
+                outputs_ = outputs_.detach()
+
+            outputs = outputs_[:,:n_t,:,:]
+
             if self.use_oi:
                 outputs = outputs + targets_oi
 
-            if (phase == 'val') or (phase == 'test'):
-                outputs = outputs.detach()
-
-            n_b = outputs.shape[0]
-            n_x = outputs.shape[3]
-            n_y = outputs.shape[2]
-            nb_nodes = n_x*n_y
-            n_t = outputs.shape[1]
-            dx = 1
-            dy = 1
-            dt = 1
             kappa = torch.reshape(params[0],(len(outputs),1,n_x*n_y,n_t))
             m = torch.reshape(params[1],(len(outputs),2,n_x*n_y,n_t))
             H = torch.reshape(params[2],(len(outputs),2,2,n_x*n_y,n_t))
@@ -415,10 +476,9 @@ class LitModel(pl.LightningModule):
             I = sparse_eye(n_x*n_y)
 
             # PHASE: TEST -> conditional simulation
-            if phase=="test2":
-                with torch.no_grad():
-                    # run n_batches*simulation
-                    I = sparse_eye(n_x*n_y)
+            if phase=="test":
+                simu_cond = []
+                for isimu in range(self.n_simu):
                     x_simu = []
                     for ibatch in range(len(outputs)):
                         x_simu_ = []
@@ -426,8 +486,8 @@ class LitModel(pl.LightningModule):
                             A = DiffOperator(n_x,n_y,dx,dy,m[ibatch,:,:,i],
                                                        H[ibatch,:,:,:,i],
                                                        kappa[ibatch,:,:,i])
-                            M = I+pow_diff_operator(A,self.pow)
-                            x_simu_ = self.run_simulation(i,M,x_simu_,dx,dy,dt,n_init_run=10)
+                            M = I+pow_diff_operator(A,self.pow,sparse=True)
+                            x_simu_ = self.run_simulation(i,tau[ibatch,0,:,i],M,x_simu_,dx,dy,dt,n_init_run=10)
                         x_simu_ = torch.stack(x_simu_,dim=0)
                         x_simu_ = torch.reshape(x_simu_,outputs.shape[1:])
                         # x,y -> y,x
@@ -439,11 +499,23 @@ class LitModel(pl.LightningModule):
                     inputs_init_simu = x_simu.clone()
                     inputs_init_simu[idx] = 0.
                     inputs_missing_simu = inputs_init_simu
-                    x_itrp_simu,_ , _ ,_ ,_ ,_ = self.model(inputs_init_simu,
-                                                        inputs_missing_simu, inputs_mask,
-                                                        estim_parameters=False)
+                    x_itrp_simu,_ , _ ,_  ,_ = self.model(torch.cat((inputs_init_simu,
+                                                                       kappa_init,
+                                                                       tau_init,
+                                                                       m1_init,
+                                                                       m2_init,
+                                                                       vx_init,
+                                                                       vy_init),dim=1),
+                                                              inputs_missing_simu,
+                                                              inputs_mask,
+                                                              estim_parameters=False)
+                    x_itrp_simu = x_itrp_simu.detach()
                     # conditional simulation
-                    x_simu_cond = outputs+(x_simu-x_itrp_simu)
+                    x_simu_cond = x_simu
+                    #x_simu_cond = outputs+(x_simu-x_itrp_simu)
+                    simu_cond.append(x_simu_cond)
+                simu_cond = torch.stack(simu_cond,dim=4)
+                simu_cond = simu_cond.detach()
 
             g_outputs = self.gradient_img(outputs)
             # Mahanalobis distance
@@ -468,7 +540,7 @@ class LitModel(pl.LightningModule):
             loss_GAll = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_gt, self.w_loss)
 
             # OI loss
-            dy = self.model.model_H(outputs,inputs_missing,inputs_mask)
+            dy = self.model.model_H(outputs,inputs_obs,inputs_mask)
             dy_new=list()
             for i in range(n_b):
                 # observation term
@@ -500,9 +572,6 @@ class LitModel(pl.LightningModule):
                                            )\
                                           )
                         log_det += log_det_block
-                    #print(log_det*1e-4)
-                    #print(np.linalg.slogdet(Q[i].detach().cpu().to_dense().numpy()))
-                    #print('end')
                     det_Q.append(log_det)
                 # Mahanalobis distance
                 MD = list()
@@ -515,7 +584,10 @@ class LitModel(pl.LightningModule):
                 MD = torch.stack(MD)
                 loss_NLL = torch.nanmean(-1.*(log_det - MD))
                 # mixed MSE & NLL
-                loss = loss_NLL*(1e-4) #+ 10*loss_All # (ou loss OI ?)
+                print(100*loss_All+10.*loss_GAll)
+                print(loss_NLL*(1e-8))
+                #loss = loss_NLL*(1e-6) + 10*loss_All # (ou loss OI ?)
+                loss = loss_NLL*(1e-8) + 100*loss_All + 10.*loss_GAll
 
             if self.loss_type=="oi_loss":
                 loss = loss_OI
@@ -529,7 +601,13 @@ class LitModel(pl.LightningModule):
                             ('meanGrad', mean_GAll),
                             ('oiScore',oi_score)])
 
+            kappa = torch.reshape(kappa,(len(outputs),1,n_x,n_y,n_t))
+            m = torch.reshape(m,(len(outputs),2,n_x,n_y,n_t))
+            H = torch.reshape(H,(len(outputs),2,2,n_x,n_y,n_t))
+            tau = torch.reshape(tau,(len(outputs),1,n_x,n_y,n_t))
+            params = [kappa, m, H, tau]
+
         if phase!="test":
-            return loss, outputs, params, metrics
+            return loss, outputs_, params, metrics
         else:
-            return loss, outputs, params, metrics#, x_simu_cond
+            return loss, outputs_, params, metrics, simu_cond

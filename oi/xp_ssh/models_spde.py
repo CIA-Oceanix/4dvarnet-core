@@ -306,6 +306,11 @@ class Prior_SPDE(torch.nn.Module):
                                           [torch.stack(self.n_t*[torch.tensor(tau)])]\
                                           )]\
                               ).to(device)
+        '''
+        tau = torch.full(tau.size(),1.).to(device)
+        kappa = torch.full(kappa.size(),.33).to(device)
+        m1 = torch.full(tau.size(),0.).to(device)
+        '''
             
         # initialize Qs (noise precision matrix)
         if colored_noise==False:
@@ -441,7 +446,7 @@ class Prior_SPDE(torch.nn.Module):
             # add batch
             Q.append(Qg)
 
-        Q = torch.stack(Q)
+        # Q = torch.stack(Q) #pb differentiating tensor 
 
         if store_block_diag==True:
             # Q has size #batch*(nt*nbnodes)*(nt*nbnodes)
@@ -503,15 +508,41 @@ class Phi_r(torch.nn.Module):
         self.operator_spde = Prior_SPDE(shape_data,pow=self.pow,spde_type=self.spde_type)
         self.square_root = square_root
 
-    def forward(self, x, estim_params=True):
-        x_new = list()
-        n_b, n_t, n_y, n_x = x.shape
-        # state space -> parameter space
-        params = self.encoder(x)
-        kappa = self.decoder(params)[0]
-        m = self.decoder(params)[1]
-        H = self.decoder(params)[2]
-        tau = self.decoder(params)[3]
+    def forward(self, state, estim_params=True):
+        # augmented state [x,params], i.e. (#b,#t+#params,#y,#x)
+        n_b, n_t, n_y, n_x = state.shape
+        n_t = n_t//7
+        x = state[:,:n_t,:,:]
+        kappa = state[:,n_t:2*n_t,:,:]
+        tau = state[:,2*n_t:3*n_t,:,:]
+        m1 = state[:,3*n_t:4*n_t,:,:]
+        m2 = state[:,4*n_t:5*n_t,:,:]
+        vx = state[:,5*n_t:6*n_t,:,:]
+        vy = state[:,6*n_t:,:,:]
+        H = []
+        for k in range(n_t):
+            vx_ = torch.reshape(vx[:,k,:,:],(n_b,n_x*n_y))
+            vy_ = torch.reshape(vy[:,k,:,:],(n_b,n_x*n_y))
+            vxy = torch.stack([vx_,vy_],dim=2)
+            vxyT = torch.permute(vxy,(0,2,1))
+            gamma = 1*torch.ones(n_b).to(device)
+            beta = 1*torch.ones(n_b).to(device)
+            H_  = torch.einsum('ij,bk->bijk',torch.eye(2).to(device),
+                                        torch.unsqueeze(gamma,dim=1).expand(n_b,n_x*n_y))+\
+             torch.einsum('b,bijk->bijk',beta,torch.einsum('bki,bjk->bijk',vxy,vxyT))
+            H.append(H_)
+        H = torch.stack(H,dim=4)
+        m = torch.stack([m1,m2],dim=1)
+        
+        kappa = torch.permute(kappa,(0,2,3,1))
+        tau = torch.permute(tau,(0,2,3,1))
+        m = torch.permute(m,(0,1,3,4,2))
+        H = torch.reshape(H,(n_b,2,2,n_x,n_y,n_t))
+
+        kappa = torch.reshape(kappa,(n_b,1,n_y*n_x,n_t))
+        m = torch.reshape(m,(n_b,2,n_y*n_x,n_t))
+        H = torch.reshape(H,(n_b,2,2,n_y*n_x,n_t))
+        tau = torch.reshape(tau,(n_b,1,n_y*n_x,n_t))
 
         # SPDE prior (sparse Q)
         Q = self.operator_spde(kappa, m, H, tau, square_root=self.square_root)
@@ -534,10 +565,6 @@ class Phi_r(torch.nn.Module):
             else:
                 x_new.append(torch.permute(torch.reshape(x_,(n_t,n_x,n_y)),(0,2,1)))
         x = torch.stack(x_new)
-        kappa = torch.reshape(kappa,(n_b,1,n_x,n_y,n_t))
-        m = torch.reshape(m,(n_b,2,n_x,n_y,n_t))
-        H = torch.reshape(H,(n_b,2,2,n_x,n_y,n_t))
-        tau = torch.reshape(tau,(n_b,1,n_x,n_y,n_t))
         return x, [kappa,m,H,tau]
 
 class Model_H(torch.nn.Module):

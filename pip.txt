@@ -1,1 +1,1 @@
-pip install torch-scatter torch-sparse -f https://data.pyg.org/whl/torch-1.12.0+cu113.html
+pip install torch-scatter torch-sparse -f https://data.pyg.org/whl/torch-1.12.1+cu113.html

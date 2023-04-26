@@ -3,10 +3,24 @@ xp_name: oi_gp_4dvarnet_mse_loss_pow_2_diff
 
 params:
   loss_type: mse_loss
-  n_grad: 20
+  n_fourdvar_iter: 4
+  n_grad: 5
+  dT: 5
+  shapeData:
+    - 5
+    - 100
+    - 100
 
 datamodule:
+  test_slices:
+    - _target_: builtins.slice
+      _args_: ['2013-01-03', '2013-01-15']
   resize_factor: 1
+  slice_win:
+    lat: 100
+    lon: 100
+    time: 5
+
 defaults:
   - /params_gp@params: gp_diff_pow_2
   - /params: fourdvarnet_oi_gp

@@ -72,8 +72,17 @@ class LitModel(pl.LightningModule):
 
         self.automatic_optimization = self.hparams.automatic_optimization
 
-    def forward(self):
-        return 1
+    def forward(self, batch, phase='test'):
+        losses = []
+        metrics = []
+        state_init = [None]
+        out=None
+        for i in range(self.hparams.n_fourdvar_iter):
+            _loss, out, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
+            state_init = [out.detach()]
+            losses.append(_loss)
+            metrics.append(_metrics)
+        return losses[-1], out, metrics[-1]
 
     def configure_optimizers(self):
 
@@ -84,11 +93,8 @@ class LitModel(pl.LightningModule):
 
         return optimizer
 
-    def on_epoch_start(self):
-        # enfore acnd check some hyperparameters
-        self.model.n_grad = self.hparams.n_grad
-
     def on_train_epoch_start(self):
+        self.model.n_grad = self.hparams.n_grad
         opt = self.optimizers()
         if (self.current_epoch in self.hparams.iter_update) & (self.current_epoch > 0):
             indx = self.hparams.iter_update.index(self.current_epoch)
@@ -108,7 +114,7 @@ class LitModel(pl.LightningModule):
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
 
         # compute loss and metrics    
-        loss, out, metrics = self.compute_loss(train_batch, phase='train')
+        loss, out, metrics = self(train_batch, phase='train')
         if loss is None:
             return loss
         # log step metric        
@@ -133,7 +139,7 @@ class LitModel(pl.LightningModule):
         return loss
 
     def validation_step(self, val_batch, batch_idx):
-        loss, out, metrics = self.compute_loss(val_batch, phase='val')
+        loss, out, metrics = self(val_batch, phase='val')
         if loss is None:
             return loss
         self.log('val_loss', loss)
@@ -145,7 +151,8 @@ class LitModel(pl.LightningModule):
 
         targets_oi, inputs_mask, inputs_obs, targets_gt = test_batch
 
-        loss, out, metrics = self.compute_loss(test_batch, phase='test')
+        with torch.inference_mode(mode=False):
+            loss, out, metrics = self(test_batch, phase='test')
         if loss is not None:
             self.log('test_loss', loss)
             self.log("test_mse", metrics['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
@@ -263,7 +270,7 @@ class LitModel(pl.LightningModule):
                     lon=self.ds_test.lon, lat = self.ds_test.lat, time=self.time['time_test'],
                     time_units='days since 2012-10-01 00:00:00')
 
-    def compute_loss(self, batch, phase):
+    def compute_loss(self, batch, phase, state_init=(None,)):
 
         targets_oi, inputs_mask, inputs_obs, targets_gt  = batch
 
@@ -282,6 +289,15 @@ class LitModel(pl.LightningModule):
         else:
             inputs_init = inputs_obs-targets_oi.where(inputs_mask==0, torch.zeros_like(targets_oi))
             inputs_missing = inputs_obs-targets_oi-targets_oi.where(inputs_mask==0, torch.zeros_like(targets_oi))
+
+        if state_init[0] is not None:
+            inputs_init = state_init[0]
+            if self.use_oi:
+                inputs_init = inputs_init-targets_oi.where(inputs_mask==0, torch.zeros_like(targets_oi))
+
+        inputs_init = inputs_init.clone()
+        inputs_missing = inputs_missing.clone()
+        inputs_mask = inputs_mask.clone()
 
         # gradient norm field
         g_targets_gt = torch.sqrt(self.gradient_img(targets_gt)[0]**2+self.gradient_img(targets_gt)[1]**2)
@@ -306,6 +322,7 @@ class LitModel(pl.LightningModule):
             # supervised loss (vs GT)
             loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
             loss += 0.5 * self.hparams.alpha_proj * loss_AE 
+            loss = 10.*loss_All + 1.*loss_GAll
 
             # metrics
             mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_gt, self.w_loss)

@@ -217,7 +217,7 @@ class FourDVarNetHydraRunner:
             _trainer.test(mod, dataloaders=self.dataloaders[dataloader])
             return
 
-        trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, gradient_clip_val=self.grad_clip_val, **trainer_kwargs)
+        trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, gradient_clip_val=self.grad_clip_val, inference_mode=False, **trainer_kwargs)
         trainer.test(mod, dataloaders=self.dataloaders[dataloader])
         return mod
 

@@ -258,7 +258,7 @@ def save_netcdf(saved_path1, gt, obs, pred, lon, lat, time,
     xrdata.time.attrs['units'] = time_units
     xrdata.to_netcdf(path=saved_path1, mode='w')
 
-def save_NetCDF2(gt,obs,oi,pred,var_f,var_a,param,lon,lat,
+def save_NetCDF2(gt,obs,oi,pred,simu,var_f,var_a,param,lon,lat,
                  figName,time,time_units='days since 2012-10-01 00:00:00'):
 
     extent_=[np.min(lon),np.max(lon),np.min(lat),np.max(lat)]
@@ -276,14 +276,18 @@ def save_NetCDF2(gt,obs,oi,pred,var_f,var_a,param,lon,lat,
                            'gt'  : (('time','lat','lon','daw'),gt),
                            'obs'  : (('time','lat','lon','daw'),obs),
                            'pred'  : (('time','lat','lon','daw'),pred),
+                           'simu'  : (('time','lat','lon','daw','nsimu'),simu),
                            'var_f'   : (('time','lat','lon','daw'),var_f),
                            'var_a'   : (('time','lat','lon','daw'),var_a),
                            'oi'  : (('time','lat','lon','daw'),oi),
                            'H11': (('time','lat','lon'),param[0][:,0,0,:,:]),
                            'H12': (('time','lat','lon'),param[0][:,0,1,:,:]),
                            'H22': (('time','lat','lon'),param[0][:,1,1,:,:])},
-                coords={'lon': lon,'lat': lat,
-                        'time': range(len(time)), 'daw': range(gt.shape[3])})
+                coords={'lon': lon,
+                        'lat': lat,
+                        'time': range(len(time)),
+                        'daw': range(gt.shape[3]),
+                        'nsimu': range(simu.shape[4])})
     else:
         xrdata = xr.Dataset(\
                 data_vars={'longitude': (('lat','lon'),mesh_lon),
@@ -292,6 +296,7 @@ def save_NetCDF2(gt,obs,oi,pred,var_f,var_a,param,lon,lat,
                            'gt'  : (('time','lat','lon','daw'),gt),
                            'obs'  : (('time','lat','lon','daw'),obs),
                            'pred'  : (('time','lat','lon','daw'),pred),
+                           'simu'  : (('time','lat','lon','daw','nsimu'),simu),
                            'var_f'   : (('time','lat','lon','daw'),var_f),
                            'var_a'   : (('time','lat','lon','daw'),var_a),
                            'oi'  : (('time','lat','lon','daw'),oi),
@@ -301,8 +306,11 @@ def save_NetCDF2(gt,obs,oi,pred,var_f,var_a,param,lon,lat,
                            'H11': (('time','lat','lon','daw'),param[2][:,0,0,:,:,:]),
                            'H12': (('time','lat','lon','daw'),param[2][:,0,1,:,:,:]),
                            'H22': (('time','lat','lon','daw'),param[2][:,1,1,:,:,:])},
-                coords={'lon': lon,'lat': lat,
-                        'time': range(len(time)), 'daw': range(gt.shape[3])})
+                coords={'lon': lon,
+                        'lat': lat,
+                        'time': range(len(time)),
+                        'daw': range(gt.shape[3]),
+                        'nsimu': range(simu.shape[4])})
     xrdata.time.attrs['units']='days since 2012-10-01 00:00:00'
     xrdata.to_netcdf(path=figName, mode='w')
 

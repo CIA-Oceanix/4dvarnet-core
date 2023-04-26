@@ -85,7 +85,7 @@ class XrDataset(Dataset):
         self.interp_na = interp_na
         # try/except block for handling both netcdf and zarr files
         try:
-            _ds = xr.open_dataset(path)
+            _ds = xr.open_dataset(path, decode_times= not decode)
         except OSError as ex:
             raise ex
             _ds = xr.open_zarr(path)
@@ -107,7 +107,7 @@ class XrDataset(Dataset):
 
         self.ds = _ds.sel(**(dim_range or {}))
         if resize_factor!=1:
-            self.ds = self.ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
+            self.ds = self.ds.coarsen(lon=resize_factor,boundary='trim').mean(skipna=True).coarsen(lat=resize_factor,boundary='trim').mean(skipna=True)
             self.resolution = self.resolution*resize_factor
         # reshape
         # dimensions
@@ -248,7 +248,7 @@ class FourDVarNetDataset(Dataset):
         obs_mask_decode=False,
         gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
         gt_var='ssh',
-        gt_decode=True,
+        gt_decode=False,
         sst_path=None,
         sst_var=None,
         sst_decode=True,

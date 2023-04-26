@@ -399,7 +399,10 @@ class Solver_Grad_4DVarNN(nn.Module):
 
         with torch.no_grad():
             self.n_grad = int(n_iter_grad)
-        
+ 
+        self.pool = torch.nn.AvgPool2d(4)
+        self.upsample = torch.nn.Upsample(scale_factor=4, mode='bilinear')
+
     def forward(self, gt, state, obs, mask, oi, estim_parameters=True):
         return self.solve(
             gt=gt,
@@ -428,9 +431,10 @@ class Solver_Grad_4DVarNN(nn.Module):
             for batch in range(len(cmp_loss)):
                 cmp_loss[batch,k,:] = cmp_loss_[batch,:]
 
-        return state_k_plus_1[:,:n_t,:,:], cmp_loss, hidden, cell, normgrad_, params
+        return state_k_plus_1, cmp_loss, hidden, cell, normgrad_, params
 
     def solver_step(self, gt, state_k, obs, mask, oi, hidden, cell,normgrad = 0.,estim_parameters=True):
+        n_b, n_t, n_x, n_y = obs.shape
         _, cmp_loss, var_cost_grad, params = self.var_cost(gt, state_k, obs, mask, oi, estim_parameters)
         if normgrad == 0. :
             normgrad_= torch.sqrt( torch.mean( var_cost_grad**2 + 0.))
@@ -439,14 +443,21 @@ class Solver_Grad_4DVarNN(nn.Module):
         grad, hidden, cell = self.model_Grad(hidden, cell, var_cost_grad, normgrad_)
         grad *= 1./ self.n_grad
         state_k_plus_1 = state_k - grad
+        # parameters: pooling + upsample
+        aug_var = state_k_plus_1[:,n_t:,:,:]
+        aug_var = self.pool(aug_var)
+        aug_var = self.upsample(aug_var)
+        state_k_plus_1 = torch.index_add(state_k_plus_1,1,torch.arange(n_t,n_t+2).to(device),-1*state_k_plus_1[:,n_t:,:,:])
+        state_k_plus_1 = torch.index_add(state_k_plus_1,1,torch.arange(n_t,n_t+2).to(device),aug_var) 
         return state_k_plus_1, cmp_loss,  hidden, cell, normgrad_, params
 
     def var_cost(self, gt, state, yobs, mask, oi, estim_params):
         n_b, n_t, n_x, n_y = state.shape
-        n_t = n_t-3
+        n_t = n_t-2
         # augmented state [x,params], i.e. (#b,#t+#params,#y,#x)
         x = state[:,:n_t,:,:]
-        H = state[:,n_t:,:,:]
+        vx = state[:,n_t,:,:]
+        vy = state[:,n_t+1,:,:]
         dy = self.model_H(x,yobs,mask)
         dy_new=list()
         for i in range(n_b):
@@ -464,25 +475,19 @@ class Solver_Grad_4DVarNN(nn.Module):
             params = phi[1]
             loss = self.model_VarCost(dx,dy,square_root=self.square_root)
         else:
-            # old way: no augmented state
-            #phi = self.phi_r(x,estim_params=estim_params)
-            # new way: augmented state
             phi = self.phi_r(state,estim_params=estim_params)
             dx = phi[0]
             params = phi[1]
-            #loss = torch.mean(self.model_VarCost(dx,dy,square_root=self.square_root))
-            #print(dx)
-            #print(dy)
             loss_OI = dy + dx
             loss = torch.mean(loss_OI)
         var_cost_grad = torch.autograd.grad(loss, state, create_graph=True)[0]
         # return loss OI (loss) and MSE
-        loss_mse = torch.tensor([compute_WeightedLoss((gt[i] - x[i]),torch.Tensor(np.ones(5)).to(device)) for i in range(len(gt))])
+        loss_mse = torch.tensor([compute_WeightedLoss((gt[i] - x[i]),torch.Tensor(np.ones(n_t)).to(device)) for i in range(len(gt))])
         loss_mse = loss_mse.to(device)
 
         # if using OI
         if oi is not None:
-            loss_mseoi = torch.tensor([compute_WeightedLoss((oi[i] - x[i]),torch.Tensor(np.ones(5)).to(device)) for i in range(len(oi))])
+            loss_mseoi = torch.tensor([compute_WeightedLoss((oi[i] - x[i]),torch.Tensor(np.ones(n_t)).to(device)) for i in range(len(oi))])
             loss_mseoi = loss_mseoi.to(device)
             return loss, torch.hstack([torch.reshape(loss_mse,(n_b,1)), torch.reshape(loss_OI,(n_b,1)), torch.reshape(loss_mseoi,(n_b,1))]), var_cost_grad, params
         else:

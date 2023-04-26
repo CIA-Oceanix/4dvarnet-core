@@ -3,11 +3,19 @@ xp_name: oi_qg_spde_wlp_ml_loss
 
 datamodule:
   resize_factor: 1
+  test_slices:
+    - _target_: builtins.slice
+      _args_: ['2013-01-03', '2013-01-08']
+#  train_slices:
+#    - _target_: builtins.slice
+#      _args_: ['2013-02-07', '2013-03-07']
+#      _args_: ['2012-10-01', '2012-11-20']
 
 params:
   estim_parameters: true
   loss_type: ml_loss
-  n_grad: 20
+  n_fourdvar_iter: 3
+  n_grad: 5
   spde_type: advection
 
 defaults:

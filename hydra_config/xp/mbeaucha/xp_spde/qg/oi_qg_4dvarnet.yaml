@@ -3,10 +3,11 @@ xp_name: oi_qg_4dvarnet
 
 params:
   loss_type: mse_loss
-  n_grad: 20
-  dT: 15
+  n_fourdvar_iter: 3
+  n_grad: 5
+  dT: 5
   shapeData:
-    - 15
+    - 5
     - 100
     - 100
 
@@ -15,7 +16,7 @@ datamodule:
   slice_win:
     lat: 100
     lon: 100
-    time: 15
+    time: 5
 
 defaults:
   - /params: fourdvarnet_oi_qg

@@ -7,7 +7,8 @@ datamodule:
 params:
   estim_parameters: true
   loss_type: mse_loss
-  n_grad: 25
+  n_fourdvar_iter: 3
+  n_grad: 5
 
 defaults:
   - /params: fourdvarnet_oi_qg

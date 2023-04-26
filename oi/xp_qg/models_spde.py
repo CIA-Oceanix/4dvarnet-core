@@ -368,7 +368,7 @@ class Prior_SPDE(torch.nn.Module):
             # add batch
             Q.append(Qg)
 
-        Q = torch.stack(Q)
+        #Q = torch.stack(Q) # pb differentiating tensors
 
         if store_block_diag==True:
             # Q has size #batch*(nt*nbnodes)*(nt*nbnodes)
@@ -430,15 +430,18 @@ class Phi_r(torch.nn.Module):
         self.operator_spde = Prior_SPDE(shape_data,pow=self.pow,spde_type=self.spde_type)
         self.square_root = square_root
 
-    def forward(self, x):
-        x_new = list()
-        n_b, n_t, n_y, n_x = x.shape
-        params = self.encoder(x)
-        # state space -> parameter space
+    def forward(self, state):
+        n_b, n_t, n_y, n_x = state.shape
+        n_t = n_t//3
+        x = state[:,:n_t,:,:]
+        m1 = state[:,n_t:2*n_t,:,:]
+        m2 = state[:,2*n_t:3*n_t,:,:]
         kappa = .33
         tau = 1.
         H = None
-        m = self.decoder(params)
+        m = torch.stack([m1,m2],dim=1)
+        m = torch.permute(m,(0,1,3,4,2))
+        m = torch.reshape(m,(n_b,2,n_y*n_x,n_t))
 
         # SPDE prior (sparse Q)
         Q = self.operator_spde(kappa, m, H, tau, square_root=self.square_root)
@@ -461,7 +464,7 @@ class Phi_r(torch.nn.Module):
             else:
                 x_new.append(torch.permute(torch.reshape(x_,(n_t,n_x,n_y)),(0,2,1)))
         x = torch.stack(x_new)
-        m = torch.reshape(m,(n_b,2,n_x,n_y,n_t))
+        m = torch.reshape(m,(n_b,2,n_y,n_x,n_t))
         return x, [kappa,m,H,tau]
 
 class Phi_r3(torch.nn.Module):
@@ -500,7 +503,7 @@ class Phi_r3(torch.nn.Module):
                   spspmm(spspmm(torch.transpose(opH,0,1),inv_R),opH)
             Qxy = -1.*spspmm(torch.transpose(opH,0,1),inv_R)
             # Cholesky inverse of Qg+Ht*inv(R)*H for k=0..Nt
-            Lxx = None
+            #Lxx = None
             Lxx = cholesky_sparse.apply(Qxx.cpu(),True)
             # START SPDE-based conditional simulations)
             #xa = SPDE_spatiotemporal_kriging(Qxx, Lxx, Qxy, obs[i], mask[i], sparse=True, torch_sparse_solve=False)

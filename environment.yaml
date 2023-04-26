@@ -2,39 +2,39 @@ channels:
   - pytorch
   - conda-forge
   - defaults
-  - anaconda
+  #- anaconda
   - pyviz
 dependencies:
   - jupyterlab
-  - python=3.9
+  - python=3.10
   - pip=21.1
   - cudatoolkit=11.3
-  - pytorch=1.12
-  - torchvision=0.11.1
-  - scikit-learn=0.24.2
+  - pytorch=1.12.1
+  - torchvision=0.13.1
+  - scikit-learn=1.2.1
   - scikit-sparse
-  - numpy=1.20.2
-  - netcdf4=1.5.6
-  - matplotlib=3.4.2
-  - cartopy=0.19.0
+  - numpy=1.24.2
+  - netcdf4=1.6.3
+  - matplotlib=3.7.1
+  - cartopy=0.21.1
   - cartopy_offlinedata=0.2.4
   - tabulate=0.8.9
   - xrft=0.4.1
   - numpy_groupies=0.9.13
-  - pytorch-lightning=1.6.2
+  - pytorch-lightning=1.9.4
   - pip:
     - xarray[complete]==0.21
     - holoviews[recommended]
     - sparse
     - GitPython
     - setuptools==57.0.0
-    - torchmetrics=0.6.0
-    - --find-links https://data.pyg.org/whl/torch-1.10.0+cu113.html
+    - torchmetrics==0.6.0
+    - --find-links https://data.pyg.org/whl/torch-1.12.0+cu113.html
     - eccodes==1.2.0
     - omegaconf
     - einops
     - hydra-submitit-launcher
-    - opencv-python==4.5.2.52
+    - opencv-python==4.7.0.72
     - hydra-core
     - kornia
     - pyepsg

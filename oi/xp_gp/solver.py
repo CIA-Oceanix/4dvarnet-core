@@ -390,15 +390,16 @@ class Solver_Grad_4DVarNN(nn.Module):
         with torch.no_grad():
             self.n_grad = int(n_iter_grad)
         
-    def forward(self, gt, x, yobs, mask, oi):
+    def forward(self, gt, x, yobs, mask, oi, phase = 'train'):
         return self.solve(
             gt=gt,
             x_0=x,
             obs=yobs,
             mask = mask,
-            oi = oi)
+            oi = oi,
+            phase = phase)
 
-    def solve(self, gt, x_0, obs, mask, oi):
+    def solve(self, gt, x_0, obs, mask, oi, phase='train'):
         x_k = torch.mul(x_0,1.) 
         hidden = None
         cell = None 
@@ -410,6 +411,9 @@ class Solver_Grad_4DVarNN(nn.Module):
             cmp_loss = torch.ones(x_k.shape[0],self.n_grad,3)
         for k in range(self.n_grad):
             x_k_plus_1, cmp_loss_, hidden, cell, normgrad_ = self.solver_step(gt, x_k, obs, mask, oi, hidden, cell, normgrad_)
+            if phase=='test':
+                x_k_plus_1 = x_k_plus_1.detach()
+                x_k_plus_1.requires_grad = True
             x_k = torch.mul(x_k_plus_1,1.)
             for batch in range(len(cmp_loss)):
                 cmp_loss[batch,k,:] = cmp_loss_[batch,:]
@@ -464,12 +468,12 @@ class Solver_Grad_4DVarNN(nn.Module):
         var_cost_grad = torch.autograd.grad(loss, x, create_graph=True)[0]
 
         # return loss OI (loss) and MSE
-        loss_mse = torch.tensor([compute_WeightedLoss((gt[i] - x[i]),torch.Tensor(np.ones(5)).to(device)) for i in range(len(gt))])
+        loss_mse = torch.tensor([compute_WeightedLoss((gt[i] - x[i]),torch.Tensor(np.ones(n_t)).to(device)) for i in range(len(gt))])
         loss_mse = loss_mse.to(device)
 
         # if using OI
         if oi is not None:
-            loss_mseoi = torch.tensor([compute_WeightedLoss((oi[i] - x[i]),torch.Tensor(np.ones(5)).to(device)) for i in range(len(oi))])
+            loss_mseoi = torch.tensor([compute_WeightedLoss((oi[i] - x[i]),torch.Tensor(np.ones(n_t)).to(device)) for i in range(len(oi))])
             loss_mseoi = loss_mseoi.to(device)
             return loss, torch.hstack([torch.reshape(loss_mse,(n_b,1)), torch.reshape(loss_OI,(n_b,1)), torch.reshape(loss_mseoi,(n_b,1))]), var_cost_grad
         else:

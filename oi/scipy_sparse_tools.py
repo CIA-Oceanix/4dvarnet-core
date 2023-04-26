@@ -26,7 +26,7 @@ def sp_mm(A,B):
     n = A.size()[1]
     res = spmm(indexA, valueA, m, n, B).to(device)
     '''
-    v1
+    #v1
     m = B.size()[0]
     n = B.size()[1]
     k = A.size()[0]
@@ -46,6 +46,8 @@ def sp_mm(A,B):
         idx = torch.where(indexA[0]==i)
         res[i,0] = valueA[idx] @ B[indexA[1][idx],0]         
     '''
+    #res = torch.sparse.mm(A,B)
+    #res = res.to_sparse().coalesce()
     return res
 
 def spspmm(A,B):
@@ -67,7 +69,7 @@ def spspmm(A,B):
     res = torch.sparse.mm(A,B)
     res = res.coalesce()
     '''
-    v1
+    #v1
     indexA = A.coalesce().indices()
     valueA = A.coalesce().values()
     indexB = B.coalesce().indices()
@@ -76,10 +78,21 @@ def spspmm(A,B):
     k = A.size()[1]
     n = B.size()[1]
     res = spsp_mm(indexA,valueA,indexB,valueB,m,k,n, coalesced=True)
+    res = torch.sparse.FloatTensor(res[0],
+                                   res[1],
+                                   torch.Size([m,n])).to(device)
+    res.requires_grad = True
     '''
     '''
-    v2
+    #v2
     coalesced =True
+    indexA = A.coalesce().indices()
+    valueA = A.coalesce().values()
+    indexB = B.coalesce().indices()
+    valueB = B.coalesce().values()
+    m = A.size()[0]
+    k = A.size()[1]
+    n = B.size()[1]
     A2 = SparseTensor(row=indexA[0], col=indexA[1], value=valueA,
                      sparse_sizes=(m, k), is_sorted=not coalesced)
     B2 = SparseTensor(row=indexB[0], col=indexB[1], value=valueB,
@@ -90,12 +103,6 @@ def spspmm(A,B):
     indexC = torch.stack([row, col], dim=0)
     valueC = value
     res = torch.sparse.FloatTensor(indexC.long(), valueC, torch.Size([m,n])).to(device)
-    res.requires_grad = True
-    '''
-    '''
-    res = torch.sparse.FloatTensor(res[0],
-                                   res[1],
-                                   torch.Size([m,n])).to(device)
     res.requires_grad = True
     '''
     return res

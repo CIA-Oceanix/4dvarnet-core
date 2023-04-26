@@ -5,27 +5,42 @@ datamodule:
   resize_factor: 1
   test_slices:
     - _target_: builtins.slice
-      _args_: ['2013-01-03', '2013-01-08']
-  train_slices:
-    - _target_: builtins.slice
-      _args_: ['2013-02-07', '2013-03-07']
-#      _args_: ['2012-10-01', '2012-11-20']
+      _args_: ['2013-01-03', '2013-01-12']
+#  train_slices:
+#    - _target_: builtins.slice
+#      _args_: ['2013-02-07', '2013-02-17']
+  slice_win:
+    lat: 100
+    lon: 100
+    time: 5
 
 params:
-  grad_clip_val: 0.001
+  grad_clip_val: 0.5
   estim_parameters: true
   loss_type: ml_loss
-#  n_grad: 20
+  n_grad: 5
+  n_fourdvar_iter: 3
   iter_update:
     - 0
-    - 25
+    - 30
     - 50
     - 100
+    - 200
   lr_update:
+    - 0.01
     - 0.001
-    - 0.0001
-    - 0.0001
-    - 0.00001
+    - 0.001
+    - 0.001
+  nb_grad_update:
+    - 10
+    - 10
+    - 10
+    - 10
+  dT: 5
+  shapeData:
+    - 5
+    - 100
+    - 100
 
 defaults:
   - /params_gp@params: gp_diff_pow_2

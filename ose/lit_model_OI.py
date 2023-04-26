@@ -72,8 +72,7 @@ class LitModelOI(LitModelAugstate):
          # spectral parameter
          # C2 parameter
          #self.c2_file = self.hparams.files_cfg.c2_path
-         self.c2_file = "/gpfswork/rech/yrf/uba22to/4dvarnet-core/ose/eval_notebooks/inputs/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc"
-         #self.c2_file = "/users/local/m19beauc/4dvarnet-core/ose/eval_notebooks/inputs/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc"
+         self.c2_file = "/users/local/m19beauc/4dvarnet-core/ose/eval_notebooks/inputs/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc"
          self.ds_alongtrack = read_l3_dataset(self.c2_file,
                                            lon_min=self.lon_min,
                                            lon_max=self.lon_max,
