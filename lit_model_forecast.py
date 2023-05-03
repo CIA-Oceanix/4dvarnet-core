@@ -132,6 +132,33 @@ class LitModelForecast(LitModelOI):
         inherit from LitModelOI class
     """
 
+    def __init__(self,
+                 hparam=None,
+                 min_lon=None,
+                 max_lon=None,
+                 min_lat=None,
+                 max_lat=None,
+                 ds_size_time=None,
+                 ds_size_lon=None,
+                 ds_size_lat=None,
+                 time=None,
+                 dX=None,
+                 dY=None,
+                 swX=None,
+                 swY=None,
+                 coord_ext=None,
+                 test_domain=None,
+                 *args,
+                 **kwargs):
+        LitModelOI.__init__(self, hparam, min_lon, max_lon, min_lat, max_lat,
+                            ds_size_time, ds_size_lon, ds_size_lat, time, dX,
+                            dY, swX, swY, coord_ext, test_domain, *args,
+                            **kwargs)
+
+        # Noisy observations
+        self.noise_std = self.hparams.noise_std if hasattr(
+            self.hparams, 'noise_std') else None
+
     def sla_diag(self, t_idx=3, log_pref='test'):
 
         # path_save0 = self.logger.log_dir + '/maps.png'
@@ -318,26 +345,34 @@ class LitModelForecast(LitModelOI):
         if state[0] is not None:
             return state[0]
 
-        _, inputs_mask, inputs_obs, _ = batch
-
-        prod = inputs_mask * inputs_obs
-        init_state = torch.cat((
-            prod[:, 0:(self.hparams.dT - 1) // 2, :, :],
-            torch.zeros_like(
-                prod[:, (self.hparams.dT - 1) // 2:self.hparams.dT, :, :]),
-        ),
-                               dim=1)
+        # _, inputs_mask, inputs_obs, _ = batch
+        # prod = inputs_mask * inputs_obs
+        # init_state = torch.cat((
+        #     prod[:, 0:(self.hparams.dT - 1) // 2, :, :],
+        #     torch.zeros_like(
+        #         prod[:, (self.hparams.dT - 1) // 2:self.hparams.dT, :, :]),
+        # ),
+        #                        dim=1)
+        _, _, _, targets_gt = batch
+        init_state = torch.zeros_like(targets_gt)
         return init_state
 
     def get_obs_state(self, batch):
         """
             Create obs state for the compute loss function.
             Use the obs of t=1 ... (dT-1)/2 to forecast t=(dT-1)/2+1 ... dT
+            If self.noise_std is not None, add gaussian noise
+            to the observations
         """
         _, inputs_mask, inputs_obs, _ = batch
         prod = inputs_mask * inputs_obs
-        # _, _, _, targets_gt = batch
-        # prod = targets_gt
+        # Noisy obs
+        if self.noise_std is not None:
+            noise = torch.normal(mean=0,
+                                 std=self.noise_std / (np.sqrt(self.var_Tr)),
+                                 size=inputs_obs.shape)
+            noise = noise.to('cuda')
+            prod += inputs_mask * noise
         obs = torch.cat((
             prod[:, 0:(self.hparams.dT - 1) // 2, :, :],
             torch.zeros_like(
