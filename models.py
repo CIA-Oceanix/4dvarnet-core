@@ -1,13 +1,6 @@
-import einops
 import numpy as np
-import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
-import torch.optim as optim
-from omegaconf import OmegaConf
-from scipy import stats
-import solver as NN_4DVar
-from metrics import save_netcdf, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, plot_ensemble, maps_score
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -100,7 +93,7 @@ class Encoder(torch.nn.Module):
         return torch.nn.Sequential(*layers)
 
     def forward(self, xinp):
-        ## LR component
+        # LR component
         x_lr = self.nn_lr(self.pool1(xinp))
         x_lr = self.dropout(x_lr)
         x_lr = self.conv_tr(x_lr)
@@ -222,7 +215,7 @@ class Phi_r(torch.nn.Module):
         self.stochastic = stochastic
         self.encoder = Encoder(shape_data, shape_data, DimAE, dw, dw2, ss,
                                nb_blocks, rateDr)
-        #self.encoder = Encoder(shape_data, 2*shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
+        # self.encoder = Encoder(shape_data, 2*shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
         self.decoder = Decoder()
         self.correlate_noise = CorrelateNoise(shape_data, 10)
         self.regularize_variance = RegularizeVariance(shape_data, 10)

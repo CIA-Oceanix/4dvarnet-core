@@ -6,32 +6,34 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 import hydra
 import pandas as pd
-from datetime import datetime, timedelta
 from hydra.utils import get_class, instantiate, call
 from omegaconf import OmegaConf
-import hydra_config
 import numpy as np
+
 
 def get_profiler():
     from pytorch_lightning.profiler import PyTorchProfiler
-    print( torch.profiler.ProfilerActivity.CPU,)
+    print(torch.profiler.ProfilerActivity.CPU, )
     return PyTorchProfiler(
-            "results/profile_report",
-            schedule=torch.profiler.schedule(
-                skip_first=2,
-                wait=2,
-                warmup=2,
-                active=2),
-            activities=[
-                torch.profiler.ProfilerActivity.CPU,
-                torch.profiler.ProfilerActivity.CUDA,
-            ],
-            # with_stack=True,
-            on_trace_ready=torch.profiler.tensorboard_trace_handler('./tb_profile'),
-            record_shapes=True,
-            profile_memory=True,
+        "results/profile_report",
+        schedule=torch.profiler.schedule(skip_first=2,
+                                         wait=2,
+                                         warmup=2,
+                                         active=2),
+        activities=[
+            torch.profiler.ProfilerActivity.CPU,
+            torch.profiler.ProfilerActivity.CUDA,
+        ],
+        # with_stack=True,
+        on_trace_ready=torch.profiler.tensorboard_trace_handler(
+            './tb_profile'),
+        record_shapes=True,
+        profile_memory=True,
     )
+
+
 class FourDVarNetHydraRunner:
+
     def __init__(self, params, dm, lit_mod_cls, callbacks=None, logger=None):
         self.cfg = params
         self.filename_chkpt = self.cfg.ckpt_name
@@ -46,12 +48,14 @@ class FourDVarNetHydraRunner:
             'test': dm.test_dataloader(),
         }
 
-        test_dates = np.concatenate([ \
-                       [str(dt.date()) for dt in \
-                       pd.date_range(dm.test_slices[i].start,dm.test_slices[i].stop)[(self.cfg.dT//2):-(self.cfg.dT//2)]] \
-                      for i in range(len(dm.test_slices))])
-        #print(test_dates)
-        self.time = {'time_test' : test_dates}
+        test_dates = np.concatenate([[
+            str(dt.date())
+            for dt in pd.date_range(dm.test_slices[i].start, dm.test_slices[i].
+                                    stop)[(self.cfg.dT //
+                                           2):-(self.cfg.dT // 2)]
+        ] for i in range(len(dm.test_slices))])
+        # print(test_dates)
+        self.time = {'time_test': test_dates}
 
         self.setup(dm)
 
@@ -59,9 +63,9 @@ class FourDVarNetHydraRunner:
         self.mean_Tr = datamodule.norm_stats[0]
         self.mean_Tt = datamodule.norm_stats[0]
         self.mean_Val = datamodule.norm_stats[0]
-        self.var_Tr = datamodule.norm_stats[1] ** 2
-        self.var_Tt = datamodule.norm_stats[1] ** 2
-        self.var_Val = datamodule.norm_stats[1] ** 2
+        self.var_Tr = datamodule.norm_stats[1]**2
+        self.var_Tt = datamodule.norm_stats[1]**2
+        self.var_Val = datamodule.norm_stats[1]**2
         self.min_lon = datamodule.dim_range['lon'].start
         self.max_lon = datamodule.dim_range['lon'].stop
         self.min_lat = datamodule.dim_range['lat'].start
@@ -69,8 +73,10 @@ class FourDVarNetHydraRunner:
         self.ds_size_time = datamodule.ds_size['time']
         self.ds_size_lon = datamodule.ds_size['lon']
         self.ds_size_lat = datamodule.ds_size['lat']
-        self.dX = int((datamodule.slice_win['lon']-datamodule.strides['lon'])/2)
-        self.dY = int((datamodule.slice_win['lat']-datamodule.strides['lat'])/2)
+        self.dX = int(
+            (datamodule.slice_win['lon'] - datamodule.strides['lon']) / 2)
+        self.dY = int(
+            (datamodule.slice_win['lat'] - datamodule.strides['lat']) / 2)
         self.swX = datamodule.slice_win['lon']
         self.swY = datamodule.slice_win['lat']
         self.lon, self.lat = datamodule.coordXY()
@@ -99,31 +105,37 @@ class FourDVarNetHydraRunner:
         """
         print('get_model: ', ckpt_path)
         if ckpt_path:
-            mod = self.lit_cls.load_from_checkpoint(ckpt_path,
-                                                    hparam=self.cfg,
-                                                    w_loss=self.wLoss,
-                                                    strict=False,
-                                                    mean_Tr=self.mean_Tr,
-                                                    mean_Tt=self.mean_Tt,
-                                                    mean_Val=self.mean_Val,
-                                                    var_Tr=self.var_Tr,
-                                                    var_Tt=self.var_Tt,
-                                                    var_Val=self.var_Val,
-                                                    min_lon=self.min_lon, max_lon=self.max_lon,
-                                                    min_lat=self.min_lat, max_lat=self.max_lat,
-                                                    ds_size_time=self.ds_size_time,
-                                                    ds_size_lon=self.ds_size_lon,
-                                                    ds_size_lat=self.ds_size_lat,
-                                                    time=self.time,
-                                                    dX=self.dX, dY = self.dY,
-                                                    swX=self.swX, swY=self.swY,
-                                                    coord_ext={'lon_ext': self.lon,
-                                                               'lat_ext': self.lat},
-                                                    test_domain=self.cfg.test_domain,
-                                                    resolution=self.resolution,
-                                                    original_coords=self.original_coords,
-                                                    padded_coords=self.padded_coords
-                                                    )
+            mod = self.lit_cls.load_from_checkpoint(
+                ckpt_path,
+                hparam=self.cfg,
+                w_loss=self.wLoss,
+                strict=False,
+                mean_Tr=self.mean_Tr,
+                mean_Tt=self.mean_Tt,
+                mean_Val=self.mean_Val,
+                var_Tr=self.var_Tr,
+                var_Tt=self.var_Tt,
+                var_Val=self.var_Val,
+                min_lon=self.min_lon,
+                max_lon=self.max_lon,
+                min_lat=self.min_lat,
+                max_lat=self.max_lat,
+                ds_size_time=self.ds_size_time,
+                ds_size_lon=self.ds_size_lon,
+                ds_size_lat=self.ds_size_lat,
+                time=self.time,
+                dX=self.dX,
+                dY=self.dY,
+                swX=self.swX,
+                swY=self.swY,
+                coord_ext={
+                    'lon_ext': self.lon,
+                    'lat_ext': self.lat
+                },
+                test_domain=self.cfg.test_domain,
+                resolution=self.resolution,
+                original_coords=self.original_coords,
+                padded_coords=self.padded_coords)
 
         else:
             mod = self.lit_cls(hparam=self.cfg,
@@ -134,21 +146,26 @@ class FourDVarNetHydraRunner:
                                var_Tr=self.var_Tr,
                                var_Tt=self.var_Tt,
                                var_Val=self.var_Val,
-                               min_lon=self.min_lon, max_lon=self.max_lon,
-                               min_lat=self.min_lat, max_lat=self.max_lat,
+                               min_lon=self.min_lon,
+                               max_lon=self.max_lon,
+                               min_lat=self.min_lat,
+                               max_lat=self.max_lat,
                                ds_size_time=self.ds_size_time,
                                ds_size_lon=self.ds_size_lon,
                                ds_size_lat=self.ds_size_lat,
                                time=self.time,
-                               dX=self.dX, dY = self.dY,
-                               swX=self.swX, swY=self.swY,
-                               coord_ext = {'lon_ext': self.lon,
-                                            'lat_ext': self.lat},
+                               dX=self.dX,
+                               dY=self.dY,
+                               swX=self.swX,
+                               swY=self.swY,
+                               coord_ext={
+                                   'lon_ext': self.lon,
+                                   'lat_ext': self.lat
+                               },
                                test_domain=self.cfg.test_domain,
                                resolution=self.resolution,
                                original_coords=self.original_coords,
-                               padded_coords=self.padded_coords
-                               )
+                               padded_coords=self.padded_coords)
         return mod
 
     def train(self, ckpt_path=None, **trainer_kwargs):
@@ -170,17 +187,31 @@ class FourDVarNetHydraRunner:
         num_nodes = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         gpus = trainer_kwargs.get('gpus', torch.cuda.device_count())
 
-        num_gpus = gpus if isinstance(gpus, (int, float)) else  len(gpus) if hasattr(gpus, '__len__') else 0
+        num_gpus = gpus if isinstance(
+            gpus,
+            (int, float)) else len(gpus) if hasattr(gpus, '__len__') else 0
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
-        trainer_kwargs_final = {**dict(num_nodes=num_nodes, gpus=gpus, logger=self.logger, strategy=accelerator, auto_select_gpus=(num_gpus * num_nodes) > 0,
-                             callbacks=[checkpoint_callback, lr_monitor]),  **trainer_kwargs}
+        trainer_kwargs_final = {
+            **dict(num_nodes=num_nodes,
+                   gpus=gpus,
+                   logger=self.logger,
+                   strategy=accelerator,
+                   auto_select_gpus=(num_gpus * num_nodes) > 0,
+                   callbacks=[checkpoint_callback, lr_monitor]),
+            **trainer_kwargs
+        }
         print(trainer_kwargs)
         print(trainer_kwargs_final)
         trainer = pl.Trainer(**trainer_kwargs_final)
         trainer.fit(mod, self.dataloaders['train'], self.dataloaders['val'])
         return mod, trainer
 
-    def test(self, ckpt_path=None, dataloader="test", _mod=None, _trainer=None, **trainer_kwargs):
+    def test(self,
+             ckpt_path=None,
+             dataloader="test",
+             _mod=None,
+             _trainer=None,
+             **trainer_kwargs):
         """
         Test a model
         :param ckpt_path: (Optional) Checkpoint from which to resume
@@ -189,12 +220,15 @@ class FourDVarNetHydraRunner:
         """
 
         if _trainer is not None:
-            _trainer.test(mod, dataloaders=self.dataloaders[dataloader])
+            _trainer.test(_mod, dataloaders=self.dataloaders[dataloader])
             return
 
         mod = _mod or self._get_model(ckpt_path=ckpt_path)
 
-        trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs)
+        trainer = pl.Trainer(num_nodes=1,
+                             gpus=1,
+                             accelerator=None,
+                             **trainer_kwargs)
         trainer.test(mod, dataloaders=self.dataloaders[dataloader])
         return mod
 
@@ -207,24 +241,21 @@ class FourDVarNetHydraRunner:
 
         profiler = PyTorchProfiler(
             "results/profile_report",
-            schedule=torch.profiler.schedule(
-                wait=1,
-                warmup=1,
-                active=1),
+            schedule=torch.profiler.schedule(wait=1, warmup=1, active=1),
             activities=[
                 torch.profiler.ProfilerActivity.CPU,
                 torch.profiler.ProfilerActivity.CUDA,
             ],
-            on_trace_ready=torch.profiler.tensorboard_trace_handler('./tb_profile'),
+            on_trace_ready=torch.profiler.tensorboard_trace_handler(
+                './tb_profile'),
             record_shapes=True,
             profile_memory=True,
         )
-        self.train(
-            **{
-                'profiler': profiler,
-                'max_epochs': 1,
-            }
-        )
+        self.train(**{
+            'profiler': profiler,
+            'max_epochs': 1,
+        })
+
 
 def _main(cfg):
     print(OmegaConf.to_yaml(cfg))
@@ -233,16 +264,20 @@ def _main(cfg):
     if cfg.get('callbacks') is not None:
         callbacks = [instantiate(cb_cfg) for cb_cfg in cfg.callbacks]
     else:
-        callbacks=[]
+        callbacks = []
 
     if cfg.get('logger') is not None:
         print('instantiating logger')
         print(OmegaConf.to_yaml(cfg.logger))
         logger = instantiate(cfg.logger)
     else:
-        logger=True
+        logger = True
     lit_mod_cls = get_class(cfg.lit_mod_cls)
-    runner = FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls, callbacks=callbacks, logger=logger)
+    runner = FourDVarNetHydraRunner(cfg.params,
+                                    dm,
+                                    lit_mod_cls,
+                                    callbacks=callbacks,
+                                    logger=logger)
     call(cfg.entrypoint, self=runner)
 
 
