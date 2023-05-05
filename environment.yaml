@@ -26,3 +26,4 @@ dependencies:
     - hydra-core
     - kornia
     - pyepsg
+    - holoviews
