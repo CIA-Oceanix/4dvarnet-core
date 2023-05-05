@@ -378,7 +378,7 @@ def animate_maps(gt, obs, oi, pred, lon, lat, resfile,
         vmin = np.nanmin(oi)
         cm = plt.cm.coolwarm
         norm = colors.Normalize(vmin=vmin, vmax=vmax)
-
+    
     def animate(i):
         print(i)
         if supervised:
