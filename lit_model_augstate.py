@@ -111,6 +111,7 @@ class LitModelAugstate(pl.LightningModule):
 
         self.save_hyperparameters({**hparams, **kwargs})
         # self.save_hyperparameters({**hparams, **kwargs}, logger=False)
+
         self.latest_metrics = {}
         # TOTEST: set those parameters only if provided
         self.var_Val = self.hparams.var_Val
@@ -145,6 +146,10 @@ class LitModelAugstate(pl.LightningModule):
         self.grad_crop = lambda t: t[...,1:-1, 1:-1]
         self.gradient_img = lambda t: torch.unbind(
                 self.grad_crop(2.*kornia.filters.spatial_gradient(t, normalized=True)), 2)
+        '''
+        self.grad_crop = lambda t: t[...,:, :]
+        self.gradient_img = lambda t: torch.unbind( kornia.filters.sobel(t))
+        '''
         # loss weghing wrt time
 
         # self._w_loss = torch.nn.Parameter(torch.Tensor(self.patch_weight), requires_grad=False)  # duplicate for automatic upload to gpu
@@ -168,7 +173,7 @@ class LitModelAugstate(pl.LightningModule):
         metrics = []
         state_init = [None]
         out=None
-        for _ in range(self.hparams.n_fourdvar_iter):
+        for i in range(self.hparams.n_fourdvar_iter):
             _loss, out, state, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
             state_init = [None if s is None else s.detach() for s in state]
             losses.append(_loss)
@@ -183,7 +188,7 @@ class LitModelAugstate(pl.LightningModule):
             optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
-                {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                #{'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                 ])
 
             return optimizer
@@ -192,7 +197,7 @@ class LitModelAugstate(pl.LightningModule):
             optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                                 {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
-                                {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                                #{'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                                 ])
 
             return optimizer
@@ -227,6 +232,7 @@ class LitModelAugstate(pl.LightningModule):
 
     def training_epoch_end(self, outputs):
         best_ckpt_path = self.trainer.checkpoint_callback.best_model_path
+        '''
         if len(best_ckpt_path) > 0:
             def should_reload_ckpt(losses):
                 diffs = losses.diff()
@@ -242,7 +248,7 @@ class LitModelAugstate(pl.LightningModule):
                 print('reloading', best_ckpt_path)
                 ckpt = torch.load(best_ckpt_path)
                 self.load_state_dict(ckpt['state_dict'])
-
+        '''
 
 
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
@@ -302,7 +308,6 @@ class LitModelAugstate(pl.LightningModule):
         print(f'epoch end {self.global_rank} {len(outputs)}')
         if (self.current_epoch + 1) % self.hparams.val_diag_freq == 0:
             return self.diag_epoch_end(outputs, log_pref='val')
-
 
     def gather_outputs(self, outputs, log_pref):
         data_path = Path(f'{self.logger.log_dir}/{log_pref}_data')
@@ -367,7 +372,6 @@ class LitModelAugstate(pl.LightningModule):
             # .pipe(lambda ds: ds.sel(time=~(np.isnan(ds.gt).all('lat').all('lon'))))
         ).transpose('time', 'lat', 'lon')
 
-
     def nrmse_fn(self, pred, ref, gt):
         return (
                 self.test_xr_ds[[pred, ref]]
@@ -401,14 +405,16 @@ class LitModelAugstate(pl.LightningModule):
                 self.obs_inp[t_idx],
                   self.x_oi[t_idx],
                   self.x_rec[t_idx],
-                  self.test_lon, self.test_lat, path_save0)
+                  self.test_lon, self.test_lat, path_save0,
+                  supervised=self.hparams.supervised)
         path_save01 = self.logger.log_dir + '/maps_Grad.png'
         fig_maps_grad = plot_maps(
                   self.x_gt[t_idx],
                 self.obs_inp[t_idx],
                   self.x_oi[t_idx],
                   self.x_rec[t_idx],
-                  self.test_lon, self.test_lat, path_save01, grad=True)
+                  self.test_lon, self.test_lat, path_save01, grad=True,
+                  supervised=self.hparams.supervised)
         self.test_figs['maps'] = fig_maps
         self.test_figs['maps_grad'] = fig_maps_grad
         self.logger.experiment.add_figure(f'{log_pref} Maps', fig_maps, global_step=self.current_epoch)
@@ -417,7 +423,8 @@ class LitModelAugstate(pl.LightningModule):
         # animate maps
         if self.hparams.animate == True:
             path_save0 = self.logger.log_dir + '/animation.mp4'
-            animate_maps(self.x_gt, self.obs_inp, self.x_oi, self.x_rec, self.lon, self.lat, path_save0)
+            animate_maps(self.x_gt, self.obs_inp, self.x_oi, self.x_rec, self.lon, self.lat, path_save0,
+                         supervised=self.hparams.supervised)
             # save NetCDF
         # PENDING: replace hardcoded 60
         # save_netcdf(saved_path1=path_save1, pred=self.x_rec,
@@ -442,31 +449,43 @@ class LitModelAugstate(pl.LightningModule):
         snr_fig = plot_snr(self.x_gt, self.x_oi, self.x_rec, path_save4)
         self.test_figs['snr'] = snr_fig
 
-        self.logger.experiment.add_figure(f'{log_pref} SNR', snr_fig, global_step=self.current_epoch)
-        psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
-        fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt, self.test_xr_ds.pred, self.test_xr_ds.oi, with_fig=True)
-        self.test_figs['res'] = fig
-        self.logger.experiment.add_figure(f'{log_pref} Spat. Resol', fig, global_step=self.current_epoch)
-        psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
-        psd_fig = metrics.plot_psd_score(psd_ds)
-        self.test_figs['psd'] = psd_fig
-        psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
-        self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
-        _, _, mu, sig = metrics.rmse_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
+        if self.hparams.supervised==True:
+            self.logger.experiment.add_figure(f'{log_pref} SNR', snr_fig, global_step=self.current_epoch)
+            psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
+            fig, spatial_res_model, spatial_res_oi = get_psd_score(self.test_xr_ds.gt, self.test_xr_ds.pred, self.test_xr_ds.oi, with_fig=True)
+            self.test_figs['res'] = fig
+            self.logger.experiment.add_figure(f'{log_pref} Spat. Resol', fig, global_step=self.current_epoch)
+            psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
+            psd_fig = metrics.plot_psd_score(psd_ds)
+            self.test_figs['psd'] = psd_fig
+            psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
+            self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
+            _, _, mu, sig = metrics.rmse_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
 
-        mdf = pd.concat([
-            nrmse_df.rename(columns=lambda c: f'{log_pref}_{c}_glob').loc['pred'].T,
-            mse_df.rename(columns=lambda c: f'{log_pref}_{c}_glob').loc['pred'].T,
-        ])
-        md = {
-            f'{log_pref}_spatial_res': float(spatial_res_model),
-            f'{log_pref}_spatial_res_imp': float(spatial_res_model / spatial_res_oi),
-            f'{log_pref}_lambda_x': lamb_x,
-            f'{log_pref}_lambda_t': lamb_t,
-            f'{log_pref}_mu': mu,
-            f'{log_pref}_sigma': sig,
-            **mdf.to_dict(),
-        }
+            mdf = pd.concat([
+                nrmse_df.rename(columns=lambda c: f'{log_pref}_{c}_glob').loc['pred'].T,
+                mse_df.rename(columns=lambda c: f'{log_pref}_{c}_glob').loc['pred'].T,
+            ])
+            md = {
+                f'{log_pref}_spatial_res': float(spatial_res_model),
+                f'{log_pref}_spatial_res_imp': float(spatial_res_model / spatial_res_oi),
+                f'{log_pref}_lambda_x': lamb_x,
+                f'{log_pref}_lambda_t': lamb_t,
+                f'{log_pref}_mu': mu,
+                f'{log_pref}_sigma': sig,
+                **mdf.to_dict(),
+            }
+        else:
+            mdf = {}
+            md = {
+                f'{log_pref}_spatial_res': np.nan,
+                f'{log_pref}_spatial_res_imp': np.nan,
+                f'{log_pref}_lambda_x': np.nan,
+                f'{log_pref}_lambda_t': np.nan,
+                f'{log_pref}_mu': np.nan,
+                f'{log_pref}_sigma': np.nan,
+                **mdf,
+            }
         print(pd.DataFrame([md]).T.to_markdown())
         return md
 
@@ -583,7 +602,6 @@ class LitModelAugstate(pl.LightningModule):
         state = self.get_init_state(batch, state_init)
 
         #state = torch.cat((targets_OI, inputs_Mask * (targets_GT_wo_nan - targets_OI)), dim=1)
-
         obs = torch.cat( (targets_OI, inputs_Mask * (inputs_obs - targets_OI)) ,dim=1)
         new_masks = torch.cat( (torch.ones_like(inputs_Mask), inputs_Mask) , dim=1)
 
@@ -632,11 +650,27 @@ class LitModelAugstate(pl.LightningModule):
                 yGT, targets_OI, outputs, outputsSLR, outputsSLRHR
             )
 
-
             # total loss
-            loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
-            loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
-            loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
+            if self.hparams.supervised==True:
+                loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
+                loss += 0.5 * self.hparams.alpha_proj * (loss_AE + loss_AE_GT)
+                loss += self.hparams.alpha_lr * loss_LR + self.hparams.alpha_sr * loss_SR
+            else:
+                self.type_loss_supervised = self.hparams.type_loss_supervised if hasattr(self.hparams, 'type_loss_supervised') else 'var_cost'
+                if self.type_loss_supervised == "loss_on_track":
+                    # MSE
+                    mask = (targets_GT_wo_nan!=0.)
+                    iT = int(self.hparams.dT / 2)
+                    new_tensor = torch.masked_select(outputs[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(targets_GT[:,iT,:,:],mask[:,iT,:,:])
+                    loss = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
+                    loss = 10*loss  + 0.5 * self.hparams.alpha_proj * loss_AE
+                else:
+                    dy = self.model.model_H(outputsSLRHR,obs,new_masks)
+                    dx = outputsSLRHR - self.model.phi_r(outputsSLRHR)
+                    loss = self.model.model_VarCost(dx,dy)
+                    loss_LR = NN_4DVar.compute_spatio_temp_weighted_loss(self.model_LR(outputs)-self.model_LR(targets_OI),
+                                                                         self.model_LR(self.patch_weight))
+                    loss += 10*loss_LR
 
             # metrics
             # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)

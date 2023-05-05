@@ -94,7 +94,7 @@ class XrDataset(Dataset):
                 _ds.time.attrs["units"] = "seconds since 2012-10-01"
                 _ds = xr.decode_cf(_ds)
             else:
-                _ds['time'] = pd.to_datetime(_ds.time)
+                _ds['time'] = pd.to_datetime(_ds.time.values)
 
         # rename latitute/longitude to lat/lon for consistency
         rename_coords = {}
@@ -169,7 +169,6 @@ class XrDataset(Dataset):
             self.ds = self.ds_reflected.assign_coords(
                 lon=self.padded_coords['lon'], lat=self.padded_coords['lat']
             )
-
             # III) get lon-lat for the final reconstruction
             dX = ((slice_win['lon']-strides['lon'])/2)*self.resolution
             dY = ((slice_win['lat']-strides['lat'])/2)*self.resolution
@@ -180,12 +179,14 @@ class XrDataset(Dataset):
 
 
         self.ds = self.ds.transpose("time", "lat", "lon")
-
         if self.interp_na:
             self.ds = interpolate_na_2D(self.ds)
 
         if compute:
             self.ds = self.ds.compute()
+
+        self.ds = self.ds.transpose("time", "lat", "lon")
+
 
         self.slice_win = slice_win
         self.strides = strides or {}
@@ -257,6 +258,7 @@ class FourDVarNetDataset(Dataset):
         aug_train_data=False,
         compute=False,
         pp='std',
+        rmv_patches=False
     ):
         super().__init__()
         self.use_auto_padding=use_auto_padding
@@ -264,6 +266,10 @@ class FourDVarNetDataset(Dataset):
         self.aug_train_data = aug_train_data
         self.return_coords = False
         self.pp=pp
+
+        self.dim_range = dim_range
+        self.slice_win = slice_win
+        self.strides = strides
 
         self.gt_ds = XrDataset(
             gt_path, gt_var,
@@ -275,8 +281,9 @@ class FourDVarNetDataset(Dataset):
             resize_factor=resize_factor,
             compute=compute,
             auto_padding=use_auto_padding,
-            interp_na=True,
+            interp_na=False,
         )
+
         self.obs_mask_ds = XrDataset(
             obs_mask_path, obs_mask_var,
             slice_win=slice_win,
@@ -287,6 +294,7 @@ class FourDVarNetDataset(Dataset):
             resize_factor=resize_factor,
             compute=compute,
             auto_padding=use_auto_padding,
+            interp_na=False,
         )
 
         self.oi_ds = XrDataset(
@@ -313,13 +321,15 @@ class FourDVarNetDataset(Dataset):
                 resize_factor=resize_factor,
                 compute=compute,
                 auto_padding=use_auto_padding,
-                interp_na=True,
+                interp_na=False,
             )
         else:
             self.sst_ds = None
 
         if self.aug_train_data:
             self.perm = np.random.permutation(len(self.obs_mask_ds))
+
+        self.rmv_patches = rmv_patches
 
         self.norm_stats = (0, 1)
         self.norm_stats_sst = (0, 1)
@@ -387,13 +397,29 @@ class FourDVarNetDataset(Dataset):
         obs_mask_item = ~np.isnan(_obs_item)
         obs_item = np.where(~np.isnan(_obs_item), _obs_item, np.zeros_like(_obs_item))
 
+        # remove patches from data
+        '''
+        if self.rmv_patches==True:
+            n_patch = 10
+            s_patch = 10
+            for i in range(len(obs_item)):
+                posx = np.random.randint(s_patch,self.slice_win['lon']-s_patch,n_patch)
+                posy = np.random.randint(s_patch,self.slice_win['lat']-s_patch,n_patch)
+                ix = np.stack([np.arange(posx[ipatch]-s_patch,posx[ipatch]+s_patch+1) for ipatch in range(n_patch)])
+                iy = np.stack([np.arange(posy[ipatch]-s_patch,posy[ipatch]+s_patch+1) for ipatch in range(n_patch)])
+                ix, iy = np.transpose(np.stack([np.meshgrid(ix[ipatch],iy[ipatch]) for ipatch in range(n_patch)]),
+                                      (1,0,2,3))
+                gt_item[i,ix,iy] = 0.
+                obs_item[i,~ix,~iy] = 0.
+                obs_mask_item[i,~ix,~iy] = 0.
+        '''
+
         if self.sst_ds == None:
             return oi_item, obs_mask_item, obs_item, gt_item
         else:
             pp_sst = self.get_pp(self.norm_stats_sst)
             _sst_item = pp_sst(self.sst_ds[item % length])
             sst_item = np.where(~np.isnan(_sst_item), _sst_item, 0.)
-
             return oi_item, obs_mask_item, obs_item, gt_item, sst_item
 
 class FourDVarNetDataModule(pl.LightningDataModule):
@@ -423,7 +449,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             dl_kwargs=None,
             compute=False,
             use_auto_padding=False,
-            pp='std'
+            pp='std',
+            rmv_patches=False
     ):
         super().__init__()
         self.resize_factor = resize_factor
@@ -459,6 +486,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.norm_stats = (0, 1)
         self.norm_stats_sst = None
 
+        self.rmv_patches = rmv_patches
 
     def mean_stds(self, ds):
         sum = 0
@@ -548,6 +576,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 aug_train_data=self.aug_train_data,
                 compute=self.compute,
                 pp=self.pp,
+                rmv_patches=self.rmv_patches
             ) for sl in self.train_slices])
 
 
@@ -574,6 +603,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     compute=self.compute,
                     use_auto_padding=self.use_auto_padding,
                     pp=self.pp,
+                    rmv_patches=False
                 ) for sl in slices]
             )
             for slices in (self.val_slices, self.test_slices)
@@ -601,7 +631,6 @@ class FourDVarNetDataModule(pl.LightningDataModule):
 
     def test_dataloader(self):
         return DataLoader(self.test_ds, **{**dict(shuffle=False), **self.dl_kwargs})
-
 
 if __name__ == '__main__':
     """

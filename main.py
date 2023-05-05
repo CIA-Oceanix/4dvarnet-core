@@ -11,7 +11,7 @@ import pytorch_lightning as pl
 import torch
 from omegaconf import OmegaConf
 from pytorch_lightning.callbacks import ModelCheckpoint
-
+import timeit
 
 class FourDVarNetRunner:
     def __init__(self, dataloading="old", config=None):
@@ -109,8 +109,13 @@ class FourDVarNetRunner:
         :param dataloader: Dataloader on which to run the test Checkpoint from which to resume
         :param trainer_kwargs: (Optional)
         """
+        start = timeit.default_timer()
         mod, trainer = self.train(ckpt_path, **trainer_kwargs)
+        stop1 = timeit.default_timer()
         self.test(dataloader=dataloader, _mod=mod, _trainer=trainer)
+        stop2 = timeit.default_timer()
+        print('{TRAINING TIME: ', stop1 - start,'\n',
+              'TEST TIME: ',stop2-start,'}')
 
     def _get_model(self, ckpt_path=None):
         """

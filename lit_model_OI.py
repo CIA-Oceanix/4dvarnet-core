@@ -31,9 +31,20 @@ def get_4dvarnet_OI(hparams):
                     hparams.dim_grad_solver, hparams.dropout),
                 hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
 
+def get_4dvarnet_OI_sst(hparams):
+    return NN_4DVar.Solver_Grad_4DVarNN(
+                Phi_r_OI(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
+                    hparams.nbBlocks, hparams.dropout_phi_r, hparams.stochastic),
+                Model_HwithSST(hparams.shape_state[0], dT=hparams.dT),
+                NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+                    hparams.dim_grad_solver, hparams.dropout),
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+
+
 class LitModelOI(LitModelAugstate):
     MODELS = {
             '4dvarnet_OI': get_4dvarnet_OI,
+            '4dvarnet_OI_sst': get_4dvarnet_OI_sst,
              }
 
     def __init__(self, *args, **kwargs):
@@ -49,11 +60,22 @@ class LitModelOI(LitModelAugstate):
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                 ])
+        elif self.model_name == '4dvarnet_OI_sst':
+
+            optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                                {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
+                                {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
+                                {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                                ])
 
         return optimizer
 
     def diag_step(self, batch, batch_idx, log_pref='test'):
-        _, inputs_Mask, inputs_obs, targets_GT = batch
+        if not self.use_sst:
+            _, inputs_Mask, inputs_obs, targets_GT = batch
+        else:
+            _, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
+
         losses, out, metrics = self(batch, phase='test')
         loss = losses[-1]
         if loss is not None:
@@ -85,18 +107,27 @@ class LitModelOI(LitModelAugstate):
         self.logger.experiment.add_figure(f'{log_pref} Maps', fig_maps, global_step=self.current_epoch)
         self.logger.experiment.add_figure(f'{log_pref} Maps Grad', fig_maps_grad, global_step=self.current_epoch)
 
+        '''
         psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
         psd_fig = metrics.plot_psd_score(psd_ds)
         self.test_figs['psd'] = psd_fig
         self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
         _, _, mu, sig = metrics.rmse_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
-
+        
         md = {
             f'{log_pref}_lambda_x': lamb_x,
             f'{log_pref}_lambda_t': lamb_t,
             f'{log_pref}_mu': mu,
             f'{log_pref}_sigma': sig,
         }
+        '''
+        md = {
+            f'{log_pref}_lambda_x': np.nan,
+            f'{log_pref}_lambda_t': np.nan,
+            f'{log_pref}_mu': np.nan,
+            f'{log_pref}_sigma': np.nan,
+        }
+
         print(pd.DataFrame([md]).T.to_markdown())
         return md
 
@@ -178,10 +209,24 @@ class LitModelOI(LitModelAugstate):
 
             loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
             loss_AE = self.loss_ae(outputs)
-
-            # total loss
-            loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
-            loss += 0.5 * self.hparams.alpha_proj * loss_AE
+            if self.hparams.supervised==True:
+                # total loss
+                loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
+                loss += 0.5 * self.hparams.alpha_proj * loss_AE
+            else:
+                self.type_loss_supervised = self.hparams.type_loss_supervised if hasattr(self.hparams, 'type_loss_supervised') else 'var_cost'
+                if self.type_loss_supervised != "var_cost":
+                    # MSE
+                    mask = (targets_GT_wo_nan!=0.)
+                    iT = int(self.hparams.dT / 2)
+                    new_tensor = torch.masked_select(outputs[:,iT,:,:],mask[:,iT,:,:]) - torch.masked_select(targets_GT[:,iT,:,:],mask[:,iT,:,:])
+                    loss = NN_4DVar.compute_WeightedLoss(new_tensor, torch.tensor(1.))
+                    loss = self.hparams.alpha_mse_ssh * loss  + 0.5 * self.hparams.alpha_proj * loss_AE 
+                else:
+                    dy = self.model.model_H(outputs,obs,new_masks)
+                    dx = outputs - self.model.phi_r(outputs)
+                    loss = self.model.model_VarCost(dx,dy)
+                loss += 10 * loss_AE
 
             # metrics
             # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)

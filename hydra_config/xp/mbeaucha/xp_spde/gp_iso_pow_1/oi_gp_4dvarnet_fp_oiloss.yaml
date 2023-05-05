@@ -1,0 +1,19 @@
+# @package _global_
+xp_name: oi_gp_4dvarnet_fp_oi_loss_pow_1_iso
+
+params:
+  loss_type: oi_loss
+  n_fp: 5
+datamodule:
+  resize_factor: 1
+
+lit_mod_cls: oi.xp_gp.lit_model_fp.LitModel
+
+defaults:
+  - /params_gp@params: gp_iso_pow_1
+  - /params: fourdvarnet_oi_gp
+  - /domain@datamodule.dim_range: gp
+  - /domain@params.test_domain: gp
+  - /training: oi_gp_4dvarnet
+  - _self_
+

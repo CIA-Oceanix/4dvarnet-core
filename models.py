@@ -7,7 +7,7 @@ import torch.optim as optim
 from omegaconf import OmegaConf
 from scipy import stats
 import solver as NN_4DVar
-from metrics import save_netcdf, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, animate_maps, plot_ensemble, maps_score
+from metrics import save_netcdf, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps, plot_maps_oi, animate_maps, plot_ensemble, maps_score
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -249,3 +249,16 @@ class ModelLR(torch.nn.Module):
     def forward(self, im):
         return self.pool(im)
 
+class norm_invR(torch.nn.Module):
+    def __init__(self, input_dim):
+        super().__init__()
+        self.input_fc = torch.nn.Linear(input_dim, input_dim)
+
+    def forward(self, x):
+        # x = [batch size, time, lat, lon]
+        shape_init = (x.shape[0],x.shape[1],x.shape[2],x.shape[3])
+        x = torch.reshape(x,(x.shape[0],x.shape[1],x.shape[2]*x.shape[3]))
+        # input is (y-Hx)T -> output is (y-Hx)T*inv_R
+        x = F.relu(self.input_fc(x))
+        x = torch.reshape(x,shape_init)
+        return x

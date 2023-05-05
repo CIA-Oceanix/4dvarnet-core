@@ -8,7 +8,14 @@ dependencies:
   - jupyterlab
   - python=3.9
   - pip=21.1
+  - cudatoolkit=11.3
+  - pytorch=1.12
+  - torchvision=0.11.1
   - scikit-learn=0.24.2
+  - scikit-sparse
+  - numpy=1.20.2
+  - netcdf4=1.5.6
+  - matplotlib=3.4.2
   - cartopy=0.19.0
   - cartopy_offlinedata=0.2.4
   - tabulate=0.8.9
@@ -20,9 +27,18 @@ dependencies:
     - holoviews[recommended]
     - sparse
     - GitPython
+    - setuptools==57.0.0
+    - torchmetrics=0.6.0
+    - --find-links https://data.pyg.org/whl/torch-1.10.0+cu113.html
+    - eccodes==1.2.0
+    - omegaconf
     - einops
     - hydra-submitit-launcher
     - opencv-python==4.5.2.52
     - hydra-core
     - kornia
     - pyepsg
+    - torch-scatter
+    - torch-sparse
+    - cupy-cuda113
+    - torch_tb_profiler

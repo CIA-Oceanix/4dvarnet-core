@@ -1,0 +1,35 @@
+# @package _global_
+xp_name: oi_osse_spde
+datamodule:
+  resolution: 1/20
+  slice_win:
+    lat: 200
+    lon: 200
+    time: 5
+#  test_slices:
+#    - _target_: builtins.slice
+#      _args_: ['2013-01-03', '2013-01-08']
+  train_slices:
+    - _target_: builtins.slice
+      _args_: ['2013-02-07', '2013-03-07']
+#      _args_: ['2012-10-01', '2012-11-20']
+  resize_factor: 2
+
+params:
+  estim_parameters: true
+  loss_type: ml_loss
+  resize_factor: 2
+  oi: true
+  dT: 5
+  shapeData:
+    - 5
+    - 200
+    - 200
+
+defaults:
+  - /params: fourdvarnet_oi_osse_spde
+  - /domain@datamodule.dim_range: gf
+  - /domain@params.test_domain: gf
+  - /training: oi_osse_spde
+  - _self_
+

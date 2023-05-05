@@ -11,8 +11,8 @@ params:
   n_fourdvar_iter: 2 
 defaults:
   - /params: fourdvarnet_ose_wsst
-  - /splits: ose
+  - /splits: ose_osse
   - /domain@datamodule.dim_range: gf
-  - /training: ose_wsst
+  - /training: ose_osse_nadswot_wsst.yaml
   - _self_
 

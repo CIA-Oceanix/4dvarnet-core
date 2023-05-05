@@ -1,0 +1,19 @@
+# @package _global_
+xp_name: oi_gp_ref_gd_pow_1_iso
+
+params:
+  n_grad: 10000
+
+datamodule:
+  resize_factor: 1
+
+lit_mod_cls: oi.xp_gp.lit_model_oi_ref_gd.LitModel
+
+defaults:
+  - /params_gp@params: gp_iso_pow_1
+  - /params: fourdvarnet_oi_gp
+  - /domain@datamodule.dim_range: gp
+  - /domain@params.test_domain: gp
+  - /training: oi_gp_spde
+  - _self_
+

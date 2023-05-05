@@ -1,0 +1,57 @@
+# @package _global_
+
+xp_name: df_osse_gf_wosst_ft_uq
+params:
+  model: 4dvarnet_OI
+  files_cfg:
+    oi_path: ${file_paths.oi_4nadirs_path}
+    oi_var: ssh_mod
+    obs_mask_path: ${file_paths.obs_mask_4nadirs_path}
+    obs_mask_var: ssh_mod
+    gt_path: ${file_paths.gt_path}
+    gt_var: ssh
+    gt_decode: True
+    sst_path: null
+    sst_var: null
+    sst_decode: null
+  dT: 24
+  patch_weight:
+    crop:
+      time: 3
+  k_n_grad: 3
+  n_grad: 5
+  val_diag_freq: 1
+  padding_mode: reflect
+  alpha_mse_ssh: 50. # loss
+  alpha_mse_gssh: 1000.
+  norm_obs: l2
+  norm_prior: l2
+  shape_state:
+    - ${datamodule.slice_win.time}
+    - ${datamodule.slice_win.lon}
+    - ${datamodule.slice_win.lat}
+  shape_data:
+    - ${datamodule.slice_win.time}
+    - ${datamodule.slice_win.lon}
+    - ${datamodule.slice_win.lat}
+
+lit_mod_cls: stochastic.lit_model_OI.LitModelOI
+datamodule:
+  _target_: stochastic.dataloading.FourDVarNetDataModule
+  rmv_patches: True
+  add_noise: True
+  resize_factor: 1
+  #train_slices:
+  #  - _target_: builtins.slice
+  #    _args_: ['2016-12-29', '2017-06-01']
+
+defaults:
+  - /xp/base_xp
+  - /splits/dc_boost_swot@datamodule
+  - /xp/baseline/aug/without_aug_state
+  # - /xp/baseline/dl/d200_p200x5_s200x1
+  - /xp/baseline/dl/d240_p240x5_s240x1
+  - /xp/baseline/sst/without_sst
+  - /xp/baseline/loss/map
+  - /xp/baseline/train_strat/const_lr_ngrad_5_3cas
+  - _self_ 

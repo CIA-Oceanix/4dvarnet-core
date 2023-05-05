@@ -3,7 +3,6 @@ import os
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import ModelCheckpoint
-
 import hydra
 import pandas as pd
 from datetime import datetime, timedelta
@@ -11,6 +10,7 @@ from hydra.utils import get_class, instantiate, call
 from omegaconf import OmegaConf
 import hydra_config
 import numpy as np
+import timeit
 
 def get_profiler():
     from pytorch_lightning.profiler import PyTorchProfiler
@@ -31,28 +31,39 @@ def get_profiler():
             record_shapes=True,
             profile_memory=True,
     )
+
 class FourDVarNetHydraRunner:
     def __init__(self, params, dm, lit_mod_cls, callbacks=None, logger=None):
         self.cfg = params
+        self.grad_clip_val = self.cfg.grad_clip_val if hasattr(self.cfg, 'grad_clip_val') else 0
+        self.mode = self.cfg.mode if hasattr(self.cfg, 'mode') else "train"
         self.filename_chkpt = self.cfg.ckpt_name
         self.callbacks = callbacks
         self.logger = logger
         self.dm = dm
+        print(self.dm.slice_win)
         self.lit_cls = lit_mod_cls
         dm.setup()
-        self.dataloaders = {
-            'train': dm.train_dataloader(),
-            'val': dm.val_dataloader(),
-            'test': dm.test_dataloader(),
-        }
-
-        test_dates = np.concatenate([ \
+        if self.mode != "predict":
+            self.dataloaders = {
+                'train': dm.train_dataloader(),
+                'val': dm.val_dataloader(),
+                'test': dm.test_dataloader(),
+            }
+            test_dates = np.concatenate([ \
                        [str(dt.date()) for dt in \
                        pd.date_range(dm.test_slices[i].start,dm.test_slices[i].stop)[(self.cfg.dT//2):-(self.cfg.dT//2)]] \
                       for i in range(len(dm.test_slices))])
-        #print(test_dates)
-        self.time = {'time_test' : test_dates}
-
+            self.time = {'time_test' : test_dates}
+        else:
+            self.dataloaders = {
+                'predict': dm.predict_dataloader(),
+            }
+            test_dates = np.concatenate([ \
+                       [str(dt.date()) for dt in \
+                       pd.date_range(dm.predict_slices[i].start,dm.predict_slices[i].stop)[(self.cfg.dT//2):-(self.cfg.dT//2)]] \
+                      for i in range(len(dm.predict_slices))])
+            self.time = {'time_test' : test_dates}
         self.setup(dm)
 
     def setup(self, datamodule):
@@ -76,6 +87,7 @@ class FourDVarNetHydraRunner:
         self.lon, self.lat = datamodule.coordXY()
         w_ = np.zeros(self.cfg.dT)
         w_[int(self.cfg.dT / 2)] = 1.
+        w_ = np.ones(self.cfg.dT)
         self.wLoss = torch.Tensor(w_)
         self.resolution = datamodule.resolution
         self.original_coords = datamodule.get_original_coords()
@@ -88,8 +100,13 @@ class FourDVarNetHydraRunner:
         :param dataloader: Dataloader on which to run the test Checkpoint from which to resume
         :param trainer_kwargs: (Optional)
         """
+        start = timeit.default_timer()
         mod, trainer = self.train(ckpt_path, **trainer_kwargs)
+        stop1 = timeit.default_timer()
         self.test(dataloader=dataloader, _mod=mod, _trainer=trainer)
+        stop2 = timeit.default_timer()
+        print('# TRAINING TIME\t: ',np.round((stop1-start)/60.,2),' mins\t',
+              '# TEST TIME\t: ',np.round((stop2-stop1)/60.,2),' mins')
 
     def _get_model(self, ckpt_path=None):
         """
@@ -122,7 +139,7 @@ class FourDVarNetHydraRunner:
                                                     test_domain=self.cfg.test_domain,
                                                     resolution=self.resolution,
                                                     original_coords=self.original_coords,
-                                                    padded_coords=self.padded_coords
+                                                    padded_coords=self.padded_coords,
                                                     )
 
         else:
@@ -172,9 +189,15 @@ class FourDVarNetHydraRunner:
 
         num_gpus = gpus if isinstance(gpus, (int, float)) else  len(gpus) if hasattr(gpus, '__len__') else 0
         accelerator = "ddp" if (num_gpus * num_nodes) > 1 else None
-        trainer_kwargs_final = {**dict(num_nodes=num_nodes, gpus=gpus, logger=self.logger, strategy=accelerator, auto_select_gpus=(num_gpus * num_nodes) > 0,
-                             callbacks=[checkpoint_callback, lr_monitor]),  **trainer_kwargs}
-        print(trainer_kwargs)
+        #trainer_kwargs_final = {**dict(num_nodes=num_nodes, gpus=gpus, logger=self.logger, strategy=accelerator, auto_select_gpus=(num_gpus * num_nodes) > 0,
+        #                     callbacks=[checkpoint_callback, lr_monitor]),  **trainer_kwargs}
+        trainer_kwargs_final = {**dict(num_nodes=num_nodes,
+                                       gpus=gpus, 
+                                       logger=self.logger,
+                                       auto_select_gpus=(num_gpus * num_nodes) > 0,
+                                       callbacks=[checkpoint_callback, lr_monitor],
+                                       gradient_clip_val=self.grad_clip_val),
+                                       **trainer_kwargs}
         print(trainer_kwargs_final)
         trainer = pl.Trainer(**trainer_kwargs_final)
         trainer.fit(mod, self.dataloaders['train'], self.dataloaders['val'])
@@ -187,15 +210,33 @@ class FourDVarNetHydraRunner:
         :param dataloader: Dataloader on which to run the test Checkpoint from which to resume
         :param trainer_kwargs: (Optional)
         """
+ 
+        mod = _mod or self._get_model(ckpt_path=ckpt_path)
 
         if _trainer is not None:
             _trainer.test(mod, dataloaders=self.dataloaders[dataloader])
             return
 
+        trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, gradient_clip_val=self.grad_clip_val, **trainer_kwargs)
+        trainer.test(mod, dataloaders=self.dataloaders[dataloader])
+        return mod
+
+    def predict(self, ckpt_path=None, dataloader="predict", _mod=None, _trainer=None, **trainer_kwargs):
+        """
+        Test a model
+        :param ckpt_path: (Optional) Checkpoint from which to resume
+        :param dataloader: Dataloader on which to run the test Checkpoint from which to resume
+        :param trainer_kwargs: (Optional)
+        """
+
         mod = _mod or self._get_model(ckpt_path=ckpt_path)
 
-        trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, **trainer_kwargs)
-        trainer.test(mod, dataloaders=self.dataloaders[dataloader])
+        if _trainer is not None:
+            _trainer.predict(mod, dataloaders=self.dataloaders[dataloader])
+            return
+
+        trainer = pl.Trainer(num_nodes=1, gpus=1, accelerator=None, gradient_clip_val=self.grad_clip_val, **trainer_kwargs)
+        trainer.predict(mod, dataloaders=self.dataloaders[dataloader])
         return mod
 
     def profile(self):
@@ -229,7 +270,7 @@ class FourDVarNetHydraRunner:
 def _main(cfg):
     print(OmegaConf.to_yaml(cfg))
     pl.seed_everything(seed=cfg.get('seed', None))
-    dm = instantiate(cfg.datamodule)
+    print(OmegaConf.to_yaml(cfg))
     if cfg.get('callbacks') is not None:
         callbacks = [instantiate(cb_cfg) for cb_cfg in cfg.callbacks]
     else:
@@ -242,9 +283,14 @@ def _main(cfg):
     else:
         logger=True
     lit_mod_cls = get_class(cfg.lit_mod_cls)
+    if cfg.datamodule.resize_factor!=1:
+            cfg.datamodule.slice_win['lat'] =  int(cfg.datamodule.slice_win['lat']/cfg.datamodule.resize_factor)
+            cfg.datamodule.slice_win['lon'] =  int(cfg.datamodule.slice_win['lon']/cfg.datamodule.resize_factor)
+            cfg.datamodule.strides['lat'] =  int(cfg.datamodule.strides['lat']/cfg.datamodule.resize_factor)
+            cfg.datamodule.strides['lon'] =  int(cfg.datamodule.strides['lon']/cfg.datamodule.resize_factor)
+    dm = instantiate(cfg.datamodule,_convert_="partial")
     runner = FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls, callbacks=callbacks, logger=logger)
     call(cfg.entrypoint, self=runner)
-
 
 main = hydra.main(config_path='hydra_config', config_name='main')(_main)
 

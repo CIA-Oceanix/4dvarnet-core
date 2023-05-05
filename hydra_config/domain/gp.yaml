@@ -1,0 +1,7 @@
+lat:
+  _target_: builtins.slice
+  _args_: [0, 100]
+lon:
+  _target_: builtins.slice
+  _args_: [0, 100]
+

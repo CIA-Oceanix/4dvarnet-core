@@ -1,0 +1,5 @@
+oi_path: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/xp_ssh/data/ssh_NATL60_swot_4nadir.nc
+obs_mask_path: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/xp_ssh/data/dataset_nadir_0d_swot.nc
+gt_path: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/xp_ssh/data/NATL60-CJM165_GULFSTREAM_ssh_y2013.1y.nc
+sst_path: /gpfswork/rech/yrf/uba22to/4dvarnet-core/oi/xp_ssh/data/NATL60-CJM165_GULFSTREAM_sst_y2013.1y.nc
+

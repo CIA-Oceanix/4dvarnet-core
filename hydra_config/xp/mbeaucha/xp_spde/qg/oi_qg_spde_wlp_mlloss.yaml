@@ -1,0 +1,18 @@
+# @package _global_
+xp_name: oi_qg_spde_wlp_ml_loss
+
+datamodule:
+  resize_factor: 1
+
+params:
+  estim_parameters: true
+  loss_type: ml_loss
+  n_grad: 20
+  spde_type: advection
+
+defaults:
+  - /params: fourdvarnet_oi_qg
+  - /domain@datamodule.dim_range: qg
+  - /domain@params.test_domain: qg
+  - /training: oi_qg_spde
+  - _self_

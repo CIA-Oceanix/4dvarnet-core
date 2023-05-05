@@ -1,0 +1,12 @@
+# @package _global_
+xp_name: oi_gp_spde_pow_1_diff
+datamodule:
+  resize_factor: 1
+defaults:
+  - /params_gp@params: gp_diff_pow_1
+  - /params: fourdvarnet_oi_gp
+  - /domain@datamodule.dim_range: gp
+  - /domain@params.test_domain: gp
+  - /training: oi_gp_spde
+  - _self_
+

@@ -1,0 +1,20 @@
+# @package _global_
+xp_name: oi_gp_unet_mseoi_loss_pow_1_diff
+
+params:
+  oi: True
+  loss_type: mseoi_loss
+
+datamodule:
+  resize_factor: 1
+
+lit_mod_cls: oi.xp_gp.lit_model_phi.LitModel
+
+defaults:
+  - /params_gp@params: gp_diff_pow_1
+  - /params: fourdvarnet_oi_gp
+  - /domain@datamodule.dim_range: gp
+  - /domain@params.test_domain: gp
+  - /training: oi_gp_4dvarnet
+  - _self_
+

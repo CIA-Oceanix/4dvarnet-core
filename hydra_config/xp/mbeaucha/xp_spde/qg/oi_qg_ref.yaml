@@ -1,0 +1,13 @@
+# @package _global_
+xp_name: oi_qg_ref
+
+datamodule:
+  resize_factor: 1
+
+defaults:
+  - /params: fourdvarnet_oi_qg
+  - /domain@datamodule.dim_range: qg
+  - /domain@params.test_domain: qg
+  - /training: oi_qg_ref
+  - _self_
+

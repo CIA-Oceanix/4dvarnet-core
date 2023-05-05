@@ -1,0 +1,8 @@
+# @package _global_
+xp_name: oi_osse
+defaults:
+  - /params: fourdvarnet_oi_osse
+  - /domain@datamodule.dim_range: gf
+  - /training: oi_osse
+  - _self_
+
