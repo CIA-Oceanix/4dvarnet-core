@@ -57,16 +57,18 @@ datamodule:
       _args_: [-6, 36.5]
       
   train_slices: 
+    - _target_: builtins.slice
+      _args_: ${adjust_testslices:['2021-02-09', '2021-06-30'],${params.dT}}
     #~ - _target_: builtins.slice
       #~ _args_: ['2019-01-01', '2019-10-10']
-    - _target_: builtins.slice
+    #~ - _target_: builtins.slice
       #~ _args_: ['2019-11-23', '2019-12-31']
-      _args_: ${adjust_testslices:['2021-02-09', '2021-06-30'],${params.dT}}
       
   val_slices: 
     - _target_: builtins.slice
-      #~ _args_: ['2020-02-04', '2020-03-31']
       _args_: ${adjust_testslices:['2021-02-09', '2021-06-30'],${params.dT}}
+    #~ - _target_: builtins.slice
+      #~ _args_: ['2020-02-04', '2020-03-31']
       
   test_slices: 
     - _target_: builtins.slice
@@ -82,11 +84,11 @@ datamodule:
     time: ${params.dT}
     
   strides: 
-    #~ lat: ${div:20,${datamodule.resize_factor}}
-    #~ lon: ${div:20,${datamodule.resize_factor}}
     lat: ${div:240}
     lon: ${div:240}
     time: 1
+    #~ lat: ${div:20,${datamodule.resize_factor}}
+    #~ lon: ${div:20,${datamodule.resize_factor}}
   
   
 defaults:
