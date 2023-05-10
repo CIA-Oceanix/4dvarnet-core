@@ -85,7 +85,6 @@ class XrDataset(Dataset):
         self.interp_na = interp_na
         # try/except block for handling both netcdf and zarr files
         try:
-            print('ok open:'+path)
             _ds = xr.open_dataset(path)
         except OSError as ex:
             raise ex
@@ -107,7 +106,6 @@ class XrDataset(Dataset):
 
 
         self.ds = _ds.sel(**(dim_range or {}))
-        print('OK dim select')
         if resize_factor!=1:
             self.ds = self.ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
             self.resolution = self.resolution*resize_factor
@@ -116,7 +114,6 @@ class XrDataset(Dataset):
         if not self.auto_padding:
             self.original_coords = self.ds.coords
             self.padded_coords = self.ds.coords
-            print('OK no auto_padding')
 
         if self.auto_padding:
             # dimensions
@@ -183,13 +180,11 @@ class XrDataset(Dataset):
 
 
         self.ds = self.ds.transpose("time", "lat", "lon")
-        print('OK transpose')
         if self.interp_na:
             self.ds = interpolate_na_2D(self.ds)
 
         if compute:
             self.ds = self.ds.compute()
-        print('OK compute!')
 
         self.slice_win = slice_win
         self.strides = strides or {}
@@ -581,7 +576,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             )
             for slices in (self.val_slices, self.test_slices)
         ]
-
+        print('ok loading dataset!!!!!')
         if self.sst_var is None:
             self.norm_stats = self.compute_norm_stats(self.train_ds)
             self.set_norm_stats(self.train_ds, self.norm_stats)
@@ -592,9 +587,12 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             self.set_norm_stats(self.train_ds, self.norm_stats, self.norm_stats_sst)
             self.set_norm_stats(self.val_ds, self.norm_stats, self.norm_stats_sst)
             self.set_norm_stats(self.test_ds, self.norm_stats, self.norm_stats_sst)
+        print('ok normalizing dataset!!!!!')
 
         self.bounding_box = self.get_domain_bounds(self.train_ds)
+        print('ok bounding box!!!!!')
         self.ds_size = self.get_domain_split()
+        print('ok domain split!!!!!')
 
     def train_dataloader(self):
         return DataLoader(self.train_ds, **{**dict(shuffle=True), **self.dl_kwargs})
