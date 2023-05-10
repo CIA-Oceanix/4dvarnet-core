@@ -64,7 +64,7 @@ class XrDataset(Dataset):
         decode=False,
         resize_factor=1,
         compute=False,
-        auto_padding=True,
+        auto_padding=False, #### /!\/!\/!\ ####
         interp_na=False,
     ):
         """
