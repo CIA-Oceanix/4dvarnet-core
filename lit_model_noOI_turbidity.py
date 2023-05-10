@@ -158,7 +158,8 @@ class LitModelOI(LitModelAugstate):
         return md
 
     def diag_epoch_end(self, outputs, log_pref='test'):
-        full_outputs = self.gather_outputs(outputs, log_pref=log_pref)
+        # ~ full_outputs = self.gather_outputs(outputs, log_pref=log_pref)
+        full_outputs = outputs
         if full_outputs is None:
             print("full_outputs is None on ", self.global_rank)
             return
