@@ -237,7 +237,7 @@ class LitModelOI(LitModelAugstate):
             # ~ loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
             
             # ~ outputs_GT_wo_nan = outputs.where(~targets_GT.isnan(), torch.zeros_like(outputs))
-            loss_All, loss_GAll = self.sla_loss(outputs_GT, targets_GT)
+            loss_All, loss_GAll = self.sla_loss(outputs, targets_GT)
             
             loss_AE = self.loss_ae(outputs)
 
