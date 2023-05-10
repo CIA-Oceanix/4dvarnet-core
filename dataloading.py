@@ -303,7 +303,7 @@ class FourDVarNetDataset(Dataset):
             resize_factor=resize_factor,
             compute=compute,
             auto_padding=use_auto_padding,
-            interp_na=True,
+            interp_na=False,
         )
 
         if sst_var is not None:
@@ -317,7 +317,7 @@ class FourDVarNetDataset(Dataset):
                 resize_factor=resize_factor,
                 compute=compute,
                 auto_padding=use_auto_padding,
-                interp_na=True,
+                interp_na=False,
             )
         else:
             self.sst_ds = None
@@ -553,7 +553,6 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 compute=self.compute,
                 pp=self.pp,
             ) for sl in self.train_slices])
-
 
         self.val_ds, self.test_ds = [
             ConcatDataset(
