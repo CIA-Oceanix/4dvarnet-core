@@ -485,6 +485,9 @@ python hydra_main.py file_paths=turbidity_bbp/patch10/r9 xp=cdorff/turbidity_bbp
 python hydra_main.py file_paths=turbidity_bbp/full_data xp=cdorff/turbidity_bbp/xp_rf4_dt7_AE entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=46-val_loss\=26.4097.ckpt'
 
 
+###Test full Med...
+python hydra_main.py file_paths=turbidity_bbp/full_Med xp=cdorff/turbidity_bbp/xp_full entrypoint=test entrypoint.ckpt_path='version_0/checkpoints/modelCalSLAInterpGF-epoch\=161-val_loss\=14.1621.ckpt'
+
 ### Clear unnecessary files
 rm -rf dashboard/xp*/version*/val_data
 rm -rf dashboard/xp*/lightning*/version*/test_data
