@@ -84,8 +84,8 @@ datamodule:
     time: ${params.dT}
     
   strides: 
-    lat: ${div:240}
-    lon: ${div:240}
+    lat: 240
+    lon: 240
     time: 1
     #~ lat: ${div:20,${datamodule.resize_factor}}
     #~ lon: ${div:20,${datamodule.resize_factor}}
