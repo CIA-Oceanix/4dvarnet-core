@@ -169,9 +169,7 @@ class LitModelOI(LitModelAugstate):
             diag_ds = self.trainer.val_dataloaders[0].dataset.datasets[0]
         else:
             raise Exception('unknown phase')
-        print('OK ! ! !')
         self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
-        print('OK 2 ! ! !')
 
         Path(self.logger.log_dir).mkdir(exist_ok=True)
         path_save1 = self.logger.log_dir + f'/test.nc'

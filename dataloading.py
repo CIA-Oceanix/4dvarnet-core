@@ -85,6 +85,7 @@ class XrDataset(Dataset):
         self.interp_na = interp_na
         # try/except block for handling both netcdf and zarr files
         try:
+            print('ok open:'+path)
             _ds = xr.open_dataset(path)
         except OSError as ex:
             raise ex
@@ -106,6 +107,7 @@ class XrDataset(Dataset):
 
 
         self.ds = _ds.sel(**(dim_range or {}))
+        print('OK dim select')
         if resize_factor!=1:
             self.ds = self.ds.coarsen(lon=resize_factor).mean(skipna=True).coarsen(lat=resize_factor).mean(skipna=True)
             self.resolution = self.resolution*resize_factor
@@ -114,6 +116,7 @@ class XrDataset(Dataset):
         if not self.auto_padding:
             self.original_coords = self.ds.coords
             self.padded_coords = self.ds.coords
+            print('OK no auto_padding')
 
         if self.auto_padding:
             # dimensions
@@ -180,12 +183,13 @@ class XrDataset(Dataset):
 
 
         self.ds = self.ds.transpose("time", "lat", "lon")
-
+        print('OK transpose')
         if self.interp_na:
             self.ds = interpolate_na_2D(self.ds)
 
         if compute:
             self.ds = self.ds.compute()
+        print('OK compute!')
 
         self.slice_win = slice_win
         self.strides = strides or {}
