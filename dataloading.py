@@ -460,6 +460,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
 
 
     def mean_stds(self, ds):
+        print('mean_stds, l.463....')
         sum = 0
         count = 0
         for gt in [_it for _ds in ds.datasets for _it in _ds.gt_ds]:
@@ -470,7 +471,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         for gt in [_it for _ds in ds.datasets for _it in _ds.gt_ds]:
             sum += np.nansum((gt - mean)**2)
         std = (sum / count)**0.5
-
+        print('fin mean_stds, l.474')
         if self.sst_var == None:
             return mean, std
         else:

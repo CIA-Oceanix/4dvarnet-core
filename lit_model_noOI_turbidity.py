@@ -159,6 +159,7 @@ class LitModelOI(LitModelAugstate):
 
     def diag_epoch_end(self, outputs, log_pref='test'):
         # ~ full_outputs = self.gather_outputs(outputs, log_pref=log_pref)
+        print('diag_epoch_end, l.162')
         full_outputs = [outputs]
         if full_outputs is None:
             print("full_outputs is None on ", self.global_rank)
@@ -169,7 +170,9 @@ class LitModelOI(LitModelAugstate):
             diag_ds = self.trainer.val_dataloaders[0].dataset.datasets[0]
         else:
             raise Exception('unknown phase')
+        print('diag_epoch_end, l.173')
         self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
+        print('diag_epoch_end, l.175')
 
         Path(self.logger.log_dir).mkdir(exist_ok=True)
         path_save1 = self.logger.log_dir + f'/test.nc'
