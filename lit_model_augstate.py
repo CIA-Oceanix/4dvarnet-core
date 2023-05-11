@@ -316,7 +316,7 @@ class LitModelAugstate(pl.LightningModule):
             return [torch.load(f) for f in sorted(data_path.glob('*'))]
 
     def build_test_xr_ds(self, outputs, diag_ds):
-        print('build_test_xr_ds, l.319')
+        print('build_test_xr_ds')
         outputs_keys = list(outputs[0][0].keys())
         with diag_ds.get_coords():
             self.test_patch_coords = [
@@ -342,27 +342,22 @@ class LitModelAugstate(pl.LightningModule):
             for  xs, coords
             in zip(iter_item(outputs), self.test_patch_coords)
         ]
-        print('build_test_xr_ds, l.345')
         fin_ds = xr.merge([xr.zeros_like(ds[['time','lat', 'lon']]) for ds in dses])
         fin_ds = fin_ds.assign(
             {'weight': (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
         )
-        print('build_test_xr_ds, l.350')
         for v in dses[0]:
             fin_ds = fin_ds.assign(
                 {v: (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
             )
-        print('build_test_xr_ds, l.356')
-        print(fin_ds.sizes)
         for ds in dses:
+            print('debut iter ds')
             ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
-            print(ds_nans.sizes)
             xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.gt.dims)
             _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
-            # ~ _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.)
             print(_ds.sizes)
-            fin_ds = fin_ds + _ds
             print(fin_ds.sizes)
+            fin_ds = fin_ds + _ds
             print('ok iter ds')
 
         print('fin build_test_xr_ds, l.363')
