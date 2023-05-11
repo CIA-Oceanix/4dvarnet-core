@@ -362,6 +362,8 @@ class LitModelAugstate(pl.LightningModule):
             # ~ _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.)
             print(_ds.sizes)
             fin_ds = fin_ds + _ds
+            print(fin_ds.sizes)
+            print('ok iter ds')
 
         print('fin build_test_xr_ds, l.363')
         return (
