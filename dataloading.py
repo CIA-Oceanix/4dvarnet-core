@@ -495,12 +495,20 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             M_sst = float(xr.concat([_ds.sst_ds.ds[_ds.sst_ds.var] for _ds in ds.datasets], dim='time').max())
 
             return [m, M-m], [m_sst, M_sst-m_sst]
+            
+    def noNorm(self, ds):
+        if self.sst_var == None:
+            return 0, 1
+        else:
+            return [0, 1], [0, 1]
 
     def compute_norm_stats(self, ds):
         if self.pp == 'std':
             return self.mean_stds(ds)
         elif self.pp == 'norm':
             return self.min_max(ds)
+        elif self.pp == None:
+            return self.noNorm(ds)
 
     def set_norm_stats(self, ds, ns, ns_sst=None):
         for _ds in ds.datasets:
