@@ -353,6 +353,7 @@ class LitModelAugstate(pl.LightningModule):
                 {v: (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
             )
         print('build_test_xr_ds, l.356')
+        print(fin_ds.sizes)
         for ds in dses:
             ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
             print(ds_nans.sizes)
