@@ -316,6 +316,7 @@ class LitModelAugstate(pl.LightningModule):
             return [torch.load(f) for f in sorted(data_path.glob('*'))]
 
     def build_test_xr_ds(self, outputs, diag_ds):
+        print("build_test_xr_ds")
         outputs_keys = list(outputs[0][0].keys())
         with diag_ds.get_coords():
             self.test_patch_coords = [
@@ -349,7 +350,9 @@ class LitModelAugstate(pl.LightningModule):
             fin_ds = fin_ds.assign(
                 {v: (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
             )
+        iter_ = 0
         for ds in dses:
+            print(iter_++)
             # ~ ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
             xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.gt.dims)
             # ~ _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
