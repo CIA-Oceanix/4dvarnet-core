@@ -20,6 +20,7 @@ params:
   alpha_mse_gssh: 1000.
   norm_obs: l2
   norm_prior: l2
+  sS: 2
   test_domain:
     lat:
       _target_: builtins.slice
