@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: xp_turbidity_bbp_rf1_dt7_Unet100_lstm200s
+xp_name: xp_turbidity_bbp_rf1_dt7_Unet100_lstm200
 
 params:
   model: 4dvarnet_OI_unet
