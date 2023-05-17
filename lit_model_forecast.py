@@ -132,6 +132,9 @@ class LitModelForecast(LitModelOI):
         inherit from LitModelOI class
     """
 
+    MODELS = dict(LitModelOI.MODELS)
+    MODELS.update({'4dvarnet_unet_dm': unet_dm})
+
     def __init__(self,
                  hparam=None,
                  min_lon=None,

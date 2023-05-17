@@ -31,10 +31,8 @@ def get_4dvarnet_oi(hparams):
 
 
 class LitModelOI(LitModelAugstate):
-    MODELS = {
-        '4dvarnet_OI': get_4dvarnet_oi,
-        'phi': get_phi,
-    }
+    MODELS = dict(LitModelAugstate.MODELS)
+    MODELS.update({'4dvarnet_OI': get_4dvarnet_oi})
 
     def configure_optimizers(self):
         opt = torch.optim.Adam
