@@ -56,17 +56,32 @@ datamodule:
       _target_: builtins.slice
       _args_: [3., 6.09]
       
+      
   train_slices: 
     - _target_: builtins.slice
-      _args_: ['2007-01-01', '2017-12-31']
+      _args_: ['2019-01-01', '2019-10-10']
+    - _target_: builtins.slice
+      _args_: ['2019-11-23', '2019-12-31']
       
   val_slices: 
     - _target_: builtins.slice
-      _args_: ['2019-01-01', '2019-03-31']
+      _args_: ['2020-02-04', '2020-03-31']
       
   test_slices: 
     - _target_: builtins.slice
-      _args_: ${adjust_testslices:['2018-01-01', '2018-12-31'],${params.dT}}
+      _args_: ${adjust_testslices:['2021-02-09', '2021-06-30'],${params.dT}}
+      
+  #~ train_slices: 
+    #~ - _target_: builtins.slice
+      #~ _args_: ['2007-01-01', '2017-12-31']
+      
+  #~ val_slices: 
+    #~ - _target_: builtins.slice
+      #~ _args_: ['2019-01-01', '2019-03-31']
+      
+  #~ test_slices: 
+    #~ - _target_: builtins.slice
+      #~ _args_: ${adjust_testslices:['2018-01-01', '2018-12-31'],${params.dT}}
       
   oi_var: "bbp443"
   gt_var: "bbp443"
