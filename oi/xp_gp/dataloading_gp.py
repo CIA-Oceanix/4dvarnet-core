@@ -163,7 +163,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
     def compute_norm_stats(self, ds):
         mean = float(xr.concat([_ds.gt_ds.ds[_ds.gt_ds.var] for _ds in ds.datasets], dim='time').mean())
         std = float(xr.concat([_ds.gt_ds.ds[_ds.gt_ds.var] for _ds in ds.datasets], dim='time').std())
-#        mean = 0. ; std = 1.
+        mean = 0. ; std = 1.
         return mean, std
 
     def set_norm_stats(self, ds, ns):

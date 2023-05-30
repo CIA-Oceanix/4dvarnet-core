@@ -3,8 +3,8 @@ xp_name: oi_qg_4dvarnet
 
 params:
   loss_type: mse_loss
-  n_fourdvar_iter: 3
-  n_grad: 5
+  n_fourdvar_iter: 1
+  n_grad: 40
   dT: 5
   shapeData:
     - 5

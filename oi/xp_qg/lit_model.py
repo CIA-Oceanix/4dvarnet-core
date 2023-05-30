@@ -299,7 +299,7 @@ class LitModel(pl.LightningModule):
             loss_AE = torch.nanmean((self.model.phi_r(outputs) - outputs) ** 2)
 
             # supervised loss
-            loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
+            loss = self.hparams.alpha_mse_ssh * loss_All  + self.hparams.alpha_mse_gssh * loss_GAll
             loss += 0.5 * self.hparams.alpha_proj * loss_AE 
 
             # metrics

@@ -108,7 +108,7 @@ class FourDVarNetDataset(Dataset):
         mean, std, mean_u, std_u, mean_v, std_v = self.norm_stats
         _gt_item = (self.gt_ds[item] - mean) / std
         _u_item = (self.u_ds[item] - mean_u) / std_u
-        _v_item = (self.u_ds[item] - mean_v) / std_v
+        _v_item = (self.v_ds[item] - mean_v) / std_v
         _obs_item = self.obs_ds[item] - mean / std
         obs_mask_item = np.where(~np.isnan(_obs_item), 1., 0.)
         gt_item = np.where(~np.isnan(_gt_item), _gt_item, 0.)

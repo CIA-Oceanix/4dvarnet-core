@@ -432,10 +432,19 @@ class Solver_Grad_4DVarNN(nn.Module):
         state_k_plus_1 = state_k - grad
         # parameters: kappa > 0
         kappa = state_k_plus_1[:,n_t:(2*n_t),:,:]
-        #kappa = F.softmax(kappa) + .1
-        kappa = 3.*torch.ones_like(kappa)
+        kappa = F.softmax(kappa)#,beta=3)
+        #kappa = F.relu(kappa)+0.01
+        #kappa = F.softplus(kappa)
         state_k_plus_1 = torch.index_add(state_k_plus_1,1,torch.arange(n_t,2*n_t).to(device),-1*state_k_plus_1[:,n_t:(2*n_t),:,:])
         state_k_plus_1 = torch.index_add(state_k_plus_1,1,torch.arange(n_t,2*n_t).to(device),kappa)
+        # parameters: tau > 0
+        tau = state_k_plus_1[:,(2*n_t):(3*n_t),:,:]
+        tau = F.softmax(tau)#,beta=3)
+        #tau[:,:,:,:] = .3
+        #tau = F.relu(tau)+.01
+        state_k_plus_1 = torch.index_add(state_k_plus_1,1,torch.arange(2*n_t,3*n_t).to(device),-1*state_k_plus_1[:,(2*n_t):(3*n_t),:,:])
+        state_k_plus_1 = torch.index_add(state_k_plus_1,1,torch.arange(2*n_t,3*n_t).to(device),tau)
+
         return state_k_plus_1, hidden, cell, normgrad_, params
 
     def var_cost(self, state, yobs, mask, estim_params):
@@ -443,7 +452,6 @@ class Solver_Grad_4DVarNN(nn.Module):
         n_t = n_t//7
         # augmented state [x,params], i.e. (#b,#t+#params,#y,#x)
         x = state[:,:n_t,:,:]
-
         dy = self.model_H(x,yobs,mask)
         dy_new=list()
         for i in range(n_b):

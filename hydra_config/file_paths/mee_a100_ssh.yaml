@@ -1,0 +1,4 @@
+oi_path: /DATASET/data_xp_spde/oi/ssh_NATL60_swot_4nadir.nc
+obs_mask_path: /DATASET/data_xp_spde/data_new/dataset_nadir_0d_swot.nc
+gt_path: /DATASET/data_xp_spde/ref/NATL60-CJM165_GULFSTREAM_ssh_y2013.1y.nc
+

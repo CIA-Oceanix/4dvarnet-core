@@ -290,7 +290,6 @@ class LitModel(pl.LightningModule):
             g_outputs = self.gradient_img(outputs)
             # Mahanalobis distance
             Q = self.model.operator_spde(kappa, m, H, tau, square_root=False)
-            Q.requires_grad=True
             xtQx = list()
             for i in range(n_b):
                 xtQ = torch.sparse.mm(Q[i],

@@ -52,7 +52,7 @@ class LitModel(pl.LightningModule):
         self.spde_type = self.hparams.spde_type
         self.pow = self.hparams.pow
 
-        self.n_simu = 1
+        self.n_simu = 2
 
         # use OI or for metrics or not
         self.use_oi = self.hparams.oi if hasattr(self.hparams, 'oi') else False
@@ -83,18 +83,58 @@ class LitModel(pl.LightningModule):
         metrics = []
         state_init = [None]
         out=None
+        # modify batch is for QG theory
+        targets_oi, inputs_mask, inputs_obs, targets_gt = batch
+        n_b, n_t, n_y, n_x = inputs_obs.shape
+        dx, dy, dt = [1,1,1]
+        # outputs is PV here: use QG-theory for inversion to SSH: SSH=A-1*PV
+        A = DiffOperator_Isotropic(n_x,n_y,dx,dy,kappa=1./3)
+        inputs_obs = torch.where(inputs_obs==0.,np.nan,inputs_obs)
+        inputs_pv, inputs_mask_pv = self.tr_pv(inputs_obs,A)
+        inputs_obs = torch.where(inputs_obs.isnan(),0.,inputs_obs)
+        inputs_pv = torch.where(inputs_pv.isnan(),0.,inputs_pv)
+        inputs_mask_pv = torch.where(inputs_pv==0.,0.,1.)
+        targets_oi_pv, _ = self.tr_pv(targets_oi,A)
+        targets_gt_pv, _ = self.tr_pv(targets_gt,A)
+        if self.use_oi:
+            inputs_obs = inputs_obs-torch.where(inputs_mask!=0, targets_oi, torch.zeros_like(targets_oi))
+            inputs_pv = inputs_pv-torch.where(inputs_mask_pv!=0, targets_oi_pv, torch.zeros_like(targets_oi_pv))
+        batch = targets_oi_pv, inputs_mask_pv, inputs_pv, targets_gt_pv
         for i in range(self.hparams.n_fourdvar_iter):
-            if phase=='test':
-                _loss, out, params, _metrics, sc = self.compute_loss(batch, phase=phase, state_init=state_init)
-            else:
-                _loss, out, params, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
+            _loss, out, params, _metrics = self.compute_loss(batch, phase=phase, state_init=state_init)
             state_init = [out.detach()]
             losses.append(_loss)
             metrics.append(_metrics)
-        if phase=='test':
-            return losses[-1], out, params, metrics[-1], sc
-        else:
-            return losses[-1], out, params, metrics[-1]
+        return losses[-1], out, params, metrics[-1]
+
+    def tr_pv(self,inputs_obs,A):
+        n_b, n_t, n_y, n_x = inputs_obs.shape
+        # SSH obs to PV obs
+        inp_pv = []
+        for i in range(n_b):
+            inputs_pv_t = []
+            for j in range(n_t):
+                inputs_pv_t.append(torch.sparse.mm(A,torch.reshape(inputs_obs[i][j,:,:],(n_x*n_y,1))))
+            inputs_ = torch.stack(inputs_pv_t,dim=0)
+            inp_pv.append(inputs_)
+        inputs_pv = torch.stack(inp_pv,dim=0)
+        inputs_pv = torch.reshape(inputs_pv,(n_b,n_t,n_x,n_y))
+        inputs_mask_pv = torch.where(inputs_pv!=0.,1.,0.)
+        return inputs_pv, inputs_mask_pv
+
+    def inv_tr_pv(self,outputs,A):
+        n_b, n_t, n_y, n_x = outputs.shape
+        # outputs is PV here: use QG-theory for inversion to SSH: SSH=A-1*PV
+        out = []
+        for i in range(n_b):
+            outputs_t = []
+            for j in range(n_t):
+                outputs_t.append(cupy_solve_sparse.apply(A,torch.flatten(outputs[i][j,:,:])))
+            outputs_ = torch.stack(outputs_t,dim=0)
+            out.append(outputs_)
+        outputs = torch.stack(out,dim=0)
+        outputs = torch.reshape(outputs,(n_b,n_t,n_x,n_y))
+        return outputs
 
     def run_simulation(self,i,tau,M,x,dx,dy,dt,n_init_run=10):
         nb_nodes = M.shape[0]
@@ -188,19 +228,78 @@ class LitModel(pl.LightningModule):
     def test_step(self, test_batch, batch_idx):
 
         targets_oi, inputs_mask, inputs_obs, targets_gt = test_batch
+        n_b, n_t, n_y, n_x = inputs_obs.shape
+        nb_nodes = n_x*n_y
+        dx, dy, dt = [1,1,1]
+        # outputs is PV here: use QG-theory for inversion to SSH: SSH=A-1*PV
+        A = DiffOperator_Isotropic(n_x,n_y,dx,dy,kappa=1./3)
 
         with torch.inference_mode(mode=False):
-            loss, out, param, metrics, simu = self(test_batch, phase='test')
+            # 4DVarNet
+            loss, out, param, metrics = self(test_batch, phase='test')
+            out = out[:,:n_t,:,:]
+            if self.use_oi:
+                out = out + targets_oi
+            # outputs is PV here: use QG-theory for inversion to SSH: SSH=A-1*PV
+            out = self.inv_tr_pv(out,A)
+            # retrieve parameters
+            m = torch.reshape(param[1],(n_b,2,nb_nodes,n_t))
+            H = None
+            kappa = 1./3
+            tau = 1.
+            # run n_simu non-conditional simulation
+            I = sparse_eye(nb_nodes)
+            simu_cond = []
+            for isimu in range(self.n_simu):
+                x_simu = []
+                for ibatch in range(n_b):
+                    x_simu_ = []
+                    for i in range(n_t):
+                        A = DiffOperator(n_x,n_y,dx,dy,m[ibatch,:,:,i],
+                                                           None,
+                                                           kappa)
+                        M = I+pow_diff_operator(A,self.pow,sparse=True)
+                        x_simu_ = self.run_simulation(i,tau,M,x_simu_,dx,dy,dt,n_init_run=10)
+                    x_simu_ = torch.stack(x_simu_,dim=0)
+                    x_simu_ = torch.reshape(x_simu_,(n_t,n_x,n_y))
+                    # x,y -> y,x
+                    x_simu_ = torch.permute(x_simu_,(0,2,1))
+                    x_simu.append(x_simu_)
+                x_simu = torch.stack(x_simu,dim=0).to(device)
+                # interpolate the simulation based on LSTM-solver
+                idx = torch.where(inputs_mask==0.)
+                inputs_simu = x_simu.clone()
+                inputs_simu[idx] = 0.
+                inputs_obs_simu = inputs_simu
+                # create simu_batch (oi->0)
+                simu_batch = torch.zeros_like(inputs_simu), inputs_mask, inputs_obs_simu, x_simu
+                _, x_itrp_simu, _, _ = self(simu_batch, phase='test')
+                x_itrp_simu = x_itrp_simu[:,:n_t,:,:]
+                x_itrp_simu = x_itrp_simu.detach()
+                # conditional simulation
+                x_simu_cond = x_simu
+                #x_simu_cond = out+(x_simu-x_itrp_simu)
+                # outputs is PV here: use QG-theory for inversion to SSH: SSH=A-1*PV
+                x_simu_cond = self.inv_tr_pv(x_simu_cond,A)
+                simu_cond.append(x_simu_cond)
+            simu_cond = torch.stack(simu_cond,dim=4)
+            simu_cond = simu_cond.detach()
+
         if loss is not None:
             self.log('test_loss', loss)
             self.log("test_mse", metrics['mse'] / self.var_Tt, on_step=False, on_epoch=True, prog_bar=True)
             self.log("test_mseG", metrics['mseGrad'] / metrics['meanGrad'], on_step=False, on_epoch=True, prog_bar=True)
+    
+        # PV here: use QG-theory for inversion to SSH: SSH=A-1*PV
+        targets_gt = self.inv_tr_pv(targets_gt,A)
+        inputs_obs = self.inv_tr_pv(inputs_obs,A)
+        targets_oi = self.inv_tr_pv(targets_oi,A)
 
         return {'gt'    : (targets_gt.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'obs'   : (inputs_obs.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'oi' : (targets_oi.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'preds' : (out.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
-                'simulations' : (simu.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX),:]*np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'simulations' : (simu_cond.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX),:]*np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'params': param}
 
     def test_epoch_end(self, outputs):
@@ -388,7 +487,7 @@ class LitModel(pl.LightningModule):
         dt = 1
 
         # outputs is PV here: use QG-theory for inversion to SSH: SSH=A-1*PV
-        A = DiffOperator_Isotropic(n_x,n_y,dx,dy,kappa=1./25)
+        A = DiffOperator_Isotropic(n_x,n_y,dx,dy,kappa=1./3)
 
         # handle patch with no observation
         if inputs_mask.sum().item() == 0:
@@ -401,99 +500,19 @@ class LitModel(pl.LightningModule):
         targets_gt_wo_nan = targets_gt.where(~targets_gt.isnan(), torch.zeros_like(targets_gt))
         targets_mask = torch.where(targets_gt!=0.)
 
-        def tr_pv(inputs_obs):
-            # SSH obs to PV obs
-            inp_pv = []
-            for i in range(n_b):
-                inputs_pv_t = []
-                for j in range(n_t):
-                    inputs_pv_t.append(torch.sparse.mm(A,torch.reshape(inputs_obs[i][j,:,:],(n_x*n_y,1))))
-                inputs_ = torch.stack(inputs_pv_t,dim=0)
-                inp_pv.append(inputs_)
-            inputs_pv = torch.stack(inp_pv,dim=0)
-            inputs_pv = torch.reshape(inputs_pv,(n_b,n_t,n_x,n_y))
-            inputs_mask_pv = torch.where(inputs_pv!=0.,1.,0.)
-            return inputs_pv, inputs_mask_pv
-
-        def inv_tr_pv(outputs):
-            # outputs is PV here: use QG-theory for inversion to SSH: SSH=A-1*PV
-            out = []
-            for i in range(n_b):
-                outputs_t = []
-                for j in range(n_t):
-                    outputs_t.append(cupy_solve_sparse.apply(A,torch.flatten(outputs[i][j,:,:])))
-                outputs_ = torch.stack(outputs_t,dim=0)
-                out.append(outputs_)
-            outputs = torch.stack(out,dim=0)
-            outputs = torch.reshape(outputs,(n_b,n_t,n_x,n_y))
-            return outputs
-
-        inputs_obs = torch.where(inputs_obs==0.,np.nan,inputs_obs)
-        inputs_pv, inputs_mask_pv = tr_pv(inputs_obs)
-        inputs_obs = torch.where(inputs_obs.isnan(),0.,inputs_obs)
-        inputs_pv = torch.where(inputs_pv.isnan(),0.,inputs_pv)
-        inputs_mask_pv = torch.where(inputs_pv==0.,0.,1.)
-        targets_oi_pv, _ = tr_pv(targets_oi)
-        targets_gt_pv, _ = tr_pv(targets_gt)
-        try_inv = inv_tr_pv(targets_gt_pv)
-
-        '''
-        targets_gt = targets_gt.detach().cpu().numpy()[1,2,:,:]
-        targets_gt_pv = targets_gt_pv.detach().cpu().numpy()[1,2,:,:]
-        try_inv = try_inv.detach().cpu().numpy()[1,2,:,:]
-        '''
-        '''
-        targets_gt = inputs_obs.detach().cpu().numpy()[1,4,:,:]
-        targets_gt_pv = inputs_pv.detach().cpu().numpy()[1,4,:,:]
-        try_inv = inv_tr_pv(inputs_pv).detach().cpu().numpy()[1,4,:,:]
-        fig = plt.figure(figsize=(15,9))
-        gs = gridspec.GridSpec(1, 3)
-        gs.update(wspace=0.5)
-        crs = ccrs.PlateCarree(central_longitude=0.0)
-        ax1 = fig.add_subplot(gs[0, 0], projection=crs)
-        ax2 = fig.add_subplot(gs[0, 1], projection=crs)
-        ax3 = fig.add_subplot(gs[0, 2], projection=crs)
-        vmax = np.nanmax(np.abs(targets_gt))
-        vmin = -1.*vmax
-        cm = plt.cm.coolwarm
-        norm = colors.Normalize(vmin=vmin, vmax=vmax)
-        vmax_pv = np.nanmax(np.abs(targets_gt_pv))
-        vmin_pv = -1.*vmax
-        cm_pv = plt.cm.viridis
-        norm_pv = colors.Normalize(vmin=vmin_pv, vmax=vmax_pv)
-        extent = [np.min(self.lon),np.max(self.lon),np.min(self.lat),np.max(self.lat)]
-        plot(ax1, self.lon, self.lat, targets_gt, "SSH", extent=extent, cmap=cm, norm=norm, colorbar=False, cartopy=True)
-        plot(ax2, self.lon, self.lat, targets_gt_pv, "PV", extent=extent, cmap=cm_pv, norm=norm_pv, colorbar=False, cartopy=True)
-        plot(ax3, self.lon, self.lat, try_inv, "iSSH", extent=extent, cmap=cm, norm=norm, colorbar=False, cartopy=True)
-        plt.show()
-        '''
-
-        if self.use_oi:
-            inputs_obs = inputs_obs-torch.where(inputs_mask!=0, targets_oi, torch.zeros_like(targets_oi))
-            inputs_pv = inputs_pv-torch.where(inputs_mask_pv!=0, targets_oi_pv, torch.zeros_like(targets_oi_pv))
-
         if state_init[0] is not None:
-            state_init = state_init[0]
-            state_init_pv, _ = tr_pv(state_init)
+            state_init_pv = state_init[0]
         else:
-            if self.use_oi:
-                state_init = inputs_obs-torch.where(inputs_mask!=0, targets_oi, torch.zeros_like(targets_oi))
-                state_init_pv = inputs_pv-torch.where(inputs_mask_pv!=0, targets_oi_pv, torch.zeros_like(targets_oi_pv))
-            else:
-                state_init = inputs_obs
-                state_init_pv = inputs_pv
+            state_init_pv = inputs_obs
             m1_init = torch.zeros(n_b,n_t,n_x,n_y).to(device)
             m2_init = torch.zeros(n_b,n_t,n_x,n_y).to(device)
             state_init_pv = torch.cat((state_init_pv,
                                 m1_init,
                                 m2_init),dim=1)
 
-        state_init = state_init.clone()
         inputs_obs = inputs_obs.clone()
         inputs_mask = inputs_mask.clone()
         state_init_pv = state_init_pv.clone()
-        inputs_pv = inputs_pv.clone()
-        inputs_mask_pv = inputs_mask_pv.clone()
 
         # gradient norm field
         g_targets_gt = self.gradient_img(targets_gt)
@@ -501,67 +520,25 @@ class LitModel(pl.LightningModule):
         with torch.set_grad_enabled(True):
             state_init_pv = torch.autograd.Variable(state_init_pv, requires_grad=True)
             outputs_pv_, hidden_new, cell_new, normgrad, params = self.model(state_init_pv,
-                                                                         inputs_pv,
-                                                                         inputs_mask_pv,
+                                                                         inputs_obs,
+                                                                         inputs_mask,
                                                                          estim_parameters=True)
 
             if (phase == 'val') or (phase == 'test'):
                 outputs_pv_ = outputs_pv_.detach()
 
             outputs_pv = outputs_pv_[:,:n_t,:,:]
-
             if self.use_oi:
-                outputs = outputs_pv + targets_oi_pv
+                outputs = outputs_pv + targets_oi
             else:
                 outputs = outputs_pv
-
             # outputs is PV here: use QG-theory for inversion to SSH: SSH=A-1*PV
-            outputs = inv_tr_pv(outputs)
+            outputs = self.inv_tr_pv(outputs,A)
 
             m = torch.reshape(params[1],(len(outputs),2,n_x*n_y,n_t))
             H = None
             kappa = 1./3
             tau = 1.
-
-            # run n_batches*simulation
-            I = sparse_eye(n_x*n_y)
-
-            if phase=="test":
-                simu_cond = []
-                for isimu in range(self.n_simu):
-                    x_simu = []
-                    for ibatch in range(len(outputs)):
-                        x_simu_ = []
-                        for i in range(n_t):
-                            A = DiffOperator(n_x,n_y,dx,dy,m[ibatch,:,:,i],
-                                                           None,
-                                                           kappa)
-                            M = I+pow_diff_operator(A,self.pow,sparse=True)
-                            x_simu_ = self.run_simulation(i,tau[ibatch,0,:,i],M,x_simu_,dx,dy,dt,n_init_run=10)
-                        x_simu_ = torch.stack(x_simu_,dim=0)
-                        x_simu_ = torch.reshape(x_simu_,outputs.shape[1:])
-                        # x,y -> y,x
-                        x_simu_ = torch.permute(x_simu_,(0,2,1))
-                        x_simu.append(x_simu_)
-                    x_simu = torch.stack(x_simu,dim=0).to(device)
-                    # interpolate the simulation based on LSTM-solver
-                    idx = torch.where(inputs_mask_pv==0.)
-                    inputs_init_simu = x_simu.clone()
-                    inputs_init_simu[idx] = 0.
-                    inputs_missing_simu = inputs_init_simu
-                    x_itrp_simu,_ , _ ,_  ,_ = self.model(torch.cat((inputs_init_simu,
-                                                                       m1_init,
-                                                                       m2_init),dim=1),
-                                                              inputs_missing_simu,
-                                                              inputs_mask_pv,
-                                                              estim_parameters=True)
-                    x_simu_cond = outputs+(x_simu-x_itrp_simu)
-                    # outputs is PV here: use QG-theory for inversion to SSH: SSH=A-1*PV
-                    x_simu_cond = inv_tr_pv(x_simu_cond)
-                    x_simu_cond = x_simu_cond.detach()
-                    simu_cond.append(x_simu_cond)
-                simu_cond = torch.stack(simu_cond,dim=4)
-
 
             g_outputs = self.gradient_img(outputs)
             # Mahanalobis distance
@@ -625,8 +602,14 @@ class LitModel(pl.LightningModule):
                 # Mahanalobis distance
                 MD = list()
                 for i in range(n_b):
-                    MD_ = sp_mm(Q[i],torch.reshape(torch.permute(targets_gt[i],(0,2,1)),(n_t*n_x*n_y,1)))
-                    MD_ = torch.matmul(torch.reshape(torch.permute(targets_gt[i],(0,2,1)),(1,n_t*n_x*n_y)),MD_)
+                    if self.use_oi:
+                        MD_ = sp_mm(Q[i],torch.reshape(torch.permute(targets_gt[i]-targets_oi[i],(0,2,1)),
+                                                                     (n_t*n_x*n_y,1)))
+                        MD_ = torch.matmul(torch.reshape(torch.permute(targets_gt[i]-targets_oi[i],(0,2,1)),
+                                                                       (1,n_t*n_x*n_y)),MD_)
+                    else:
+                        MD_ = sp_mm(Q[i],torch.reshape(torch.permute(targets_gt[i],(0,2,1)),(n_t*n_x*n_y,1)))
+                        MD_ = torch.matmul(torch.reshape(torch.permute(targets_gt[i],(0,2,1)),(1,n_t*n_x*n_y)),MD_)
                     MD.append(MD_[0,0])
                 # Negative log-likelihood
                 log_det = torch.stack(det_Q) 
@@ -648,7 +631,4 @@ class LitModel(pl.LightningModule):
             metrics = dict([('mse', mse), ('mseGrad', mse_grad),
                             ('meanGrad', mean_GAll)])
 
-        if phase!="test":
-            return loss, outputs_, params, metrics
-        else:
-            return loss, outputs_, params, metrics, simu_cond
+        return loss, outputs_pv_, params, metrics

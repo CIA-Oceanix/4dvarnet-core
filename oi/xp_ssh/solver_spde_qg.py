@@ -362,7 +362,6 @@ class Model_Var_Cost(nn.Module):
                 )
         '''
         loss2 = torch.mean(torch.sum(dy**2))
-        print(loss2)
         loss += loss2
         return loss
 

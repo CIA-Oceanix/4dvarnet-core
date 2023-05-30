@@ -442,13 +442,15 @@ class Solver_Grad_4DVarNN(nn.Module):
             normgrad_= normgrad
         grad, hidden, cell = self.model_Grad(hidden, cell, var_cost_grad, normgrad_)
         grad *= 1./ self.n_grad
-        state_k_plus_1 = state_k - grad
+        state_k_plus_1 = state_k - .1*grad
         # parameters: pooling + upsample
+        '''
         aug_var = state_k_plus_1[:,n_t:,:,:]
         aug_var = self.pool(aug_var)
         aug_var = self.upsample(aug_var)
         state_k_plus_1 = torch.index_add(state_k_plus_1,1,torch.arange(n_t,n_t+2).to(device),-1*state_k_plus_1[:,n_t:,:,:])
-        state_k_plus_1 = torch.index_add(state_k_plus_1,1,torch.arange(n_t,n_t+2).to(device),aug_var) 
+        state_k_plus_1 = torch.index_add(state_k_plus_1,1,torch.arange(n_t,n_t+2).to(device),aug_var)
+        '''
         return state_k_plus_1, cmp_loss,  hidden, cell, normgrad_, params
 
     def var_cost(self, gt, state, yobs, mask, oi, estim_params):

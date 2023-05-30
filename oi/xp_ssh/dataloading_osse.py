@@ -494,6 +494,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             sum += np.nansum((gt - mean)**2)
         std = (sum / count)**0.5
 
+        mean = 0. ; std = 1.
+
         if self.sst_var == None:
             return mean, std
         else:

@@ -1,0 +1,4 @@
+obs_path: /homes/m19beauc/4dvarnet-core/oi/xp_qg/data/qg_sim.nc
+gt_path: /homes/m19beauc/4dvarnet-core/oi/xp_qg/data/qg_sim.nc
+u_path: /homes/m19beauc/4dvarnet-core/oi/xp_qg/data/qg_sim.nc
+v_path: /homes/m19beauc/4dvarnet-core/oi/xp_qg/data/qg_sim.nc

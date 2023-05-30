@@ -1,14 +1,14 @@
 # @package _global_
-xp_name: oi_osse_spde
+xp_name: oi_osse_spde_qg
 datamodule:
   resolution: 1/20
   slice_win:
     lat: 200
     lon: 200
     time: 5
-  test_slices:
-    - _target_: builtins.slice
-      _args_: ['2013-01-03', '2013-01-09']
+#  test_slices:
+#    - _target_: builtins.slice
+#      _args_: ['2013-01-03', '2013-01-09']
 #  train_slices:
 #    - _target_: builtins.slice
 #      _args_: ['2013-02-07', '2013-03-07']
@@ -23,8 +23,8 @@ params:
   oi: true
   dT: 5
   pow: 2
-  n_fourdvar_iter: 3
-  n_grad: 5
+  n_fourdvar_iter: 1
+  n_grad: 15
   shapeData:
     - 5
     - 200

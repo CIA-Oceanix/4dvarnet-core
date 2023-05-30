@@ -42,3 +42,4 @@ dependencies:
     - torch-sparse
     - cupy-cuda113
     - torch_tb_profiler
+# mamba install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch

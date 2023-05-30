@@ -329,7 +329,7 @@ class Phi_r(torch.nn.Module):
         vxy = torch.stack([vx,vy],dim=2)
         vxyT = torch.permute(vxy,(0,2,1))
         gamma = 1*torch.ones(n_b).to(device)
-        beta = 1*torch.ones(n_b).to(device)
+        beta = 25*torch.ones(n_b).to(device)
         H  = torch.einsum('ij,bk->bijk',torch.eye(2).to(device),
                                         torch.unsqueeze(gamma,dim=1).expand(n_b,n_x*n_y))+\
              torch.einsum('b,bijk->bijk',beta,torch.einsum('bki,bjk->bijk',vxy,vxyT))

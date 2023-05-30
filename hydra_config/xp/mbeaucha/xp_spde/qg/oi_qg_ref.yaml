@@ -3,6 +3,9 @@ xp_name: oi_qg_ref
 
 datamodule:
   resize_factor: 1
+  test_slices:
+    - _target_: builtins.slice
+      _args_: ['2013-01-03', '2013-01-08']
 
 defaults:
   - /params: fourdvarnet_oi_qg
