@@ -159,7 +159,6 @@ class LitModelOI(LitModelAugstate):
 
     def diag_epoch_end(self, outputs, log_pref='test'):
         # ~ full_outputs = self.gather_outputs(outputs, log_pref=log_pref)
-        print('diag_epoch_end, l.162')
         full_outputs = [outputs]
         if full_outputs is None:
             print("full_outputs is None on ", self.global_rank)
@@ -170,9 +169,7 @@ class LitModelOI(LitModelAugstate):
             diag_ds = self.trainer.val_dataloaders[0].dataset.datasets[0]
         else:
             raise Exception('unknown phase')
-        print('diag_epoch_end, l.173')
         self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
-        print('diag_epoch_end, l.175')
 
         Path(self.logger.log_dir).mkdir(exist_ok=True)
         path_save1 = self.logger.log_dir + f'/test.nc'
@@ -231,6 +228,8 @@ class LitModelOI(LitModelAugstate):
             if self.hparams.n_grad>0:
                 outputs, hidden_new, cell_new, normgrad = self.model(state, obs, new_masks, *state_init[1:])
                 if (phase == 'val') or (phase == 'test'):
+                    if hasattr(self.hparams, 'post_proj') and self.hparams.post_proj:
+                        outputs = self.model.phi_r(outputs)
                     outputs = outputs.detach()
             else:
                 outputs = self.model.phi_r(obs)
@@ -238,6 +237,7 @@ class LitModelOI(LitModelAugstate):
                 cell_new = None
                 normgrad = None
             
+                
             # ~ loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
             
             # ~ outputs_GT_wo_nan = outputs.where(~targets_GT.isnan(), torch.zeros_like(outputs))

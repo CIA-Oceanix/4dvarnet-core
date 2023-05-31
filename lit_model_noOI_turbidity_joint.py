@@ -562,8 +562,8 @@ class LitModelOI(pl.LightningModule):
                 ('msePhir_sst', 0.),
                 ])
                     )
-        targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
-        targets_GT_sst_wo_nan = targets_GT_sst.where(~targets_GT_sst.isnan(), torch.zeros_like(targets_GT_sst))
+        # ~ targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
+        # ~ targets_GT_sst_wo_nan = targets_GT_sst.where(~targets_GT_sst.isnan(), torch.zeros_like(targets_GT_sst))
 
         state = self.get_init_state(batch, state_init)
 
@@ -593,11 +593,14 @@ class LitModelOI(pl.LightningModule):
             outputs_ssh = outputs[:,0:self.hparams.dT,:,:]
             outputs_sst = outputs[:,self.hparams.dT:2*self.hparams.dT,:,:]
             
-            outputs_GT_ssh_wo_nan = outputs_ssh.where(~targets_GT.isnan(), torch.zeros_like(outputs_ssh))
-            outputs_GT_sst_wo_nan = outputs_sst.where(~targets_GT_sst.isnan(), torch.zeros_like(outputs_sst))
+            # ~ outputs_GT_ssh_wo_nan = outputs_ssh.where(~targets_GT.isnan(), torch.zeros_like(outputs_ssh))
+            # ~ outputs_GT_sst_wo_nan = outputs_sst.where(~targets_GT_sst.isnan(), torch.zeros_like(outputs_sst))
             
-            loss_All_ssh, loss_GAll_ssh = self.sla_loss(outputs_GT_ssh_wo_nan, targets_GT_wo_nan)            
-            loss_All_sst, loss_GAll_sst = self.sla_loss(outputs_GT_sst_wo_nan, targets_GT_sst_wo_nan) 
+            # ~ loss_All_ssh, loss_GAll_ssh = self.sla_loss(outputs_GT_ssh_wo_nan, targets_GT_wo_nan)            
+            # ~ loss_All_sst, loss_GAll_sst = self.sla_loss(outputs_GT_sst_wo_nan, targets_GT_sst_wo_nan) 
+            
+            loss_All_ssh, loss_GAll_ssh = self.sla_loss(outputs_GT_ssh, targets_GT)            
+            loss_All_sst, loss_GAll_sst = self.sla_loss(outputs_GT_sst, targets_GT_sst) 
                        
             # total loss
             loss = self.hparams.alpha_mse_ssh * loss_All_ssh + self.hparams.alpha_mse_gssh * loss_GAll_ssh
