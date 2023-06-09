@@ -1,0 +1,109 @@
+# @package _global_
+
+xp_name: xp_turbidity_bbp_rf1_dt7_AE50
+
+params:
+  model: 4dvarnet_OI
+  dT: 7
+  patch_weight:
+    _target_: lit_model_augstate.get_constant_crop
+    patch_size: ${datamodule.slice_win}
+    crop: 
+      lat: ${div:0,${datamodule.resize_factor}}
+      lon: ${div:0,${datamodule.resize_factor}}
+      time: 0
+  k_n_grad: 3
+  n_grad: 5
+  val_diag_freq: 5
+  padding_mode: reflect
+  alpha_mse_ssh: 50. # loss
+  alpha_mse_gssh: 1000.
+  norm_obs: l1
+  norm_prior: l2
+  test_domain:
+    lat:
+      _target_: builtins.slice
+      _args_: [41.17, 43.6]
+    lon:
+      _target_: builtins.slice
+      _args_: [3., 6.09]
+  shape_state:
+    - ${datamodule.slice_win.time}
+    - ${datamodule.slice_win.lon}
+    - ${datamodule.slice_win.lat}
+  shape_data:
+    - ${datamodule.slice_win.time}
+    - ${datamodule.slice_win.lon}
+    - ${datamodule.slice_win.lat}
+    
+  animate: true
+  
+entrypoint:
+  max_epochs: 200
+  
+lit_mod_cls: lit_model_noOI_turbidity_l1.LitModelOI
+
+
+datamodule:
+  _target_: dataloading.FourDVarNetDataModule
+  resize_factor: 1
+    
+  dim_range:
+    lat:
+      _target_: builtins.slice
+      _args_: [41.17, 43.6]
+    lon:
+      _target_: builtins.slice
+      _args_: [3., 6.09]
+      
+      
+  train_slices: 
+    - _target_: builtins.slice
+      _args_: ['2019-01-01', '2019-10-10']
+    - _target_: builtins.slice
+      _args_: ['2019-11-23', '2019-12-31']
+      
+  val_slices: 
+    - _target_: builtins.slice
+      _args_: ['2020-02-04', '2020-03-31']
+      
+  test_slices: 
+    - _target_: builtins.slice
+      _args_: ${adjust_testslices:['2021-02-09', '2021-06-30'],${params.dT}}
+      
+  #~ train_slices: 
+    #~ - _target_: builtins.slice
+      #~ _args_: ['2007-01-01', '2017-12-31']
+      
+  #~ val_slices: 
+    #~ - _target_: builtins.slice
+      #~ _args_: ['2019-01-01', '2019-03-31']
+      
+  #~ test_slices: 
+    #~ - _target_: builtins.slice
+      #~ _args_: ${adjust_testslices:['2018-01-01', '2018-12-31'],${params.dT}}
+      
+  oi_var: "bbp443"
+  gt_var: "bbp443"
+  obs_mask_var: "bbp443"
+  
+  slice_win:
+    lat: ${div:240,${datamodule.resize_factor}}
+    lon: ${div:240,${datamodule.resize_factor}}
+    time: ${params.dT}
+    
+  strides: 
+    lat: ${div:20,${datamodule.resize_factor}}
+    lon: ${div:20,${datamodule.resize_factor}}
+    time: 1
+  
+  
+defaults:
+  - /xp/base_xp
+  - /splits/dc_boost_swot@datamodule
+  - /xp/baseline/aug/without_aug_state
+  - /xp/baseline/dl/d240_p240x5_s240x1
+  - /xp/baseline/sst/without_sst
+  - /xp/baseline/loss/map
+  - /xp/baseline/train_strat/const_lr_ngrad_5_3cas
+  - _self_ 

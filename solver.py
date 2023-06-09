@@ -169,6 +169,15 @@ def compute_spatio_temp_weighted_loss(x2, w):
         return torch.scalar_tensor(0., device=x2_num.device)
     loss = F.mse_loss(x2_w[x2_num], torch.zeros_like(x2_w[x2_num]))
     return loss
+    
+def compute_spatio_temp_l1_weighted_loss(x2, w):
+    x2_w = (x2 * w[None, ...])
+    non_zeros = (torch.ones_like(x2) * w[None, ...]) == 0.
+    x2_num = ~x2_w.isnan() & ~x2_w.isinf() & ~non_zeros
+    if x2_num.sum() == 0:
+        return torch.scalar_tensor(0., device=x2_num.device)
+    loss = F.L1Loss(x2_w[x2_num], torch.zeros_like(x2_w[x2_num]))
+    return loss
 
 # Modules for the definition of the norms for
 # the observation and prior model
