@@ -176,7 +176,7 @@ def compute_spatio_temp_l1_weighted_loss(x2, w):
     x2_num = ~x2_w.isnan() & ~x2_w.isinf() & ~non_zeros
     if x2_num.sum() == 0:
         return torch.scalar_tensor(0., device=x2_num.device)
-    loss = torch.nn.L1Loss(x2_w[x2_num], torch.zeros_like(x2_w[x2_num]))
+    loss = F.l1_loss(x2_w[x2_num], torch.zeros_like(x2_w[x2_num]))
     return loss
 
 # Modules for the definition of the norms for
