@@ -18,7 +18,7 @@ from scipy import stats
 import solver as NN_4DVar
 import metrics
 from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps_oi, animate_maps, animate_maps_OI, get_psd_score
-from models import Model_H, Phi_r_OI, Phi_r, Phi_r_unet, Gradient_img
+from models import Model_H, Phi_r_OI, Phi_r, Phi_r_unet, Phi_r_starter, Gradient_img
 
 from lit_model_augstate import LitModelAugstate
 
