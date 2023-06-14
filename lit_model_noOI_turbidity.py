@@ -22,6 +22,14 @@ from models import Model_H, Phi_r_OI, Phi_r, Phi_r_unet, Gradient_img
 
 from lit_model_augstate import LitModelAugstate
 
+def get_4dvarnet_starter(hparams):
+    return NN_4DVar.Solver_Grad_4DVarNN(
+                Phi_r_starter(hparams.shape_state[0], hparams.DimAE, hparams.dW),
+                Model_H(hparams.shape_state[0]),
+                NN_4DVar.model_GradUpdateLSTM(hparams.shape_state, hparams.UsePriodicBoundary,
+                    hparams.dim_grad_solver, hparams.dropout),
+                hparams.norm_obs, hparams.norm_prior, hparams.shape_state, hparams.n_grad * hparams.n_fourdvar_iter)
+                
 def get_4dvarnet_OI(hparams):
     return NN_4DVar.Solver_Grad_4DVarNN(
                 Phi_r_OI(hparams.shape_state[0], hparams.DimAE, hparams.dW, hparams.dW2, hparams.sS,
@@ -51,6 +59,7 @@ def get_4dvarnet_OI_phir_unet(hparams):
 
 class LitModelOI(LitModelAugstate):
     MODELS = {
+            '4dvarnet_starter': get_4dvarnet_starter,
             '4dvarnet_OI': get_4dvarnet_OI,
             '4dvarnet_OI_phir': get_4dvarnet_OI_phir,
             '4dvarnet_OI_unet': get_4dvarnet_OI_phir_unet,
@@ -69,8 +78,12 @@ class LitModelOI(LitModelAugstate):
                 {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                 ])
-
-        return optimizer
+            return optimizer
+        if self.model_name in {'4dvarnet_starter'}:
+            optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                {'params': self.model.phi_r.parameters(), 'lr': .5*self.hparams.lr_update[0]},
+                ])
+            return{"optimizer": optimizer, "lr_scheduler": torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=175)}
         
     def training_step(self, train_batch, batch_idx, optimizer_idx=0):
 

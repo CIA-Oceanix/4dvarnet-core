@@ -40,7 +40,6 @@ class FourDVarNetHydraRunner:
         self.dm = dm
         self.lit_cls = lit_mod_cls
         dm.setup()
-        print('OK setup datamodule ! ! ! ! ')
         self.dataloaders = {
             'train': dm.train_dataloader(),
             'val': dm.val_dataloader(),

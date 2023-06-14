@@ -169,7 +169,48 @@ class Phi_r_OI(torch.nn.Module):
             x = self.encoder(x)
         x = self.decoder(x)
         return x
-        
+
+class Phi_r_starter(torch.nn.Module):
+    def __init__(self, dim_in, dim_hidden, kernel_size, downsamp=None):
+        super().__init__()
+        self.conv_in = nn.Conv2d(
+            dim_in, dim_hidden, kernel_size=kernel_size, padding=kernel_size // 2
+        )
+        self.conv_hidden = nn.Conv2d(
+            dim_hidden, dim_hidden, kernel_size=kernel_size, padding=kernel_size // 2
+        )
+
+        self.bilin_1 = nn.Conv2d(
+            dim_hidden, dim_hidden, kernel_size=kernel_size, padding=kernel_size // 2
+        )
+        self.bilin_21 = nn.Conv2d(
+            dim_hidden, dim_hidden, kernel_size=kernel_size, padding=kernel_size // 2
+        )
+        self.bilin_22 = nn.Conv2d(
+            dim_hidden, dim_hidden, kernel_size=kernel_size, padding=kernel_size // 2
+        )
+
+        self.conv_out = nn.Conv2d(
+            2 * dim_hidden, dim_in, kernel_size=kernel_size, padding=kernel_size // 2
+        )
+
+        self.down = nn.AvgPool2d(downsamp) if downsamp is not None else nn.Identity()
+        self.up = (
+            nn.UpsamplingBilinear2d(scale_factor=downsamp)
+            if downsamp is not None
+            else nn.Identity()
+        )
+
+    def forward(self, x):
+        x = self.down(x)
+        x = self.conv_in(x)
+        x = self.conv_hidden(F.relu(x))
+
+        x = self.conv_out(
+            torch.cat([self.bilin_1(x), self.bilin_21(x) * self.bilin_22(x)], dim=1)
+        )
+        x = self.up(x)
+        return x
 
 class Model_H(torch.nn.Module):
     def __init__(self, shape_data):
