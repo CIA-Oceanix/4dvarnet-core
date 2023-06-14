@@ -173,32 +173,32 @@ class Phi_r_OI(torch.nn.Module):
 class Phi_r_starter(torch.nn.Module):
     def __init__(self, dim_in, dim_hidden, kernel_size, downsamp=None):
         super().__init__()
-        self.conv_in = nn.Conv2d(
+        self.conv_in = torch.nn.Conv2d(
             dim_in, dim_hidden, kernel_size=kernel_size, padding=kernel_size // 2
         )
-        self.conv_hidden = nn.Conv2d(
+        self.conv_hidden = torch.nn.Conv2d(
             dim_hidden, dim_hidden, kernel_size=kernel_size, padding=kernel_size // 2
         )
 
-        self.bilin_1 = nn.Conv2d(
+        self.bilin_1 = torch.nn.Conv2d(
             dim_hidden, dim_hidden, kernel_size=kernel_size, padding=kernel_size // 2
         )
-        self.bilin_21 = nn.Conv2d(
+        self.bilin_21 = torch.nn.Conv2d(
             dim_hidden, dim_hidden, kernel_size=kernel_size, padding=kernel_size // 2
         )
-        self.bilin_22 = nn.Conv2d(
+        self.bilin_22 = torch.nn.Conv2d(
             dim_hidden, dim_hidden, kernel_size=kernel_size, padding=kernel_size // 2
         )
 
-        self.conv_out = nn.Conv2d(
+        self.conv_out = torch.nn.Conv2d(
             2 * dim_hidden, dim_in, kernel_size=kernel_size, padding=kernel_size // 2
         )
 
-        self.down = nn.AvgPool2d(downsamp) if downsamp is not None else nn.Identity()
+        self.down = torch.nn.AvgPool2d(downsamp) if downsamp is not None else torch.nn.Identity()
         self.up = (
-            nn.UpsamplingBilinear2d(scale_factor=downsamp)
+            torch.nn.UpsamplingBilinear2d(scale_factor=downsamp)
             if downsamp is not None
-            else nn.Identity()
+            else torch.nn.Identity()
         )
 
     def forward(self, x):
