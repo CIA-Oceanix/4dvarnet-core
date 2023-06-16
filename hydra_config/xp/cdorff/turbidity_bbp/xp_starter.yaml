@@ -5,7 +5,7 @@ xp_name: xp_starter_var_cost_opti
 
 params:
   model: 4dvarnet_starter_var_cost_opti
-  model: 4dvarnet_starter
+  #~ model: 4dvarnet_starter
   dT: 15
   patch_weight:
     _target_: lit_model_augstate.get_constant_crop
