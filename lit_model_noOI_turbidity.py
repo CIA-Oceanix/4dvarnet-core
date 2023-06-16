@@ -60,6 +60,7 @@ def get_4dvarnet_OI_phir_unet(hparams):
 class LitModelOI(LitModelAugstate):
     MODELS = {
             '4dvarnet_starter': get_4dvarnet_starter,
+            '4dvarnet_starter_var_cost_opti': get_4dvarnet_starter,
             '4dvarnet_OI': get_4dvarnet_OI,
             '4dvarnet_OI_phir': get_4dvarnet_OI_phir,
             '4dvarnet_OI_unet': get_4dvarnet_OI_phir_unet,
@@ -81,6 +82,12 @@ class LitModelOI(LitModelAugstate):
             return optimizer
         if self.model_name in {'4dvarnet_starter'}:
             optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                {'params': self.model.phi_r.parameters(), 'lr': .5*self.hparams.lr_update[0]},
+                ])
+            return{"optimizer": optimizer, "lr_scheduler": torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=175)}
+        if self.model_name in {'4dvarnet_starter_var_cost_opti'}:
+            optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
+                {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                 {'params': self.model.phi_r.parameters(), 'lr': .5*self.hparams.lr_update[0]},
                 ])
             return{"optimizer": optimizer, "lr_scheduler": torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=175)}

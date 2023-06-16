@@ -1,8 +1,10 @@
 # @package _global_
 
-xp_name: xp_starter
+xp_name: xp_starter_var_cost_opti
+#~ xp_name: xp_starter
 
 params:
+  model: 4dvarnet_starter_var_cost_opti
   model: 4dvarnet_starter
   dT: 15
   patch_weight:
