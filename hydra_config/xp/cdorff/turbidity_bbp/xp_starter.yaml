@@ -23,6 +23,7 @@ params:
   dim_grad_solver: 48
   norm_obs: l2
   norm_prior: l2
+  post_proj: true
   test_domain:
     lat:
       _target_: builtins.slice
