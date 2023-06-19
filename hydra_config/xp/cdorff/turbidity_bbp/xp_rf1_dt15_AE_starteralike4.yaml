@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: xp_turbidity_bbp_rf1_dt7_AE_starteralike1
+xp_name: xp_turbidity_bbp_rf1_dt7_AE_starteralike
 
 params:
   model: 4dvarnet_OI
@@ -12,8 +12,8 @@ params:
       lat: ${div:0,${datamodule.resize_factor}}
       lon: ${div:0,${datamodule.resize_factor}}
       time: 0
-  n_fourdvar_iter: 1 #####
-  n_grad: 10 #####
+  n_fourdvar_iter: 3 #####
+  n_grad:5 #####
   val_diag_freq: 5
   padding_mode: reflect
   alpha_mse_ssh: 50. # loss
@@ -21,7 +21,7 @@ params:
   norm_obs: l2
   norm_prior: l2
   post_proj: true #####
-  alpha_proj: 2 #####
+  #alpha_proj: 2
   test_domain:
     lat:
       _target_: builtins.slice
