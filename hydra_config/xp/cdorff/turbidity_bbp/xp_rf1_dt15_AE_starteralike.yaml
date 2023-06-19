@@ -19,8 +19,6 @@ params:
   alpha_mse_gssh: 1000.
   DimAE: 16
   dim_grad_solver: 48
-  dW: 1
-  dW2: 1
   post_proj: true  
   n_fourdvar_iter: 1
   norm_obs: l2
