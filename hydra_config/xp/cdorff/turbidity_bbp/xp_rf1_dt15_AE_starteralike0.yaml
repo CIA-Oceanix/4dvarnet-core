@@ -13,6 +13,7 @@ params:
       lon: ${div:0,${datamodule.resize_factor}}
       time: 0
   n_fourdvar_iter: 3 #####
+  k_n_grad: 3
   n_grad: 5 #####
   val_diag_freq: 5
   padding_mode: reflect
