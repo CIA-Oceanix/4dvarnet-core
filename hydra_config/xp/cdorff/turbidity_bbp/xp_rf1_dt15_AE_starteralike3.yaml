@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: xp_turbidity_bbp_rf1_dt7_AE_starteralike3
+xp_name: xp_turbidity_bbp_rf1_dt15_AE_starteralike3
 
 params:
   model: 4dvarnet_OI
