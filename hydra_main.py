@@ -167,10 +167,7 @@ class FourDVarNetHydraRunner:
         :param trainer_kwargs: (Optional) Trainer arguments
         :return:
         """
-        print('là !')
-        print(self.cfg)
         mod = self._get_model(ckpt_path=ckpt_path)
-        print('là aussi ! !')
 
         checkpoint_callback = ModelCheckpoint(monitor='val_loss',
                                               filename=self.filename_chkpt,

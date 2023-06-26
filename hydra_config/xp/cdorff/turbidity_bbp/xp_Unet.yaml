@@ -24,7 +24,7 @@ params:
   post_proj: true
   alpha_proj: 2
   
-  DimAE: ${div:2,${params.dim_hidden}}
+  DimAE: ${div:${params.dim_hidden},2}
   
   test_domain:
     lat:
