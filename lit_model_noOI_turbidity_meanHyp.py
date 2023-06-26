@@ -256,6 +256,8 @@ class LitModelOI(LitModelAugstate):
                 hidden_new = None
                 cell_new = None
                 normgrad = None
+                
+            g_outputs_x, g_outputs_y = self.gradient_img(outputs)
             
                 
             # ~ loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
@@ -274,10 +276,15 @@ class LitModelOI(LitModelAugstate):
             loss += 0.5 * self.hparams.alpha_proj * loss_AE
             
             mu_GT = torch.nanmean(targets_GT)
-            mu_recOnly = torch.mean(outputs[target_GT.isnan()])
-            
+            mu_recOnly = torch.mean(outputs[target_GT.isnan()])            
             loss += abs(mu_recOnly-mu_GT)
             
+            grad_targets_GT = np.hyp(g_targets_GT_x, g_targets_GT_y)
+            grad_outputs = np.hyp(g_outputs_x, g_outputs_y)            
+            mu_gradGT = torch.nanmean(grad_targets_GT)
+            mu_gradrecOnly = torch.mean(grad_outputs[grad_target_GT.isnan()])            
+            loss += abs(mu_gradrecOnly-mu_gradGT)
+            de
             # metrics
             # mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(g_targets_GT, self.w_loss)
             mean_GAll = NN_4DVar.compute_spatio_temp_weighted_loss(
