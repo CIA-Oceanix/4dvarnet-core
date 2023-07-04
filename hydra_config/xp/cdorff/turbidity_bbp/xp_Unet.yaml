@@ -71,7 +71,7 @@ datamodule:
       
   val_slices: 
     - _target_: builtins.slice
-      _args_: ['2020-01-04', '2020-12-31']
+      _args_: ['2020-01-01', '2020-02-29']
       
   test_slices: 
     - _target_: builtins.slice
