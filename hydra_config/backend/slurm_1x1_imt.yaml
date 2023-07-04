@@ -2,7 +2,6 @@
 hydra:
   launcher:
     cpus_per_task: 10
-    nodes: 1
     additional_parameters:
       gres: gpu:1
       ntasks_per_node: 1
