@@ -6,8 +6,8 @@ datamodule:
   resolution: 1/20
 
 params:
-  n_grad: 5
-  n_fourdvar_iter: 3
+  n_grad: 15
+  n_fourdvar_iter: 1
   oi: true
   supervised: true
 

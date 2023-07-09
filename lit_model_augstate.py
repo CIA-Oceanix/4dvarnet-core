@@ -281,7 +281,10 @@ class LitModelAugstate(pl.LightningModule):
             targets_OI, inputs_Mask, inputs_obs, targets_GT = batch
         else:
             targets_OI, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
-        losses, out, metrics = self(batch, phase='test')
+
+        with torch.inference_mode(mode=False):
+            losses, out, metrics = self(batch, phase='test')
+
         loss = losses[-1]
         if loss is not None:
             self.log(f'{log_pref}_loss', loss)

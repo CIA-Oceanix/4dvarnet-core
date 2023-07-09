@@ -21,7 +21,7 @@ class LitModel(pl.LightningModule):
         self.Ny = int(((self.ymax-self.ymin)/self.resolution)/self.hparams.resize_factor)
         self.lon = np.linspace(self.xmin, self.xmax, self.Nx)
         self.lat = np.linspace(self.ymin, self.ymax, self.Ny)
-        self.shapeData = [self.hparams.dT,self.Ny,self.Nx]
+        self.shapeData = [2*self.hparams.dT,self.Ny,self.Nx]
         self.ds_size_time = kwargs['ds_size_time']
         self.ds_size_lon = kwargs['ds_size_lon']
         self.ds_size_lat = kwargs['ds_size_lat']
@@ -82,6 +82,7 @@ class LitModel(pl.LightningModule):
             state_init = [out.detach()]
             losses.append(_loss)
             metrics.append(_metrics)
+        #out = self.model.phi_r(out)
         return losses[-1], out, metrics[-1]
 
     def configure_optimizers(self):
@@ -161,11 +162,13 @@ class LitModel(pl.LightningModule):
 
         return {'gt'    : (targets_gt.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'obs'   : (inputs_obs.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
+                'oi'   : (targets_oi.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'preds' : (out.detach().cpu()[:,:,(self.dY):(self.swY-self.dY),(self.dX):(self.swX-self.dX)]*np.sqrt(self.var_Tr)) + self.mean_Tr}
 
     def test_epoch_end(self, outputs):
 
         gt = torch.cat([chunk['gt'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs]).numpy()
+        oi = torch.cat([chunk['oi'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs]).numpy()
         obs = torch.cat([chunk['obs'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs]).numpy()
         obs = np.where(obs==self.mean_Tr,np.nan,obs)
         pred = torch.cat([chunk['preds'][:, int(self.hparams.dT / 2), :, :] for chunk in outputs]).numpy()
@@ -175,7 +178,7 @@ class LitModel(pl.LightningModule):
                    'lat': self.ds_size_lat,
                    }
 
-        gt, obs, pred = map(
+        gt, oi, obs, pred = map(
             lambda t: einops.rearrange(
                 t,
                 '(lat_idx lon_idx t_idx )  win_lat win_lon -> t_idx  (lat_idx win_lat) (lon_idx win_lon)',
@@ -183,7 +186,7 @@ class LitModel(pl.LightningModule):
                 lat_idx=ds_size['lat'],
                 lon_idx=ds_size['lon'],
             ),
-            [gt, obs, pred])
+            [gt, oi, obs, pred])
 
         # old way: keep only points of the original domain
         '''
@@ -202,6 +205,7 @@ class LitModel(pl.LightningModule):
         self.ds_test = xr.Dataset(
             data_vars={
                 'gt': (('time', 'lat', 'lon'), gt),
+                'oi': (('time', 'lat', 'lon'), oi),
                 'pred': (('time', 'lat', 'lon'), pred),
                 'obs': (('time', 'lat', 'lon'), obs),
             },
@@ -223,6 +227,7 @@ class LitModel(pl.LightningModule):
 
         # get underlying data array
         self.x_gt = self.ds_test.gt.values
+        self.x_oi = self.ds_test.oi.values
         self.x_obs = self.ds_test.obs.values
         self.x_rec = self.ds_test.pred.values
 
@@ -266,13 +271,20 @@ class LitModel(pl.LightningModule):
         self.logger.experiment.add_figure('SNR', snr_fig, global_step=self.current_epoch)
         # save NetCDF
         path_save1 = self.logger.log_dir + '/maps.nc'
-        save_netcdf(saved_path1=path_save1, gt=self.x_gt, obs=self.x_obs, pred=self.x_rec,
+        save_netcdf(saved_path1=path_save1, gt=self.x_gt, oi=self.x_oi, 
+                    obs=self.x_obs, pred=self.x_rec,
                     lon=self.ds_test.lon, lat = self.ds_test.lat, time=self.time['time_test'],
                     time_units='days since 2012-10-01 00:00:00')
 
     def compute_loss(self, batch, phase, state_init=(None,)):
 
         targets_oi, inputs_mask, inputs_obs, targets_gt  = batch
+
+        def aug_state(state,obs,mask):
+            state = torch.cat((state,state),dim=1)
+            obs = torch.cat((obs,0.*obs,),dim=1)
+            mask = torch.cat((mask, torch.zeros_like(mask)),dim=1)
+            return state, obs, mask
 
         # handle patch with no observation
         if inputs_mask.sum().item() == 0:
@@ -295,6 +307,9 @@ class LitModel(pl.LightningModule):
             if self.use_oi:
                 inputs_init = inputs_init-targets_oi.where(inputs_mask==0, torch.zeros_like(targets_oi))
 
+        # aug_state
+        inputs_init, inputs_missing, inputs_mask = aug_state(inputs_init, inputs_missing, inputs_mask)
+
         inputs_init = inputs_init.clone()
         inputs_missing = inputs_missing.clone()
         inputs_mask = inputs_mask.clone()
@@ -305,6 +320,9 @@ class LitModel(pl.LightningModule):
         with torch.set_grad_enabled(True):
             inputs_init = torch.autograd.Variable(inputs_init, requires_grad=True)
             outputs, hidden_new, cell_new, normgrad = self.model(inputs_init, inputs_missing, inputs_mask)
+            # aug_state
+            outputs_aug = outputs
+            outputs = outputs[:, self.hparams.dT:, :, :]
             if self.use_oi:
                 outputs = outputs + targets_oi
 
@@ -317,12 +335,16 @@ class LitModel(pl.LightningModule):
 
             loss_GAll = NN_4DVar.compute_WeightedLoss(g_outputs - g_targets_gt, self.w_loss)
             # projection losses
-            loss_AE = torch.nanmean((self.model.phi_r(outputs) - outputs) ** 2)
+            loss_AE = torch.nanmean((self.model.phi_r(outputs_aug) - outputs_aug) ** 2)
+
+            # low-resolution loss
+            targets_lr = self.model_LR(targets_gt)
+            loss_LR = NN_4DVar.compute_WeightedLoss(self.model_LR(outputs) - targets_lr, self.w_loss)
 
             # supervised loss (vs GT)
             loss = self.hparams.alpha_mse_ssh * loss_All + self.hparams.alpha_mse_gssh * loss_GAll
             loss += 0.5 * self.hparams.alpha_proj * loss_AE 
-            loss = 10.*loss_All + 1.*loss_GAll
+            loss += self.hparams.alpha_lr * loss_LR
 
             # metrics
             mean_GAll = NN_4DVar.compute_WeightedLoss(g_targets_gt, self.w_loss)

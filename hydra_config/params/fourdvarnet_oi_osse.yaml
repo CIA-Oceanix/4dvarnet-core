@@ -34,14 +34,14 @@ lr_update:
   - 1.0e-06 
   - 1.0e-07 
 k_batch: 1
-n_grad: 5 
-dT: 29
+n_grad: 15 
+dT: 5
 dx: 1
 W: 100 
 resize_factor: 4
 resolution: 1/5
 shapeData:
-  - 29
+  - 5
   - 200
   - 200
 dW: 3

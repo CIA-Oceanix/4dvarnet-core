@@ -353,7 +353,6 @@ class Model_Var_Cost(nn.Module):
                         self.epsObs[kk]
                     )
                 )
-
         return loss
 
 # 4DVarNN Solver class using automatic differentiation for the computation of gradient of the variational cost
@@ -394,7 +393,7 @@ class Solver_Grad_4DVarNN(nn.Module):
     def solve(self, x_0, obs, mask, hidden=None, cell=None, normgrad_=0.):
         x_k = torch.mul(x_0,1.)
         x_k_plus_1 = None
-        for _ in range(self.n_grad):
+        for i in range(self.n_grad):
             x_k_plus_1, hidden, cell, normgrad_ = self.solver_step(x_k, obs, mask,hidden, cell, normgrad_)
 
             x_k = torch.mul(x_k_plus_1,1.)

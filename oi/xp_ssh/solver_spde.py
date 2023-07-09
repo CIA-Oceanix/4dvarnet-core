@@ -430,26 +430,42 @@ class Solver_Grad_4DVarNN(nn.Module):
         grad, hidden, cell = self.model_Grad(hidden, cell, var_cost_grad, normgrad_)
         grad *= 1./ self.n_grad
         state_k_plus_1 = state_k - grad
+
         # parameters: kappa > 0
         kappa = state_k_plus_1[:,n_t:(2*n_t),:,:]
-        kappa = F.softmax(kappa)#,beta=3)
-        #kappa = F.relu(kappa)+0.01
+        #kappa = F.softmax(kappa)*0.5#,beta=3)
+        kappa = F.relu(kappa)+.01
         #kappa = F.softplus(kappa)
         state_k_plus_1 = torch.index_add(state_k_plus_1,1,torch.arange(n_t,2*n_t).to(device),-1*state_k_plus_1[:,n_t:(2*n_t),:,:])
         state_k_plus_1 = torch.index_add(state_k_plus_1,1,torch.arange(n_t,2*n_t).to(device),kappa)
+        
         # parameters: tau > 0
         tau = state_k_plus_1[:,(2*n_t):(3*n_t),:,:]
-        tau = F.softmax(tau)#,beta=3)
-        #tau[:,:,:,:] = .3
-        #tau = F.relu(tau)+.01
+        #tau = F.softmax(tau)#*.3#,beta=3)
+        #tau[:,:,:,:] = .1
+        tau = F.relu(tau)+.1
         state_k_plus_1 = torch.index_add(state_k_plus_1,1,torch.arange(2*n_t,3*n_t).to(device),-1*state_k_plus_1[:,(2*n_t):(3*n_t),:,:])
         state_k_plus_1 = torch.index_add(state_k_plus_1,1,torch.arange(2*n_t,3*n_t).to(device),tau)
+
+        # parameters: gamma > 0
+        gamma = state_k_plus_1[:,(7*n_t):(8*n_t),:,:]
+        gamma = F.relu(gamma)+.01
+        #gamma = torch.ones(gamma.shape).to(device)
+        state_k_plus_1 = torch.index_add(state_k_plus_1,1,torch.arange(7*n_t,8*n_t).to(device),-1*state_k_plus_1[:,(7*n_t):(8*n_t),:,:])
+        state_k_plus_1 = torch.index_add(state_k_plus_1,1,torch.arange(7*n_t,8*n_t).to(device),gamma)
+
+        # parameters: gamma > 0
+        beta = state_k_plus_1[:,(8*n_t):(9*n_t),:,:]
+        beta = F.relu(beta)+.01
+        #beta = torch.zeros(beta.shape).to(device)
+        state_k_plus_1 = torch.index_add(state_k_plus_1,1,torch.arange(8*n_t,9*n_t).to(device),-1*state_k_plus_1[:,(8*n_t):(9*n_t),:,:])
+        state_k_plus_1 = torch.index_add(state_k_plus_1,1,torch.arange(8*n_t,9*n_t).to(device),beta)
 
         return state_k_plus_1, hidden, cell, normgrad_, params
 
     def var_cost(self, state, yobs, mask, estim_params):
         n_b, n_t, n_x, n_y = state.shape
-        n_t = n_t//7
+        n_t = n_t//9
         # augmented state [x,params], i.e. (#b,#t+#params,#y,#x)
         x = state[:,:n_t,:,:]
         dy = self.model_H(x,yobs,mask)

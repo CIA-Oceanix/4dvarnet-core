@@ -16,6 +16,7 @@ import torch.optim as optim
 from omegaconf import OmegaConf
 from scipy import stats
 import ose.solver as NN_4DVar
+#import solver as NN_4DVar
 import metrics
 from metrics import save_netcdf, nrmse, nrmse_scores, mse_scores, plot_nrmse, plot_mse, plot_snr, plot_maps_oi, animate_maps, get_psd_score
 from models import Model_H, Model_HwithSST, Phi_r_OI, Gradient_img
@@ -72,7 +73,7 @@ class LitModelOI(LitModelAugstate):
          # spectral parameter
          # C2 parameter
          #self.c2_file = self.hparams.files_cfg.c2_path
-         self.c2_file = "/users/local/m19beauc/4dvarnet-core/ose/eval_notebooks/inputs/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc"
+         self.c2_file = "/homes/m19beauc/4dvarnet-core/ose/eval_notebooks/inputs/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc"
          self.ds_alongtrack = read_l3_dataset(self.c2_file,
                                            lon_min=self.lon_min,
                                            lon_max=self.lon_max,
@@ -94,7 +95,7 @@ class LitModelOI(LitModelAugstate):
             optimizer = opt([{'params': self.model.model_Grad.parameters(), 'lr': self.hparams.lr_update[0]},
                              {'params': self.model.model_VarCost.parameters(), 'lr': self.hparams.lr_update[0]},
                              {'params': self.model.model_H.parameters(), 'lr': self.hparams.lr_update[0]},
-                             #{'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
+                             {'params': self.model.phi_r.parameters(), 'lr': 0.5 * self.hparams.lr_update[0]},
                 ])
         elif self.model_name == '4dvarnet_OI_sst':
 
@@ -123,7 +124,8 @@ class LitModelOI(LitModelAugstate):
             _, inputs_Mask, inputs_obs, targets_GT = batch
         else:
             _, inputs_Mask, inputs_obs, targets_GT, sst_gt = batch
-        losses, out, metrics = self(batch, phase='test')
+        with torch.inference_mode(mode=False):
+            losses, out, metrics = self(batch, phase='test')
         loss = losses[-1]
         if loss is not None:
             self.log(f'{log_pref}_loss', loss)
@@ -214,6 +216,7 @@ class LitModelOI(LitModelAugstate):
                      time_max=self.time_max,
                      is_circle=self.is_circle)
         time_alongtrack, lat_alongtrack, lon_alongtrack, ssh_alongtrack, ssh_4dvarnet_interp = itrp
+
         # Compute spatial and temporal statistics
         st_stats = compute_stats(time_alongtrack,
                                  lat_alongtrack,
@@ -306,12 +309,16 @@ class LitModelOI(LitModelAugstate):
             new_masks = [ new_masks, torch.ones_like(sst_gt) ]
             obs = [ obs, sst_gt ]
 
-        targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
+        targets_GT = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
 
         state = self.get_init_state(batch, state_init)
 
         # gradient norm field
         g_targets_GT_x, g_targets_GT_y = self.gradient_img(targets_GT)
+
+        state = state.clone()
+        obs = obs.clone()
+        new_masks = new_masks.clone()
 
         # need to evaluate grad/backward during the evaluation and training phase for phi_r
         with torch.set_grad_enabled(True):
@@ -321,7 +328,7 @@ class LitModelOI(LitModelAugstate):
             if (phase == 'val') or (phase == 'test'):
                 outputs = outputs.detach()
 
-            loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
+            loss_All, loss_GAll = self.sla_loss(outputs, targets_GT)
             loss_AE = self.loss_ae(outputs)
             if self.hparams.supervised==True:
                 # total loss
@@ -332,21 +339,26 @@ class LitModelOI(LitModelAugstate):
                 if self.type_loss_supervised == "loss_on_track":
                     # MSE
                     itime = int(self.hparams.dT/2)
-                    gt = torch.where(obs==0,0.,targets_GT.double())
-                    pred_track = torch.where(obs==0,0.,outputs.double())
-                    mask = (obs!=0)
-                    pred_diff = torch.masked_select(pred_track[:,itime,:,:],mask[:,itime,:,:]) - torch.masked_select(gt[:,itime,:,:],mask[:,itime,:,:])
+                    gt = torch.where(targets_GT==0,0.,targets_GT.double())
+                    pred_track = torch.where(gt==0,0.,outputs.double())
+                    mask = (gt!=0)
+                    pred_diff = torch.masked_select(pred_track[:,:,:,:],mask[:,:,:,:]) - torch.masked_select(gt[:,:,:,:],mask[:,:,:,:])
                     loss = NN_4DVar.compute_WeightedLoss(pred_diff, torch.tensor(1.))
                     # add spatial information
                     grad_pred = kornia.filters.sobel(pred_track,3)
                     grad_gt = kornia.filters.sobel(gt,3)
                     laplacian_pred = kornia.filters.laplacian(pred_track,3)
                     laplacian_gt = kornia.filters.laplacian(gt,3)
-                    grad_pred_diff = torch.masked_select(grad_pred[:,itime,:,:],mask[:,itime,:,:]) - torch.masked_select(grad_gt[:,itime,:,:],mask[:,itime,:,:])
-                    laplacian_pred_diff = torch.masked_select(laplacian_pred[:,itime,:,:],mask[:,itime,:,:]) - torch.masked_select(laplacian_gt[:,itime,:,:],mask[:,itime,:,:])
+                    grad_pred_diff = torch.masked_select(grad_pred[:,:,:,:],mask[:,:,:,:]) - torch.masked_select(grad_gt[:,:,:,:],mask[:,:,:,:])
+                    laplacian_pred_diff = torch.masked_select(laplacian_pred[:,:,:,:],mask[:,:,:,:]) - torch.masked_select(laplacian_gt[:,:,:,:],mask[:,:,:,:])
                     loss_grad = NN_4DVar.compute_WeightedLoss(grad_pred_diff, torch.tensor(1.))
                     loss_laplacian = NN_4DVar.compute_WeightedLoss(laplacian_pred_diff, torch.tensor(1.))
-                    loss += 0.1*loss_grad + 0.1*loss_laplacian
+                    # loss obs
+                    pred_obs = torch.where(obs==0,0.,outputs.double())
+                    mask = (obs!=0)
+                    pred_obs_diff = torch.masked_select(pred_obs[:,:,:,:],mask[:,:,:,:]) - torch.masked_select(obs[:,:,:,:],mask[:,:,:,:])
+                    loss_obs = NN_4DVar.compute_WeightedLoss(pred_obs_diff, torch.tensor(1.))
+                    loss += 0.1*loss_grad + 0.1*loss_laplacian + loss_obs #+ 0.5 * self.hparams.alpha_proj * loss_AE
                 else:
                     dy = model.model_H(outputs,obs,new_masks)
                     dx = outputs - model.phi_r(outputs)
@@ -366,5 +378,7 @@ class LitModelOI(LitModelAugstate):
                 ('mseGrad', mseGrad),
                 ('meanGrad', mean_GAll),
                 ])
+
+            #print(loss)
 
         return loss, outputs, [outputs, hidden_new, cell_new, normgrad], metrics

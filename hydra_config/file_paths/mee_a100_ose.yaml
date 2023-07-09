@@ -1,0 +1,8 @@
+oi_ose_nad_path: /DATASET/data_xp_ose/training/cropped_ssh_alg_h2g_j2g_j2n_j3_s3a_duacs.nc
+obs_mask_ose_nad_path: /DATASET/data_xp_ose/training/cropped_dataset_nadir_0d.nc
+gt_ose_path: /DATASET/data_xp_ose/validation/cropped_dataset_nadir_0d.nc
+sst_ose_path: /DATASET/data_xp_ose/training/cropped_sst_CMEMS.nc
+c2_path: /homes/m19beauc/4dvarnet-core/ose/eval_notebooks/inputs/dt_gulfstream_c2_phy_l3_20161201-20180131_285-315_23-53.nc
+
+
+

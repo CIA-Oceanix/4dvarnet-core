@@ -232,7 +232,7 @@ def plot_maps(gt,obs,pred,lon,lat,resfile,grad=False,
     return fig
 
 
-def save_netcdf(saved_path1, gt, obs, pred, lon, lat, time,
+def save_netcdf(saved_path1, gt, oi, obs, pred, lon, lat, time,
                 time_units='days since 2012-10-01 00:00:00'):
     '''
     saved_path1: string 
@@ -252,6 +252,7 @@ def save_netcdf(saved_path1, gt, obs, pred, lon, lat, time,
                    'latitude': (('lat', 'lon'), mesh_lat), \
                    'Time': (('time'), time), \
                    'GT': (('time', 'lat', 'lon'), gt),
+                   'OI': (('time', 'lat', 'lon'), oi),
                    'OBS': (('time', 'lat', 'lon'), obs),
                    '4DVarNet': (('time', 'lat', 'lon'), pred)}, \
         coords={'lon': lon, 'lat': lat, 'time': np.arange(len(pred))})

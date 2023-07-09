@@ -417,5 +417,3 @@ class Solver_Grad_4DVarNN(nn.Module):
         var_cost_grad = torch.autograd.grad(loss, x, create_graph=True)[0]
         return loss, var_cost_grad
 
-
-

@@ -9,7 +9,7 @@ datamodule:
   slice_win:
     lat: 200
     lon: 200
-    time: 29
+    time: 5
   strides:
     lat: 200
     lon: 200

@@ -193,7 +193,7 @@ class LitModel(pl.LightningModule):
             loss, out, param, metrics = self(test_batch, phase='test')
             out = out[:,:n_t,:,:]
             if self.use_oi:
-                out = out + targets_oi
+                out = out #+ targets_oi
             # retrieve parameters
             nb_nodes = n_x*n_y
             dx, dy, dt = [1,1,1]

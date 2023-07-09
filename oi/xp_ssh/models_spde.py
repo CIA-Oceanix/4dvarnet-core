@@ -306,11 +306,6 @@ class Prior_SPDE(torch.nn.Module):
                                           [torch.stack(self.n_t*[torch.tensor(tau)])]\
                                           )]\
                               ).to(device)
-        '''
-        tau = torch.full(tau.size(),1.).to(device)
-        kappa = torch.full(kappa.size(),.33).to(device)
-        m1 = torch.full(tau.size(),0.).to(device)
-        '''
             
         # initialize Qs (noise precision matrix)
         if colored_noise==False:
@@ -322,12 +317,13 @@ class Prior_SPDE(torch.nn.Module):
         Q = list()
         if store_block_diag==True:
             block_diag=list()
-                 
+         
         for batch in range(n_b):
 
             # Build model evolution and noise effects operator
             inv_M = list() # linear model evolution matrix (inverse)
             inv_S = list() # T*Tt with T the noise effect matrix (inverse) 
+            Q_list = list()
             for k in range(self.n_t):
                 if self.spde_type=="adv_diff":
                     A = DiffOperator(self.n_x,self.n_y,self.dx,self.dy,
@@ -354,18 +350,42 @@ class Prior_SPDE(torch.nn.Module):
 
                 # initialize Q0 = P0^-1 = cov(x0)
                 if k==0:
-                    Q0 = (self.dx*self.dy)*spspmm(B.t(),B)
+                    inv_tau_0 = sparse_eye(self.nb_nodes,(1./tau[batch,:,0]*np.sqrt(self.dt)))
+                    Qs_tilde0 = spspmm(spspmm(inv_tau_0.t(),
+                                              Qs),
+                                       inv_tau_0)
+                    Q0 = (self.dx*self.dy)*spspmm(spspmm(B.t(),
+                                                         Qs_tilde0),
+                                                  B)
+                    inv_M0 = self.Id+self.dt*B
+                    inv_S0 = spspmm(spspmm(inv_M0.t(),
+                                           Qs_tilde0),
+                                    inv_M0)
                     Q0 = (1./2)*(Q0+Q0.t()) + 5e-2*sparse_eye(self.nb_nodes)
                 else:
+                    inv_tau_k = sparse_eye(self.nb_nodes,(1./tau[batch,:,k]*np.sqrt(self.dt)))
+                    Qs_tilde = spspmm(spspmm(inv_tau_k.t(),
+                                             Qs),
+                                      inv_tau_k)
+                    Q_k = (self.dx*self.dy)*spspmm(spspmm(B.t(),
+                                                         Qs_tilde),
+                                                  B)
                     inverse_M = self.Id+self.dt*B
-                    inverse_S = spspmm(spspmm(inverse_M.t(),Qs),inverse_M)
+                    inverse_S = spspmm(spspmm(inverse_M.t(),
+                                              Qs_tilde),#Qs),
+                                       inverse_M)
                     #inverse_S = (1./2)*(inverse_S+inverse_S.t()) + 5e-2*sparse_eye(self.nb_nodes)
                     inv_M.append(inverse_M)
                     inv_S.append(inverse_S)
+                    Q_list.append(Q_k)
  
             if store_block_diag==True:
                 l = list(inv_S)
-                l.insert(0,Q0)
+                #l.insert(0,Q0)
+                l.insert(0,inv_S0)
+                #l = list(Q_list)
+                #l.insert(0,Q0)
+
                 block_diag.append(l)
                     
             # Build the global precision matrix
@@ -374,9 +394,10 @@ class Prior_SPDE(torch.nn.Module):
             val = torch.tensor([]).to(device)    
              
             # first line 
-            inv_tau = sparse_eye(self.nb_nodes,1./(tau[batch,:,1]*np.sqrt(self.dt))) 
-            Qs_tilde = spspmm(spspmm(inv_tau.t(),Qs),inv_tau) 
-            row, col, val = self.stack_indices(Q0+self.Id, 
+            inv_tau = sparse_eye(self.nb_nodes,(1./tau[batch,:,1]*np.sqrt(self.dt))) 
+            Qs_tilde = spspmm(spspmm(inv_tau.t(),Qs),inv_tau)
+            # Q0+Qs_tilde,
+            row, col, val = self.stack_indices(inv_S0+Qs_tilde,
                                           0,0, 
                                           row,col,val) 
             row, col, val = self.stack_indices(-1.*spspmm(Qs_tilde,inv_M[0]), 
@@ -384,21 +405,21 @@ class Prior_SPDE(torch.nn.Module):
                                           row,col,val) 
             # loop 
             for i in np.arange(1,self.n_t-1): 
-                inv_tau_1 = sparse_eye(self.nb_nodes,1./(tau[batch,:,i]*np.sqrt(self.dt))) 
+                inv_tau_1 = sparse_eye(self.nb_nodes,(1./tau[batch,:,i]*np.sqrt(self.dt))) 
                 Qs_tilde1 = spspmm(spspmm(inv_tau_1.t(),Qs),inv_tau_1) 
-                inv_tau_2 = sparse_eye(self.nb_nodes,1./(tau[batch,:,i+1]*np.sqrt(self.dt))) 
+                inv_tau_2 = sparse_eye(self.nb_nodes,(1./tau[batch,:,i+1]*np.sqrt(self.dt))) 
                 Qs_tilde2 = spspmm(spspmm(inv_tau_2.t(),Qs),inv_tau_2) 
                 row, col, val = self.stack_indices(-1.*spspmm(inv_M[i-1].t(),Qs_tilde1), 
                                               i*self.nb_nodes,(i-1)*self.nb_nodes, 
                                               row,col,val) 
-                row, col, val = self.stack_indices(spspmm(spspmm(inv_M[i-1].t(),Qs_tilde1),inv_M[i-1])+Qs_tilde1, 
+                row, col, val = self.stack_indices(spspmm(spspmm(inv_M[i-1].t(),Qs_tilde1),inv_M[i-1])+Qs_tilde2, 
                                               i*self.nb_nodes,i*self.nb_nodes, 
                                               row,col,val) 
                 row, col, val = self.stack_indices(-1.*spspmm(Qs_tilde2,inv_M[i]), 
                                               i*self.nb_nodes,(i+1)*self.nb_nodes, 
                                               row,col,val) 
             # last line 
-            inv_tau = sparse_eye(self.nb_nodes,1./(tau[batch,:,self.n_t-1]*np.sqrt(self.dt))) 
+            inv_tau = sparse_eye(self.nb_nodes,(1./tau[batch,:,self.n_t-1]*np.sqrt(self.dt))) 
             Qs_tilde = spspmm(spspmm(inv_tau.t(),Qs),inv_tau) 
             row, col, val = self.stack_indices(-1.*spspmm(inv_M[self.n_t-2].t(),Qs_tilde), 
                                           (self.n_t-1)*self.nb_nodes,(self.n_t-2)*self.nb_nodes, 
@@ -441,7 +462,7 @@ class Prior_SPDE(torch.nn.Module):
             '''
 
             # enforce positive definiteness
-            #Qg = (1./2)*(Qg+Qg.t()) + 5e-2*sparse_eye(self.n_t*self.nb_nodes)
+            # Qg = (1./2)*(Qg+Qg.t()) + 5e-2*sparse_eye(self.n_t*self.nb_nodes)
 
             # add batch
             Q.append(Qg)
@@ -511,38 +532,63 @@ class Phi_r(torch.nn.Module):
     def forward(self, state, estim_params=True):
         # augmented state [x,params], i.e. (#b,#t+#params,#y,#x)
         n_b, n_t, n_y, n_x = state.shape
-        n_t = n_t//7
+        n_t = n_t//9
         x = state[:,:n_t,:,:]
         kappa = state[:,n_t:2*n_t,:,:]
         tau = state[:,2*n_t:3*n_t,:,:]
         m1 = state[:,3*n_t:4*n_t,:,:]
         m2 = state[:,4*n_t:5*n_t,:,:]
         vx = state[:,5*n_t:6*n_t,:,:]
-        vy = state[:,6*n_t:,:,:]
+        vy = state[:,6*n_t:7*n_t,:,:]
+        gamma = state[:,7*n_t:8*n_t,:,:]
+        beta = state[:,8*n_t:9*n_t,:,:]
         H = []
         for k in range(n_t):
             vx_ = torch.reshape(vx[:,k,:,:],(n_b,n_x*n_y))
             vy_ = torch.reshape(vy[:,k,:,:],(n_b,n_x*n_y))
             vxy = torch.stack([vx_,vy_],dim=2)
             vxyT = torch.permute(vxy,(0,2,1))
+            '''
             gamma = 1*torch.ones(n_b).to(device)
             beta = 1*torch.ones(n_b).to(device)
             H_  = torch.einsum('ij,bk->bijk',torch.eye(2).to(device),
                                         torch.unsqueeze(gamma,dim=1).expand(n_b,n_x*n_y))+\
              torch.einsum('b,bijk->bijk',beta,torch.einsum('bki,bjk->bijk',vxy,vxyT))
+            '''
+            gamma_ = torch.reshape(gamma[:,k,:,:],(n_b,n_x*n_y))
+            beta_ = torch.reshape(beta[:,k,:,:],(n_b,n_x*n_y))
+            H_ = torch.einsum('ij,bk->bijk',
+                              torch.eye(2).to(device),
+                              gamma_)+\
+                 torch.einsum('bk,bijk->bijk',beta_,torch.einsum('bki,bjk->bijk',vxy,vxyT))
             H.append(H_)
         H = torch.stack(H,dim=4)
         m = torch.stack([m1,m2],dim=1)
-        
+
+        # parameters must have spatial coordinates as x/y (not y/x)
+        '''
         kappa = torch.permute(kappa,(0,2,3,1))
         tau = torch.permute(tau,(0,2,3,1))
         m = torch.permute(m,(0,1,3,4,2))
         H = torch.reshape(H,(n_b,2,2,n_x,n_y,n_t))
+        '''
+        kappa = torch.permute(kappa,(0,3,2,1))
+        tau = torch.permute(tau,(0,3,2,1))
+        m = torch.permute(m,(0,1,4,3,2))
+        H = torch.reshape(H,(n_b,2,2,n_x,n_y,n_t))
+        H = torch.permute(H,(0,1,2,4,3,5))
 
         kappa = torch.reshape(kappa,(n_b,1,n_y*n_x,n_t))
         m = torch.reshape(m,(n_b,2,n_y*n_x,n_t))
         H = torch.reshape(H,(n_b,2,2,n_y*n_x,n_t))
         tau = torch.reshape(tau,(n_b,1,n_y*n_x,n_t))
+
+        #m[:,0,:,:] = 0
+        #m[:,1,:,:] = 0
+        #H[:,0,0,:,:] = 1
+        #H[:,0,1,:,:] = 0
+        #H[:,1,0,:,:] = 0
+        #H[:,1,1,:,:] = 1
 
         # SPDE prior (sparse Q)
         Q = self.operator_spde(kappa, m, H, tau, square_root=self.square_root)

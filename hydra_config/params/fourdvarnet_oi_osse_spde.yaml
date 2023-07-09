@@ -35,7 +35,7 @@ lr_update:
   - 1.0e-06 
   - 1.0e-07 
 k_batch: 1
-n_grad: 5 
+n_grad: 15 
 dT: 5
 dx: 1
 W: 100 

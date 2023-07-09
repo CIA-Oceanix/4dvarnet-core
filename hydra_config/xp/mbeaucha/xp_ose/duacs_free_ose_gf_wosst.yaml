@@ -41,17 +41,17 @@ params:
 
 lit_mod_cls: ose.lit_model_OI.LitModelOI
 datamodule:
-  rmv_patches: True
+  rmv_patches: False
   resize_factor: 1
   train_slices:
     - _target_: builtins.slice
-#      _args_: ['2016-12-29', '2017-02-21']
-      _args_: ['2017-03-29', '2017-05-21']
+      _args_: ['2017-02-21', '2017-11-30']
+  val_slices:
+    - _target_: builtins.slice
+      _args_: ['2017-10-01', '2017-12-30']
   test_slices:
     - _target_: builtins.slice
-#      _args_: ['2016-12-29', '2017-02-21']
-      _args_: ['2017-03-29', '2017-05-21']
-
+      _args_: ['2017-01-15', '2017-02-15']
 
 defaults:
   - /xp/base_xp
