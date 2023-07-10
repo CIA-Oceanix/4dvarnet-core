@@ -9,7 +9,7 @@ import solver as NN_4DVar
 from metrics import psd_based_scores, rmse_based_scores, plot_psd_score
 from models import Model_H, Phi_r_OI
 
-from lit_model_augstate import LitModelAugstate, get_phi
+from lit_model_augstate import LitModelAugstate
 
 
 def get_4dvarnet_oi(hparams):
@@ -37,7 +37,11 @@ class LitModelOI(LitModelAugstate):
     def configure_optimizers(self):
         opt = torch.optim.Adam
         if hasattr(self.hparams, 'opt'):
-            opt = lambda p: call(self.hparams.opt, p)
+
+            def opt(p):
+                call(self.hparams.opt, p)
+
+            # opt = lambda p: call(self.hparams.opt, p)
         if self.model_name == '4dvarnet_OI':
             optimizer = opt([
                 {

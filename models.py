@@ -203,7 +203,7 @@ class Phi_r(torch.nn.Module):
 
     def __init__(self,
                  shape_data,
-                 DimAE,
+                 dimAE,
                  dw,
                  dw2,
                  ss,
@@ -211,11 +211,11 @@ class Phi_r(torch.nn.Module):
                  rateDr,
                  stochastic=False):
         super().__init__()
-        print(shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic)
+        print(shape_data, dimAE, dw, dw2, ss, nb_blocks, rateDr, stochastic)
         self.stochastic = stochastic
-        self.encoder = Encoder(shape_data, shape_data, DimAE, dw, dw2, ss,
+        self.encoder = Encoder(shape_data, shape_data, dimAE, dw, dw2, ss,
                                nb_blocks, rateDr)
-        # self.encoder = Encoder(shape_data, 2*shape_data, DimAE, dw, dw2, ss, nb_blocks, rateDr)
+        # self.encoder = Encoder(shape_data, 2*shape_data, dimAE, dw, dw2, ss, nb_blocks, rateDr)
         self.decoder = Decoder()
         self.correlate_noise = CorrelateNoise(shape_data, 10)
         self.regularize_variance = RegularizeVariance(shape_data, 10)
@@ -239,7 +239,7 @@ class Phi_r_OI(torch.nn.Module):
 
     def __init__(self,
                  shape_data,
-                 DimAE,
+                 dimAE,
                  dw,
                  dw2,
                  ss,
@@ -248,7 +248,7 @@ class Phi_r_OI(torch.nn.Module):
                  stochastic=False):
         super().__init__()
         self.stochastic = stochastic
-        self.encoder = Encoder_OI(shape_data, shape_data, DimAE, dw, dw2, ss,
+        self.encoder = Encoder_OI(shape_data, shape_data, dimAE, dw, dw2, ss,
                                   nb_blocks, rateDr)
         self.decoder = Decoder()
         self.correlate_noise = CorrelateNoise(shape_data, 10)

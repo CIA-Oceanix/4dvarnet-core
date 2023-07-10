@@ -4,6 +4,7 @@ import torch
 import pandas as pd
 import numpy as np
 import solver as NN_4DVar
+from diffusion_models import Unet_dm
 from metrics import rmse_based_scores, psd_based_scores
 from lit_model_augstate import get_constant_crop
 from lit_model_OI import LitModelOI
@@ -124,6 +125,37 @@ def accurate_pred(array, threshold=0.9):
         array_accurate_pred[id_value] = max(array_accurate_pred[id_value],
                                             counter[id_value])
     return np.unique(array_accurate_pred, return_counts=True)
+
+
+def unet_dm(hparams):
+
+    class UnetDmPassThrough(torch.nn.Module):
+
+        def __init__(self):
+            super().__init__()
+            self.unet = Unet_dm(hparams.shape_data[0], hparams.DimAE,
+                                hparams.dW, hparams.dW2, hparams.sS,
+                                hparams.nbBlocks, hparams.dropout_phi_r,
+                                hparams.stochastic)
+            self.phi_r = torch.nn.Identity()
+            with torch.no_grad():
+                self.n_grad = int(hparams.n_grad)
+
+        def forward(self, state, obs, masks, *internal_state):
+            return self.solve(state), None, None, None
+
+        def solve(self, x_0):
+            x_k = torch.mul(x_0, 1.)
+            x_k_plus_1 = None
+            for timestep in range(self.n_grad):
+                # random_t = torch.rand(x_k.shape[0], device='cuda')
+                batch_time_step = torch.ones(
+                    x_k.shape[0], device='cuda') * (timestep / self.n_grad - 1)
+                x_k_plus_1 = x_k + self.unet(x_k, batch_time_step)
+                x_k = torch.mul(x_k_plus_1, 1.0)
+            return x_k_plus_1
+
+    return UnetDmPassThrough()
 
 
 class LitModelForecast(LitModelOI):
@@ -348,16 +380,16 @@ class LitModelForecast(LitModelOI):
         if state[0] is not None:
             return state[0]
 
-        # _, inputs_mask, inputs_obs, _ = batch
-        # prod = inputs_mask * inputs_obs
-        # init_state = torch.cat((
-        #     prod[:, 0:(self.hparams.dT - 1) // 2, :, :],
-        #     torch.zeros_like(
-        #         prod[:, (self.hparams.dT - 1) // 2:self.hparams.dT, :, :]),
-        # ),
-        #                        dim=1)
-        _, _, _, targets_gt = batch
-        init_state = torch.zeros_like(targets_gt)
+        _, inputs_mask, inputs_obs, _ = batch
+        prod = inputs_mask * inputs_obs
+        init_state = torch.cat((
+            prod[:, 0:(self.hparams.dT - 1) // 2, :, :],
+            torch.zeros_like(
+                prod[:, (self.hparams.dT - 1) // 2:self.hparams.dT, :, :]),
+        ),
+                               dim=1)
+        # _, _, _, targets_gt = batch
+        # init_state = torch.zeros_like(targets_gt)
         return init_state
 
     def get_obs_state(self, batch):
