@@ -40,7 +40,8 @@ params:
 
 entrypoint:
   max_epochs: 200
-
+  ckpt_path: 'version_0/checkpoints/modelCalSLAInterpGF-epoch\=161-val_loss\=14.1621.ckpt'
+  
 lit_mod_cls: lit_model_noOI_turbidity.LitModelOI
 
 
