@@ -1,0 +1,3 @@
+natl_ssh_daily: /DATASET/turbidity_bbp/fullMed/GT_full_log10_2017.nc
+oi_swot_4nadir: /DATASET/turbidity_bbp/fullMed/GT_full_log10_2017.nc
+pseudo_obs: /DATASET/turbidity_bbp/fullMed/GT_full_log10_2017.nc
