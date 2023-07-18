@@ -40,7 +40,7 @@ params:
 
 entrypoint:
   max_epochs: 200
-  ckpt_path: 'version_0/checkpoints/modelCalSLAInterpGF-epoch\=161-val_loss\=14.1621.ckpt'
+  ckpt_path: 'version_0/checkpoints/modelCalSLAInterpGF-epoch\=155-val_loss\=32.8279.ckpt'
   
 lit_mod_cls: lit_model_noOI_turbidity.LitModelOI
 
@@ -59,15 +59,15 @@ datamodule:
 
   train_slices:
     - _target_: builtins.slice
-      _args_: ${adjust_testslices:['2010-01-01', '2010-01-31'],${params.dT}}
+      _args_: ${adjust_testslices:['2010-02-01', '2010-02-28'],${params.dT}}
 
   val_slices:
     - _target_: builtins.slice
-      _args_: ${adjust_testslices:['2010-01-01', '2010-01-31'],${params.dT}}
+      _args_: ${adjust_testslices:['2010-02-01', '2010-02-28'],${params.dT}}
 
   test_slices:
     - _target_: builtins.slice
-      _args_: ${adjust_testslices:['2010-01-01', '2010-01-31'],${params.dT}}
+      _args_: ${adjust_testslices:['2010-02-01', '2010-02-28'],${params.dT}}
 
   oi_var: "bbp443"
   gt_var: "bbp443"
