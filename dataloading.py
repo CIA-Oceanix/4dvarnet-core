@@ -85,7 +85,7 @@ class XrDataset(Dataset):
         self.interp_na = interp_na
         # try/except block for handling both netcdf and zarr files
         try:
-            _ds = xr.open_dataset(path)
+            _ds = xr.open_mfdataset(path)
         except OSError as ex:
             raise ex
             _ds = xr.open_zarr(path)
