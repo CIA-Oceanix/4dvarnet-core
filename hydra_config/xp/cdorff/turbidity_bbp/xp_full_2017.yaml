@@ -59,15 +59,15 @@ datamodule:
 
   train_slices:
     - _target_: builtins.slice
-      _args_: ${adjust_testslices:['2017-07-01', '2017-07-31'],${params.dT}}
+      _args_: ${adjust_testslices:['2017-08-01', '2017-08-31'],${params.dT}}
 
   val_slices:
     - _target_: builtins.slice
-      _args_: ${adjust_testslices:['2017-07-01', '2017-07-31'],${params.dT}}
+      _args_: ${adjust_testslices:['2017-08-01', '2017-08-31'],${params.dT}}
 
   test_slices:
     - _target_: builtins.slice
-      _args_: ${adjust_testslices:['2017-07-01', '2017-07-31'],${params.dT}}
+      _args_: ${adjust_testslices:['2017-08-01', '2017-08-31'],${params.dT}}
 
   oi_var: "bbp443"
   gt_var: "bbp443"
