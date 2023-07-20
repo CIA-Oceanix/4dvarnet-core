@@ -59,15 +59,15 @@ datamodule:
 
   train_slices:
     - _target_: builtins.slice
-      _args_: ${adjust_testslices:['2010-05-01', '2010-05-31'],${params.dT}}
+      _args_: ${adjust_testslices:['2010-06-01', '2010-06-30'],${params.dT}}
 
   val_slices:
     - _target_: builtins.slice
-      _args_: ${adjust_testslices:['2010-05-01', '2010-05-31'],${params.dT}}
+      _args_: ${adjust_testslices:['2010-06-01', '2010-06-30'],${params.dT}}
 
   test_slices:
     - _target_: builtins.slice
-      _args_: ${adjust_testslices:['2010-05-01', '2010-05-31'],${params.dT}}
+      _args_: ${adjust_testslices:['2010-06-01', '2010-06-30'],${params.dT}}
 
   oi_var: "bbp443"
   gt_var: "bbp443"
