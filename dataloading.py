@@ -256,7 +256,7 @@ class FourDVarNetDataset(Dataset):
         aug_train_data=False,
         compute=False,
         pp='std',
-        rand_obs=False
+        rand_obs=False,
     ):
         super().__init__()
         self.use_auto_padding=use_auto_padding
@@ -435,7 +435,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             compute=False,
             use_auto_padding=False,
             pp='std',
-            rand_obs=False
+            rand_obs=False,
     ):
         super().__init__()
         self.resize_factor = resize_factor
@@ -569,37 +569,10 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 aug_train_data=self.aug_train_data,
                 compute=self.compute,
                 pp=self.pp,
-                rand_patch = self.rand_obs
+                rand_patch = self.rand_obs,
             ) for sl in self.train_slices])
 
-        # ~ self.val_ds, self.test_ds = [
-            # ~ ConcatDataset(
-                # ~ [FourDVarNetDataset(
-                    # ~ dim_range={**self.dim_range, **{'time': sl}},
-                    # ~ strides=self.strides,
-                    # ~ slice_win=self.slice_win,
-                    # ~ oi_path=self.oi_path,
-                    # ~ oi_var=self.oi_var,
-                    # ~ oi_decode=self.oi_decode,
-                    # ~ obs_mask_path=self.obs_mask_path,
-                    # ~ obs_mask_var=self.obs_mask_var,
-                    # ~ obs_mask_decode=self.obs_mask_decode,
-                    # ~ gt_path=self.gt_path,
-                    # ~ gt_var=self.gt_var,
-                    # ~ gt_decode=self.gt_decode,
-                    # ~ sst_path=self.sst_path,
-                    # ~ sst_var=self.sst_var,
-                    # ~ sst_decode=self.sst_decode,
-                    # ~ resolution=self.resolution,
-                    # ~ resize_factor=self.resize_factor,
-                    # ~ compute=self.compute,
-                    # ~ use_auto_padding=self.use_auto_padding,
-                    # ~ pp=self.pp,
-                # ~ ) for sl in slices]
-            # ~ )
-            # ~ for slices in (self.val_slices, self.test_slices)
-        # ~ ]
-        self.val_ds[
+        self.val_ds, self.test_ds = [
             ConcatDataset(
                 [FourDVarNetDataset(
                     dim_range={**self.dim_range, **{'time': sl}},
@@ -622,38 +595,10 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     compute=self.compute,
                     use_auto_padding=self.use_auto_padding,
                     pp=self.pp,
-                    rand_patch = self.rand_obs
+                    rand_patch = self.rand_obs,
                 ) for sl in slices]
             )
-            for slices in self.val_slices
-        ]
-        self.test_ds[
-            ConcatDataset(
-                [FourDVarNetDataset(
-                    dim_range={**self.dim_range, **{'time': sl}},
-                    strides=self.strides,
-                    slice_win=self.slice_win,
-                    oi_path=self.oi_path,
-                    oi_var=self.oi_var,
-                    oi_decode=self.oi_decode,
-                    obs_mask_path=self.obs_mask_path,
-                    obs_mask_var=self.obs_mask_var,
-                    obs_mask_decode=self.obs_mask_decode,
-                    gt_path=self.gt_path,
-                    gt_var=self.gt_var,
-                    gt_decode=self.gt_decode,
-                    sst_path=self.sst_path,
-                    sst_var=self.sst_var,
-                    sst_decode=self.sst_decode,
-                    resolution=self.resolution,
-                    resize_factor=self.resize_factor,
-                    compute=self.compute,
-                    use_auto_padding=self.use_auto_padding,
-                    pp=self.pp,
-                    rand_patch = self.rand_obs
-                ) for sl in slices]
-            )
-            for slices in self.test_slices
+            for slices in (self.val_slices, self.test_slices)
         ]
         if self.sst_var is None:
             self.norm_stats = self.compute_norm_stats(self.train_ds)
