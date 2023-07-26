@@ -383,23 +383,24 @@ class FourDVarNetDataset(Dataset):
 
         oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
 
-        obs_mask_item = np.where(np.isnan(_obs_item),np.nan,1.)
+        obs_mask_item = ~np.isnan(_obs_item)
+        obs_item = np.where(~np.isnan(_obs_item), _obs_item, np.zeros_like(_obs_item))
+
+        # ~ obs_mask_item = np.where(np.isnan(_obs_item),np.nan,1.)
+        # ~ if self.rand_obs:
+            # ~ for t_ in range(self.slice_win.time):
+                # ~ obs_mask = obs_mask_item[t_]
+                # ~ if np.nansum(obs_mask)>.25*self.slice_win.lat*self.slice_win.lon:
+                    # ~ obs_obj = .1*np.nansum(obs_mask)
+                    # ~ while  np.nansum(obs_mask)>= obs_obj:
+                        # ~ half_patch_height = np.random.randint(2,10)
+                        # ~ half_patch_width = np.random.randint(2,10)
+                        # ~ idx_lat = np.random.randint(0,self.slice_win.lat)
+                        # ~ idx_lon = np.random.randint(0,self.slice_win.lon)
+                        # ~ obs_mask[np.max([0,idx_lat-half_patch_height]):np.min([self.slice_win.lat,idx_lat+half_patch_height+1]),np.max([0,idx_lon-half_patch_width]):np.min([self.slice_win.lon,idx_lon+half_patch_width+1])] = np.nan
+                    # ~ obs_mask_item[t_] = obs_mask
+        # ~ obs_item = np.where(~np.isnan(obs_mask_item), _obs_item, np.zeros_like(_obs_item))
         
-        if self.rand_obs:
-            for t_ in range(self.slice_win.time):
-                obs_mask = obs_mask_item[t_]
-                if np.nansum(obs_mask)>.25*self.slice_win.lat*self.slice_win.lon:
-                    obs_obj = .1*np.nansum(obs_mask)
-                    while  np.nansum(obs_mask)>= obs_obj:
-                        half_patch_height = np.random.randint(2,10)
-                        half_patch_width = np.random.randint(2,10)
-                        idx_lat = np.random.randint(0,self.slice_win.lat)
-                        idx_lon = np.random.randint(0,self.slice_win.lon)
-                        obs_mask[np.max([0,idx_lat-half_patch_height]):np.min([self.slice_win.lat,idx_lat+half_patch_height+1]),np.max([0,idx_lon-half_patch_width]):np.min([self.slice_win.lon,idx_lon+half_patch_width+1])] = np.nan
-                    obs_mask_item[t_] = obs_mask
-        obs_item = np.where(~np.isnan(obs_mask_item), _obs_item, np.zeros_like(_obs_item))
-        print(obs_item.dtype)
-        print(gt_item.dtype)
         if self.sst_ds == None:
             return oi_item, obs_mask_item, obs_item, gt_item
         else:
