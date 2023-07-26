@@ -383,7 +383,8 @@ class FourDVarNetDataset(Dataset):
 
         oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
 
-        obs_mask_item = ~np.isnan(_obs_item)
+        obs_mask_item = np.where(np.isnan(_obs_item),np.nan,1.)
+        
         if self.rand_obs:
             for t_ in range(self.slice_win.time):
                 obs_mask = obs_mask_item[t_]
