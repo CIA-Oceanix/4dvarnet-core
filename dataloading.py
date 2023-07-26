@@ -569,7 +569,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 aug_train_data=self.aug_train_data,
                 compute=self.compute,
                 pp=self.pp,
-                rand_patch = self.rand_obs,
+                rand_obs = self.rand_obs,
             ) for sl in self.train_slices])
 
         self.val_ds, self.test_ds = [
@@ -595,7 +595,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     compute=self.compute,
                     use_auto_padding=self.use_auto_padding,
                     pp=self.pp,
-                    rand_patch = self.rand_obs,
+                    rand_obs = self.rand_obs,
                 ) for sl in slices]
             )
             for slices in (self.val_slices, self.test_slices)
