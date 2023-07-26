@@ -398,7 +398,8 @@ class FourDVarNetDataset(Dataset):
                         obs_mask[np.max([0,idx_lat-half_patch_height]):np.min([self.slice_win.lat,idx_lat+half_patch_height+1]),np.max([0,idx_lon-half_patch_width]):np.min([self.slice_win.lon,idx_lon+half_patch_width+1])] = np.nan
                     obs_mask_item[t_] = obs_mask
         obs_item = np.where(~np.isnan(obs_mask_item), _obs_item, np.zeros_like(_obs_item))
-        print(obt_item)
+        print(obs_item)
+        print(gt_item)
         if self.sst_ds == None:
             return oi_item, obs_mask_item, obs_item, gt_item
         else:
