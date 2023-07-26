@@ -256,6 +256,7 @@ class FourDVarNetDataset(Dataset):
         aug_train_data=False,
         compute=False,
         pp='std',
+        rand_obs=False
     ):
         super().__init__()
         self.use_auto_padding=use_auto_padding
@@ -263,7 +264,7 @@ class FourDVarNetDataset(Dataset):
         self.aug_train_data = aug_train_data
         self.return_coords = False
         self.pp=pp
-
+        self.rand_obs = rand_obs
         self.gt_ds = XrDataset(
             gt_path, gt_var,
             slice_win=slice_win,
@@ -381,10 +382,21 @@ class FourDVarNetDataset(Dataset):
         gt_item = _gt_item
 
         oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
-        # obs_mask_item = self.obs_mask_ds[item].astype(bool) & ~np.isnan(oi_item) & ~np.isnan(_gt_item)
 
         obs_mask_item = ~np.isnan(_obs_item)
-        obs_item = np.where(~np.isnan(_obs_item), _obs_item, np.zeros_like(_obs_item))
+        if self.rand_obs:
+            for t_ in range(self.slice_win.time):
+                obs_mask = obs_mask_item[t_]
+                if np.nansum(obs_mask)>.25*self.slice_win.lat*self.slice_win.lon
+                    obs_obj = .1*np.nansum(obs_mask)
+                    while  np.nansum(obs_mask)>= obs_obj:
+                        half_patch_height = np.random.randint(2,10)
+                        half_patch_width = np.random.randint(2,10)
+                        idx_lat = np.random.randint(0,self.slice_win.lat)
+                        idx_lon = np.random.randint(0,self.slice_win.lon)
+                        obs_mask[np.max([0,idx_lat-half_patch_height]):np.min([self.slice_win.lat,idx_lat+half_patch_height+1]),np.max([0,idx_lon-half_patch_width]):np.min([self.slice_win.lon,idx_lon+half_patch_width+1])] = np.nan
+                    obs_mask_item[t_] = obs_mask
+        obs_item = np.where(~np.isnan(obs_mask_item), _obs_item, np.zeros_like(_obs_item))
 
         if self.sst_ds == None:
             return oi_item, obs_mask_item, obs_item, gt_item
@@ -423,6 +435,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             compute=False,
             use_auto_padding=False,
             pp='std'
+            rand_obs=False
     ):
         super().__init__()
         self.resize_factor = resize_factor
@@ -457,7 +470,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.train_ds, self.val_ds, self.test_ds = None, None, None
         self.norm_stats = (0, 1)
         self.norm_stats_sst = None
-
+        self.rand_obs = rand_obs
 
     def mean_stds(self, ds):
         print('mean_stds, l.463....')
@@ -556,9 +569,37 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 aug_train_data=self.aug_train_data,
                 compute=self.compute,
                 pp=self.pp,
+                rand_patch = self.rand_obs
             ) for sl in self.train_slices])
 
-        self.val_ds, self.test_ds = [
+        # ~ self.val_ds, self.test_ds = [
+            # ~ ConcatDataset(
+                # ~ [FourDVarNetDataset(
+                    # ~ dim_range={**self.dim_range, **{'time': sl}},
+                    # ~ strides=self.strides,
+                    # ~ slice_win=self.slice_win,
+                    # ~ oi_path=self.oi_path,
+                    # ~ oi_var=self.oi_var,
+                    # ~ oi_decode=self.oi_decode,
+                    # ~ obs_mask_path=self.obs_mask_path,
+                    # ~ obs_mask_var=self.obs_mask_var,
+                    # ~ obs_mask_decode=self.obs_mask_decode,
+                    # ~ gt_path=self.gt_path,
+                    # ~ gt_var=self.gt_var,
+                    # ~ gt_decode=self.gt_decode,
+                    # ~ sst_path=self.sst_path,
+                    # ~ sst_var=self.sst_var,
+                    # ~ sst_decode=self.sst_decode,
+                    # ~ resolution=self.resolution,
+                    # ~ resize_factor=self.resize_factor,
+                    # ~ compute=self.compute,
+                    # ~ use_auto_padding=self.use_auto_padding,
+                    # ~ pp=self.pp,
+                # ~ ) for sl in slices]
+            # ~ )
+            # ~ for slices in (self.val_slices, self.test_slices)
+        # ~ ]
+        self.val_ds[
             ConcatDataset(
                 [FourDVarNetDataset(
                     dim_range={**self.dim_range, **{'time': sl}},
@@ -581,9 +622,38 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     compute=self.compute,
                     use_auto_padding=self.use_auto_padding,
                     pp=self.pp,
+                    rand_patch = self.rand_obs
                 ) for sl in slices]
             )
-            for slices in (self.val_slices, self.test_slices)
+            for slices in self.val_slices
+        ]
+        self.test_ds[
+            ConcatDataset(
+                [FourDVarNetDataset(
+                    dim_range={**self.dim_range, **{'time': sl}},
+                    strides=self.strides,
+                    slice_win=self.slice_win,
+                    oi_path=self.oi_path,
+                    oi_var=self.oi_var,
+                    oi_decode=self.oi_decode,
+                    obs_mask_path=self.obs_mask_path,
+                    obs_mask_var=self.obs_mask_var,
+                    obs_mask_decode=self.obs_mask_decode,
+                    gt_path=self.gt_path,
+                    gt_var=self.gt_var,
+                    gt_decode=self.gt_decode,
+                    sst_path=self.sst_path,
+                    sst_var=self.sst_var,
+                    sst_decode=self.sst_decode,
+                    resolution=self.resolution,
+                    resize_factor=self.resize_factor,
+                    compute=self.compute,
+                    use_auto_padding=self.use_auto_padding,
+                    pp=self.pp,
+                    rand_patch = self.rand_obs
+                ) for sl in slices]
+            )
+            for slices in self.test_slices
         ]
         if self.sst_var is None:
             self.norm_stats = self.compute_norm_stats(self.train_ds)
