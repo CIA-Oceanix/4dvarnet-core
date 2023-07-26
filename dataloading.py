@@ -596,7 +596,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     compute=self.compute,
                     use_auto_padding=self.use_auto_padding,
                     pp=self.pp,
-                    rand_obs = self.rand_obs,
+                    # ~ rand_obs = self.rand_obs,
                 ) for sl in slices]
             )
             for slices in (self.val_slices, self.test_slices)
