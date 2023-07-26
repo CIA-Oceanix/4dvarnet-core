@@ -384,9 +384,9 @@ class FourDVarNetDataset(Dataset):
         oi_item = np.where(~np.isnan(_oi_item), _oi_item, 0.)
 
         obs_mask_item = ~np.isnan(_obs_item)
-        # ~ if self.rand_obs:
-            # ~ for t_ in range(self.slice_win.time):
-                # ~ obs_mask = obs_mask_item[t_]
+        if self.rand_obs:
+            for t_ in range(self.slice_win.time):
+                obs_mask = obs_mask_item[t_]
                 # ~ if np.nansum(obs_mask)>.25*self.slice_win.lat*self.slice_win.lon
                     # ~ obs_obj = .1*np.nansum(obs_mask)
                     # ~ while  np.nansum(obs_mask)>= obs_obj:
