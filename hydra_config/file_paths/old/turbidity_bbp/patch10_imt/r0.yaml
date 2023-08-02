@@ -1,0 +1,3 @@
+natl_ssh_daily: /DATASET/turbidity_bbp/GT_FrMedCoast_log10_2007to2021.nc
+oi_swot_4nadir: /DATASET/turbidity_bbp/GT_FrMedCoast_log10_2007to2021.nc
+pseudo_obs: /DATASET/turbidity_bbp/patch10_imt/Obs_patch10_FrMedCoast_log10_2007to2021_0.nc
