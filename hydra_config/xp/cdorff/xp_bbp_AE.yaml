@@ -37,7 +37,7 @@ params:
     - ${datamodule.slice_win.lon}
     - ${datamodule.slice_win.lat}
     
-  animate: true
+  animate: false
   
 entrypoint:
   max_epochs: 200
