@@ -72,7 +72,7 @@ datamodule:
       
   test_slices: 
     - _target_: builtins.slice
-      _args_: ${adjust_testslices:['2021-01-01', '2021-12-31'],${params.dT}}
+      _args_: ${adjust_testslices:['2020-01-01', '2020-12-31'],${params.dT}}
       
   oi_var: "BBP443"
   gt_var: "BBP443"
