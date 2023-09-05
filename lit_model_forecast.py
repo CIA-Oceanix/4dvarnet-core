@@ -353,7 +353,10 @@ class LitModelForecast(LitModelOI):
         #         prod[:, (self.hparams.dT - 1) // 2:self.hparams.dT, :, :]),
         # ),
         #                        dim=1)
-        _, _, _, targets_gt = batch
+        if not self.use_sst:
+            _, _, _, targets_gt = batch
+        else:
+            _, _, _, targets_gt, _ = batch
         init_state = torch.zeros_like(targets_gt)
         return init_state
 
@@ -364,7 +367,10 @@ class LitModelForecast(LitModelOI):
             If self.noise_std is not None, add gaussian noise
             to the observations
         """
-        _, inputs_mask, inputs_obs, _ = batch
+        if not self.use_sst:
+            _, inputs_mask, inputs_obs, _ = batch
+        else:
+            _, inputs_mask, inputs_obs, _, _ = batch
         prod = inputs_mask * inputs_obs
         # Noisy obs
         if self.noise_std is not None:
@@ -383,7 +389,10 @@ class LitModelForecast(LitModelOI):
 
     def compute_loss(self, batch, phase, state_init=(None, )):
 
-        _, inputs_mask, _, targets_gt = batch
+        if not self.use_sst:
+            _, inputs_mask, _, targets_gt = batch
+        else:
+            _, inputs_mask, _, targets_gt, sst_gt = batch
 
         # handle patch with no observation
         if inputs_mask.sum().item() == 0:
@@ -404,6 +413,10 @@ class LitModelForecast(LitModelOI):
 
         obs = self.get_obs_state(batch)
         new_masks = inputs_mask
+
+        if self.use_sst:
+            new_masks = [new_masks, torch.ones_like(sst_gt)]
+            obs = [obs, sst_gt]
 
         # gradient norm field
         g_targets_gt_x, g_targets_gt_y = self.gradient_img(targets_gt)

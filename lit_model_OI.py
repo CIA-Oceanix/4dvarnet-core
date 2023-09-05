@@ -40,7 +40,7 @@ class LitModelOI(LitModelAugstate):
         opt = torch.optim.Adam
         if hasattr(self.hparams, 'opt'):
             opt = lambda p: call(self.hparams.opt, p)
-        if self.model_name == '4dvarnet_OI':
+        if self.model_name in ('4dvarnet_OI', '4dvarnet_sst'):
             optimizer = opt([
                 {
                     'params': self.model.model_Grad.parameters(),
@@ -65,7 +65,10 @@ class LitModelOI(LitModelAugstate):
         return optimizer
 
     def diag_step(self, batch, batch_idx, log_pref='test'):
-        targets_oi, inputs_mask, inputs_obs, targets_gt = batch
+        if not self.use_sst:
+            targets_oi, inputs_mask, inputs_obs, targets_gt = batch
+        else:
+            targets_oi, inputs_mask, inputs_obs, targets_gt, _ = batch
         losses, out, metric = self(batch, phase='test')
         loss = losses[-1]
         if loss is not None:
@@ -172,20 +175,29 @@ class LitModelOI(LitModelAugstate):
         if state[0] is not None:
             return state[0]
 
-        _, inputs_mask, inputs_obs, _ = batch
+        if not self.use_sst:
+            _, inputs_mask, inputs_obs, _ = batch
+        else:
+            _, inputs_mask, inputs_obs, _, _ = batch
 
         init_state = inputs_mask * inputs_obs
         return init_state
 
     def get_obs_state(self, batch):
         """ Create obs state for the compute loss function. """
-        _, inputs_mask, inputs_obs, _ = batch
+        if not self.use_sst:
+            _, inputs_mask, inputs_obs, _ = batch
+        else:
+            _, inputs_mask, inputs_obs, _, _ = batch
         obs = inputs_mask * inputs_obs
         return obs
 
     def compute_loss(self, batch, phase, state_init=(None, )):
 
-        _, inputs_mask, _, targets_gt = batch
+        if not self.use_sst:
+            _, inputs_mask, _, targets_gt = batch
+        else:
+            _, inputs_mask, _, targets_gt, sst_gt = batch
 
         # handle patch with no observation
         if inputs_mask.sum().item() == 0:
@@ -206,6 +218,10 @@ class LitModelOI(LitModelAugstate):
 
         obs = self.get_obs_state(batch)
         new_masks = inputs_mask
+
+        if self.use_sst:
+            new_masks = [new_masks, torch.ones_like(sst_gt)]
+            obs = [obs, sst_gt]
 
         # gradient norm field
         g_targets_gt_x, g_targets_gt_y = self.gradient_img(targets_gt)
