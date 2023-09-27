@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: xp_turbidity_bbp_rf1_dt15_AE50
+xp_name: xp_BBP_DC
 
 params:
   model: 4dvarnet_OI
@@ -42,7 +42,7 @@ params:
 entrypoint:
   max_epochs: 200
   
-lit_mod_cls: lit_model_noOI_turbidity.LitModelOI
+lit_mod_cls: lit_model_turbidity.LitModelOI
 
 
 datamodule:
@@ -50,7 +50,8 @@ datamodule:
   
   dl_kwargs:
     batch_size: 8
-    
+    num_workers: 10
+
   resize_factor: 1
     
   dim_range:
@@ -68,11 +69,11 @@ datamodule:
       
   val_slices: 
     - _target_: builtins.slice
-      _args_: ['2020-01-01', '2020-12-31']
+      _args_: ['2019-01-01', '2019-12-31']
       
   test_slices: 
     - _target_: builtins.slice
-      _args_: ${adjust_testslices:['2020-01-01', '2020-12-31'],${params.dT}}
+      _args_: ${adjust_testslices:['2020-01-01', '2021-12-31'],${params.dT}}
       
   oi_var: "BBP443"
   gt_var: "BBP443"
