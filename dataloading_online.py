@@ -440,6 +440,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             oi_var='ssh_mod',
             oi_decode=False,
             obs_mask_decode=False,
+            obs_mask_path=None,
+            obs_mask_var=None,
             gt_path='/gpfsstore/rech/yrf/commun/NATL60/NATL/ref/NATL60-CJM165_NATL_ssh_y2013.1y.nc',
             gt_var='ssh',
             gt_decode=True,
