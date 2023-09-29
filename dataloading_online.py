@@ -309,6 +309,7 @@ class FourDVarNetDataset(Dataset):
             auto_padding=use_auto_padding,
             online = online,
         )
+        print(np.sum(~np.isnan(self.obs_mask_ds.ds[gt_var])))
         print('oi')
         self.oi_ds = XrDataset(
             oi_path, oi_var,
