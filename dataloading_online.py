@@ -201,7 +201,7 @@ class XrDataset(Dataset):
         if self.interp_na:
             self.ds = interpolate_na_2D(self.ds)
 
-        if True:
+        if compute:
             self.ds = self.ds.compute()
 
         self.slice_win = slice_win
@@ -308,6 +308,7 @@ class FourDVarNetDataset(Dataset):
             compute=compute,
             auto_padding=use_auto_padding,
             online = online,
+            compute=True,
         )
         print(np.sum(~np.isnan(self.obs_mask_ds.ds[gt_var])))
         print('oi')
