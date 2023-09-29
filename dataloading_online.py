@@ -305,7 +305,7 @@ class FourDVarNetDataset(Dataset):
             strides=strides,
             decode=obs_mask_decode,
             resize_factor=resize_factor,
-            compute=compute,
+            compute=True,
             auto_padding=use_auto_padding,
             online = online,
         )
