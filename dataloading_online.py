@@ -180,7 +180,7 @@ class XrDataset(Dataset):
             }
             
         self.ds = self.ds.transpose("time", "lat", "lon")
-
+        print(np.sum(~np.isnan(self.ds[self.var])))
         if online:
             print('Random data generation...')
             for t in range(np.size(self.ds.time)):
@@ -188,16 +188,15 @@ class XrDataset(Dataset):
                 n_obs = np.sum(~np.isnan(obs))
                 if n_obs/np.size(obs)>.25:
                     obs_obj = .5*n_obs
-                    print(n_obs)
                     while  np.sum(~np.isnan(obs))>= obs_obj:
                         half_patch_height = np.random.randint(2,10)
                         half_patch_width = np.random.randint(2,10)
                         idx_lat = np.random.randint(0,slice_win.lat)
                         idx_lon = np.random.randint(0,slice_win.lon)
                         obs[np.max([0,idx_lat-half_patch_height]):np.min([slice_win.lat,idx_lat+half_patch_height+1]),np.max([0,idx_lon-half_patch_width]):np.min([slice_win.lon,idx_lon+half_patch_width+1])] = np.nan
-                    print(np.sum(~np.isnan(obs)))
                     self.ds[self.var][t].values = obs
             print('Done.')
+        print(np.sum(~np.isnan(self.ds[self.var])))
 
         if self.interp_na:
             self.ds = interpolate_na_2D(self.ds)
