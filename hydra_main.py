@@ -54,7 +54,7 @@ class FourDVarNetHydraRunner:
         self.time = {'time_test' : test_dates}
 
         self.setup(dm)
-        pl.seed_everything(seed=cfg.get('seed', None))
+        pl.seed_everything(seed=self.cfg.get('seed', None))
 
 
     def setup(self, datamodule):
