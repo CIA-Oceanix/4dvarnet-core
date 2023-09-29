@@ -234,8 +234,8 @@ class FourDVarNetHydraRunner:
 
 def _main(cfg):
     print(OmegaConf.to_yaml(cfg))
-    pl.seed_everything(seed=cfg.get('seed', None))
     dm = instantiate(cfg.datamodule)
+    pl.seed_everything(seed=cfg.get('seed', None))
     if cfg.get('callbacks') is not None:
         callbacks = [instantiate(cb_cfg) for cb_cfg in cfg.callbacks]
     else:
