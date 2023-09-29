@@ -273,6 +273,7 @@ class FourDVarNetDataset(Dataset):
         compute=False,
         pp='std',
         rand_obs=False,
+        online=False
     ):
         super().__init__()
         self.use_auto_padding=use_auto_padding
@@ -303,7 +304,7 @@ class FourDVarNetDataset(Dataset):
             resize_factor=resize_factor,
             compute=compute,
             auto_padding=use_auto_padding,
-            online = True,
+            online = online,
         )
 
         self.oi_ds = XrDataset(
@@ -610,6 +611,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                     use_auto_padding=self.use_auto_padding,
                     pp=self.pp,
                     rand_obs = False,
+                    online = True
                 ) for sl in slices]
             )
             for slices in (self.val_slices, self.test_slices)
