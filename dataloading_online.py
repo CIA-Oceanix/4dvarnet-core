@@ -180,8 +180,9 @@ class XrDataset(Dataset):
             }
             
         self.ds = self.ds.transpose("time", "lat", "lon")
-        print(np.sum(~np.isnan(self.ds[self.var])))
         if online:
+            print(self.ds)
+            print(np.sum(~np.isnan(self.ds[self.var])))
             print('Random data generation...')
             for t in range(np.size(self.ds.time)):
                 obs = self.ds[self.var][t].values
@@ -196,7 +197,7 @@ class XrDataset(Dataset):
                         obs[np.max([0,idx_lat-half_patch_height]):np.min([slice_win.lat,idx_lat+half_patch_height+1]),np.max([0,idx_lon-half_patch_width]):np.min([slice_win.lon,idx_lon+half_patch_width+1])] = np.nan
                     self.ds[self.var][t].values = obs
             print('Done.')
-        print(np.sum(~np.isnan(self.ds[self.var])))
+            print(np.sum(~np.isnan(self.ds[self.var])))
 
         if self.interp_na:
             self.ds = interpolate_na_2D(self.ds)
@@ -283,6 +284,7 @@ class FourDVarNetDataset(Dataset):
         self.return_coords = False
         self.pp=pp
         self.rand_obs = rand_obs
+        print('gt')
         self.gt_ds = XrDataset(
             gt_path, gt_var,
             slice_win=slice_win,
@@ -295,6 +297,7 @@ class FourDVarNetDataset(Dataset):
             auto_padding=use_auto_padding,
             interp_na=False,
         )
+        print('obs')
         self.obs_mask_ds = XrDataset(
             gt_path, gt_var,
             slice_win=slice_win,
@@ -307,7 +310,7 @@ class FourDVarNetDataset(Dataset):
             auto_padding=use_auto_padding,
             online = online,
         )
-
+        print('oi')
         self.oi_ds = XrDataset(
             oi_path, oi_var,
             slice_win=slice_win,
@@ -567,6 +570,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         return self.test_ds.datasets[0].gt_ds.ds_size
 
     def setup(self, stage=None):
+        print('train')
         self.train_ds = ConcatDataset(
             [FourDVarNetDataset(
                 dim_range={**self.dim_range, **{'time': sl}},
@@ -589,7 +593,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 pp=self.pp,
                 rand_obs = True,
             ) for sl in self.train_slices])
-
+        print('val+test')
         self.val_ds, self.test_ds = [
             ConcatDataset(
                 [FourDVarNetDataset(
