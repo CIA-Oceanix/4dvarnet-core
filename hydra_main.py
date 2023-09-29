@@ -54,7 +54,6 @@ class FourDVarNetHydraRunner:
         self.time = {'time_test' : test_dates}
 
         self.setup(dm)
-        pl.seed_everything(seed=self.cfg.get('seed', None))
 
 
     def setup(self, datamodule):
@@ -235,7 +234,7 @@ class FourDVarNetHydraRunner:
         )
 
 def _main(cfg):
-    print(OmegaConf.to_yaml(cfg))
+    print(OmegaConf.to_yaml(cfg))    
     # ~ pl.seed_everything(seed=cfg.get('seed', None))
     dm = instantiate(cfg.datamodule)
     if cfg.get('callbacks') is not None:
@@ -251,6 +250,7 @@ def _main(cfg):
         logger=True
     lit_mod_cls = get_class(cfg.lit_mod_cls)
     runner = FourDVarNetHydraRunner(cfg.params, dm, lit_mod_cls, callbacks=callbacks, logger=logger)
+    pl.seed_everything(seed=cfg.get('seed', None)) #####
     call(cfg.entrypoint, self=runner)
 
 
