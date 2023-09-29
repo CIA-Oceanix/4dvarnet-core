@@ -201,7 +201,7 @@ class XrDataset(Dataset):
         if self.interp_na:
             self.ds = interpolate_na_2D(self.ds)
 
-        if compute:
+        if True:
             self.ds = self.ds.compute()
 
         self.slice_win = slice_win
