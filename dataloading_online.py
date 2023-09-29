@@ -181,9 +181,8 @@ class XrDataset(Dataset):
             
         self.ds = self.ds.transpose("time", "lat", "lon")
         if online:
-            print(self.ds)
-            print(np.sum(~np.isnan(self.ds[self.var])))
             print('Random data generation...')
+            print(np.sum(~np.isnan(self.ds[self.var])))
             for t in range(np.size(self.ds.time)):
                 obs = self.ds[self.var][t].values
                 n_obs = np.sum(~np.isnan(obs))
