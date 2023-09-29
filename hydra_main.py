@@ -54,6 +54,8 @@ class FourDVarNetHydraRunner:
         self.time = {'time_test' : test_dates}
 
         self.setup(dm)
+        pl.seed_everything(seed=cfg.get('seed', None))
+
 
     def setup(self, datamodule):
         if hasattr(datamodule, 'sst_mask_var') and datamodule.sst_mask_var is not None:
@@ -234,8 +236,8 @@ class FourDVarNetHydraRunner:
 
 def _main(cfg):
     print(OmegaConf.to_yaml(cfg))
+    # ~ pl.seed_everything(seed=cfg.get('seed', None))
     dm = instantiate(cfg.datamodule)
-    pl.seed_everything(seed=cfg.get('seed', None))
     if cfg.get('callbacks') is not None:
         callbacks = [instantiate(cb_cfg) for cb_cfg in cfg.callbacks]
     else:
