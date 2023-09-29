@@ -308,7 +308,6 @@ class FourDVarNetDataset(Dataset):
             compute=compute,
             auto_padding=use_auto_padding,
             online = online,
-            compute=True,
         )
         print(np.sum(~np.isnan(self.obs_mask_ds.ds[gt_var])))
         print('oi')
