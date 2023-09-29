@@ -182,7 +182,7 @@ class XrDataset(Dataset):
         self.ds = self.ds.transpose("time", "lat", "lon")
 
         if online:
-            for t in np.size(ds.time):
+            for t in np.size(self.ds.time):
                 obs = self.ds[self.var][t].values
                 n_obs = np.sum(~np.isnan(obs))
                 if n_obs/np.size(obs)>.25:
