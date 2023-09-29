@@ -183,7 +183,7 @@ class XrDataset(Dataset):
 
         if online:
             for t in np.size(ds.time):
-                obs = ds[self.var][t].values
+                obs = self.ds[self.var][t].values
                 n_obs = np.sum(~np.isnan(obs))
                 if n_obs/np.size(obs)>.25:
                     obs_obj = .5*n_obs
@@ -193,7 +193,7 @@ class XrDataset(Dataset):
                         idx_lat = np.random.randint(0,self.slice_win.lat)
                         idx_lon = np.random.randint(0,self.slice_win.lon)
                         obs[np.max([0,idx_lat-half_patch_height]):np.min([self.slice_win.lat,idx_lat+half_patch_height+1]),np.max([0,idx_lon-half_patch_width]):np.min([self.slice_win.lon,idx_lon+half_patch_width+1])] = np.nan
-                    ds[self.var][t].values = obs
+                    self.ds[self.var][t].values = obs
 
         if self.interp_na:
             self.ds = interpolate_na_2D(self.ds)
