@@ -187,7 +187,7 @@ class XrDataset(Dataset):
                 obs = self.ds[self.var][t].values
                 n_obs = np.sum(~np.isnan(obs))
                 if n_obs/np.size(obs)>.25:
-                    obs_obj = .5*n_obs
+                    obs_obj = .9*n_obs
                     while  np.sum(~np.isnan(obs))>= obs_obj:
                         half_patch_height = np.random.randint(2,10)
                         half_patch_width = np.random.randint(2,10)
