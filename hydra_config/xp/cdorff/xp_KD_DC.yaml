@@ -50,7 +50,8 @@ datamodule:
   
   dl_kwargs:
     batch_size: 8
-    
+    num_workers: 10
+
   resize_factor: 1
     
   dim_range:
