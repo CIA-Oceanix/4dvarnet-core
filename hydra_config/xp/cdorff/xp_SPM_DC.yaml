@@ -50,6 +50,7 @@ datamodule:
   
   dl_kwargs:
     batch_size: 8
+    num_workers: 10
     
   resize_factor: 1
     
@@ -72,7 +73,8 @@ datamodule:
       
   test_slices: 
     - _target_: builtins.slice
-      _args_: ${adjust_testslices:['2018-01-01', '2018-12-31'],${params.dT}}
+      _args_: ['2018-01-01', '2018-12-31']
+      #_args_: ${adjust_testslices:['2018-01-01', '2018-12-31'],${params.dT}}
       
   oi_var: "SPM"
   gt_var: "SPM"
