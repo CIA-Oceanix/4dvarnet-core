@@ -65,7 +65,7 @@ datamodule:
       
   train_slices: 
     - _target_: builtins.slice
-      _args_: ['2015-01-01', '2017-12-31']
+      _args_: ['2015-01-01', '2016-12-31']
       
   val_slices: 
     - _target_: builtins.slice
