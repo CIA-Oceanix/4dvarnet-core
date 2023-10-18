@@ -265,6 +265,8 @@ class FourDVarNetDataset(Dataset):
         self.return_coords = False
         self.pp=pp
         self.rand_obs = rand_obs
+        self.slice_win = slice_win
+        
         self.gt_ds = XrDataset(
             gt_path, gt_var,
             slice_win=slice_win,
@@ -440,7 +442,6 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             compute=False,
             use_auto_padding=False,
             pp='std',
-            rand_obs=False
     ):
         super().__init__()
         self.resize_factor = resize_factor
@@ -475,7 +476,6 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.train_ds, self.val_ds, self.test_ds = None, None, None
         self.norm_stats = (0, 1)
         self.norm_stats_sst = None
-        self.rand_obs = rand_obs
 
     def mean_stds(self, ds):
         print('mean,std : ')
@@ -574,7 +574,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 aug_train_data=self.aug_train_data,
                 compute=self.compute,
                 pp=self.pp,
-                rand_obs = self.rand_obs,
+                rand_obs = True,
             ) for sl in self.train_slices])
 
         self.val_ds, self.test_ds = [
