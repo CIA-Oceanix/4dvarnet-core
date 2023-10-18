@@ -217,6 +217,60 @@ class LitModelOI(LitModelAugstate):
         init_state = inputs_Mask * inputs_obs
         return init_state
 
+    def build_test_xr_ds(self, outputs, diag_ds):
+        print("build_test_xr_ds")
+        outputs_keys = list(outputs[0][0].keys())
+        with diag_ds.get_coords():
+            self.test_patch_coords = [
+               diag_ds[i]
+               for i in range(len(diag_ds))
+            ]
+
+        def iter_item(outputs):
+            n_batch_chunk = len(outputs)
+            n_batch = len(outputs[0])
+            for b in range(n_batch):
+                bs = outputs[0][b]['gt'].shape[0]
+                for i in range(bs):
+                    for bc in range(n_batch_chunk):
+                        yield tuple(
+                                [outputs[bc][b][k][i] for k in outputs_keys]
+                        )
+
+        dses =[
+                xr.Dataset( {
+                    k: (('time', 'lat', 'lon'), x_k) for k, x_k in zip(outputs_keys, xs)
+                }, coords=coords)
+            for  xs, coords
+            in zip(iter_item(outputs), self.test_patch_coords)
+        ]
+        fin_ds = xr.merge([xr.zeros_like(ds[['time','lat', 'lon']]) for ds in dses])
+        fin_ds = fin_ds.assign(
+            {'weight': (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
+        )
+        for v in dses[0]:
+            fin_ds = fin_ds.assign(
+                {v: (fin_ds.dims, np.zeros(list(fin_ds.dims.values()))) }
+            )
+        iter_ = 0
+        for ds in dses:
+            # ~ ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
+            xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.gt.dims)
+            # ~ _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
+            _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight)
+            fin_ds.loc[_ds.coords] = fin_ds.loc[_ds.coords] + _ds
+            
+        #return (
+            #(fin_ds.drop('weight') / fin_ds.weight)
+            #.sel(instantiate(self.test_domain))
+        #).transpose('time', 'lat', 'lon')
+        return (
+            (fin_ds.drop('weight') / fin_ds.weight)
+            .sel(instantiate(self.test_domain))
+            .isel(time=slice(self.hparams.dT //2, -self.hparams.dT //2))
+            # .pipe(lambda ds: ds.sel(time=~(np.isnan(ds.gt).all('lat').all('lon'))))
+        ).transpose('time', 'lat', 'lon')
+
     def compute_loss(self, batch, phase, state_init=(None,)):
         _, inputs_Mask, inputs_obs, targets_GT = batch
         # handle patch with no observation

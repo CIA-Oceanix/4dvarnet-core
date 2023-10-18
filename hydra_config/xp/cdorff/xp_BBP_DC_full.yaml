@@ -49,8 +49,8 @@ datamodule:
   _target_: dataloading.FourDVarNetDataModule
   
   dl_kwargs:
-    batch_size: 8
-    num_workers: 10
+    batch_size: 10
+    num_workers: 20
 
   resize_factor: 1
     
@@ -65,20 +65,20 @@ datamodule:
       
   train_slices: 
     - _target_: builtins.slice
-      _args_: ['2021-06-01', '2021-06-30']
+      _args_: ['2020-12-01', '2020-12-31']
       
   val_slices: 
     - _target_: builtins.slice
-      _args_: ['2021-06-01', '2021-06-30']
+      _args_: ['2020-12-01', '2020-12-31']
       
   test_slices: 
     - _target_: builtins.slice
-      _args_: ['2021-06-01', '2021-06-30']
-      #_args_: ${adjust_testslices:['2020-01-01', '2021-12-31'],${params.dT}}
+      #_args_: ['2020-01-01', '2020-12-31']
+      _args_: ${adjust_testslices:['2020-12-01', '2020-12-31'],${params.dT}}
       
-  oi_var: "BBP443"
-  gt_var: "BBP443"
-  obs_mask_var: "BBP443"
+  oi_var: "bbp443"
+  gt_var: "bbp443"
+  obs_mask_var: "bbp443"
   
   slice_win:
     lat: ${div:240,${datamodule.resize_factor}}
