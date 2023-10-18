@@ -20,7 +20,7 @@ params:
   alpha_mse_gssh: 1000.
   norm_obs: l2
   norm_prior: l2
-  post_proj: false #####
+  post_proj: false ##########
   test_domain:
     lat:
       _target_: builtins.slice
@@ -65,20 +65,22 @@ datamodule:
       
   train_slices: 
     - _target_: builtins.slice
-      _args_: ['2017-01-01', '2018-12-31'] #['2018-01-01', '2019-12-31']
+      _args_: ['2017-01-01', '2018-12-31']
       
   val_slices: 
     - _target_: builtins.slice
-      _args_: ['2019-01-01', '2019-12-31'] #['2019-01-01', '2019-12-31']
+      _args_: ['2021-01-01', '2021-12-31']
       
   test_slices: 
     - _target_: builtins.slice
-      _args_: ['2020-01-01', '2021-12-31']
+      _args_: ['2019-01-01', '2020-12-31']
       #_args_: ${adjust_testslices:['2020-01-01', '2021-12-31'],${params.dT}}
       
   oi_var: "BBP443"
   gt_var: "BBP443"
   obs_mask_var: "BBP443"
+  
+  rand_obs: true
   
   slice_win:
     lat: ${div:240,${datamodule.resize_factor}}

@@ -267,7 +267,7 @@ class LitModelOI(LitModelAugstate):
         return (
             (fin_ds.drop('weight') / fin_ds.weight)
             .sel(instantiate(self.test_domain))
-            .isel(time=slice(self.hparams.dT //2, -self.hparams.dT //2))
+            #.isel(time=slice(self.hparams.dT //2, -self.hparams.dT //2))   ###########
             # .pipe(lambda ds: ds.sel(time=~(np.isnan(ds.gt).all('lat').all('lon'))))
         ).transpose('time', 'lat', 'lon')
 
@@ -287,7 +287,6 @@ class LitModelOI(LitModelAugstate):
                         ('msePhir', 0.),
                         ])
                     )
-        # ~ targets_GT_wo_nan = targets_GT.where(~targets_GT.isnan(), torch.zeros_like(targets_GT))
 
         state = self.get_init_state(batch, state_init)
 
@@ -312,9 +311,6 @@ class LitModelOI(LitModelAugstate):
                 normgrad = None
             
                 
-            # ~ loss_All, loss_GAll = self.sla_loss(outputs, targets_GT_wo_nan)
-            
-            # ~ outputs_GT_wo_nan = outputs.where(~targets_GT.isnan(), torch.zeros_like(outputs))
             # median filter
             if self.median_filter_width > 1:
                 outputs = kornia.filters.median_blur(outputs, (self.median_filter_width, self.median_filter_width))
