@@ -66,9 +66,10 @@ class LitModelOI(LitModelAugstate):
             '4dvarnet_OI_unet': get_4dvarnet_OI_phir_unet,
              }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, center_interp=True, *args, **kwargs):
          super().__init__(*args, **kwargs)
-
+         self.center_interp = center_interp
+         
     def configure_optimizers(self):
         opt = torch.optim.Adam
         if hasattr(self.hparams, 'opt'):
@@ -161,16 +162,9 @@ class LitModelOI(LitModelAugstate):
 
             path_save0 = self.logger.log_dir + '/animation_grad.mp4'
             animate_maps_OI(self.x_gt, self.obs_inp, self.x_rec, self.test_lon, self.test_lat, path_save0, grad=True)
-
-        # ~ psd_ds, lamb_x, lamb_t = metrics.psd_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
-        # ~ psd_fig = metrics.plot_psd_score(psd_ds)
-        # ~ self.test_figs['psd'] = psd_fig
-        # ~ self.logger.experiment.add_figure(f'{log_pref} PSD', psd_fig, global_step=self.current_epoch)
         _, _, mu, sig = metrics.rmse_based_scores(self.test_xr_ds.pred, self.test_xr_ds.gt)
 
         md = {
-            # ~ f'{log_pref}_lambda_x': lamb_x,
-            # ~ f'{log_pref}_lambda_t': lamb_t,
             f'{log_pref}_mu': mu,
             f'{log_pref}_sigma': sig,
         }
@@ -254,22 +248,20 @@ class LitModelOI(LitModelAugstate):
             )
         iter_ = 0
         for ds in dses:
-            # ~ ds_nans = ds.assign(weight=xr.ones_like(ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
             xr_weight = xr.DataArray(self.patch_weight.detach().cpu(), ds.coords, dims=ds.gt.dims)
-            # ~ _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(ds_nans==0, np.nan)
             _ds = ds.pipe(lambda dds: dds * xr_weight).assign(weight=xr_weight)
             fin_ds.loc[_ds.coords] = fin_ds.loc[_ds.coords] + _ds
-            
-        #return (
-            #(fin_ds.drop('weight') / fin_ds.weight)
-            #.sel(instantiate(self.test_domain))
-        #).transpose('time', 'lat', 'lon')
-        return (
-            (fin_ds.drop('weight') / fin_ds.weight)
-            .sel(instantiate(self.test_domain))
-            #.isel(time=slice(self.hparams.dT //2, -self.hparams.dT //2))   ###########
-            # .pipe(lambda ds: ds.sel(time=~(np.isnan(ds.gt).all('lat').all('lon'))))
-        ).transpose('time', 'lat', 'lon')
+        if self.center_interp:
+            return (
+                (fin_ds.drop('weight') / fin_ds.weight)
+                .sel(instantiate(self.test_domain))
+                .isel(time=slice(self.hparams.dT //2, -self.hparams.dT //2))
+            ).transpose('time', 'lat', 'lon')
+        else:
+            return (
+                (fin_ds.drop('weight') / fin_ds.weight)
+                .sel(instantiate(self.test_domain))
+            ).transpose('time', 'lat', 'lon')
 
     def compute_loss(self, batch, phase, state_init=(None,)):
         _, inputs_Mask, inputs_obs, targets_GT = batch
