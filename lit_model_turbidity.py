@@ -66,7 +66,7 @@ class LitModelOI(LitModelAugstate):
             '4dvarnet_OI_unet': get_4dvarnet_OI_phir_unet,
              }
 
-    def __init__(self, center_interp=True, *args, **kwargs):
+    def __init__(self, center_interp=False, *args, **kwargs):
          super().__init__(*args, **kwargs)
          self.center_interp = center_interp
          
