@@ -148,7 +148,6 @@ def unet_dm(hparams):
             x_k = torch.mul(x_0, 1.)
             x_k_plus_1 = None
             for timestep in range(self.n_grad):
-                # random_t = torch.rand(x_k.shape[0], device='cuda')
                 batch_time_step = torch.ones(
                     x_k.shape[0], device='cuda') * (timestep / self.n_grad - 1)
                 x_k_plus_1 = x_k + self.unet(x_k, batch_time_step)

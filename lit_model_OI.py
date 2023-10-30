@@ -8,6 +8,7 @@ import torch
 import solver as NN_4DVar
 from metrics import psd_based_scores, rmse_based_scores, plot_psd_score
 from models import Model_H, Phi_r_OI
+from diffusion_models import Unet_dm
 
 from lit_model_augstate import LitModelAugstate
 
@@ -30,9 +31,40 @@ def get_4dvarnet_oi(hparams):
         hparams.n_grad * hparams.n_fourdvar_iter)
 
 
+def unet_dm(hparams):
+
+    class UnetDmPassThrough(torch.nn.Module):
+
+        def __init__(self):
+            super().__init__()
+            self.unet = Unet_dm(hparams.shape_data[0], hparams.DimAE,
+                                hparams.dW, hparams.dW2, hparams.sS,
+                                hparams.nbBlocks, hparams.dropout_phi_r,
+                                hparams.stochastic)
+            self.phi_r = torch.nn.Identity()
+            with torch.no_grad():
+                self.n_grad = int(hparams.n_grad)
+
+        def forward(self, state, obs, masks, *internal_state):
+            return self.solve(state), None, None, None
+
+        def solve(self, x_0):
+            x_k = torch.mul(x_0, 1.)
+            x_k_plus_1 = None
+            for timestep in range(self.n_grad):
+                batch_time_step = torch.ones(
+                    x_k.shape[0], device='cuda') * (timestep / self.n_grad - 1)
+                x_k_plus_1 = x_k + self.unet(x_k, batch_time_step)
+                x_k = torch.mul(x_k_plus_1, 1.0)
+            return x_k_plus_1
+
+    return UnetDmPassThrough()
+
+
 class LitModelOI(LitModelAugstate):
     MODELS = dict(LitModelAugstate.MODELS)
     MODELS.update({'4dvarnet_OI': get_4dvarnet_oi})
+    MODELS.update({'4dvarnet_unet_dm': unet_dm})
 
     def configure_optimizers(self):
         opt = torch.optim.Adam

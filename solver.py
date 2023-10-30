@@ -304,7 +304,7 @@ class model_GradUpdateLSTM(torch.nn.Module):
             else:
                 self.dim_state = DimLSTM
             self.PeriodicBnd = periodicBnd
-            if ((self.PeriodicBnd == True) & (len(self.shape) == 2)):
+            if ((self.PeriodicBnd) & (len(self.shape) == 2)):
                 print(
                     'No periodic boundary available for FxTime (eg, L63) tensors. Forced to False'
                 )
