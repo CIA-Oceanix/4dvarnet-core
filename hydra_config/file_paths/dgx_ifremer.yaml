@@ -10,3 +10,5 @@ natl_sst_daily: /raid/localscratch/qfebvre/sla-data-registry/NATL60/NATL/ref_new
 oi_swot_4nadir: /raid/localscratch/qfebvre/sla-data-registry/NATL60/NATL/oi/ssh_NATL60_swot_4nadir.nc
 pseudo_obs: /raid/localscratch/qfebvre/sla-data-registry/NATL60/NATL/data_new/dataset_nadir_0d_swot.nc
 obs_4nadirs: /raid/localscratch/qfebvre/sla-data-registry/NATL60/NATL/data_new/dataset_nadir_0d.nc
+
+obs_ose: /raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/training/data_OSE_OSSE_nad.nc
