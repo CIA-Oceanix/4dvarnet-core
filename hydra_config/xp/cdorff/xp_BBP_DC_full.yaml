@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: xp_BBP_DC
+xp_name: xp_BBP_DC_dt7
 
 params:
   model: 4dvarnet_OI
@@ -64,16 +64,16 @@ datamodule:
       
   train_slices: 
     - _target_: builtins.slice
-      _args_: ['2021-12-01', '2021-12-31']
+      _args_: ['2019-11-01', '2019-11-30']
       
   val_slices: 
     - _target_: builtins.slice
-      _args_: ['2021-01-01', '2021-01-31']
+      _args_: ['2019-01-01', '2019-01-31']
       
   test_slices: 
     - _target_: builtins.slice
       #_args_: ['2021-01-01', '2021-01-31']
-      _args_: ${adjust_testslices:['2021-12-01', '2021-12-31'],${params.dT}}
+      _args_: ${adjust_testslices:['2019-11-01', '2019-11-30'],${params.dT}}
       
   oi_var: "BBP443"
   gt_var: "BBP443"

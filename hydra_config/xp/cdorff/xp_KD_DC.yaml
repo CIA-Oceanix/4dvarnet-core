@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: xp_KD_DC
+xp_name: xp_KD_DC_dt7
 
 params:
   model: 4dvarnet_OI
