@@ -1,0 +1,3 @@
+natl_ssh_daily: /DATASET/turbidity_new/BBP443/eroded_GT_full_2019_log10.nc
+oi_swot_4nadir: /DATASET/turbidity_new/BBP443/eroded_GT_full_2019_log10.nc
+pseudo_obs: /DATASET/turbidity_new/BBP443/eroded_GT_full_2019_log10.nc
