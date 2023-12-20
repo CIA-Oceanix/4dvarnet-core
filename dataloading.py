@@ -442,6 +442,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             compute=False,
             use_auto_padding=False,
             pp='std',
+            mean = 0,
+            std = 1,
     ):
         super().__init__()
         self.resize_factor = resize_factor
@@ -476,6 +478,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         self.train_ds, self.val_ds, self.test_ds = None, None, None
         self.norm_stats = (0, 1)
         self.norm_stats_sst = None
+        self.mean = mean
+        self.std = std
 
     def mean_stds(self, ds):
         print('mean,std : ')
@@ -525,6 +529,8 @@ class FourDVarNetDataModule(pl.LightningDataModule):
             return self.mean_stds(ds)
         elif self.pp == 'norm':
             return self.min_max(ds)
+        elif self.pp == 'man':
+            return [self.mean, self.std]
         elif self.pp == None:
             return self.noNorm(ds)
 
@@ -574,7 +580,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 aug_train_data=self.aug_train_data,
                 compute=self.compute,
                 pp=self.pp,
-                rand_obs = True, ####/!\/!\/!\ 
+                rand_obs = False, ####/!\/!\/!\ 
             ) for sl in self.train_slices])
 
         self.val_ds, self.test_ds = [
