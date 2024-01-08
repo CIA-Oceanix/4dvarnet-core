@@ -134,6 +134,8 @@ class LitModelOI(LitModelAugstate):
                 'obs_inp'    : (inputs_obs.detach().where(inputs_Mask, torch.full_like(inputs_obs, np.nan)).cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr,
                 'pred' : (out.detach().cpu() * np.sqrt(self.var_Tr)) + self.mean_Tr}
 
+
+
     def sla_diag(self, t_idx=3, log_pref='test'):
         path_save0 = self.logger.log_dir + '/maps.png'
         t_idx = 3
