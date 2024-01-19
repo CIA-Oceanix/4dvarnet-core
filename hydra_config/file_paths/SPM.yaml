@@ -1,3 +1,3 @@
-natl_ssh_daily: /DATASET/turbidity_new/spm/GT_2015to2018_log10.nc
-oi_swot_4nadir: /DATASET/turbidity_new/spm/GT_2015to2018_log10.nc
-pseudo_obs: /DATASET/turbidity_new/spm/Obs_patch_2015to2018_log10.nc
+natl_ssh_daily: /DATASET/turbidity/spm/GT_2015to2018_log10.nc
+oi_swot_4nadir: /DATASET/turbidity/spm/GT_2015to2018_log10.nc
+pseudo_obs: /DATASET/turbidity/spm/Obs_patch_2015to2018_log10.nc
