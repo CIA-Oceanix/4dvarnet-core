@@ -86,8 +86,8 @@ datamodule:
     time: ${params.dT}
     
   strides: 
-    lat: 134
-    lon: 118
+    lat: 120
+    lon: 120
     time: 1
   
   

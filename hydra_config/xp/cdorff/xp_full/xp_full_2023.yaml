@@ -49,8 +49,8 @@ datamodule:
   _target_: dataloading.FourDVarNetDataModule
   
   dl_kwargs:
-    batch_size: 10
-    num_workers: 20
+    batch_size: 2
+    num_workers: 4
 
   resize_factor: 1
     
@@ -86,8 +86,8 @@ datamodule:
     time: ${params.dT}
     
   strides: 
-    lat: 134
-    lon: 118
+    lat: 120
+    lon: 120
     time: 1
   
   

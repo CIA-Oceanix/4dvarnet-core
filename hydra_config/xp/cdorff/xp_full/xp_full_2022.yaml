@@ -6,8 +6,8 @@ params:
   model: 4dvarnet_OI
   dT: 7
   patch_weight:
-    #_target_: lit_model_augstate.get_hanning_mask
     _target_: lit_model_augstate.get_constant_crop
+    #_target_: lit_model_augstate.get_hanning_mask
     patch_size: ${datamodule.slice_win}
     crop: 
       lat: ${div:0,${datamodule.resize_factor}}
@@ -86,8 +86,8 @@ datamodule:
     time: ${params.dT}
     
   strides: 
-    lat: 134
-    lon: 118
+    lat: 120
+    lon: 120
     time: 1
   
   
