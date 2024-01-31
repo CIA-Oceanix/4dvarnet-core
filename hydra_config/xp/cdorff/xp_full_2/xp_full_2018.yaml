@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: xp_BBP_dt7
+xp_name: xp_BBP_dt7_2
 
 params:
   model: 4dvarnet_OI
