@@ -65,16 +65,16 @@ datamodule:
       
   train_slices: 
     - _target_: builtins.slice
-      _args_: ['2010-01-01', '2010-01-31']
+      _args_: ['2010-05-01', '2010-05-31']
       
   val_slices: 
     - _target_: builtins.slice
-      _args_: ['2010-01-01', '2010-01-31']
+      _args_: ['2010-05-01', '2010-05-31']
       
   test_slices: 
     - _target_: builtins.slice
-      #_args_: ['2021-01-01', '2021-01-31']
-      _args_: ${adjust_testslices:['2010-01-01', '2010-01-31'],${params.dT}}
+      #_args_: ['2021-05-01', '2021-05-31']
+      _args_: ${adjust_testslices:['2010-05-01', '2010-05-31'],${params.dT}}
       
   oi_var: "BBP443"
   gt_var: "BBP443"
