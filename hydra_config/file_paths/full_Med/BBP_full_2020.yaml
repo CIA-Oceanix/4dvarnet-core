@@ -1,0 +1,3 @@
+natl_ssh_daily: /DATASET/turbidity/BBP443/GT_full_2020_log10.nc
+oi_swot_4nadir: /DATASET/turbidity/BBP443/GT_full_2020_log10.nc
+pseudo_obs: /DATASET/turbidity/BBP443/GT_full_2020_log10.nc

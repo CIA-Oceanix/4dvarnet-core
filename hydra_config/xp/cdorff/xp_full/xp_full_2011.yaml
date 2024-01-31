@@ -6,7 +6,8 @@ params:
   model: 4dvarnet_OI
   dT: 7
   patch_weight:
-    _target_: lit_model_augstate.get_constant_crop
+    _target_: lit_model_augstate.get_hanning_mask
+    #_target_: lit_model_augstate.get_constant_crop
     patch_size: ${datamodule.slice_win}
     crop: 
       lat: ${div:0,${datamodule.resize_factor}}
@@ -64,16 +65,16 @@ datamodule:
       
   train_slices: 
     - _target_: builtins.slice
-      _args_: ['2019-11-01', '2019-11-30']
+      _args_: ['2011-01-01', '2011-01-31']
       
   val_slices: 
     - _target_: builtins.slice
-      _args_: ['2019-01-01', '2019-01-31']
+      _args_: ['2011-01-01', '2011-01-31']
       
   test_slices: 
     - _target_: builtins.slice
       #_args_: ['2021-01-01', '2021-01-31']
-      _args_: ${adjust_testslices:['2019-11-01', '2019-11-30'],${params.dT}}
+      _args_: ${adjust_testslices:['2011-01-01', '2011-01-31'],${params.dT}}
       
   oi_var: "BBP443"
   gt_var: "BBP443"
@@ -85,8 +86,8 @@ datamodule:
     time: ${params.dT}
     
   strides: 
-    lat: ${div:120,${datamodule.resize_factor}}
-    lon: ${div:120,${datamodule.resize_factor}}
+    lat: 134
+    lon: 118
     time: 1
   
   
