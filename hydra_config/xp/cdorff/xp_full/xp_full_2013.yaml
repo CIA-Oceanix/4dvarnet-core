@@ -49,7 +49,7 @@ datamodule:
   _target_: dataloading.FourDVarNetDataModule
   
   dl_kwargs:
-    batch_size: 2
+    batch_size: 4
     num_workers: 4
 
   resize_factor: 1
@@ -65,16 +65,16 @@ datamodule:
       
   train_slices: 
     - _target_: builtins.slice
-      _args_: ['2013-01-01', '2013-01-31']
+      _args_: ['2013-02-01', '2013-02-28']
       
   val_slices: 
     - _target_: builtins.slice
-      _args_: ['2013-01-01', '2013-01-31']
+      _args_: ['2013-02-01', '2013-02-28']
       
   test_slices: 
     - _target_: builtins.slice
-      #_args_: ['2021-01-01', '2021-01-31']
-      _args_: ${adjust_testslices:['2013-01-01', '2013-01-31'],${params.dT}}
+      #_args_: ['2021-02-01', '2021-02-28']
+      _args_: ${adjust_testslices:['2013-02-01', '2013-02-28'],${params.dT}}
       
   oi_var: "BBP443"
   gt_var: "BBP443"
