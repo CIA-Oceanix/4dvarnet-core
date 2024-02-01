@@ -65,16 +65,16 @@ datamodule:
       
   train_slices: 
     - _target_: builtins.slice
-      _args_: ['2020-02-01', '2020-02-29']
+      _args_: ['2020-03-01', '2020-02-29']
       
   val_slices: 
     - _target_: builtins.slice
-      _args_: ['2020-02-01', '2020-02-29']
+      _args_: ['2020-03-01', '2020-02-29']
       
   test_slices: 
     - _target_: builtins.slice
-      #_args_: ['2021-02-01', '2021-02-28']
-      _args_: ${adjust_testslices:['2020-02-01', '2020-02-29'],${params.dT}}
+      #_args_: ['2021-03-01', '2021-03-31']
+      _args_: ${adjust_testslices:['2020-03-01', '2020-02-29'],${params.dT}}
       
   oi_var: "CHL"
   gt_var: "CHL"
