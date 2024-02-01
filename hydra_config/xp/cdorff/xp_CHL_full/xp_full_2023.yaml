@@ -1,6 +1,6 @@
 # @package _global_
 
-xp_name: xp_BBP_dt7
+xp_name: xp_CHL_dt7
 
 params:
   model: 4dvarnet_OI
@@ -76,9 +76,9 @@ datamodule:
       #_args_: ['2021-02-01', '2021-02-28']
       _args_: ${adjust_testslices:['2023-02-01', '2023-02-28'],${params.dT}}
       
-  oi_var: "BBP443"
-  gt_var: "BBP443"
-  obs_mask_var: "BBP443"
+  oi_var: "CHL"
+  gt_var: "CHL"
+  obs_mask_var: "CHL"
   
   slice_win:
     lat: ${div:240,${datamodule.resize_factor}}
