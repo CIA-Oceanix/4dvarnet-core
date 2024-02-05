@@ -1,0 +1,3 @@
+natl_ssh_daily: /DATASET/turbidity/DIATO/full_med/GT_full_2022_log10.nc
+oi_swot_4nadir: /DATASET/turbidity/DIATO/full_med/GT_full_2022_log10.nc
+pseudo_obs: /DATASET/turbidity/DIATO/full_med/GT_full_2022_log10.nc
