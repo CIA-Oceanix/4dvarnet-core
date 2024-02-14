@@ -65,16 +65,16 @@ datamodule:
       
   train_slices: 
     - _target_: builtins.slice
-      _args_: ['2013-04-01', '2013-04-30']
+      _args_: ['2013-01-01', '2013-01-31']
       
   val_slices: 
     - _target_: builtins.slice
-      _args_: ['2013-04-01', '2013-04-30']
+      _args_: ['2013-01-01', '2013-01-31']
       
   test_slices: 
     - _target_: builtins.slice
-      #_args_: ['2021-04-01', '2021-04-30']
-      _args_: ${adjust_testslices:['2013-04-01', '2013-04-30'],${params.dT}}
+      #_args_: ['2021-01-01', '2021-01-31']
+      _args_: ${adjust_testslices:['2013-01-01', '2013-01-31'],${params.dT}}
       
   oi_var: "DIATO"
   gt_var: "DIATO"
