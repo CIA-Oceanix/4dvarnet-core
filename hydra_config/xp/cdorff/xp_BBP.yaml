@@ -80,9 +80,9 @@ datamodule:
   gt_var: "BBP443"
   obs_mask_var: "BBP443"
 
-  #pp: "man"
-  #mean: -2.629144170263741
-  #std:  0.2493088917220093
+  pp: "man"
+  mean: -2.6278082316205014
+  std:  0.25345365347055476
   
   slice_win:
     lat: ${div:240,${datamodule.resize_factor}}
