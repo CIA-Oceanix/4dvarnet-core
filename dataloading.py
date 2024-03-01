@@ -580,7 +580,7 @@ class FourDVarNetDataModule(pl.LightningDataModule):
                 aug_train_data=self.aug_train_data,
                 compute=self.compute,
                 pp=self.pp,
-                rand_obs = False, ####/!\/!\/!\ 
+                rand_obs = True, ####/!\/!\/!\ 
             ) for sl in self.train_slices])
 
         self.val_ds, self.test_ds = [
