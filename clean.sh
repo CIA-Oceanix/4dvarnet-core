@@ -1,1 +1,0 @@
-rm -rf *out *err
