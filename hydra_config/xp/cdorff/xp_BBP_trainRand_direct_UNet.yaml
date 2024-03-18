@@ -1,10 +1,10 @@
 # @package _global_
 
-xp_name: xp_BBP_trainRand_direct_UNet_dt15
+xp_name: xp_BBP_trainRand_direct_UNet_dt7
 
 params:
   model: 4dvarnet_OI_unet
-  dT: 15
+  dT: 7
   patch_weight:
     _target_: lit_model_augstate.get_hanning_mask
     patch_size: ${datamodule.slice_win}
@@ -81,8 +81,8 @@ datamodule:
   obs_mask_var: "BBP443"
 
   pp: "man"
-  mean: -2.628269458457458
-  std:  0.2526552346645684
+  mean: -2.6278082316205014
+  std:  0.25345365347055476
   
   slice_win:
     lat: ${div:240,${datamodule.resize_factor}}
