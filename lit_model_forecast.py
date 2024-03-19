@@ -235,8 +235,8 @@ class LitModelForecast(LitModelOI):
             print(pd.DataFrame([dict_md]).T.to_markdown())
         return dict_md
 
-    def build_test_xr_ds(self, outputs, diag_ds):
-
+    def build_test_xr_ds_forecast(self, outputs, diag_ds, patch_weight,
+                                  leadtime):
         outputs_keys = list(outputs[0][0].keys())
         with diag_ds.get_coords():
             self.test_patch_coords = [diag_ds[i] for i in range(len(diag_ds))]
@@ -272,14 +272,18 @@ class LitModelForecast(LitModelOI):
         for ds in dses:
             ds_nans = ds.assign(weight=xr.ones_like(
                 ds.gt)).isnull().broadcast_like(fin_ds).fillna(0.)
-            _ds = ds.assign(weight=xr.ones_like(ds.gt)).broadcast_like(
-                fin_ds).fillna(0.).where(ds_nans == 0, np.nan)
+            xr_weight = xr.DataArray(patch_weight, ds.coords, dims=ds.gt.dims)
+            _ds = ds.assign(
+                weight=xr_weight).broadcast_like(fin_ds).fillna(0.).where(
+                    ds_nans == 0, np.nan)
             fin_ds = fin_ds + _ds
 
-        return ((fin_ds.drop('weight') / fin_ds.weight).sel(
+        test_xr_ds = ((fin_ds.drop('weight') / fin_ds.weight).sel(
             instantiate(self.test_domain)).isel(
                 time=slice(self.hparams.dT // 2, -self.hparams.dT //
                            2))).transpose('time', 'lat', 'lon')
+        test_xr_ds = test_xr_ds.fillna(0.)
+        return test_xr_ds
 
     def diag_epoch_end(self, outputs, log_pref='test'):
         full_outputs = self.gather_outputs(outputs, log_pref=log_pref)
@@ -314,16 +318,33 @@ class LitModelForecast(LitModelOI):
                         outputs_reduced[gpu_rank][batch_nb][
                             'oi'] *= small_patch_weight
                 self.test_xr_ds_list.append(
-                    self.build_test_xr_ds(outputs_reduced, diag_ds=diag_ds))
+                    self.build_test_xr_ds_forecast(
+                        outputs_reduced,
+                        diag_ds=diag_ds,
+                        patch_weight=small_patch_weight,
+                        leadtime=i + self.hparams.dT // 2))
             self.test_xr_ds = self.test_xr_ds_list[(
                 (self.hparams.dT - 1) // 2 - 2)]
             Path(self.logger.log_dir).mkdir(exist_ok=True)
             for i in range(len(self.test_xr_ds_list)):
+                # Unnormalize test_xr_ds and save it in a netcdf
+                # print(f'{np.mean(self.test_xr_ds_list[i].pred.values**2)=}')
+                # test_xr_ds_unnormalize = self.test_xr_ds_list[i]
+                # test_xr_ds_unnormalize['pred'] = test_xr_ds_unnormalize[
+                #     'pred'] * np.sqrt(self.var_Tt) + self.mean_Tt
+                # test_xr_ds_unnormalize['gt'] = test_xr_ds_unnormalize[
+                #     'gt'] * np.sqrt(self.var_Tt) + self.mean_Tt
+                # test_xr_ds_unnormalize['oi'] = test_xr_ds_unnormalize[
+                #     'oi'] * np.sqrt(self.var_Tt) + self.mean_Tt
+                # print(f'{np.mean(test_xr_ds_unnormalize.pred.values)=}')
+                # print(f'{np.std(test_xr_ds_unnormalize.pred.values)=}')
                 path_save1 = self.logger.log_dir + f'/test_{i:02}.nc'
+                # test_xr_ds_unnormalize.to_netcdf(path_save1)
                 self.test_xr_ds_list[i].to_netcdf(path_save1)
         else:
             self.test_xr_ds = self.build_test_xr_ds(full_outputs,
                                                     diag_ds=diag_ds)
+            print(f'{np.std(self.test_xr_ds.pred.values)=}')
 
         self.x_gt = self.test_xr_ds.gt.data
         self.obs_inp = self.test_xr_ds.obs_inp.data
