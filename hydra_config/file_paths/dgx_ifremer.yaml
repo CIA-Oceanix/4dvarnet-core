@@ -12,3 +12,5 @@ pseudo_obs: /raid/localscratch/qfebvre/sla-data-registry/NATL60/NATL/data_new/da
 obs_4nadirs: /raid/localscratch/qfebvre/sla-data-registry/NATL60/NATL/data_new/dataset_nadir_0d.nc
 
 obs_ose: /raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/training/data_OSE_OSSE_nad.nc
+oi_ose: /raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/training/oi_OSE_OSSE_nad.nc
+ref_ose: /raid/localscratch/qfebvre/sla-data-registry/data_OSE/NATL/training/ref_ssh_OSE_OSSE.nc
