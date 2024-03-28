@@ -57,7 +57,7 @@ datamodule:
   dim_range:
     lat:
       _target_: builtins.slice
-      _args_: [55.01, 52.50]
+      _args_: [52.50, 55.01 ]
     lon:
       _target_: builtins.slice
       _args_: [4.43, 7.57]
