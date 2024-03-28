@@ -1,0 +1,3 @@
+natl_ssh_daily: /DATASET/data_nga/BBP_DutchWaddenSea/BBP_DWS_GT_2015to2021_log10_BBP_to_BBP443.nc
+oi_swot_4nadir: /DATASET/data_nga/BBP_DutchWaddenSea/BBP_DWS_GT_2015to2021_log10_BBP_to_BBP443.nc
+pseudo_obs: /DATASET/data_nga/BBP_DutchWaddenSea/BBP_DWS_Obs_patch_2015to2021_BBP_to_BBP443.nc

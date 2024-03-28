@@ -1,12 +1,11 @@
 # @package _global_
 
-xp_name: xp_BBP_trainPatch_dt7
+xp_name: xp_BBP_trainPatch_NorthSea_dt7
 
 params:
   model: 4dvarnet_OI
   dT: 7
   patch_weight:
-    #_target_: lit_model_augstate.get_hanning_mask
     _target_: lit_model_augstate.get_constant_crop
     patch_size: ${datamodule.slice_win}
     crop: 
@@ -25,10 +24,10 @@ params:
   test_domain:
     lat:
       _target_: builtins.slice
-      _args_: [30.0,46.0]
+      _args_: [55.01, 52.50]
     lon:
       _target_: builtins.slice
-      _args_: [-6.0,36.5]
+      _args_: [4.43, 7.57]
   shape_state:
     - ${datamodule.slice_win.time}
     - ${datamodule.slice_win.lon}
@@ -37,6 +36,7 @@ params:
     - ${datamodule.slice_win.time}
     - ${datamodule.slice_win.lon}
     - ${datamodule.slice_win.lat}
+    
   animate: false
   
 entrypoint:
@@ -46,52 +46,48 @@ lit_mod_cls: lit_model_turbidity.LitModelOI
 
 
 datamodule:
-  _target_: dataloading.FourDVarNetDataModule
+  _target_: dataloading_patch.FourDVarNetDataModule
   
   dl_kwargs:
-    batch_size: 4
-    num_workers: 4
-
+    batch_size: 10
+    num_workers: 20
+    
   resize_factor: 1
     
   dim_range:
     lat:
       _target_: builtins.slice
-      _args_: [30.0,46.0]
+      _args_: [55.01, 52.50]
     lon:
       _target_: builtins.slice
-      _args_: [-6.0,36.5]
+      _args_: [4.43, 7.57]
       
       
   train_slices: 
     - _target_: builtins.slice
-      _args_: ['2019-07-01', '2019-07-31']
+      _args_: ['2015-01-01', '2016-12-31']
       
   val_slices: 
     - _target_: builtins.slice
-      _args_: ['2019-07-01', '2019-07-31']
+      _args_: ['2017-01-01', '2017-12-31']
       
   test_slices: 
     - _target_: builtins.slice
-      #_args_: ['2021-12-01', '2021-12-31']
-      _args_: ${adjust_testslices:['2019-07-01', '2019-07-31'],${params.dT}}
+      _args_: ['2018-01-01', '2018-12-31']
+      #_args_: ${adjust_testslices:['2018-01-01', '2018-12-31'],${params.dT}}
       
   oi_var: "BBP443"
   gt_var: "BBP443"
   obs_mask_var: "BBP443"
-
-  pp: "man"
-  mean: -2.6278082316205014
-  std:  0.25345365347055476
   
   slice_win:
     lat: ${div:240,${datamodule.resize_factor}}
-    lon: ${div:240,${datamodule.resize_factor}}
+    lon: ${div:300,${datamodule.resize_factor}}
     time: ${params.dT}
     
   strides: 
-    lat: 134
-    lon: 118
+    lat: ${div:20,${datamodule.resize_factor}}
+    lon: ${div:60,${datamodule.resize_factor}}
     time: 1
   
   

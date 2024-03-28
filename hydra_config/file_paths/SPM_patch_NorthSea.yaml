@@ -1,0 +1,3 @@
+natl_ssh_daily: /DATASET/data_nga/preprocessed_data_log10/DutchWaddenSea_GT_2015to2018_log10_newreleaseddata.nc
+oi_swot_4nadir: /DATASET/data_nga/preprocessed_data_log10/DutchWaddenSea_GT_2015to2018_log10_newreleaseddata.nc
+pseudo_obs: /DATASET/data_nga/preprocessed_data_log10/DutchWaddenSea_Obs_patch_2015to2018_newreleaseddata.nc
