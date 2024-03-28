@@ -486,7 +486,6 @@ class FourDVarNetDataModule(pl.LightningDataModule):
         sum = 0
         count = 0
         for gt in [_it for _ds in ds.datasets for _it in _ds.gt_ds]:
-            print(gt)
             sum += np.nansum(gt)
             count += np.sum(~np.isnan(gt))
         mean = sum / count
