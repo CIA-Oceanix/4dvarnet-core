@@ -188,9 +188,9 @@ class LitModelOI(LitModelAugstate):
         self.test_xr_ds = self.build_test_xr_ds(full_outputs, diag_ds=diag_ds)
 
         Path(self.logger.log_dir).mkdir(exist_ok=True)
-        #path_save1 = self.logger.log_dir + f'/test.nc'  ########### /!\/!\/!\
-        #print(path_save1)                               ########### /!\/!\/!\
-        #self.test_xr_ds.to_netcdf(path_save1)           ########### /!\/!\/!\
+        path_save1 = self.logger.log_dir + f'/test.nc'  ########### /!\/!\/!\
+        print(path_save1)                               ########### /!\/!\/!\
+        self.test_xr_ds.to_netcdf(path_save1)           ########### /!\/!\/!\
         self.x_gt = self.test_xr_ds.gt.data
         self.obs_inp = self.test_xr_ds.obs_inp.data
         self.x_rec = self.test_xr_ds.pred.data
