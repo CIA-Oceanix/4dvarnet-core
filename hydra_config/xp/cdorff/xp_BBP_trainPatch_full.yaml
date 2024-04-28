@@ -1,6 +1,7 @@
 # @package _global_
 
-xp_name: xp_BBP_trainPatch_dt7
+#xp_name: xp_BBP_trainPatch_dt7
+xp_name: xp_BBP_trainPatch_full_dt7
 
 params:
   model: 4dvarnet_OI
@@ -46,7 +47,7 @@ lit_mod_cls: lit_model_turbidity.LitModelOI
 
 
 datamodule:
-  _target_: dataloading.FourDVarNetDataModule
+  _target_: dataloading_patch.FourDVarNetDataModule
   
   dl_kwargs:
     batch_size: 4
